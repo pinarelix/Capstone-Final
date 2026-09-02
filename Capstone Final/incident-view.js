@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const type = filterType.value;
         const status = filterStatus.value;
         
-        let url = `/api/incidents/view-only?page=${currentPage}&limit=${limit}`;
+        let url = `${API_URL}/incidents/view-only?page=${currentPage}&limit=${limit}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (type) url += `&type=${encodeURIComponent(type)}`;
         if (status) url += `&status=${encodeURIComponent(status)}`;
@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const modal = new bootstrap.Modal(document.getElementById('viewIncidentModal'));
         modal.show();
         
-        fetch(`/api/incidents/${id}`, {
+        fetch(`${API_URL}/incidents/${id}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
