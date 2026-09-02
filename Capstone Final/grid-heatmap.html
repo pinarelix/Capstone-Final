@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barangay 179 Crime BI — Grid Risk Map</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+
+    <!-- Dashboard CSS -->
+    <link rel="stylesheet" href="dashboard.css">
+    
+    <!-- Grid Heatmap CSS -->
+    <style>
+        /* ============================================================
+           MAP WRAPPER
+        ============================================================ */
+        #mapWrap { 
+            position: relative; 
+            width: 100%; 
+            height: 550px; 
+            overflow: hidden; 
+            border: 1px solid #94a3b8; 
+            border-radius: 10px; 
+            background: #dbe5ee;
+        }
+        
+        #map { 
+            position: absolute; 
+            inset: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 1; 
+        }
+
+        /* ============================================================
+           BLUR MASK - Blur outside boundary (same as incident map)
+        ============================================================ */
+        .blur-mask {
+            pointer-events: none !important;
+            z-index: 10 !important;
+        }
+
+        /* Boundary glow */
+        .boundary-glow {
+            filter: blur(4px);
+            pointer-events: none;
+            z-index: 5 !important;
+        }
+
+        /* ============================================================
+           KPI GRID
+        ============================================================ */
+        .kpi-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 18px; 
+            margin-bottom: 24px; 
+        }
+
+        /* ============================================================
+           LEGEND
+        ============================================================ */
+        .grid-legend { 
+            position: absolute; 
+            right: 14px; 
+            bottom: 14px; 
+            z-index: 800; 
+            width: 160px; 
+            padding: 12px; 
+            background: rgba(255,255,255,0.96); 
+            border: 1px solid #cbd5e1; 
+            border-radius: 9px; 
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18); 
+        }
+        
+        .grid-legend strong { 
+            display: block; 
+            margin-bottom: 7px; 
+            color: #0f172a; 
+            font-size: 0.68rem; 
+            letter-spacing: 0.3px; 
+        }
+        
+        .legend-row { 
+            display: flex; 
+            align-items: center; 
+            gap: 7px; 
+            margin-top: 6px; 
+            color: #334155; 
+            font-size: 0.66rem; 
+        }
+        
+        .legend-square { 
+            width: 16px; 
+            height: 16px; 
+            border-radius: 50%; 
+            flex-shrink: 0; 
+        }
+        
+        .legend-square.high { 
+            background: #ef4444; 
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+        }
+        
+        .legend-square.moderate { 
+            background: #f59e0b; 
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+        }
+        
+        .legend-square.low { 
+            background: #10b981; 
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+        }
+        
+        .legend-square.no-data { 
+            background: #e2e8f0; 
+            border: 1px solid #cbd5e1; 
+        }
+
+        /* ============================================================
+           HEATMAP CIRCLE STYLES
+        ============================================================ */
+        .heatmap-circle {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .heatmap-circle:hover {
+            transform: scale(1.08);
+            opacity: 0.9;
+        }
+
+        .heatmap-glow {
+            pointer-events: none;
+            animation: glowPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* ============================================================
+           TOOLTIP
+        ============================================================ */
+        .cell-tooltip {
+            background: rgba(0, 0, 0, 0.85) !important;
+            color: white !important;
+            font-size: 12px !important;
+            font-weight: bold !important;
+            padding: 6px 14px !important;
+            border-radius: 6px !important;
+            border: none !important;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.4) !important;
+            pointer-events: none !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+
+        .leaflet-tooltip.cell-tooltip::before {
+            display: none !important;
+        }
+
+        /* ============================================================
+           INCIDENT DETAILS SECTION (BABA NG MAP)
+        ============================================================ */
+        .incident-details-section {
+            margin-top: 20px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .incident-details-section .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .incident-details-section .section-header h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .incident-details-section .section-header .location-badge {
+            background: #e2e8f0;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .incident-details-section .section-header .location-badge.active {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .incident-details-section .table-responsive {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .incident-details-section .table-responsive::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .incident-details-section .table-responsive::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .incident-details-section .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #94a3b8;
+        }
+
+        .incident-details-section .empty-state i {
+            font-size: 2.5rem;
+            display: block;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        .badge-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-status.open {
+            background: #d1fae5;
+            color: #059669;
+        }
+
+        .badge-status.open::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #059669;
+            margin-right: 5px;
+        }
+
+        .badge-status.monitoring {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .badge-status.monitoring::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #d97706;
+            margin-right: 5px;
+        }
+
+        .badge-status.resolved {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .badge-status.resolved::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #dc2626;
+            margin-right: 5px;
+        }
+
+        .badge-danger {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: 700;
+        }
+
+        .badge-danger.high {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .badge-danger.moderate {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .badge-danger.low {
+            background: #d1fae5;
+            color: #059669;
+        }
+
+        .badge-danger.calculated {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        /* ============================================================
+           MAP SUBTITLE
+        ============================================================ */
+        .map-subtitle {
+            display: block;
+            margin-top: 3px;
+            color: #64748b;
+            font-size: 0.72rem;
+        }
+
+        .badge-subtle {
+            background: #e2e8f0;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            color: #475569;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .kpi-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            #mapWrap {
+                height: 400px;
+            }
+            .incident-details-section .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- =========================================================
+         SIDEBAR
+    ========================================================== -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo-container">
+                <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="brand-logo-img">
+            </div>
+            <div class="brand-info">
+                <h2>Barangay 179 Crime BI</h2>
+                <p>Public Safety Command Center</p>
+            </div>
+        </div>
+
+        <div class="user-profile">
+            <div class="profile-info">
+                <h3>Barangay Secretary</h3>
+                <p>Administrator — Barangay Secretary / IT Personnel</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>BI Dashboard</span>
+            </a>
+            <a href="incident.html" class="nav-item">
+                <span class="nav-icon">📁</span>
+                <span>Incident Records</span>
+            </a>
+            <a href="grid-heatmap.html" class="nav-item active">
+                <span class="nav-icon">📍</span>
+                <span>Barangay Risk Map</span>
+            </a>
+            <a href="cart.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span>CART Analytics</span>
+            </a>
+            <a href="patrol.html" class="nav-item">
+                <span class="nav-icon">🛡️</span>
+                <span>Patrol Decision Support</span>
+            </a>
+            <a href="report.html" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span>Reports</span>
+            </a>
+            <!-- 🔥 ADMIN ONLY -->
+    <a href="users.html" class="nav-item admin-only">
+        <span class="nav-icon">👥</span>
+        <span>User Management</span>
+    </a>
+    <a href="settings.html" class="nav-item admin-only">
+        <span class="nav-icon">⚙️</span>
+        <span>Settings</span>
+    </a>
+        </nav>
+    </aside>
+
+
+    <!-- =========================================================
+         MAIN CONTENT
+    ========================================================== -->
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-titles">
+                <h1>Grid-Based Risk Map (Quadrat Analysis)</h1>
+                <p>Scientific heatmap using 100m x 100m quadrat cells to analyze incident density.</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">🏠 Home</button>
+                <button class="btn btn-primary" id="logoutBtn">⏻ Logout</button>
+            </div>
+        </header>
+
+        <!-- KPI CARDS -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <span class="kpi-label">Total Incidents</span>
+                <div class="kpi-value-wrapper"><span class="kpi-value" id="kpi-incidents">0</span></div>
+                <p class="kpi-desc">Records mapped in the grid.</p>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Active Grid Cells</span>
+                <div class="kpi-value-wrapper"><span class="kpi-value" id="kpi-cells">0</span></div>
+                <p class="kpi-desc">Cells containing at least 1 incident.</p>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Peak Incident Count</span>
+                <div class="kpi-value-wrapper"><span class="kpi-value" id="kpi-peak">0</span></div>
+                <p class="kpi-desc">Highest incidents in a single cell.</p>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">High Risk Cells</span>
+                <div class="kpi-value-wrapper"><span class="kpi-value" id="kpi-high">0</span></div>
+                <p class="kpi-desc">Cells with 5 or more incidents.</p>
+            </div>
+        </div>
+
+        <!-- MAP CARD -->
+        <div class="map-card card" style="padding: 14px; min-width: 0;">
+            <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px;">
+                <div>
+                    <h2>Barangay 179 — Quadrat Grid Heatmap</h2>
+                    <span class="map-subtitle">Click on any circle to view incident details</span>
+                </div>
+                <span class="badge-subtle">Scientific Mapping</span>
+            </div>
+
+            <div id="mapWrap">
+                <div id="map"></div>
+                <div class="grid-legend">
+                    <strong>INCIDENT DENSITY</strong>
+                    <div class="legend-row"><span class="legend-square high"></span> High (5+)</div>
+                    <div class="legend-row"><span class="legend-square moderate"></span> Moderate (3-4)</div>
+                    <div class="legend-row"><span class="legend-square low"></span> Low (1-2)</div>
+                    <div class="legend-row"><span class="legend-square no-data"></span> No Data</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================================
+             INCIDENT DETAILS SECTION (BABA NG MAP)
+        ========================================================== -->
+        <div class="incident-details-section" id="incidentDetailsSection">
+            <div class="section-header">
+                <h3>📍 Incident Details</h3>
+                <span class="location-badge" id="selectedLocationBadge">Click a circle on the map</span>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table" id="detailsTable">
+                    <thead>
+                        <tr>
+                            <th>INCIDENT ID</th>
+                            <th>TYPE</th>
+                            <th>DATE / TIME</th>
+                            <th>STATUS</th>
+                            <th>DANGER LEVEL</th>
+                            <th>RECOMMENDED ACTION</th>
+                            <th>LOCATION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailsTableBody">
+                        <tr>
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <i class="fa-regular fa-circle"></i>
+                                    <p>Click on a heatmap circle to view incident details</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+
+<!-- 2. API HELPER (IKALAWA - CRITICAL!) -->
+<script src="apiHelper.js"></script>
+
+<!-- Grid Heatmap JS -->
+<script src="grid-heatmap.js"></script>
+
+<!-- =========================================================
+     LOGOUT CONFIRMATION MODAL
+============================================================ -->
+<div id="logoutModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+">
+    <div style="
+        background: white;
+        max-width: 420px;
+        width: 90%;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <div style="
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+        ">
+            ⚠️
+        </div>
+        <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+            Confirm Logout
+        </h2>
+        <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+            Are you sure you want to logout? You will be redirected to the login page.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button id="logoutCancelBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #f1f5f9;
+                color: #475569;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Cancel
+            </button>
+            <button id="logoutConfirmBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #dc2626;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Yes, Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes modalPop {
+        0% { transform: scale(0.9); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<script>
+    // =========================================================
+    // LOGOUT CONFIRMATION MODAL
+    // =========================================================
+    (function() {
+        const logoutModal = document.getElementById('logoutModal');
+        const logoutCancelBtn = document.getElementById('logoutCancelBtn');
+        const logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (!logoutModal || !logoutBtn) return;
+
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            logoutModal.style.display = 'flex';
+        });
+
+        logoutCancelBtn.addEventListener('click', function() {
+            logoutModal.style.display = 'none';
+        });
+
+        logoutConfirmBtn.addEventListener('click', function() {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        });
+
+        logoutModal.addEventListener('click', function(e) {
+            if (e.target === logoutModal) {
+                logoutModal.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && logoutModal.style.display === 'flex') {
+                logoutModal.style.display = 'none';
+            }
+        });
+    })();
+</script>
+
+
+
+</body>
+</html>

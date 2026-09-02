@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Barangay 179 - Incident View</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+    <!-- Dashboard CSS -->
+    <link rel="stylesheet" href="dashboard.css" />
+
+    <style>
+        /* Additional styles for incident view */
+        .incident-view-header {
+            background: white;
+            border-radius: 16px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+        }
+
+        .incident-view-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .incident-view-header p {
+            color: #64748b;
+            margin: 4px 0 0 0;
+            font-size: 0.9rem;
+        }
+
+        .filter-section {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+        }
+
+        .filter-section .form-control,
+        .filter-section .form-select {
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            padding: 10px 14px;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .filter-section .form-control:focus,
+        .filter-section .form-select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-refresh {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .btn-refresh:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .incident-table-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+        }
+
+        .incident-table-card .table {
+            margin: 0;
+        }
+
+        .incident-table-card .table thead th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px 16px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .incident-table-card .table tbody td {
+            padding: 12px 16px;
+            vertical-align: middle;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .incident-table-card .table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .badge-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-status.pending { background: #fef3c7; color: #d97706; }
+        .badge-status.investigating { background: #dbeafe; color: #2563eb; }
+        .badge-status.resolved { background: #d1fae5; color: #059669; }
+        .badge-status.closed { background: #f1f5f9; color: #64748b; }
+
+        .btn-view {
+            background: #e0e7ff;
+            color: #4338ca;
+            border: none;
+            border-radius: 8px;
+            padding: 4px 14px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-view:hover {
+            background: #4338ca;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .pagination-custom .page-link {
+            border-radius: 8px;
+            margin: 0 3px;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+        }
+
+        .pagination-custom .page-link:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        .pagination-custom .page-item.active .page-link {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: white;
+        }
+
+        .pagination-custom .page-item.disabled .page-link {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            color: #cbd5e1;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h4 {
+            color: #475569;
+            font-weight: 600;
+        }
+
+        .empty-state p {
+            color: #94a3b8;
+        }
+
+        /* Modal styles */
+        .modal-custom .modal-content {
+            border-radius: 16px;
+            border: none;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+
+        .modal-custom .modal-header {
+            border-radius: 16px 16px 0 0;
+            padding: 20px 24px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .modal-custom .modal-header h5 {
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .modal-custom .modal-body {
+            padding: 24px;
+        }
+
+        .modal-custom .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .detail-value {
+            font-size: 0.95rem;
+            color: #0f172a;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        /* Toast notification */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .toast-custom {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+            border-left: 4px solid #2563eb;
+            margin-bottom: 12px;
+            animation: slideIn 0.3s ease;
+            min-width: 300px;
+        }
+
+        .toast-custom.error {
+            border-left-color: #dc2626;
+        }
+
+        .toast-custom.success {
+            border-left-color: #059669;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- =========================================================
+     LOGOUT CONFIRMATION MODAL
+============================================================ -->
+<div id="logoutModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+">
+    <div style="
+        background: white;
+        max-width: 420px;
+        width: 90%;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <div style="
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+        ">
+            ⚠️
+        </div>
+        <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+            Confirm Logout
+        </h2>
+        <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+            Are you sure you want to logout? You will be redirected to the login page.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button id="logoutCancelBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #f1f5f9;
+                color: #475569;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Cancel
+            </button>
+            <button id="logoutConfirmBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #dc2626;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Yes, Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes modalPop {
+        0% { transform: scale(0.9); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<!-- =========================================================
+     APP CONTAINER
+============================================================ -->
+<div class="app-container">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo-container">
+                <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="brand-logo-img" />
+            </div>
+            <div class="brand-info">
+                <h2>Barangay 179 Crime BI</h2>
+                <p>Public Safety Command Center</p>
+            </div>
+        </div>
+
+        <div class="user-profile">
+            <div class="profile-info">
+                <h3 id="userNameDisplay">Captain</h3>
+                <p id="userRoleDisplay">Decision-Maker — View & Analytics Access</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>BI Dashboard</span>
+            </a>
+            <a href="incident.html" class="nav-item">
+                <span class="nav-icon">📁</span>
+                <span>Incident Records</span>
+            </a>
+            <a href="incident-view.html" class="nav-item active">
+                <span class="nav-icon">👁️</span>
+                <span>Incident View</span>
+            </a>
+            <a href="grid-heatmap.html" class="nav-item">
+                <span class="nav-icon">📍</span>
+                <span>Barangay Risk Map</span>
+            </a>
+            <a href="cart.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span>CART Analytics</span>
+            </a>
+            <a href="patrol.html" class="nav-item">
+                <span class="nav-icon">🛡️</span>
+                <span>Patrol Decision Support</span>
+            </a>
+            <a href="report.html" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span>Reports</span>
+            </a>
+            
+            <!-- ADMIN ONLY -->
+            <a href="users.html" class="nav-item admin-only">
+                <span class="nav-icon">👥</span>
+                <span>User Management</span>
+            </a>
+            <a href="settings.html" class="nav-item admin-only">
+                <span class="nav-icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- HEADER -->
+        <header class="top-header">
+            <div class="header-titles">
+                <h1>Incident View</h1>
+                <p>View-only access to all incident records</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">
+                    <i class="fa-solid fa-house"></i> Home
+                </button>
+                <button class="btn btn-primary" id="logoutBtn">
+                    <i class="fa-solid fa-power-off"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- FILTER SECTION -->
+        <section class="filter-section">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-muted small">Search</label>
+                    <input type="text" id="searchIncident" class="form-control" placeholder="Search incidents..." />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold text-muted small">Incident Type</label>
+                    <select id="filterType" class="form-select">
+                        <option value="">All Types</option>
+                        <option value="Theft">Theft</option>
+                        <option value="Robbery">Robbery</option>
+                        <option value="Assault">Assault</option>
+                        <option value="Vandalism">Vandalism</option>
+                        <option value="Drug Related">Drug Related</option>
+                        <option value="Physical Injury">Physical Injury</option>
+                        <option value="Noise Complaint">Noise Complaint</option>
+                        <option value="Suspicious Activity">Suspicious Activity</option>
+                        <option value="Traffic Obstruction">Traffic Obstruction</option>
+                        <option value="Curfew Violation">Curfew Violation</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold text-muted small">Status</label>
+                    <select id="filterStatus" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Under Investigation">Under Investigation</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn-refresh" id="refreshBtn">
+                        <i class="fa-solid fa-rotate me-1"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- INCIDENT TABLE -->
+        <section class="incident-table-card">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Incident Type</th>
+                            <th>Location</th>
+                            <th>Date & Time</th>
+                            <th>Status</th>
+                            <th>Reported By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incidentTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading incidents...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINATION -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <span class="text-muted small" id="recordCount">Showing 0 records</span>
+                <nav>
+                    <ul class="pagination pagination-custom mb-0" id="paginationControls">
+                        <!-- Dynamically generated -->
+                    </ul>
+                </nav>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- =========================================================
+     VIEW INCIDENT MODAL (READ-ONLY)
+============================================================ -->
+<div class="modal fade modal-custom" id="viewIncidentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa-regular fa-eye me-2" style="color: #2563eb;"></i>
+                    Incident Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="viewIncidentBody">
+                <!-- Details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     TOAST CONTAINER
+============================================================ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- =========================================================
+     SCRIPTS
+============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="apiHelper.js"></script>
+<script src="incident-view.js"></script>
+
+<script>
+    // =========================================================
+    // LOGOUT CONFIRMATION MODAL
+    // =========================================================
+    (function() {
+        const logoutModal = document.getElementById('logoutModal');
+        const logoutCancelBtn = document.getElementById('logoutCancelBtn');
+        const logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (!logoutModal || !logoutBtn) return;
+
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            logoutModal.style.display = 'flex';
+        });
+
+        logoutCancelBtn.addEventListener('click', function() {
+            logoutModal.style.display = 'none';
+        });
+
+        logoutConfirmBtn.addEventListener('click', function() {
+            const sessionToken = getSessionToken();
+            if (sessionToken) {
+                fetch('http://localhost:3000/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_token: sessionToken })
+                }).catch(() => {});
+            }
+            clearSession();
+            window.location.href = 'login.html';
+        });
+
+        logoutModal.addEventListener('click', function(e) {
+            if (e.target === logoutModal) {
+                logoutModal.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && logoutModal.style.display === 'flex') {
+                logoutModal.style.display = 'none';
+            }
+        });
+    })();
+</script>
+
+<script>
+    // =========================================================
+    // ROLE-BASED SIDEBAR - HIDE/SHOW LINKS
+    // =========================================================
+    (function() {
+        const userData = sessionStorage.getItem('user');
+        if (userData) {
+            try {
+                const user = JSON.parse(userData);
+                const role = user.role || '';
+
+                // If user is Captain, hide admin-only links
+                if (role === 'Captain') {
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                } else {
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = 'flex';
+                    });
+                }
+            } catch (e) {
+                console.error('❌ Error parsing user data:', e);
+            }
+        }
+    })();
+</script>
+
+</body>
+</html>

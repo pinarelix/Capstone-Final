@@ -1,0 +1,632 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background-color: #0b1c3c;
+    color: #ffffff;
+    overflow-x: hidden;
+}
+
+/* Background Wrapper */
+.background-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    background-image: url('background_jpeg.jfif'); 
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 40px 6%;
+    gap: 40px;
+    overflow: hidden;
+}
+
+.background-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(5, 11, 24, 0.75);
+    z-index: 0;
+}
+
+/* KALIWANG BAHAGI (Hero Section) */
+.left-hero-section {
+    position: relative;
+    z-index: 1;
+    max-width: 620px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/* Badges */
+.hero-badges {
+    font-size: 15px;
+    background: rgba(255, 165, 0, 0.15);
+    padding: 10px 20px;
+    border-radius: 30px;
+    display: inline-block;
+    margin-bottom: 28px;
+    backdrop-filter: blur(8px);
+    color: #ffb347;
+    border: 1px solid rgba(255, 165, 0, 0.3);
+    box-shadow: 0 4px 15px rgba(255, 165, 0, 0.1);
+    opacity: 0;
+    transform: translateY(-30px);
+    animation: pptSlideDown 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hero-badges:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 165, 0, 0.2);
+}
+
+/* Pamagat */
+.left-hero-section h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 48px; 
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.18;
+    margin-bottom: 24px;
+    color: #ff9f43; 
+    text-shadow: 0 2px 25px rgba(255, 159, 67, 0.4);
+    opacity: 0;
+    transform: translateX(-50px);
+    animation: pptSlideRight 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+}
+
+/* Description */
+.hero-description {
+    font-size: 17px; 
+    color: #ffd8b1;
+    line-height: 1.7;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: pptFadeZoom 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+}
+
+/* KANANG BAHAGI (Auth Section) */
+.right-auth-section {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 440px;
+    opacity: 0;
+    transform: translateX(50px);
+    animation: pptSlideLeft 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+}
+
+/* KEYFRAMES */
+@keyframes pptSlideDown {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pptSlideRight {
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pptSlideLeft {
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pptFadeZoom {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.login-card {
+    background: #fff8f0;
+    width: 100%;
+    padding: 30px 35px;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 159, 67, 0.1);
+    border: 1px solid #ffd8b1;
+    color: #4a2800;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.login-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 159, 67, 0.2);
+}
+
+/* Logo & Header */
+.logo-section {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.logo {
+    width: 65px;
+    height: auto;
+    margin-bottom: 5px;
+    transition: transform 0.4s ease;
+}
+
+.login-card:hover .logo {
+    transform: scale(1.05);
+}
+
+.stars {
+    color: #f5b041;
+    font-size: 11px;
+    margin-bottom: 8px;
+    letter-spacing: 3px;
+}
+
+.logo-section h2 {
+    color: #381d00;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 3px;
+}
+
+.login-subtext {
+    font-size: 11px;
+    color: #8c5828;
+}
+
+/* ============================================================
+   🔥 ERROR MESSAGE STYLES
+============================================================ */
+#errorMsg {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-left: 4px solid #dc2626;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    animation: shakeError 0.5s ease;
+}
+
+#errorMsg .error-icon {
+    color: #dc2626;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+#errorMsg #errorText {
+    color: #991b1b;
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+@keyframes shakeError {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Locked state */
+#errorMsg.locked {
+    background: #fffbeb;
+    border-color: #fcd34d;
+    border-left-color: #d97706;
+}
+
+#errorMsg.locked #errorText {
+    color: #92400e;
+}
+
+#errorMsg.locked .error-icon {
+    color: #d97706;
+}
+
+/* ============================================================
+   FORM
+============================================================ */
+.input-group {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 11px 15px 11px 42px;
+    background-color: #ffecd0;
+    border: 1px solid #ffbc7e;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    color: #381d00;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-group input::placeholder {
+    color: #a7703d;
+}
+
+.input-group input:focus {
+    border-color: #d35400;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(211, 84, 0, 0.15), 0 4px 12px rgba(211, 84, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #a7703d;
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.input-group input:focus ~ .input-icon {
+    color: #d35400;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #a7703d;
+    cursor: pointer;
+    font-size: 14px;
+    transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.toggle-password:hover {
+    color: #d35400;
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* Options */
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    font-size: 12px;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    color: #704214;
+    cursor: pointer;
+}
+
+.remember-me input {
+    margin-right: 6px;
+    accent-color: #e67e22;
+}
+
+.forgot-link {
+    color: #d35400;
+    text-decoration: none;
+    font-weight: 500;
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.forgot-link::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 1.5px;
+    bottom: -2px;
+    left: 0;
+    background-color: #d35400;
+    transition: width 0.3s ease;
+}
+
+.forgot-link:hover::after {
+    width: 100%;
+}
+
+/* Button */
+.btn-login {
+    width: 100%;
+    background: linear-gradient(135deg, #f39c12, #d35400);
+    color: #ffffff;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    margin-bottom: 10px;
+    box-shadow: 0 4px 15px rgba(211, 84, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-login::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: 0.5s;
+}
+
+.btn-login:hover::before {
+    left: 100%;
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(211, 84, 0, 0.4);
+}
+
+.btn-login:active {
+    transform: translateY(1px) scale(0.99);
+    box-shadow: 0 2px 10px rgba(211, 84, 0, 0.3);
+}
+
+.btn-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Footer */
+.footer-section {
+    text-align: center;
+    border-top: 1px solid #ffd8b1;
+    padding-top: 10px;
+}
+
+.copyright {
+    font-size: 9.5px !important;
+    color: #a7703d !important;
+}
+
+/* Role Card Styling */
+.role-card {
+    background: #fff8f0;
+    padding: 15px 20px;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    border: 1px solid #ffd8b1;
+    width: 100%;
+    color: #4a2800;
+}
+
+.role-card h3 {
+    font-size: 13px;
+    color: #381d00;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.role-option {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    background-color: #ffecd0;
+    border: 1px solid #ffbc7e;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.role-option:last-child {
+    margin-bottom: 0;
+}
+
+.role-option:hover {
+    background-color: #ffe1b3;
+    transform: translateX(4px);
+    border-color: #f39c12;
+    box-shadow: 0 4px 12px rgba(243, 156, 18, 0.15);
+}
+
+.role-option:active {
+    transform: translateX(2px) scale(0.99);
+}
+
+.role-option.active {
+    border-color: #d35400;
+    background-color: #ffe6cc;
+    box-shadow: 0 4px 15px rgba(211, 84, 0, 0.2);
+    transform: translateX(4px);
+}
+
+.role-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-right: 12px;
+    font-size: 14px;
+    transition: transform 0.3s ease;
+}
+
+.role-option:hover .role-icon {
+    transform: scale(1.1);
+}
+
+.admin-icon {
+    background-color: #ffd8b1;
+    color: #b94b00;
+}
+
+.captain-icon {
+    background-color: #ffcc99;
+    color: #a04000;
+}
+
+.role-details h4 {
+    font-size: 13px;
+    color: #381d00;
+    margin: 0;
+}
+
+.role-details p {
+    font-size: 10px;
+    color: #8c5828;
+    margin: 0;
+}
+
+.arrow-right {
+    margin-left: auto;
+    font-size: 11px;
+    color: #a7703d;
+    transition: transform 0.3s ease;
+}
+
+.role-option:hover .arrow-right {
+    transform: translateX(3px);
+    color: #d35400;
+}
+
+.role-option.active .arrow-right {
+    color: #d35400;
+}
+
+/* Modal para sa Forgot Password */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(6px);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-box {
+    background: #fff8f0;
+    padding: 25px 30px;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 380px;
+    border: 1px solid #ffd8b1;
+    color: #4a2800;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    text-align: center;
+    animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleUp {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-box h3 {
+    font-size: 18px;
+    color: #381d00;
+    margin-bottom: 8px;
+}
+
+.modal-box p {
+    font-size: 12px;
+    color: #8c5828;
+    margin-bottom: 15px;
+}
+
+.modal-box input {
+    width: 100%;
+    padding: 10px 14px;
+    background-color: #ffecd0;
+    border: 1px solid #ffbc7e;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 15px;
+    outline: none;
+    color: #381d00;
+    transition: all 0.3s ease;
+}
+
+.modal-box input:focus {
+    border-color: #d35400;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.15);
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-cancel, .btn-submit {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.btn-cancel {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.btn-cancel:hover {
+    background: #e2e8f0;
+}
+
+.btn-submit {
+    background: linear-gradient(135deg, #f39c12, #d35400);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(211, 84, 0, 0.25);
+}
+
+.btn-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 15px rgba(211, 84, 0, 0.35);
+}
+
+.btn-submit:active {
+    transform: translateY(1px);
+}
+
+/* Responsive */
+@media (max-width: 950px) {
+    .background-wrapper {
+        flex-direction: column;
+        justify-content: center;
+        padding: 30px 20px;
+    }
+    
+    .left-hero-section {
+        text-align: center;
+        align-items: center;
+        max-width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .right-auth-section {
+        max-width: 100%;
+    }
+}

@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Barangay 179 Crime BI — CART Analytics</title>
+
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="cart.css">
+</head>
+
+<body>
+
+<div class="app-container">
+
+    <!-- =========================================================
+         SIDEBAR
+    ========================================================== -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo-container">
+                <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="brand-logo-img">
+            </div>
+            <div class="brand-info">
+                <h2>Barangay 179 Crime BI</h2>
+                <p>Public Safety Command Center</p>
+            </div>
+        </div>
+
+        <div class="user-profile">
+            <div class="profile-info">
+                <h3>Barangay Secretary</h3>
+                <p>Administrator — Barangay Secretary / IT Personnel</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>BI Dashboard</span>
+            </a>
+            <a href="incident.html" class="nav-item">
+                <span class="nav-icon">📁</span>
+                <span>Incident Records</span>
+            </a>
+            <a href="grid-heatmap.html" class="nav-item">
+                <span class="nav-icon">📍</span>
+                <span>Barangay Risk Map</span>
+            </a>
+            <a href="cart.html" class="nav-item active">
+                <span class="nav-icon">📈</span>
+                <span>CART Analytics</span>
+            </a>
+            <a href="patrol.html" class="nav-item">
+                <span class="nav-icon">🛡️</span>
+                <span>Patrol Decision Support</span>
+            </a>
+            <a href="report.html" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span>Reports</span>
+            </a>
+            <!-- 🔥 ADMIN ONLY -->
+    <a href="users.html" class="nav-item admin-only">
+        <span class="nav-icon">👥</span>
+        <span>User Management</span>
+    </a>
+    <a href="settings.html" class="nav-item admin-only">
+        <span class="nav-icon">⚙️</span>
+        <span>Settings</span>
+    </a>
+        </nav>
+    </aside>
+
+
+    <!-- =========================================================
+         MAIN CONTENT
+    ========================================================== -->
+    <main class="main-content">
+
+        <!-- =====================================================
+             HEADER
+        ====================================================== -->
+        <header class="top-header">
+
+            <div class="header-titles">
+                <div class="header-kicker">CART • PREDICTIVE ANALYTICS</div>
+                <h1>CART Decision Tree Analytics</h1>
+                <p>Analyze incident patterns and generate a simulated risk classification for Barangay 179, Amparo, Caloocan City.</p>
+            </div>
+
+            <div class="header-actions">
+                <button class="btn btn-secondary" id="homeBtn">🏠 Home</button>
+                <button class="btn btn-primary" id="logoutBtn">⏻ Logout</button>
+            </div>
+
+        </header>
+
+
+        <!-- =====================================================
+             PAGE INTRO
+        ====================================================== -->
+        <section class="cart-page-intro">
+
+            <div class="intro-icon">📈</div>
+
+            <div>
+                <h2>Crime Risk Prediction</h2>
+                <p>Enter the incident characteristics below to evaluate the current risk pattern using the prototype CART decision-tree logic.</p>
+            </div>
+
+            <div class="model-status">
+                <span class="status-dot"></span>
+                <div>
+                    <strong>MODEL READY</strong>
+                    <small>CART Prototype Engine</small>
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             TOP GRID
+        ====================================================== -->
+        <section class="cart-main-grid">
+
+            <!-- =================================================
+                 INPUT CARD
+            ================================================== -->
+            <div class="card cart-form-card">
+
+                <div class="cart-card-header">
+                    <div>
+                        <span class="section-label">PREDICTION INPUT</span>
+                        <h2>Incident Risk Parameters</h2>
+                    </div>
+                    <span class="badge-subtle">Prototype Model</span>
+                </div>
+
+                <form id="cartForm" class="cart-form-grid">
+
+                    <!-- INCIDENT TYPE -->
+                    <div class="form-group">
+                        <label for="incidentType">Incident Type</label>
+                        <select id="incidentType" class="form-select">
+                            <option value="Physical Altercation / Trouble">Physical Altercation / Trouble</option>
+                            <option value="Theft">Theft</option>
+                            <option value="Robbery / Hold-up">Robbery / Hold-up</option>
+                            <option value="Vandalism / Property Damage">Vandalism / Property Damage</option>
+                            <option value="Domestic Dispute">Domestic Dispute</option>
+                            <option value="Public Disturbance / Noise">Public Disturbance / Noise</option>
+                            <option value="Illegal Gambling">Illegal Gambling</option>
+                            <option value="Drug-Related Activity">Drug-Related Activity</option>
+                            <option value="Accident / Road Incident">Accident / Road Incident</option>
+                            <option value="Other">Other (Specify)</option>
+                        </select>
+                    </div>
+
+                    <!-- OTHER -->
+                    <div class="form-group full-width hidden" id="otherIncidentGroup">
+                        <label for="otherIncidentInput">Specify Other Incident Type</label>
+                        <input type="text" id="otherIncidentInput" class="form-input" placeholder="Enter custom incident type...">
+                    </div>
+
+                    <!-- REPEATED -->
+                    <div class="form-group">
+                        <label for="repeatedIncidents">Repeated Incidents</label>
+                        <input type="number" id="repeatedIncidents" class="form-input" value="4" min="1" max="20">
+                        <span class="field-help">Number of similar incidents recorded.</span>
+                    </div>
+
+                    <!-- TIME -->
+                    <div class="form-group">
+                        <label for="timeOccurrence">Time of Occurrence</label>
+                        <input type="time" id="timeOccurrence" class="form-input" value="21:30">
+                        <span class="field-help">Used to identify vulnerable time periods.</span>
+                    </div>
+
+                    <!-- DAY -->
+                    <div class="form-group">
+                        <label for="dayOfWeek">Day of Week</label>
+                        <select id="dayOfWeek" class="form-select">
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday" selected>Saturday</option>
+                            <option value="Sunday">Sunday</option>
+                        </select>
+                    </div>
+
+                    <!-- LOCATION / STREET -->
+                    <div class="form-group">
+                        <label for="locationStreet">Location / Street</label>
+                        <select id="locationStreet" class="form-select">
+                            <option value="Acacia Street">Acacia Street</option>
+                            <option value="Aguho Street">Aguho Street</option>
+                            <option value="Alibangbang Street">Alibangbang Street</option>
+                            <option value="Amparo Main Road">Amparo Main Road</option>
+                            <option value="Anahaw Street">Anahaw Street</option>
+                            <option value="Ananapla Street">Ananapla Street</option>
+                            <option value="Anonas Street">Anonas Street</option>
+                            <option value="Balite Street" selected>Balite Street</option>
+                            <option value="Bayabas Street">Bayabas Street</option>
+                            <option value="Dahlia Extension">Dahlia Extension</option>
+                            <option value="Duhat Street">Duhat Street</option>
+                            <option value="Kakawate Street">Kakawate Street</option>
+                            <option value="Kamachile Street">Kamachile Street</option>
+                            <option value="Kamias Street">Kamias Street</option>
+                            <option value="Kamuning Street">Kamuning Street</option>
+                            <option value="Kaong Street">Kaong Street</option>
+                            <option value="Kawayan Street">Kawayan Street</option>
+                            <option value="Kupang Street">Kupang Street</option>
+                            <option value="Lukban Street">Lukban Street</option>
+                            <option value="Market Area">Market Area</option>
+                            <option value="Mulawin Street">Mulawin Street</option>
+                            <option value="Riverside Street">Riverside Street</option>
+                            <option value="Sampaguita Street">Sampaguita Street</option>
+                            <option value="Santol Street">Santol Street</option>
+                        </select>
+                    </div>
+
+                    <!-- HISTORY -->
+                    <div class="form-group">
+                        <label for="riskHistory">Previous Risk History</label>
+                        <select id="riskHistory" class="form-select">
+                            <option value="High" selected>High</option>
+                            <option value="Moderate">Moderate</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </div>
+
+                    <!-- FREQUENCY -->
+                    <div class="form-group">
+                        <label for="incidentFrequency">Incident Frequency</label>
+                        <select id="incidentFrequency" class="form-select">
+                            <option value="High" selected>High</option>
+                            <option value="Moderate">Moderate</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </div>
+
+                    <!-- BUTTON -->
+                    <div class="form-action full-width">
+                        <button type="button" id="runCartBtn" class="btn btn-primary cart-submit-btn">
+                            <span class="run-icon">▶</span> Run CART Analysis
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+
+
+            <!-- =================================================
+                 RESULT CARD
+            ================================================== -->
+            <div class="card cart-result-card">
+
+                <!-- LOADING -->
+                <div id="cartLoading" class="cart-loading-overlay hidden">
+                    <div class="loading-spinner"></div>
+                    <strong>Running CART Decision Tree</strong>
+                    <p>Evaluating incident branches...</p>
+                </div>
+
+                <!-- RESULT HEADER -->
+                <div class="result-header-bar">
+                    <div>
+                        <span class="section-label">PREDICTIVE OUTPUT</span>
+                        <h2>Prediction Result</h2>
+                    </div>
+                    <span id="confidenceBadge" class="confidence-tag">Waiting for analysis...</span>
+                </div>
+
+                <!-- RISK SCORE -->
+                <div class="risk-score-row">
+
+                    <div class="risk-score-circle">
+                        <span id="riskScore">--</span>
+                        <small>RISK</small>
+                    </div>
+
+                    <div class="risk-score-info">
+                        <span class="mini-label">CART CLASSIFICATION</span>
+                        <div id="riskLevelBadge" class="risk-level-banner low">
+                            No analysis yet
+                        </div>
+                        <p>Enter incident details and click "Run CART Analysis" to generate a prediction.</p>
+                    </div>
+
+                </div>
+
+                <!-- PREDICTION SUMMARY -->
+                <div class="prediction-summary">
+                    <div class="summary-title">
+                        <span>🧠</span>
+                        <strong>Prediction Summary</strong>
+                    </div>
+                    <p id="predictionSummaryText">Waiting for CART analysis to generate a prediction...</p>
+                </div>
+
+                <!-- RISK FACTORS -->
+                <div class="risk-factors-section">
+                    <div class="result-section-heading">
+                        <h3>Key Risk Factors</h3>
+                        <span>Model indicators</span>
+                    </div>
+
+                    <div id="riskFactors" class="risk-factor-grid">
+                        <div class="risk-factor">
+                            <span class="factor-icon">🔁</span>
+                            <div>
+                                <strong>Recurrence</strong>
+                                <small>No data</small>
+                            </div>
+                        </div>
+                        <div class="risk-factor">
+                            <span class="factor-icon">🌙</span>
+                            <div>
+                                <strong>Time Pattern</strong>
+                                <small>No data</small>
+                            </div>
+                        </div>
+                        <div class="risk-factor">
+                            <span class="factor-icon">📍</span>
+                            <div>
+                                <strong>Location</strong>
+                                <small>No data</small>
+                            </div>
+                        </div>
+                        <div class="risk-factor">
+                            <span class="factor-icon">⚠️</span>
+                            <div>
+                                <strong>History</strong>
+                                <small>No data</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EXPLANATION -->
+                <div class="prediction-explanation">
+                    <div class="explanation-icon">💡</div>
+                    <div>
+                        <strong>Why this prediction?</strong>
+                        <p id="explanationText">Run CART analysis to see the explanation...</p>
+                    </div>
+                </div>
+
+                <!-- PATROL ACTION -->
+                <div class="patrol-recommendation">
+                    <div class="recommendation-header">
+                        <span>🛡️</span>
+                        <strong>Suggested Patrol Response</strong>
+                    </div>
+                    <p id="patrolActionText">No recommendation yet. Please run CART analysis.</p>
+                </div>
+
+                <!-- DECISION PATH -->
+                <div class="decision-path-box">
+                    <div class="path-title-bar">
+                        <div>
+                            <span class="section-label">CART TRACE</span>
+                            <h3>Decision Path</h3>
+                        </div>
+                        <span>Rule Trace</span>
+                    </div>
+
+                    <ul id="decisionPathList" class="path-list">
+                        <li>Incident type checked: Waiting for input...</li>
+                        <li>Repeated incidents checked: 0</li>
+                        <li>Time checked: 00:00</li>
+                        <li>Day checked: No data</li>
+                        <li>Location checked: No location selected</li>
+                        <li>Incidents in this location: 0</li>
+                        <li>Location risk: No Data</li>
+                        <li>Previous risk history: No data</li>
+                        <li>Incident frequency: No data</li>
+                        <li class="final-path">Final classification: Waiting for analysis...</li>
+                    </ul>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             BOTTOM DECISION TREE EXPLANATION
+        ====================================================== -->
+        <section class="cart-bottom-grid">
+
+            <div class="card cart-explanation-card">
+
+                <div class="card-title-bar">
+                    <div>
+                        <span class="section-label">MODEL INTERPRETATION</span>
+                        <h2>Decision Tree Rule Explanation</h2>
+                    </div>
+                    <span class="badge-subtle">Dynamic CART Evaluation</span>
+                </div>
+
+                <div class="explanation-grid">
+
+                    <!-- ROOT -->
+                    <div class="expl-box root-expl">
+                        <div class="tree-node-icon">01</div>
+                        <div>
+                            <strong>Root Node Evaluation</strong>
+                            <p id="rootEvalText">Waiting for CART analysis to evaluate the root node...</p>
+                        </div>
+                    </div>
+
+                    <!-- BRANCH -->
+                    <div class="expl-box branch-eval" id="branchEvalBox">
+                        <div class="tree-node-icon">02</div>
+                        <div>
+                            <strong>Active Branch Triggered</strong>
+                            <p id="branchEvalText">Waiting for CART analysis to determine the active branch...</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- RULE -->
+                <div class="example-rule-box large-orange-box" id="ruleMatchBox">
+                    <div class="rule-icon">⚙️</div>
+                    <div>
+                        <strong>Evaluated Decision Rule</strong>
+                        <p id="evaluatedRuleText">Waiting for CART analysis to evaluate the decision rule...</p>
+                    </div>
+                </div>
+
+                <!-- MODEL NOTE -->
+                <div class="model-note">
+                    <span>ⓘ</span>
+                    <p>This CART module is a prototype decision-support interface. The displayed prediction is based on the configured rule logic and should be interpreted together with actual incident records and barangay personnel assessment.</p>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             ANALYSIS HISTORY SECTION
+        ====================================================== -->
+        <section class="cart-bottom-grid" style="margin-top: 20px;">
+
+            <div class="card cart-explanation-card">
+
+                <div class="card-title-bar">
+                    <div>
+                        <span class="section-label">ANALYSIS HISTORY</span>
+                        <h2>Recent CART Analysis Runs</h2>
+                    </div>
+                    <span class="badge-subtle">Last 10 runs</span>
+                </div>
+
+                <div class="table-responsive" style="margin-top: 14px;">
+                    <table class="data-table" id="analysisHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>RUN DATE</th>
+                                <th>INCIDENTS</th>
+                                <th>HIGH</th>
+                                <th>MODERATE</th>
+                                <th>LOW</th>
+                                <th>STATUS</th>
+                                <th>TRIGGERED BY</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analysisHistoryBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 24px; color: #888;">
+                                    Loading analysis history...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- 1. API HELPER (UNA - CRITICAL!) -->
+<script src="apiHelper.js"></script>
+
+<script src="cart.js"></script>
+
+
+<!-- =========================================================
+     LOGOUT CONFIRMATION MODAL
+============================================================ -->
+<div id="logoutModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+">
+    <div style="
+        background: white;
+        max-width: 420px;
+        width: 90%;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <div style="
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+        ">
+            ⚠️
+        </div>
+        <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+            Confirm Logout
+        </h2>
+        <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+            Are you sure you want to logout? You will be redirected to the login page.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button id="logoutCancelBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #f1f5f9;
+                color: #475569;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Cancel
+            </button>
+            <button id="logoutConfirmBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #dc2626;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Yes, Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes modalPop {
+        0% { transform: scale(0.9); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<script>
+    // =========================================================
+    // LOGOUT CONFIRMATION MODAL
+    // =========================================================
+    (function() {
+        const logoutModal = document.getElementById('logoutModal');
+        const logoutCancelBtn = document.getElementById('logoutCancelBtn');
+        const logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (!logoutModal || !logoutBtn) return;
+
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            logoutModal.style.display = 'flex';
+        });
+
+        logoutCancelBtn.addEventListener('click', function() {
+            logoutModal.style.display = 'none';
+        });
+
+        logoutConfirmBtn.addEventListener('click', function() {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        });
+
+        logoutModal.addEventListener('click', function(e) {
+            if (e.target === logoutModal) {
+                logoutModal.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && logoutModal.style.display === 'flex') {
+                logoutModal.style.display = 'none';
+            }
+        });
+    })();
+</script>
+
+
+
+</body>
+</html>

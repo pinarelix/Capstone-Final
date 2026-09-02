@@ -1,0 +1,149 @@
+/* Incident Management Specific Styles */
+.incident-top-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 0.65fr; /* MAS MALAKI ANG FORM, MAS MALIIT ANG CONTROLS */
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.form-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.form-row.map-outer-row {
+    margin-bottom: 14px;
+    align-items: flex-start; /* I-align sa tuktok ang mga inputs */
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.form-group label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-control {
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-card);
+    background-color: #ffffff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+.textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* Grid Sizing Classes */
+.flex-2 { flex: 2; } /* 2/3 ng space */
+.flex-1 { flex: 1; } /* 1/3 ng space */
+
+/* MAP GROUP STYLES */
+.map-group {
+    min-height: 280px; /* Siguraduhin na may sapat na height ang map */
+}
+
+.map-group #mapPicker {
+    height: 280px !important; /* Override inline height */
+}
+
+/* RIGHT SIDE FIELDS (Reported By & Status) */
+.right-side-fields {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 14px;
+}
+
+.side-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.control-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 14px; /* Pinaliit ko ang gap para masiksik sa kanan */
+}
+
+.control-note {
+    font-size: 0.775rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-top: 20px;
+}
+
+/* Action Buttons inside Table */
+.btn-action-edit, .btn-action-delete {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 0.725rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.btn-action-edit {
+    background-color: #e2e8f0;
+    color: var(--accent-dark);
+    margin-right: 6px;
+}
+
+.btn-action-edit:hover {
+    background-color: #cbd5e1;
+}
+
+.btn-action-delete {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.btn-action-delete:hover {
+    background-color: #fecaca;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1200px) {
+    .incident-top-grid {
+        grid-template-columns: 1fr; /* Sa tablet/phone, mag-stack sila */
+    }
+    .form-row.map-outer-row {
+        flex-direction: column;
+    }
+    .right-side-fields {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .side-field {
+        flex: 1;
+        min-width: 150px;
+    }
+}

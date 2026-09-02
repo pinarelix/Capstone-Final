@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barangay 179 Crime BI — Patrol Decision Support</title>
+    
+    <!-- Custom Stylesheets -->
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="incident.css">
+    <link rel="stylesheet" href="patrol.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- =========================================================
+             SIDEBAR
+        ========================================================== -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo-container">
+                    <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="brand-logo-img">
+                </div>
+                <div class="brand-info">
+                    <h2>Barangay 179 Crime BI</h2>
+                    <p>Public Safety Command Center</p>
+                </div>
+            </div>
+
+            <div class="user-profile">
+                <div class="profile-info">
+                    <h3 id="userNameDisplay">Barangay Secretary</h3>
+                    <p id="userRoleDisplay">Administrator — Barangay Secretary / IT Personnel</p>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    <span>BI Dashboard</span>
+                </a>
+                <a href="incident.html" class="nav-item">
+                    <span class="nav-icon">📁</span>
+                    <span>Incident Records</span>
+                </a>
+                <a href="grid-heatmap.html" class="nav-item">
+                    <span class="nav-icon">📍</span>
+                    <span>Barangay Risk Map</span>
+                </a>
+                <a href="cart.html" class="nav-item">
+                    <span class="nav-icon">📈</span>
+                    <span>CART Analytics</span>
+                </a>
+                <a href="patrol.html" class="nav-item active">
+                    <span class="nav-icon">🛡️</span>
+                    <span>Patrol Decision Support</span>
+                </a>
+                <a href="report.html" class="nav-item">
+                    <span class="nav-icon">📄</span>
+                    <span>Reports</span>
+                </a>
+                <!-- 🔥 ADMIN ONLY -->
+                <a href="users.html" class="nav-item admin-only">
+                    <span class="nav-icon">👥</span>
+                    <span>User Management</span>
+                </a>
+                <a href="settings.html" class="nav-item admin-only">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Settings</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- =========================================================
+             MAIN CONTENT
+        ========================================================== -->
+        <main class="main-content">
+
+            <!-- HEADER -->
+            <header class="top-header">
+                <div class="header-titles">
+                    <h1>🛡️ Patrol Decision Support</h1>
+                    <p>Priority patrol recommendations based on CART risk analysis, recurrence, and incident timing.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">
+                        <i class="fa-solid fa-house"></i> Home
+                    </button>
+                    <button class="btn btn-primary" id="logoutBtn">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </button>
+                </div>
+            </header>
+
+            <!-- =====================================================
+                 TABS
+            ====================================================== -->
+            <div class="patrol-tabs">
+                <button class="patrol-tab active" data-tab="recommendations">
+                    <i class="fa-solid fa-shield-halved"></i> Recommendations
+                </button>
+                <button class="patrol-tab" data-tab="schedules">
+                    <i class="fa-solid fa-calendar-check"></i> Schedules
+                </button>
+                <button class="patrol-tab" data-tab="logs">
+                    <i class="fa-solid fa-clipboard-list"></i> Patrol Logs
+                </button>
+            </div>
+
+            <!-- =====================================================
+                 TAB 1: RECOMMENDATIONS
+            ====================================================== -->
+            <div id="tab-recommendations" class="patrol-tab-content active">
+
+                <!-- Month Filter -->
+                <div class="patrol-filter-bar">
+                    <div class="filter-info">
+                        <h3><i class="fa-regular fa-calendar"></i> Monthly Patrol Insights</h3>
+                        <p>Select a month to view CART-based patrol recommendations.</p>
+                    </div>
+                    <div class="filter-control" style="display: flex; gap: 10px; align-items: center;">
+                        <select id="monthSelect" class="form-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <button id="refreshCartBtn" class="btn btn-secondary" style="padding: 10px 16px; white-space: nowrap;">
+                            <i class="fa-solid fa-rotate"></i> Refresh CART
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Metrics - UPDATED with CART Risk Score -->
+                <div class="patrol-metrics">
+                    <div class="metric-card">
+                        <div class="metric-icon">📍</div>
+                        <div class="metric-info">
+                            <span class="metric-label">Priority Area</span>
+                            <h4 id="topArea">Loading...</h4>
+                            <p>Highest ranked patrol zone</p>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">⏰</div>
+                        <div class="metric-info">
+                            <span class="metric-label">Recommended Time</span>
+                            <h4 id="topTime">Loading...</h4>
+                            <p>Suggested patrol window</p>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">👤</div>
+                        <div class="metric-info">
+                            <span class="metric-label">Tanods Needed</span>
+                            <h4 id="topTanods">Loading...</h4>
+                            <p>Suggested manpower</p>
+                        </div>
+                    </div>
+                    <!-- 🔥 NEW: CART Risk Score Metric -->
+                    <div class="metric-card">
+                        <div class="metric-icon">📊</div>
+                        <div class="metric-info">
+                            <span class="metric-label">CART Risk Score</span>
+                            <h4 id="topRiskScore">Loading...</h4>
+                            <p id="topRiskBadge" style="font-size: 0.65rem; padding: 2px 10px; border-radius: 12px; display: inline-block; background: #94a3b8; color: white;">Loading CART data...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommendations Grid -->
+                <div class="patrol-recommendations">
+                    <div class="section-header">
+                        <h3><i class="fa-solid fa-flag"></i> Active Priority Recommendations</h3>
+                        <span class="badge-subtle">CART-Enhanced</span>
+                    </div>
+                    <div class="recommendations-grid" id="recommendationsContainer">
+                        <!-- Injected by JavaScript -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- =====================================================
+                 TAB 2: SCHEDULES
+            ====================================================== -->
+            <div id="tab-schedules" class="patrol-tab-content">
+
+                <!-- Add Schedule Form -->
+                <div class="patrol-form-card">
+                    <div class="form-header">
+                        <div>
+                            <h3 id="scheduleFormTitle"><i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule</h3>
+                            <p>Create a new patrol schedule for tanod deployment.</p>
+                        </div>
+                        <span class="badge-subtle admin-badge">Admin Only</span>
+                    </div>
+
+                    <form id="scheduleForm">
+                        <input type="hidden" id="editScheduleId">
+
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="scheduleLocation">Location</label>
+                                <input type="text" id="scheduleLocation" class="form-control" placeholder="e.g., Balite Street" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="scheduleDay">Day of Week</label>
+                                <select id="scheduleDay" class="form-control" required>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Saturday">Saturday</option>
+                                    <option value="Sunday">Sunday</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="scheduleStart">Start Time</label>
+                                <input type="time" id="scheduleStart" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="scheduleEnd">End Time</label>
+                                <input type="time" id="scheduleEnd" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="scheduleTanods">Number of Tanods</label>
+                                <input type="number" id="scheduleTanods" class="form-control" placeholder="2" min="1" max="10" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="scheduleStatus">Status</label>
+                                <select id="scheduleStatus" class="form-control">
+                                    <option value="Active">Active</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="scheduleReason">Reason</label>
+                            <textarea id="scheduleReason" class="form-control" rows="2" placeholder="Reason for this patrol schedule..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="scheduleSubmitBtn">
+                            <i class="fa-solid fa-save"></i> Save Schedule
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Schedules Table -->
+                <div class="patrol-table-card">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-list"></i> Patrol Schedules</h3>
+                        <span class="badge-subtle" id="scheduleCount">0 schedules</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Location</th>
+                                    <th>Day</th>
+                                    <th>Time</th>
+                                    <th>Tanods</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleTableBody">
+                                <!-- Injected by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- =====================================================
+                 TAB 3: PATROL LOGS
+            ====================================================== -->
+            <div id="tab-logs" class="patrol-tab-content">
+
+                <!-- Add Log Form -->
+                <div class="patrol-form-card">
+                    <div class="form-header">
+                        <div>
+                            <h3 id="logFormTitle"><i class="fa-solid fa-plus-circle"></i> Add Patrol Log</h3>
+                            <p>Log a completed patrol activity.</p>
+                        </div>
+                        <span class="badge-subtle admin-badge">Admin Only</span>
+                    </div>
+
+                    <form id="logForm">
+                        <input type="hidden" id="editLogId">
+
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="logSchedule">Schedule</label>
+                                <select id="logSchedule" class="form-control" required>
+                                    <option value="">Select Schedule</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="logTanod">Tanod</label>
+                                <select id="logTanod" class="form-control" required>
+                                    <option value="">Select Tanod</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="logDate">Patrol Date</label>
+                                <input type="date" id="logDate" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="logStatus">Status</label>
+                                <select id="logStatus" class="form-control">
+                                    <option value="Completed">Completed</option>
+                                    <option value="Partial">Partial</option>
+                                    <option value="Failed">Failed</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="logReport">Report</label>
+                            <textarea id="logReport" class="form-control" rows="2" placeholder="Patrol report details..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="logSubmitBtn">
+                            <i class="fa-solid fa-save"></i> Save Log
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Logs Table -->
+                <div class="patrol-table-card">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-clipboard-list"></i> Patrol Logs</h3>
+                        <span class="badge-subtle" id="logCount">0 logs</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Schedule</th>
+                                    <th>Tanod</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Report</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logTableBody">
+                                <!-- Injected by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- =========================================================
+         LOGOUT CONFIRMATION MODAL
+    ============================================================ -->
+    <div id="logoutModal" style="
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 999999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    ">
+        <div style="
+            background: white;
+            max-width: 420px;
+            width: 90%;
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalPop 0.3s ease;
+        ">
+            <div style="
+                width: 64px;
+                height: 64px;
+                border-radius: 50%;
+                background: #fee2e2;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 16px;
+                font-size: 2rem;
+            ">
+                ⚠️
+            </div>
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+                Confirm Logout
+            </h2>
+            <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+                Are you sure you want to logout? You will be redirected to the login page.
+            </p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button id="logoutCancelBtn" style="
+                    padding: 10px 28px;
+                    border: none;
+                    border-radius: 10px;
+                    background: #f1f5f9;
+                    color: #475569;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                ">
+                    Cancel
+                </button>
+                <button id="logoutConfirmBtn" style="
+                    padding: 10px 28px;
+                    border: none;
+                    border-radius: 10px;
+                    background: #dc2626;
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                ">
+                    Yes, Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================
+         DELETE CONFIRMATION MODAL
+    ============================================================ -->
+    <div id="deleteModal" class="delete-modal-overlay">
+        <div class="delete-modal-box">
+            <div class="delete-modal-icon">
+                🗑️
+            </div>
+            <h3 class="delete-modal-title">Confirm Delete</h3>
+            <p class="delete-modal-message" id="deleteMessage">Are you sure you want to delete this item?</p>
+            <div class="delete-modal-buttons">
+                <button class="delete-modal-cancel" id="deleteCancelBtn">Cancel</button>
+                <button class="delete-modal-confirm" id="deleteConfirmBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes modalPop {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* ============================================================
+           DELETE MODAL STYLES
+        ============================================================ */
+        .delete-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-modal-overlay.active {
+            display: flex;
+        }
+
+        .delete-modal-box {
+            background: white;
+            max-width: 420px;
+            width: 90%;
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalPop 0.3s ease;
+        }
+
+        .delete-modal-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+        }
+
+        .delete-modal-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .delete-modal-message {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 24px;
+        }
+
+        .delete-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .delete-modal-cancel {
+            padding: 10px 28px;
+            border: none;
+            border-radius: 10px;
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .delete-modal-cancel:hover {
+            background: #e2e8f0;
+        }
+
+        .delete-modal-confirm {
+            padding: 10px 28px;
+            border: none;
+            border-radius: 10px;
+            background: #dc2626;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .delete-modal-confirm:hover {
+            background: #b91c1c;
+        }
+
+        /* ============================================================
+           CART RISK BADGE STYLES - ADDED
+        ============================================================ */
+        .cart-risk-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .cart-risk-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .cart-risk-badge.high {
+            background: #dc2626;
+        }
+
+        .cart-risk-badge.medium {
+            background: #f59e0b;
+        }
+
+        .cart-risk-badge.low {
+            background: #10b981;
+        }
+
+        .cart-risk-badge.info {
+            background: #0ea5e9;
+        }
+
+        .rec-card .cart-risk-badge {
+            margin-right: 6px;
+        }
+    </style>
+
+    <!-- 1. API HELPER (UNA - CRITICAL!) -->
+    <script src="apiHelper.js"></script>
+
+    <script src="patrol.js"></script>
+
+    <script>
+        // =========================================================
+        // LOGOUT CONFIRMATION MODAL
+        // =========================================================
+        (function() {
+            const logoutModal = document.getElementById('logoutModal');
+            const logoutCancelBtn = document.getElementById('logoutCancelBtn');
+            const logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+
+            if (!logoutModal || !logoutBtn) return;
+
+            logoutBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                logoutModal.style.display = 'flex';
+            });
+
+            logoutCancelBtn.addEventListener('click', function() {
+                logoutModal.style.display = 'none';
+            });
+
+            logoutConfirmBtn.addEventListener('click', function() {
+                // ✅ Use proper logout function from patrol.js
+                if (typeof logoutUser === 'function') {
+                    logoutUser();
+                } else {
+                    // Fallback
+                    sessionStorage.clear();
+                    window.location.href = 'login.html';
+                }
+            });
+
+            logoutModal.addEventListener('click', function(e) {
+                if (e.target === logoutModal) {
+                    logoutModal.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && logoutModal.style.display === 'flex') {
+                    logoutModal.style.display = 'none';
+                }
+            });
+        })();
+
+        // =========================================================
+        // DELETE CONFIRMATION MODAL
+        // =========================================================
+        let pendingDeleteId = null;
+        let pendingDeleteType = null; // 'schedule' or 'log'
+
+        function showDeleteModal(message, id, type) {
+            const deleteModal = document.getElementById('deleteModal');
+            const deleteMessage = document.getElementById('deleteMessage');
+            
+            deleteMessage.textContent = message;
+            pendingDeleteId = id;
+            pendingDeleteType = type;
+            deleteModal.classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            const deleteModal = document.getElementById('deleteModal');
+            deleteModal.classList.remove('active');
+            pendingDeleteId = null;
+            pendingDeleteType = null;
+        }
+
+        document.getElementById('deleteCancelBtn').addEventListener('click', function() {
+            closeDeleteModal();
+        });
+
+        document.getElementById('deleteConfirmBtn').addEventListener('click', function() {
+            if (pendingDeleteId !== null) {
+                if (pendingDeleteType === 'schedule' && typeof confirmDeleteSchedule === 'function') {
+                    confirmDeleteSchedule(pendingDeleteId);
+                } else if (pendingDeleteType === 'log' && typeof confirmDeleteLog === 'function') {
+                    confirmDeleteLog(pendingDeleteId);
+                }
+            }
+            closeDeleteModal();
+        });
+
+        document.getElementById('deleteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeDeleteModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDeleteModal();
+            }
+        });
+    </script>
+
+</body>
+</html>

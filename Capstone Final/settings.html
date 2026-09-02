@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Settings | Barangay 179 Crime BI</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Dashboard CSS -->
+    <link rel="stylesheet" href="dashboard.css">
+
+    <style>
+        /* ============================================================
+           SETTINGS PAGE STYLES
+        ============================================================ */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .settings-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .settings-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+
+        .settings-card .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .settings-card .card-header .icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .settings-card .card-header .icon.blue { background: #dbeafe; color: #2563eb; }
+        .settings-card .card-header .icon.green { background: #d1fae5; color: #059669; }
+        .settings-card .card-header .icon.amber { background: #fef3c7; color: #d97706; }
+        .settings-card .card-header .icon.purple { background: #ede9fe; color: #7c3aed; }
+        .settings-card .card-header .icon.cyan { background: #cffafe; color: #0891b2; }
+
+        .settings-card .card-header h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .settings-card .card-header p {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin: 0;
+        }
+
+        /* Form */
+        .settings-form .form-group {
+            margin-bottom: 14px;
+        }
+
+        .settings-form .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 5px;
+        }
+
+        .settings-form .form-group input,
+        .settings-form .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.85rem;
+            outline: none;
+            transition: all 0.2s ease;
+            background: #f8fafc;
+        }
+
+        .settings-form .form-group input:focus,
+        .settings-form .form-group select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background: white;
+        }
+
+        .settings-form .btn-save {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #0f172a;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .settings-form .btn-save:hover {
+            background: #1e293b;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+        }
+
+        /* Status Items */
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-item .label {
+            font-size: 0.85rem;
+            color: #334155;
+        }
+
+        .status-item .label i {
+            width: 20px;
+            color: #64748b;
+        }
+
+        .status-dot {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-dot .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-dot .dot.green { background: #059669; }
+        .status-dot .dot.red { background: #dc2626; }
+        .status-dot .dot.amber { background: #d97706; }
+
+        /* About Section */
+        .about-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.85rem;
+        }
+
+        .about-item:last-child {
+            border-bottom: none;
+        }
+
+        .about-item .label { color: #64748b; }
+        .about-item .value { color: #0f172a; font-weight: 600; }
+
+        .about-version {
+            background: #f1f5f9;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        /* Change Password Success */
+        .password-success {
+            display: none;
+            background: #d1fae5;
+            color: #059669;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        .password-success.show { display: block; }
+
+        /* Full width card */
+        .settings-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* ============================================================
+           USER PROFILE STYLES
+        ============================================================ */
+        .user-profile-card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 8px 0;
+        }
+
+        .user-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .user-avatar .avatar-text {
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .user-info-details {
+            flex: 1;
+        }
+
+        .user-info-details .name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .user-info-details .username {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .user-info-details .role-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .user-info-details .role-badge.admin { background: #dbeafe; color: #1d4ed8; }
+        .user-info-details .role-badge.decision-maker { background: #fef3c7; color: #b45309; }
+        .user-info-details .role-badge.field-user { background: #d1fae5; color: #047857; }
+
+        .user-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.85rem;
+        }
+
+        .user-detail-item:last-child { border-bottom: none; }
+
+        .user-detail-item .label { color: #64748b; }
+        .user-detail-item .value { color: #0f172a; font-weight: 600; }
+
+        .user-detail-item .value .online-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #059669;
+            margin-right: 6px;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* ============================================================
+           LOGIN HISTORY STYLES
+        ============================================================ */
+        .login-history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.82rem;
+        }
+
+        .login-history-item:last-child { border-bottom: none; }
+
+        .login-history-item .login-date {
+            color: #0f172a;
+            font-weight: 500;
+        }
+
+        .login-history-item .login-role {
+            font-size: 0.7rem;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .login-history-item .login-role.admin { background: #dbeafe; color: #1d4ed8; }
+        .login-history-item .login-role.decision-maker { background: #fef3c7; color: #b45309; }
+        .login-history-item .login-role.field-user { background: #d1fae5; color: #047857; }
+
+        .login-history-empty {
+            text-align: center;
+            padding: 20px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .login-history-empty i {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
+
+        .login-history-scroll {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .login-history-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .login-history-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        /* ============================================================
+           AUDIT LOG TABLE
+        ============================================================ */
+        .audit-log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .audit-log-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .audit-log-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .audit-filter-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .audit-filter-bar select,
+        .audit-filter-bar input {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.75rem;
+            background: #f8fafc;
+        }
+
+        .audit-filter-bar select:focus,
+        .audit-filter-bar input:focus {
+            border-color: #2563eb;
+            outline: none;
+        }
+
+        .audit-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .audit-badge.login { background: #dbeafe; color: #1d4ed8; }
+        .audit-badge.logout { background: #e2e8f0; color: #475569; }
+        .audit-badge.create { background: #d1fae5; color: #059669; }
+        .audit-badge.update { background: #fef3c7; color: #d97706; }
+        .audit-badge.delete { background: #fee2e2; color: #dc2626; }
+        .audit-badge.view { background: #f1f5f9; color: #475569; }
+        .audit-badge.default { background: #e2e8f0; color: #475569; }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .settings-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .settings-grid { grid-template-columns: 1fr; }
+            .settings-card.full-width { grid-column: 1; }
+        }
+
+        @media (max-width: 640px) {
+            .settings-card { padding: 16px; }
+            .status-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+            .user-profile-card { flex-direction: column; text-align: center; }
+            .user-detail-item { flex-direction: column; align-items: flex-start; gap: 2px; }
+            .audit-filter-bar { flex-direction: column; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app-container">
+
+    <!-- =========================================================
+         SIDEBAR
+    ========================================================== -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo-container">
+                <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="brand-logo-img">
+            </div>
+            <div class="brand-info">
+                <h2>Barangay 179 Crime BI</h2>
+                <p>Public Safety Command Center</p>
+            </div>
+        </div>
+
+        <div class="user-profile">
+            <div class="profile-info">
+                <h3 id="userNameDisplay">Barangay Secretary</h3>
+                <p id="userRoleDisplay">Administrator — Barangay Secretary / IT Personnel</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>BI Dashboard</span>
+            </a>
+            <a href="incident.html" class="nav-item">
+                <span class="nav-icon">📁</span>
+                <span>Incident Records</span>
+            </a>
+            <a href="grid-heatmap.html" class="nav-item">
+                <span class="nav-icon">📍</span>
+                <span>Barangay Risk Map</span>
+            </a>
+            <a href="cart.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span>CART Analytics</span>
+            </a>
+            <a href="patrol.html" class="nav-item">
+                <span class="nav-icon">🛡️</span>
+                <span>Patrol Decision Support</span>
+            </a>
+            <a href="report.html" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span>Reports</span>
+            </a>
+            <!-- ADMIN ONLY -->
+            <a href="users.html" class="nav-item admin-only">
+                <span class="nav-icon">👥</span>
+                <span>User Management</span>
+            </a>
+            <a href="settings.html" class="nav-item active admin-only">
+                <span class="nav-icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+
+    <!-- =========================================================
+         MAIN CONTENT
+    ========================================================== -->
+    <main class="main-content">
+
+        <!-- HEADER -->
+        <header class="top-header">
+            <div class="header-titles">
+                <h1>System Settings</h1>
+                <p>Manage system configuration, security, and audit logs.</p>
+            </div>
+            <div class="header-actions">
+                <button type="button" class="btn btn-secondary" id="homeBtn">
+                    <i class="fa-solid fa-house"></i> Home
+                </button>
+                <button type="button" class="btn btn-primary" id="logoutBtn">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- SETTINGS GRID -->
+        <section class="settings-grid">
+
+            <!-- CARD 1: CURRENT USER PROFILE -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon blue">
+                        <i class="fa-solid fa-user-circle"></i>
+                    </div>
+                    <div>
+                        <h2>Current User Profile</h2>
+                        <p>Your account details and session information</p>
+                    </div>
+                </div>
+
+                <div id="currentUserProfile">
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: #94a3b8;"></i>
+                        <p style="margin-top: 8px; color: #94a3b8; font-size: 0.85rem;">Loading user profile...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 2: CHANGE PASSWORD -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon amber">
+                        <i class="fa-solid fa-key"></i>
+                    </div>
+                    <div>
+                        <h2>Change Password</h2>
+                        <p>Update your account password</p>
+                    </div>
+                </div>
+
+                <form class="settings-form" id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" placeholder="Enter current password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" placeholder="Enter new password (min 6 chars)" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
+                    </div>
+                    <button type="submit" class="btn-save">
+                        <i class="fa-solid fa-save"></i> Update Password
+                    </button>
+                    <div class="password-success" id="passwordSuccess">
+                        <i class="fa-solid fa-check-circle"></i> Password updated successfully!
+                    </div>
+                </form>
+            </div>
+
+            <!-- CARD 3: LOGIN HISTORY - 🔥 UPDATED: Gumagamit na ng database -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon cyan">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <h2>Login History</h2>
+                        <p>Your recent login activities</p>
+                    </div>
+                </div>
+
+                <div id="loginHistoryContainer">
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 20px; color: #94a3b8;"></i>
+                        <p style="margin-top: 8px; color: #94a3b8; font-size: 0.85rem;">Loading login history...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 4: BARANGAY INFORMATION -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon green">
+                        <i class="fa-solid fa-location-dot"></i>
+                    </div>
+                    <div>
+                        <h2>Barangay Information</h2>
+                        <p>Barangay 179 details</p>
+                    </div>
+                </div>
+
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label>Barangay Name</label>
+                        <input type="text" value="Barangay 179, Amparo" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>City / Municipality</label>
+                        <input type="text" value="Caloocan City" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Province</label>
+                        <input type="text" value="Metro Manila" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Region</label>
+                        <input type="text" value="National Capital Region (NCR)" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Barangay Captain</label>
+                        <input type="text" value="Hon. [Punong Barangay Name]" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 5: SYSTEM STATUS -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon amber">
+                        <i class="fa-solid fa-heart-pulse"></i>
+                    </div>
+                    <div>
+                        <h2>System Status</h2>
+                        <p>Current system health</p>
+                    </div>
+                </div>
+
+                <div id="systemStatus">
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-server"></i> Server Status</span>
+                        <span class="status-dot" id="serverStatus">
+                            <span class="dot green"></span> Running
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-database"></i> Database Connection</span>
+                        <span class="status-dot" id="dbStatus">
+                            <span class="dot green"></span> Connected
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-clock"></i> Uptime</span>
+                        <span class="status-dot" id="uptimeStatus">
+                            <span class="dot green"></span> <span id="uptimeValue">Loading...</span>
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-users"></i> Total Users</span>
+                        <span class="status-dot" id="userCountStatus">
+                            <span class="dot green"></span> <span id="totalUsers">Loading...</span>
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-file-lines"></i> Total Incidents</span>
+                        <span class="status-dot" id="incidentCountStatus">
+                            <span class="dot green"></span> <span id="totalIncidents">Loading...</span>
+                        </span>
+                    </div>
+                    <div class="status-item" style="border-bottom: none;">
+                        <span class="label"><i class="fa-solid fa-calendar-day"></i> Last Updated</span>
+                        <span class="status-dot" id="lastUpdatedStatus">
+                            <span class="dot green"></span> <span id="lastUpdated">Loading...</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 6: ABOUT -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon purple">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </div>
+                    <div>
+                        <h2>About System</h2>
+                        <p>System information</p>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <div style="width: 64px; height: 64px; border-radius: 50%; background: #0f172a; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 1.8rem; color: white; font-weight: 800;">
+                        179
+                    </div>
+                    <h3 style="font-size: 1.1rem; font-weight: 800; color: #0f172a;">Barangay 179 Crime BI</h3>
+                    <span class="about-version">Version 1.0.0</span>
+                </div>
+
+                <div>
+                    <div class="about-item">
+                        <span class="label">System Name</span>
+                        <span class="value">Barangay 179 Crime BI</span>
+                    </div>
+                    <div class="about-item">
+                        <span class="label">Version</span>
+                        <span class="value">1.0.0</span>
+                    </div>
+                    <div class="about-item">
+                        <span class="label">Developer</span>
+                        <span class="value">Barangay 179 IT Team</span>
+                    </div>
+                    <div class="about-item">
+                        <span class="label">Barangay</span>
+                        <span class="value">Barangay 179, Amparo</span>
+                    </div>
+                    <div class="about-item">
+                        <span class="label">City</span>
+                        <span class="value">Caloocan City</span>
+                    </div>
+                    <div class="about-item" style="border-bottom: none;">
+                        <span class="label">Framework</span>
+                        <span class="value">HTML, CSS, JavaScript, Node.js</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =========================================================
+                 🆕 CARD 7: SYSTEM SETTINGS (FULL WIDTH)
+            ========================================================== -->
+            <div class="settings-card full-width">
+                <div class="card-header">
+                    <div class="icon blue">
+                        <i class="fa-solid fa-sliders"></i>
+                    </div>
+                    <div>
+                        <h2>System Settings</h2>
+                        <p>Configure system parameters and security options</p>
+                    </div>
+                    <span style="margin-left: auto; font-size: 0.7rem; color: #94a3b8;" id="settingsStatus">Loading...</span>
+                </div>
+
+                <div class="settings-form">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label for="settingSessionTimeout">Session Timeout (minutes)</label>
+                            <input type="number" id="settingSessionTimeout" class="form-input" min="5" max="120" placeholder="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="settingMaxLoginAttempts">Max Login Attempts</label>
+                            <input type="number" id="settingMaxLoginAttempts" class="form-input" min="3" max="10" placeholder="5">
+                        </div>
+                        <div class="form-group">
+                            <label for="settingAuditRetention">Audit Log Retention (days)</label>
+                            <input type="number" id="settingAuditRetention" class="form-input" min="30" max="365" placeholder="90">
+                        </div>
+                        <div class="form-group">
+                            <label for="settingCartVersion">CART Model Version</label>
+                            <input type="text" id="settingCartVersion" class="form-input" placeholder="v1.0">
+                        </div>
+                        <div class="form-group">
+                            <label for="settingThresholdHigh">High Risk Threshold</label>
+                            <input type="number" id="settingThresholdHigh" class="form-input" min="50" max="100" placeholder="67">
+                        </div>
+                        <div class="form-group">
+                            <label for="settingThresholdModerate">Moderate Risk Threshold</label>
+                            <input type="number" id="settingThresholdModerate" class="form-input" min="20" max="66" placeholder="34">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 10px;">
+                        <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="settingEnableAuditLogging" style="width: 18px; height: 18px;">
+                            <label for="settingEnableAuditLogging" style="margin: 0; font-size: 0.8rem;">Enable Audit Logging</label>
+                        </div>
+                        <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="settingStrongPassword" style="width: 18px; height: 18px;">
+                            <label for="settingStrongPassword" style="margin: 0; font-size: 0.8rem;">Require Strong Password</label>
+                        </div>
+                        <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="settingEnable2FA" style="width: 18px; height: 18px;">
+                            <label for="settingEnable2FA" style="margin: 0; font-size: 0.8rem;">Enable 2FA (Future)</label>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+                        <button type="button" class="btn-save" id="saveSettingsBtn">
+                            <i class="fa-solid fa-save"></i> Save All Settings
+                        </button>
+                        <button type="button" class="btn-secondary" id="refreshSettingsBtn" style="padding: 10px 20px; border: none; border-radius: 8px; background: #f1f5f9; color: #475569; font-weight: 600; cursor: pointer;">
+                            <i class="fa-solid fa-rotate"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- =========================================================
+             AUDIT LOG SECTION (FULL WIDTH)
+        ========================================================== -->
+        <section class="settings-grid" style="margin-top: 24px;">
+            <div class="settings-card full-width">
+                <div class="card-header">
+                    <div class="icon blue">
+                        <i class="fa-solid fa-list-check"></i>
+                    </div>
+                    <div>
+                        <h2>Audit Trail</h2>
+                        <p>View all user activities and system events</p>
+                    </div>
+                    <span style="margin-left: auto; font-size: 0.7rem; color: #94a3b8;" id="auditLogCount">0 logs</span>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="audit-filter-bar">
+                    <select id="auditFilterAction">
+                        <option value="">All Actions</option>
+                        <option value="LOGIN">Login</option>
+                        <option value="LOGOUT">Logout</option>
+                        <option value="CREATE_INCIDENT">Create Incident</option>
+                        <option value="UPDATE_INCIDENT">Update Incident</option>
+                        <option value="DELETE_INCIDENT">Delete Incident</option>
+                        <option value="CREATE_USER">Create User</option>
+                        <option value="DELETE_USER">Delete User</option>
+                        <option value="CREATE_TANOD">Create Tanod</option>
+                        <option value="UPDATE_TANOD">Update Tanod</option>
+                        <option value="DELETE_TANOD">Delete Tanod</option>
+                        <option value="CREATE_SCHEDULE">Create Schedule</option>
+                        <option value="UPDATE_SCHEDULE">Update Schedule</option>
+                        <option value="DELETE_SCHEDULE">Delete Schedule</option>
+                        <option value="CREATE_LOG">Create Log</option>
+                        <option value="UPDATE_LOG">Update Log</option>
+                        <option value="DELETE_LOG">Delete Log</option>
+                        <option value="RUN_CART_ANALYSIS">Run CART Analysis</option>
+                        <option value="UPDATE_SETTINGS">Update Settings</option>
+                    </select>
+
+                    <select id="auditFilterEntity">
+                        <option value="">All Entities</option>
+                        <option value="incidents">Incidents</option>
+                        <option value="users">Users</option>
+                        <option value="tanod_record">Tanods</option>
+                        <option value="patrol_schedules">Schedules</option>
+                        <option value="patrol_logs">Logs</option>
+                        <option value="cart_analysis_log">CART Analysis</option>
+                        <option value="system_settings">Settings</option>
+                    </select>
+
+                    <button class="btn-save" style="padding: 6px 16px; font-size: 0.75rem;" id="auditRefreshBtn">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                </div>
+
+                <!-- Audit Log Table -->
+                <div class="audit-log-container">
+                    <table class="data-table" id="auditLogTable">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Entity</th>
+                                <th>IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditLogBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 24px; color: #94a3b8;">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading audit logs...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+</div>
+
+<!-- =========================================================
+     LOGOUT CONFIRMATION MODAL
+============================================================ -->
+<div id="logoutModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+">
+    <div style="
+        background: white;
+        max-width: 420px;
+        width: 90%;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <div style="
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+        ">
+            ⚠️
+        </div>
+        <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+            Confirm Logout
+        </h2>
+        <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+            Are you sure you want to logout? You will be redirected to the login page.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button id="logoutCancelBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #f1f5f9;
+                color: #475569;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Cancel
+            </button>
+            <button id="logoutConfirmBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #dc2626;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Yes, Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes modalPop {
+        0% { transform: scale(0.9); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<!-- =========================================================
+     JAVASCRIPT
+============================================================ -->
+
+<!-- 1. API HELPER (UNA - CRITICAL!) -->
+<script src="apiHelper.js"></script>
+
+<script>
+    // =========================================================
+    // HOME BUTTON
+    // =========================================================
+    document.getElementById('homeBtn').addEventListener('click', function() {
+        window.location.href = 'dashboard.html';
+    });
+
+    // =========================================================
+    // CHANGE PASSWORD
+    // =========================================================
+    document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const current = document.getElementById('currentPassword').value;
+        const newPass = document.getElementById('newPassword').value;
+        const confirm = document.getElementById('confirmPassword').value;
+
+        if (!current || !newPass || !confirm) {
+            alert('Please fill in all fields.');
+            return;
+        }
+
+        if (newPass.length < 6) {
+            alert('New password must be at least 6 characters.');
+            return;
+        }
+
+        if (newPass !== confirm) {
+            alert('New passwords do not match.');
+            return;
+        }
+
+        const successMsg = document.getElementById('passwordSuccess');
+        successMsg.classList.add('show');
+
+        setTimeout(() => {
+            document.getElementById('changePasswordForm').reset();
+            setTimeout(() => {
+                successMsg.classList.remove('show');
+            }, 2000);
+        }, 1000);
+    });
+
+    // =========================================================
+    // CURRENT USER PROFILE
+    // =========================================================
+    function getInitials(name) {
+        if (!name) return '?';
+        const parts = name.split(' ');
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    }
+
+    function getRoleClass(role) {
+        if (!role) return 'field-user';
+        const roleLower = role.toLowerCase();
+        if (roleLower.includes('admin')) return 'admin';
+        if (roleLower.includes('decision')) return 'decision-maker';
+        return 'field-user';
+    }
+
+    function getRoleIcon(role) {
+        if (!role) return '👤';
+        const roleLower = role.toLowerCase();
+        if (roleLower.includes('admin')) return '🛡️';
+        if (roleLower.includes('decision')) return '👔';
+        return '🚶';
+    }
+
+    function loadCurrentUser() {
+    const container = document.getElementById('currentUserProfile');
+    if (!container) return;
+
+    try {
+        // ✅ FIXED: Gumamit ng sessionStorage
+        const storedUser = sessionStorage.getItem('user');
+        let currentUser = null;
+
+        if (storedUser) {
+            try {
+                currentUser = JSON.parse(storedUser);
+            } catch (e) {}
+        }
+
+        if (!currentUser) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #94a3b8;">
+                    <i class="fa-solid fa-user-slash" style="font-size: 2rem;"></i>
+                    <p style="margin-top: 8px;">No user session found. Please login.</p>
+                    <button onclick="window.location.href='login.html'" style="margin-top: 12px; padding: 8px 20px; border: none; border-radius: 8px; background: #0f172a; color: white; font-weight: 600; cursor: pointer;">
+                        Go to Login
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        const initials = getInitials(currentUser.name);
+        const roleClass = getRoleClass(currentUser.role);
+        const roleIcon = getRoleIcon(currentUser.role);
+        // ✅ FIXED: Last login from sessionStorage
+        const lastLogin = sessionStorage.getItem('lastLogin') || 'First login';
+
+        container.innerHTML = `
+            <div class="user-profile-card">
+                <div class="user-avatar">
+                    <span class="avatar-text">${initials}</span>
+                </div>
+                <div class="user-info-details">
+                    <div class="name">${currentUser.name || 'Unknown User'}</div>
+                    <div class="username">@${currentUser.username || 'unknown'}</div>
+                    <span class="role-badge ${roleClass}">${roleIcon} ${currentUser.role || 'Field User'}</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+                <div class="user-detail-item">
+                    <span class="label"><i class="fa-regular fa-user" style="width: 20px;"></i> Full Name</span>
+                    <span class="value">${currentUser.name || 'N/A'}</span>
+                </div>
+                <div class="user-detail-item">
+                    <span class="label"><i class="fa-regular fa-user" style="width: 20px;"></i> Username</span>
+                    <span class="value">${currentUser.username || 'N/A'}</span>
+                </div>
+                <div class="user-detail-item">
+                    <span class="label"><i class="fa-regular fa-id-badge" style="width: 20px;"></i> Role</span>
+                    <span class="value">${currentUser.role || 'N/A'}</span>
+                </div>
+                ${currentUser.contact_no ? `
+                <div class="user-detail-item">
+                    <span class="label"><i class="fa-regular fa-phone" style="width: 20px;"></i> Contact Number</span>
+                    <span class="value">${currentUser.contact_no}</span>
+                </div>
+                ` : ''}
+                <div class="user-detail-item">
+                    <span class="label"><i class="fa-regular fa-clock" style="width: 20px;"></i> Session Status</span>
+                    <span class="value"><span class="online-dot"></span> Active</span>
+                </div>
+                <div class="user-detail-item" style="border-bottom: none;">
+                    <span class="label"><i class="fa-regular fa-calendar" style="width: 20px;"></i> Last Login</span>
+                    <span class="value">${lastLogin}</span>
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Error loading current user:', error);
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #ef4444;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">Failed to load user profile.</p>
+            </div>
+        `;
+    }
+}
+
+    // =========================================================
+// 🔥 LOGIN HISTORY - DIRECT FETCH (PUBLIC ROUTE)
+// =========================================================
+async function loadLoginHistory() {
+    const container = document.getElementById('loginHistoryContainer');
+    if (!container) return;
+
+    console.log('📋 loadLoginHistory() called');
+    
+    try {
+        // ✅ Gumamit ng apiFetch para sa consistency
+        const response = await apiFetch('/login-history');
+        
+        console.log('📥 Response status:', response.status);
+        
+        if (!response.ok) {
+            console.error('❌ Response not OK:', response.status);
+            const errorText = await response.text();
+            console.error('❌ Error response:', errorText);
+            throw new Error(`Failed to fetch login history: ${response.status}`);
+        }
+        
+        const loginHistory = await response.json();
+        console.log('✅ Login history data:', loginHistory);
+        console.log('📊 Number of records:', loginHistory.length);
+        
+        if (loginHistory.length === 0) {
+            console.log('ℹ️ No login history found in database');
+            container.innerHTML = `
+                <div class="login-history-empty">
+                    <i class="fa-regular fa-clock"></i>
+                    No login history found.
+                </div>
+            `;
+            return;
+        }
+
+        // ✅ I-display ang login history
+        let html = `
+            <div class="login-history-scroll">
+                <div style="font-size: 0.7rem; color: #94a3b8; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+                    <span>Date & Time</span>
+                    <span>User</span>
+                    <span>IP Address</span>
+                </div>
+        `;
+
+        loginHistory.slice(0, 10).forEach((entry, index) => {
+            const date = new Date(entry.login_time);
+            const formattedDate = date.toLocaleString('en-PH', {
+                month: 'short',
+                day: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const roleClass = entry.user_role ? 
+                entry.user_role.toLowerCase().includes('admin') ? 'admin' : 
+                entry.user_role.toLowerCase().includes('decision') ? 'decision-maker' : 'field-user'
+                : 'field-user';
+
+            html += `
+                <div class="login-history-item" style="animation: fadeIn 0.3s ease ${index * 0.05}s both;">
+                    <span class="login-date">
+                        <i class="fa-regular fa-calendar" style="color: #94a3b8; margin-right: 8px;"></i>
+                        ${formattedDate}
+                    </span>
+                    <div>
+                        <span style="font-weight: 600; color: #0f172a;">${entry.user_name || entry.username}</span>
+                        <span class="login-role ${roleClass}" style="margin-left: 8px;">
+                            ${entry.user_role || 'Field User'}
+                        </span>
+                    </div>
+                    <span style="font-size: 0.7rem; color: #94a3b8;">${entry.ip_address || 'N/A'}</span>
+                </div>
+            `;
+        });
+
+        html += `
+                <div style="text-align: right; font-size: 0.65rem; color: #94a3b8; padding-top: 8px; border-top: 1px solid #e2e8f0; margin-top: 4px;">
+                    ${loginHistory.length} total login${loginHistory.length > 1 ? 's' : ''}
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+        console.log('✅ Login history displayed successfully');
+
+    } catch (error) {
+        console.error('❌ Error loading login history:', error);
+        container.innerHTML = `
+            <div class="login-history-empty" style="color: #ef4444;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Failed to load login history.
+                <p style="font-size: 0.7rem; margin-top: 4px; color: #94a3b8;">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+    // =========================================================
+    // SYSTEM STATUS
+    // =========================================================
+    async function loadSystemStatus() {
+        try {
+            // ✅ Gumamit ng apiFetch
+            const response = await apiFetch('/incidents');
+            
+            if (response.ok) {
+                document.getElementById('serverStatus').innerHTML = `<span class="dot green"></span> Running`;
+                document.getElementById('dbStatus').innerHTML = `<span class="dot green"></span> Connected`;
+                
+                const data = await response.json();
+                document.getElementById('totalIncidents').textContent = data.length;
+            } else {
+                document.getElementById('serverStatus').innerHTML = `<span class="dot red"></span> Offline`;
+                document.getElementById('dbStatus').innerHTML = `<span class="dot red"></span> Disconnected`;
+                document.getElementById('totalIncidents').textContent = 'Error';
+            }
+
+            try {
+                const userResponse = await apiFetch('/users');
+                if (userResponse.ok) {
+                    const users = await userResponse.json();
+                    document.getElementById('totalUsers').textContent = users.length;
+                } else {
+                    document.getElementById('totalUsers').textContent = 'Error';
+                }
+            } catch (e) {
+                document.getElementById('totalUsers').textContent = 'Error';
+            }
+
+            document.getElementById('uptimeValue').textContent = '0h 0m';
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = now.toLocaleString();
+
+        } catch (error) {
+            console.error('Error loading system status:', error);
+            document.getElementById('serverStatus').innerHTML = `<span class="dot red"></span> Offline`;
+            document.getElementById('dbStatus').innerHTML = `<span class="dot red"></span> Disconnected`;
+            document.getElementById('totalIncidents').textContent = 'Error';
+            document.getElementById('totalUsers').textContent = 'Error';
+        }
+    }
+
+    // =========================================================
+    // AUDIT LOGS
+    // =========================================================
+    async function loadAuditLogs() {
+        const tbody = document.getElementById('auditLogBody');
+        const countEl = document.getElementById('auditLogCount');
+        if (!tbody) return;
+
+        const actionFilter = document.getElementById('auditFilterAction').value;
+        const entityFilter = document.getElementById('auditFilterEntity').value;
+
+        try {
+            let url = '/audit-logs?limit=100';
+            if (actionFilter) url += `&action=${encodeURIComponent(actionFilter)}`;
+            if (entityFilter) url += `&entity_type=${encodeURIComponent(entityFilter)}`;
+
+            const response = await apiFetch(url);
+            if (!response.ok) throw new Error('Failed to fetch audit logs');
+
+            const logs = await response.json();
+
+            if (countEl) {
+                countEl.textContent = `${logs.length} logs`;
+            }
+
+            if (logs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 24px; color: #94a3b8;">
+                            No audit logs found.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => {
+                const date = new Date(log.created_at);
+                const formattedDate = date.toLocaleString('en-PH', {
+                    month: 'short',
+                    day: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                let badgeClass = 'default';
+                const action = log.action || '';
+                if (action.includes('LOGIN')) badgeClass = 'login';
+                else if (action.includes('LOGOUT')) badgeClass = 'logout';
+                else if (action.includes('CREATE')) badgeClass = 'create';
+                else if (action.includes('UPDATE')) badgeClass = 'update';
+                else if (action.includes('DELETE')) badgeClass = 'delete';
+                else if (action.includes('VIEW')) badgeClass = 'view';
+
+                const userDisplay = log.user_name || log.username || `User #${log.user_id}` || 'System';
+
+                return `
+                    <tr>
+                        <td style="white-space: nowrap; font-size: 0.75rem;">${formattedDate}</td>
+                        <td><span class="font-bold">${userDisplay}</span></td>
+                        <td><span class="audit-badge ${badgeClass}">${log.action || 'N/A'}</span></td>
+                        <td style="font-size: 0.75rem;">${log.entity_type || 'N/A'} #${log.entity_id || 'N/A'}</td>
+                        <td style="font-size: 0.7rem; color: #94a3b8;">${log.ip_address || 'N/A'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('Error loading audit logs:', error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 24px; color: #ef4444;">
+                        Failed to load audit logs.
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    // =========================================================
+    // 🔥🆕 SYSTEM SETTINGS MANAGEMENT
+    // =========================================================
+
+    // Default values
+    const DEFAULT_SETTINGS = {
+        session_timeout_minutes: 30,
+        max_login_attempts: 5,
+        audit_log_retention_days: 90,
+        enable_audit_logging: true,
+        require_strong_password: true,
+        enable_2fa: false,
+        maintenance_mode: false,
+        cart_model_version: 'v1.0',
+        default_danger_threshold_high: 67,
+        default_danger_threshold_moderate: 34
+    };
+
+    let currentSettings = {};
+
+    async function loadSystemSettings() {
+        const statusEl = document.getElementById('settingsStatus');
+        if (statusEl) statusEl.textContent = 'Loading...';
+
+        try {
+            const response = await apiFetch('/settings');
+            if (!response.ok) throw new Error('Failed to fetch settings');
+            
+            const settings = await response.json();
+            
+            const settingsObj = {};
+            settings.forEach(item => {
+                settingsObj[item.setting_key] = item.setting_value;
+            });
+            
+            currentSettings = settingsObj;
+            displaySettings(settingsObj);
+            
+            if (statusEl) {
+                const count = Object.keys(settingsObj).length;
+                statusEl.textContent = count > 0 ? `${count} settings loaded` : 'No settings saved (using defaults)';
+            }
+
+        } catch (error) {
+            console.error('Error loading settings:', error);
+            displaySettings(DEFAULT_SETTINGS);
+            if (statusEl) statusEl.textContent = 'Using default values';
+            showToast('Failed to load settings, using defaults.', 'warning');
+        }
+    }
+
+    function displaySettings(settings) {
+        const settingMap = {
+            session_timeout_minutes: 'settingSessionTimeout',
+            max_login_attempts: 'settingMaxLoginAttempts',
+            audit_log_retention_days: 'settingAuditRetention',
+            enable_audit_logging: 'settingEnableAuditLogging',
+            require_strong_password: 'settingStrongPassword',
+            enable_2fa: 'settingEnable2FA',
+            maintenance_mode: 'settingMaintenanceMode',
+            cart_model_version: 'settingCartVersion',
+            default_danger_threshold_high: 'settingThresholdHigh',
+            default_danger_threshold_moderate: 'settingThresholdModerate'
+        };
+        
+        Object.keys(settingMap).forEach(key => {
+            const element = document.getElementById(settingMap[key]);
+            if (element) {
+                const value = settings[key] !== undefined ? settings[key] : DEFAULT_SETTINGS[key];
+                if (element.type === 'checkbox') {
+                    element.checked = value === 'true' || value === true || value === 1;
+                } else {
+                    element.value = value;
+                }
+            }
+        });
+    }
+
+    function getSettingsFromUI() {
+        const settingMap = {
+            session_timeout_minutes: 'settingSessionTimeout',
+            max_login_attempts: 'settingMaxLoginAttempts',
+            audit_log_retention_days: 'settingAuditRetention',
+            enable_audit_logging: 'settingEnableAuditLogging',
+            require_strong_password: 'settingStrongPassword',
+            enable_2fa: 'settingEnable2FA',
+            maintenance_mode: 'settingMaintenanceMode',
+            cart_model_version: 'settingCartVersion',
+            default_danger_threshold_high: 'settingThresholdHigh',
+            default_danger_threshold_moderate: 'settingThresholdModerate'
+        };
+        
+        const settings = {};
+        Object.keys(settingMap).forEach(key => {
+            const element = document.getElementById(settingMap[key]);
+            if (element) {
+                if (element.type === 'checkbox') {
+                    settings[key] = element.checked ? 'true' : 'false';
+                } else {
+                    settings[key] = element.value;
+                }
+            }
+        });
+        return settings;
+    }
+
+    async function saveAllSettings() {
+        const statusEl = document.getElementById('settingsStatus');
+        if (statusEl) statusEl.textContent = 'Saving...';
+
+        const settings = getSettingsFromUI();
+        
+        let success = true;
+        let errors = [];
+        
+        for (const [key, value] of Object.entries(settings)) {
+            try {
+                let response = await apiFetch(`/settings/${key}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ setting_value: value })
+                });
+                
+                if (response.status === 404) {
+                    response = await apiFetch('/settings', {
+                        method: 'POST',
+                        body: JSON.stringify({ setting_key: key, setting_value: value })
+                    });
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    errors.push(`${key}: ${errorData.error || 'Failed'}`);
+                    success = false;
+                }
+            } catch (error) {
+                errors.push(`${key}: ${error.message}`);
+                success = false;
+            }
+        }
+        
+        if (success) {
+            if (statusEl) statusEl.textContent = '✅ All settings saved!';
+            showToast('All settings saved successfully!', 'success');
+            await loadSystemSettings();
+        } else {
+            if (statusEl) statusEl.textContent = '❌ Some settings failed';
+            showToast('Some settings failed to save: ' + errors.join(', '), 'error');
+        }
+    }
+
+    // =========================================================
+    // LOGOUT CONFIRMATION MODAL
+    // =========================================================
+    (function() {
+        const logoutModal = document.getElementById('logoutModal');
+        const logoutCancelBtn = document.getElementById('logoutCancelBtn');
+        const logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (!logoutModal || !logoutBtn) return;
+
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            logoutModal.style.display = 'flex';
+        });
+
+        logoutCancelBtn.addEventListener('click', function() {
+            logoutModal.style.display = 'none';
+        });
+
+        logoutConfirmBtn.addEventListener('click', function() {
+            const sessionToken = getSessionToken();
+            if (sessionToken) {
+                fetch('http://localhost:3000/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_token: sessionToken })
+                }).catch(() => {});
+            }
+            clearSession();
+            window.location.href = 'login.html';
+        });
+
+        logoutModal.addEventListener('click', function(e) {
+            if (e.target === logoutModal) {
+                logoutModal.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && logoutModal.style.display === 'flex') {
+                logoutModal.style.display = 'none';
+            }
+        });
+    })();
+
+    // =========================================================
+    // INITIAL LOAD
+    // =========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSystemStatus();
+        loadCurrentUser();
+        loadLoginHistory();
+        loadAuditLogs();
+        loadSystemSettings();
+
+        // Filter listeners
+        document.getElementById('auditFilterAction').addEventListener('change', loadAuditLogs);
+        document.getElementById('auditFilterEntity').addEventListener('change', loadAuditLogs);
+        document.getElementById('auditRefreshBtn').addEventListener('click', loadAuditLogs);
+
+        // Settings listeners
+        document.getElementById('saveSettingsBtn').addEventListener('click', saveAllSettings);
+        document.getElementById('refreshSettingsBtn').addEventListener('click', loadSystemSettings);
+    });
+</script>
+
+</body>
+</html>

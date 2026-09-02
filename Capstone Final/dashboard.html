@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Barangay 179 Crime BI Dashboard</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Dashboard CSS -->
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+
+<body>
+
+<!-- =========================================================
+     LOGOUT CONFIRMATION MODAL
+============================================================ -->
+<div id="logoutModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+">
+    <div style="
+        background: white;
+        max-width: 420px;
+        width: 90%;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <div style="
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+        ">
+            ⚠️
+        </div>
+        <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+            Confirm Logout
+        </h2>
+        <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+            Are you sure you want to logout? You will be redirected to the login page.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button id="logoutCancelBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #f1f5f9;
+                color: #475569;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Cancel
+            </button>
+            <button id="logoutConfirmBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #dc2626;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Yes, Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes modalPop {
+        0% { transform: scale(0.9); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<div class="app-container">
+
+    <!-- =========================================================
+         SIDEBAR - DYNAMIC BASED ON ROLE
+    ========================================================== -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo-container">
+                <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="brand-logo-img">
+            </div>
+            <div class="brand-info">
+                <h2>Barangay 179 Crime BI</h2>
+                <p>Public Safety Command Center</p>
+            </div>
+        </div>
+
+        <div class="user-profile">
+            <div class="profile-info">
+                <h3 id="userNameDisplay">Barangay Secretary</h3>
+                <p id="userRoleDisplay">Administrator — Full Access</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <!-- Dashboard - visible to all -->
+            <a href="dashboard.html" class="nav-item active">
+                <span class="nav-icon">📊</span>
+                <span>BI Dashboard</span>
+            </a>
+
+            <!-- Incident Records - ADMIN ONLY -->
+            <a href="incident.html" class="nav-item admin-only" id="navIncidentRecords">
+                <span class="nav-icon">📁</span>
+                <span>Incident Records</span>
+            </a>
+
+            <!-- Incident View - visible to ALL (Admin + Captain) -->
+            <a href="incident-view.html" class="nav-item" id="navIncidentView">
+                <span class="nav-icon">👁️</span>
+                <span>Incident View</span>
+            </a>
+
+            <!-- Barangay Risk Map - visible to all -->
+            <a href="grid-heatmap.html" class="nav-item">
+                <span class="nav-icon">📍</span>
+                <span>Barangay Risk Map</span>
+            </a>
+
+            <!-- CART Analytics - visible to all -->
+            <a href="cart.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span>CART Analytics</span>
+            </a>
+
+            <!-- Patrol Decision Support - visible to all -->
+            <a href="patrol.html" class="nav-item">
+                <span class="nav-icon">🛡️</span>
+                <span>Patrol Decision Support</span>
+            </a>
+
+            <!-- Reports - visible to all -->
+            <a href="report.html" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span>Reports</span>
+            </a>
+
+            <!-- User Management - ADMIN ONLY -->
+            <a href="users.html" class="nav-item admin-only" id="navUserManagement">
+                <span class="nav-icon">👥</span>
+                <span>User Management</span>
+            </a>
+
+            <!-- Settings - ADMIN ONLY -->
+            <a href="settings.html" class="nav-item admin-only" id="navSettings">
+                <span class="nav-icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- =========================================================
+         MAIN CONTENT
+    ========================================================== -->
+    <main class="main-content">
+
+        <!-- HEADER -->
+        <header class="top-header">
+
+            <div class="header-titles">
+
+                <h1>
+                    Business Intelligence Dashboard
+                </h1>
+
+                <p>
+                    Live incident analytics for Barangay 179,
+                    Amparo, Caloocan City.
+                </p>
+
+            </div>
+
+            <div class="header-actions">
+
+                <button
+                    class="btn btn-secondary"
+                    onclick="window.location.href='dashboard.html'"
+                >
+                    <i class="fa-solid fa-house"></i>
+                    Home
+                </button>
+
+                <button
+                    class="btn btn-primary"
+                    id="logoutBtn"
+                >
+                    <i class="fa-solid fa-power-off"></i>
+                    Logout
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- =====================================================
+             KPI CARDS
+        ====================================================== -->
+        <section class="kpi-grid">
+
+            <div class="kpi-card animated-card">
+                <span class="kpi-label">
+                    Total Incidents
+                </span>
+
+                <div class="kpi-value-wrapper">
+                    <span
+                        class="kpi-value counter"
+                        id="kpi-incidents"
+                    >
+                        0
+                    </span>
+                </div>
+
+                <p
+                    class="kpi-desc"
+                    id="kpi-incidents-desc"
+                >
+                    Total recorded incidents in database.
+                </p>
+
+                <div class="kpi-progress">
+                    <span id="incidentProgress"></span>
+                </div>
+            </div>
+
+
+            <div class="kpi-card animated-card">
+
+                <span class="kpi-label">
+                    Latest Active Day
+                </span>
+
+                <div class="kpi-value-wrapper">
+
+                    <span
+                        class="kpi-value counter"
+                        id="kpi-active-day"
+                    >
+                        0
+                    </span>
+
+                </div>
+
+                <p class="kpi-desc">
+                    Incidents recorded on latest available date.
+                </p>
+
+            </div>
+
+
+            <div class="kpi-card animated-card">
+
+                <span class="kpi-label">
+                    Month Change
+                </span>
+
+                <div class="kpi-value-wrapper">
+
+                    <span
+                        class="kpi-value"
+                        id="kpi-change"
+                    >
+                        0
+                    </span>
+
+                </div>
+
+                <p class="kpi-desc">
+                    Compared with previous month.
+                </p>
+
+            </div>
+
+
+            <div class="kpi-card animated-card">
+
+                <span class="kpi-label">
+                    Priority Zones
+                </span>
+
+                <div class="kpi-value-wrapper">
+
+                    <span
+                        class="kpi-value counter"
+                        id="kpi-zones"
+                    >
+                        0
+                    </span>
+
+                </div>
+
+                <p class="kpi-desc">
+                    High-risk locations requiring patrol visibility.
+                </p>
+
+            </div>
+
+
+            <div class="kpi-card animated-card">
+
+                <span class="kpi-label">
+                    Common Incident
+                </span>
+
+                <div class="kpi-value-wrapper">
+
+                    <span
+                        class="kpi-value text-lg"
+                        id="kpi-common"
+                    >
+                        N/A
+                    </span>
+
+                </div>
+
+                <p class="kpi-desc">
+                    Most frequent category.
+                </p>
+
+            </div>
+
+
+            <div class="kpi-card animated-card">
+
+                <span class="kpi-label">
+                    Highest-Risk Area
+                </span>
+
+                <div class="kpi-value-wrapper">
+
+                    <span
+                        class="kpi-value text-lg"
+                        id="kpi-area"
+                    >
+                        N/A
+                    </span>
+
+                </div>
+
+                <p class="kpi-desc">
+                    Repeated moderate or high-risk reports.
+                </p>
+
+            </div>
+
+
+            <div class="kpi-card animated-card">
+
+                <span class="kpi-label">
+                    Peak Time
+                </span>
+
+                <div class="kpi-value-wrapper">
+
+                    <span
+                        class="kpi-value text-lg"
+                        id="kpi-peak"
+                    >
+                        N/A
+                    </span>
+
+                </div>
+
+                <p class="kpi-desc">
+                    Most common incident period.
+                </p>
+
+            </div>
+
+
+            <div class="kpi-card animated-card">
+
+                <span class="kpi-label">
+                    Predicted Risk
+                </span>
+
+                <div class="kpi-value-wrapper">
+
+                    <span
+                        class="kpi-value counter"
+                        id="kpi-risk"
+                    >
+                        0
+                    </span>
+
+                </div>
+
+                <p
+                    class="kpi-desc"
+                    id="kpi-risk-desc"
+                >
+                    Level 3 high-risk indicators recorded.
+                </p>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             ANALYTICS ROW 1
+        ====================================================== -->
+        <section class="charts-grid">
+
+            <!-- BAR -->
+            <div class="chart-card card animated-chart">
+
+                <div class="chart-header">
+
+                    <div>
+                        <span class="chart-kicker">
+                            ANALYTICS
+                        </span>
+
+                        <h2>
+                            Incident Types
+                        </h2>
+
+                        <p>
+                            Distribution of reported incident categories.
+                        </p>
+                    </div>
+
+                    <div class="chart-icon bar-icon">
+                        <i class="fa-solid fa-chart-column"></i>
+                    </div>
+
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="incidentTypesChart"></canvas>
+                </div>
+
+            </div>
+
+
+            <!-- PIE / DOUGHNUT -->
+            <div class="chart-card card animated-chart">
+
+                <div class="chart-header">
+
+                    <div>
+                        <span class="chart-kicker">
+                            RISK ANALYSIS
+                        </span>
+
+                        <h2>
+                            Danger Level Distribution
+                        </h2>
+
+                        <p>
+                            Low, moderate, and high-risk incident records.
+                        </p>
+                    </div>
+
+                    <div class="chart-icon danger-icon">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="dangerLevelChart"></canvas>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             ANALYTICS ROW 2
+        ====================================================== -->
+        <section class="charts-grid">
+
+            <!-- LINE -->
+            <div class="chart-card card animated-chart">
+
+                <div class="chart-header">
+
+                    <div>
+                        <span class="chart-kicker">
+                            TREND ANALYTICS
+                        </span>
+
+                        <h2>
+                            Crime Trend (Last 7 Days)
+                        </h2>
+
+                        <p>
+                            Incident movement throughout the last 7 days.
+                        </p>
+                    </div>
+
+                    <div class="chart-icon trend-icon">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                    </div>
+
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="crimeTrendChart"></canvas>
+                </div>
+
+            </div>
+
+
+            <!-- AREA -->
+            <div class="chart-card card animated-chart">
+
+                <div class="chart-header">
+
+                    <div>
+                        <span class="chart-kicker">
+                            TIME ANALYTICS
+                        </span>
+
+                        <h2>
+                            Incident Activity by Hour
+                        </h2>
+
+                        <p>
+                            Identifies the periods with increased incident activity.
+                        </p>
+                    </div>
+
+                    <div class="chart-icon area-icon">
+                        <i class="fa-solid fa-wave-square"></i>
+                    </div>
+
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="peakHoursChart"></canvas>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             TABLE + HOTSPOTS
+        ====================================================== -->
+        <section class="data-grid">
+
+            <!-- INCIDENT TABLE -->
+            <div class="data-card card">
+
+                <div class="card-title-bar">
+
+                    <div>
+                        <span class="chart-kicker">
+                            RECORDS
+                        </span>
+
+                        <h2>
+                            Recent Incident Table
+                        </h2>
+                    </div>
+
+                    <span
+                        class="badge-subtle"
+                    >
+                        Latest Records
+                    </span>
+
+                </div>
+
+                <div class="table-responsive">
+
+                    <table class="data-table">
+
+                        <thead>
+
+                        <tr>
+                            <th>INCIDENT ID</th>
+                            <th>TYPE</th>
+                            <th>DATE / TIME</th>
+                            <th>LOCATION</th>
+                            <th>STATUS</th>
+                            <th>DANGER LEVEL</th>
+                        </tr>
+
+                        </thead>
+
+                        <tbody id="incidentTableBody">
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+
+            <!-- HOTSPOTS -->
+            <div class="data-card card">
+
+                <div class="card-title-bar">
+
+                    <div>
+                        <span class="chart-kicker">
+                            RISK MAPPING
+                        </span>
+
+                        <h2>
+                            Top Hotspot Areas
+                        </h2>
+                    </div>
+
+                    <span
+                        class="badge-subtle"
+                    >
+                        By Danger Level
+                    </span>
+
+                </div>
+
+                <div
+                    class="hotspot-list"
+                    id="hotspotList"
+                >
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- =========================================================
+     SCRIPTS
+============================================================ -->
+<script src="apiHelper.js"></script>
+<script src="dashboard.js"></script>
+
+<script>
+    // =========================================================
+    // 1. ROLE-BASED SIDEBAR - HIDE/SHOW LINKS
+    // =========================================================
+    (function() {
+        const userData = sessionStorage.getItem('user');
+        if (userData) {
+            try {
+                const user = JSON.parse(userData);
+                const role = user.role || '';
+
+                console.log('👤 Current user role:', role);
+
+                // If user is Captain, hide admin-only links
+                if (role === 'Captain') {
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    console.log('✅ Captain mode: Admin links hidden');
+                } else {
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = 'flex';
+                    });
+                    console.log('✅ Admin mode: All links visible');
+                }
+            } catch (e) {
+                console.error('❌ Error parsing user data:', e);
+            }
+        }
+    })();
+
+    // =========================================================
+    // 2. LOGOUT CONFIRMATION MODAL
+    // =========================================================
+    (function() {
+        const logoutModal = document.getElementById('logoutModal');
+        const logoutCancelBtn = document.getElementById('logoutCancelBtn');
+        const logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (!logoutModal || !logoutBtn) return;
+
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            logoutModal.style.display = 'flex';
+        });
+
+        logoutCancelBtn.addEventListener('click', function() {
+            logoutModal.style.display = 'none';
+        });
+
+        logoutConfirmBtn.addEventListener('click', function() {
+            const sessionToken = getSessionToken();
+            if (sessionToken) {
+                fetch('http://localhost:3000/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_token: sessionToken })
+                }).catch(() => {});
+            }
+            clearSession();
+            window.location.href = 'login.html';
+        });
+
+        logoutModal.addEventListener('click', function(e) {
+            if (e.target === logoutModal) {
+                logoutModal.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && logoutModal.style.display === 'flex') {
+                logoutModal.style.display = 'none';
+            }
+        });
+    })();
+</script>
+
+</body>
+</html>

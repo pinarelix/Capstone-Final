@@ -1,0 +1,647 @@
+/* ============================================================
+   PATROL.CSS
+   Barangay 179 Crime BI
+   Patrol Decision Support Module - Modern UI
+============================================================ */
+
+/* ============================================================
+   TABS
+============================================================ */
+.patrol-tabs {
+    display: flex;
+    gap: 4px;
+    background: #e2e8f0;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 24px;
+    border: 1px solid #94a3b8;
+}
+
+.patrol-tab {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    user-select: none;
+    position: relative;
+    z-index: 10;
+}
+
+.patrol-tab:hover {
+    background: rgba(15, 23, 42, 0.05);
+    color: #0f172a;
+}
+
+.patrol-tab.active {
+    background: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+.patrol-tab i {
+    font-size: 0.9rem;
+}
+
+.patrol-tab-content {
+    display: none !important;
+}
+
+.patrol-tab-content.active {
+    display: block !important;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   FILTER BAR
+============================================================ */
+.patrol-filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #e2e8f0;
+    border: 1px solid #94a3b8;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.filter-info h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.filter-info h3 i {
+    color: #0ea5e9;
+    margin-right: 8px;
+}
+
+.filter-info p {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin: 0;
+}
+
+.filter-control {
+    min-width: 200px;
+}
+
+.filter-control .form-select {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #94a3b8;
+    background: #ffffff;
+    font-size: 0.85rem;
+    width: 100%;
+    cursor: pointer;
+}
+
+/* ============================================================
+   METRICS
+============================================================ */
+.patrol-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.metric-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #e2e8f0;
+    border: 1px solid #94a3b8;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+.metric-icon {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #dbeafe;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.metric-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.metric-info .metric-label {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+}
+
+.metric-info h4 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 4px 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.metric-info p {
+    font-size: 0.7rem;
+    color: #64748b;
+    margin: 0;
+}
+
+/* ============================================================
+   RECOMMENDATIONS
+============================================================ */
+.patrol-recommendations {
+    margin-top: 8px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.section-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.section-header h3 i {
+    color: #0ea5e9;
+    margin-right: 8px;
+}
+
+.section-header .badge-subtle {
+    font-size: 0.7rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: #cbd5e1;
+    color: #475569;
+    font-weight: 600;
+}
+
+.recommendations-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+/* ============================================================
+   RECOMMENDATION CARDS
+============================================================ */
+.rec-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 18px 20px;
+    position: relative;
+    border-left: 5px solid #10b981;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    transition: all 0.3s ease;
+}
+
+.rec-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+}
+
+.rec-card.high {
+    border-left-color: #ef4444;
+}
+
+.rec-card.medium {
+    border-left-color: #f59e0b;
+}
+
+.rec-card.low {
+    border-left-color: #10b981;
+}
+
+.rec-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.rec-card-header h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.priority-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+.priority-badge.high {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.priority-badge.medium {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.priority-badge.low {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.danger-level {
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.danger-level.high {
+    color: #dc2626;
+}
+
+.danger-level.medium {
+    color: #d97706;
+}
+
+.danger-level.low {
+    color: #059669;
+}
+
+.rec-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.rec-details strong {
+    color: #0f172a;
+}
+
+/* ============================================================
+   CART RISK BADGES
+============================================================ */
+.cart-risk-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.cart-risk-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cart-risk-badge.high {
+    background: #dc2626;
+}
+
+.cart-risk-badge.medium {
+    background: #f59e0b;
+}
+
+.cart-risk-badge.low {
+    background: #10b981;
+}
+
+.cart-risk-badge.info {
+    background: #0ea5e9;
+}
+
+.rec-card .cart-risk-badge {
+    margin-right: 6px;
+}
+
+/* Risk level colors for metric card */
+.metric-card .cart-score {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 12px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+.metric-card .cart-score.high {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.metric-card .cart-score.medium {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.metric-card .cart-score.low {
+    background: #d1fae5;
+    color: #059669;
+}
+
+/* Risk distribution in cards */
+.rec-details .risk-distribution {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.rec-details .risk-tag {
+    font-size: 0.6rem;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.rec-details .risk-tag.high {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.rec-details .risk-tag.medium {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.rec-details .risk-tag.low {
+    background: #d1fae5;
+    color: #059669;
+}
+
+/* ============================================================
+   FORM CARD
+============================================================ */
+.patrol-form-card {
+    background: #e2e8f0;
+    border: 1px solid #94a3b8;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+.form-header h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.form-header h3 i {
+    color: #0ea5e9;
+    margin-right: 8px;
+}
+
+.form-header p {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin: 4px 0 0;
+}
+
+.admin-badge {
+    font-size: 0.65rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #94a3b8;
+    border-radius: 8px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: #0f172a;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.form-control::placeholder {
+    color: #94a3b8;
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* ============================================================
+   TABLE CARD
+============================================================ */
+.patrol-table-card {
+    background: #e2e8f0;
+    border: 1px solid #94a3b8;
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+.table-header h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.table-header h3 i {
+    color: #0ea5e9;
+    margin-right: 8px;
+}
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+@media (max-width: 992px) {
+    .patrol-metrics {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .recommendations-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .patrol-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filter-control {
+        min-width: auto;
+    }
+    .patrol-metrics {
+        grid-template-columns: 1fr 1fr;
+    }
+    .form-grid-2 {
+        grid-template-columns: 1fr;
+    }
+    .patrol-tabs {
+        flex-wrap: wrap;
+    }
+    .patrol-tab {
+        flex: 1;
+        min-width: 100px;
+        font-size: 0.75rem;
+        padding: 10px 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .patrol-metrics {
+        grid-template-columns: 1fr;
+    }
+    .patrol-tabs {
+        flex-direction: column;
+    }
+    .patrol-tab {
+        width: 100%;
+        justify-content: center;
+    }
+    .patrol-form-card {
+        padding: 16px;
+    }
+    .patrol-table-card {
+        padding: 16px;
+        overflow-x: auto;
+    }
+    .metric-card {
+        padding: 14px;
+    }
+    .metric-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+}
+
+/* ============================================================
+   ROLE-BASED VISIBILITY
+============================================================ */
+body.role-decision-maker .admin-only {
+    display: none !important;
+}
+
+body.role-decision-maker .admin-action {
+    display: none !important;
+}
+
+body.role-decision-maker .admin-section {
+    display: none !important;
+}
+
+body.role-decision-maker .admin-badge {
+    display: none !important;
+}
+
+/* ============================================================
+   EMPTY STATE
+============================================================ */
+.empty-row td {
+    text-align: center;
+    padding: 35px 20px !important;
+    color: #64748b !important;
+}
+
+.empty-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.empty-content i {
+    font-size: 1.5rem;
+    opacity: 0.6;
+    color: #94a3b8;
+}
+
+.empty-content span {
+    color: #94a3b8;
+    font-size: 0.85rem;
+}

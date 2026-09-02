@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>User Management | Barangay 179 Crime BI</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+    <!-- dashboard.css for consistent sidebar -->
+    <link rel="stylesheet" href="dashboard.css">
+
+    <!-- User Management CSS -->
+    <link rel="stylesheet" href="users.css">
+
+    <style>
+        /* ============================================================
+           TABS
+        ============================================================ */
+        .tab-navigation {
+            display: flex;
+            gap: 4px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #94a3b8;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(15, 23, 42, 0.05);
+            color: #0f172a;
+        }
+
+        .tab-btn.active {
+            background: #0f172a;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================================
+           TANOD FORM ROW
+        ============================================================ */
+        .tanod-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        @media (max-width: 640px) {
+            .tanod-form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ============================================================
+           DELETE MODAL STYLES
+        ============================================================ */
+        .delete-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-modal-overlay.active {
+            display: flex;
+        }
+
+        .delete-modal-box {
+            background: white;
+            max-width: 420px;
+            width: 90%;
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalPop 0.3s ease;
+        }
+
+        .delete-modal-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+        }
+
+        .delete-modal-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .delete-modal-message {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 24px;
+        }
+
+        .delete-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .delete-modal-cancel {
+            padding: 10px 28px;
+            border: none;
+            border-radius: 10px;
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .delete-modal-cancel:hover {
+            background: #e2e8f0;
+        }
+
+        .delete-modal-confirm {
+            padding: 10px 28px;
+            border: none;
+            border-radius: 10px;
+            background: #dc2626;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .delete-modal-confirm:hover {
+            background: #b91c1c;
+        }
+
+        @keyframes modalPop {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app-container">
+
+    <!-- =========================================================
+         SIDEBAR
+    ========================================================== -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo-container">
+                <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="brand-logo-img">
+            </div>
+            <div class="brand-info">
+                <h2>Barangay 179 Crime BI</h2>
+                <p>Public Safety Command Center</p>
+            </div>
+        </div>
+
+        <div class="user-profile">
+            <div class="profile-info">
+                <h3 id="userNameDisplay">Barangay Secretary</h3>
+                <p id="userRoleDisplay">Administrator — Barangay Secretary / IT Personnel</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>BI Dashboard</span>
+            </a>
+            <a href="incident.html" class="nav-item">
+                <span class="nav-icon">📁</span>
+                <span>Incident Records</span>
+            </a>
+            <a href="grid-heatmap.html" class="nav-item">
+                <span class="nav-icon">📍</span>
+                <span>Barangay Risk Map</span>
+            </a>
+            <a href="cart.html" class="nav-item">
+                <span class="nav-icon">📈</span>
+                <span>CART Analytics</span>
+            </a>
+            <a href="patrol.html" class="nav-item">
+                <span class="nav-icon">🛡️</span>
+                <span>Patrol Decision Support</span>
+            </a>
+            <a href="report.html" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span>Reports</span>
+            </a>
+            <!-- 🔥 ADMIN ONLY -->
+            <a href="users.html" class="nav-item active admin-only">
+                <span class="nav-icon">👥</span>
+                <span>User Management</span>
+            </a>
+            <a href="settings.html" class="nav-item admin-only">
+                <span class="nav-icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+
+    <!-- =========================================================
+         MAIN CONTENT
+    ========================================================== -->
+    <main class="main-content">
+
+        <!-- =====================================================
+             TOP HEADER
+        ====================================================== -->
+        <header class="top-header">
+            <div class="header-titles">
+                <h1>User & Tanod Management</h1>
+                <p>Administrator-only module for managing system users and barangay tanods.</p>
+            </div>
+            <div class="header-actions">
+                <button type="button" class="btn btn-secondary" id="homeBtn">
+                    <i class="fa-solid fa-house"></i> Home
+                </button>
+                <button type="button" class="btn btn-primary" id="logoutBtn">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- =====================================================
+             TABS
+        ====================================================== -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="system-users">
+                <i class="fa-solid fa-users"></i> System Users
+            </button>
+            <button class="tab-btn" data-tab="tanod-list">
+                <i class="fa-solid fa-shield-halved"></i> Tanod List
+            </button>
+        </div>
+
+        <!-- =====================================================
+             TAB 1: SYSTEM USERS
+        ====================================================== -->
+        <div id="tab-system-users" class="tab-content active">
+
+            <section class="management-grid">
+
+                <!-- ADD SYSTEM USER -->
+                <div class="card add-user-card">
+                    <div class="card-title-bar">
+                        <div>
+                            <h2>Add System User</h2>
+                            <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Admin and Decision-Maker only</p>
+                        </div>
+                        <span class="section-label">Administrator Only</span>
+                    </div>
+
+                    <form id="userForm" autocomplete="off">
+                        <div class="form-group">
+                            <label for="userName">Name</label>
+                            <input type="text" id="userName" class="form-input" placeholder="Full name or position" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" class="form-input" placeholder="username" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" id="password" class="form-input" placeholder="password" required>
+                                <button type="button" class="password-toggle" id="passwordToggle" title="Show password">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="role">Role</label>
+                            <select id="role" class="form-select-full" required>
+                                <option value="Administrator">Administrator</option>
+                                <option value="Decision-Maker">Decision-Maker</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-add">
+                            <i class="fa-solid fa-user-plus"></i> Add User
+                        </button>
+                    </form>
+                </div>
+
+                <!-- ROLE ACCESS RULES -->
+                <div class="card access-card">
+                    <div class="card-title-bar">
+                        <h2>Role Access Rules</h2>
+                        <span class="section-label">System Security</span>
+                    </div>
+
+                    <div class="role-rules">
+                        <div class="role-rule">
+                            <div class="role-icon administrator">
+                                <i class="fa-solid fa-user-shield"></i>
+                            </div>
+                            <div class="role-content">
+                                <h3>Administrator</h3>
+                                <p>Full access to records, users, reports, maps, analytics, and settings.</p>
+                            </div>
+                        </div>
+
+                        <div class="role-rule">
+                            <div class="role-icon decision">
+                                <i class="fa-solid fa-user-tie"></i>
+                            </div>
+                            <div class="role-content">
+                                <h3>Decision-Maker</h3>
+                                <p>View-only access to reports, heatmaps, CART analytics, and patrol recommendations.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- SYSTEM USERS TABLE -->
+            <section class="card users-card">
+                <div class="card-title-bar users-header">
+                    <div>
+                        <h2>System Users</h2>
+                        <p class="table-description">Manage registered accounts and their system roles.</p>
+                    </div>
+                    <div class="table-controls">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="searchUsers" placeholder="Search users...">
+                        </div>
+                        <span class="badge-subtle" id="accountCount">0 account/s</span>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>NAME</th>
+                                <th>USERNAME</th>
+                                <th>ROLE</th>
+                                <th>PASSWORD</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- JavaScript generated -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- =====================================================
+             TAB 2: TANOD LIST
+        ====================================================== -->
+        <div id="tab-tanod-list" class="tab-content">
+
+            <!-- ADD TANOD -->
+            <div class="card add-user-card" style="margin-bottom: 20px;">
+                <div class="card-title-bar">
+                    <div>
+                        <h2 id="tanodFormTitle">Add New Tanod</h2>
+                        <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Barangay tanod personnel (no login)</p>
+                    </div>
+                    <span class="section-label">Barangay Personnel</span>
+                </div>
+
+                <form id="tanodForm" autocomplete="off">
+                    <input type="hidden" id="editTanodId" value="">
+
+                    <div class="form-group">
+                        <label for="tanodName">Full Name</label>
+                        <input type="text" id="tanodName" class="form-input" placeholder="Enter full name" required>
+                    </div>
+
+                    <div class="tanod-form-row">
+                        <div class="form-group">
+                            <label for="tanodPosition">Position</label>
+                            <select id="tanodPosition" class="form-select-full">
+                                <option value="Tanod">Tanod</option>
+                                <option value="Head Tanod">Head Tanod</option>
+                                <option value="Deputy Tanod">Deputy Tanod</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tanodContact">Contact Number</label>
+                            <input type="text" id="tanodContact" class="form-input" placeholder="09xxxxxxxxx">
+                        </div>
+                    </div>
+
+                    <div class="tanod-form-row">
+                        <div class="form-group">
+                            <label for="tanodArea">Assigned Area</label>
+                            <select id="tanodArea" class="form-select-full">
+                                <option value="Purok 1-3">Purok 1-3</option>
+                                <option value="Purok 4-6">Purok 4-6</option>
+                                <option value="Market Area">Market Area</option>
+                                <option value="Amparo Main Road">Amparo Main Road</option>
+                                <option value="All Areas">All Areas</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tanodShiftStart">Shift Start</label>
+                            <input type="time" id="tanodShiftStart" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tanodShiftEnd">Shift End</label>
+                        <input type="time" id="tanodShiftEnd" class="form-input">
+                    </div>
+
+                    <button type="submit" class="btn btn-add" id="tanodSubmitBtn">
+                        <i class="fa-solid fa-user-plus"></i> Add Tanod
+                    </button>
+                </form>
+            </div>
+
+            <!-- TANOD TABLE -->
+            <section class="card users-card">
+                <div class="card-title-bar users-header">
+                    <div>
+                        <h2>Tanod Records</h2>
+                        <p class="table-description">Manage barangay tanod personnel.</p>
+                    </div>
+                    <span class="badge-subtle" id="tanodCount">0 tanods</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>NAME</th>
+                                <th>POSITION</th>
+                                <th>CONTACT</th>
+                                <th>ASSIGNED AREA</th>
+                                <th>SHIFT</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tanodTableBody">
+                            <!-- JavaScript generated -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- =====================================================
+             SECURITY NOTICE
+        ====================================================== -->
+        <section class="security-notice">
+            <div class="security-icon">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+                <h3>Administrator Security Notice</h3>
+                <p>
+                    User accounts should only be created for authorized
+                    Barangay 179 personnel. Assign the minimum role required
+                    for each account.
+                </p>
+            </div>
+        </section>
+
+    </main>
+
+</div>
+
+<!-- =========================================================
+     LOGOUT CONFIRMATION MODAL
+============================================================ -->
+<div id="logoutModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+">
+    <div style="
+        background: white;
+        max-width: 420px;
+        width: 90%;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <div style="
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #fee2e2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+        ">
+            ⚠️
+        </div>
+        <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+            Confirm Logout
+        </h2>
+        <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+            Are you sure you want to logout? You will be redirected to the login page.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button id="logoutCancelBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #f1f5f9;
+                color: #475569;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Cancel
+            </button>
+            <button id="logoutConfirmBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #dc2626;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">
+                Yes, Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     DELETE CONFIRMATION MODAL (NEW)
+============================================================ -->
+<div id="deleteModal" class="delete-modal-overlay">
+    <div class="delete-modal-box">
+        <div class="delete-modal-icon">
+            🗑️
+        </div>
+        <h3 class="delete-modal-title">Confirm Delete</h3>
+        <p class="delete-modal-message" id="deleteMessage">Are you sure you want to delete this item?</p>
+        <div class="delete-modal-buttons">
+            <button class="delete-modal-cancel" id="deleteCancelBtn">Cancel</button>
+            <button class="delete-modal-confirm" id="deleteConfirmBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes modalPop {
+        0% { transform: scale(0.9); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<!-- =============================================================
+     JAVASCRIPT
+============================================================== -->
+
+<!-- 1. API HELPER (UNA - CRITICAL!) -->
+<script src="apiHelper.js"></script>
+
+
+<script src="users.js"></script>
+<script>
+    // Home button functionality
+    document.getElementById('homeBtn').addEventListener('click', function() {
+        window.location.href = 'dashboard.html';
+    });
+
+    // Password toggle functionality
+    document.getElementById('passwordToggle').addEventListener('click', function() {
+        const passwordInput = document.getElementById('password');
+        const icon = this.querySelector('i');
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    });
+
+    // =========================================================
+    // LOGOUT CONFIRMATION MODAL
+    // =========================================================
+    (function() {
+        const logoutModal = document.getElementById('logoutModal');
+        const logoutCancelBtn = document.getElementById('logoutCancelBtn');
+        const logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (!logoutModal || !logoutBtn) return;
+
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            logoutModal.style.display = 'flex';
+        });
+
+        logoutCancelBtn.addEventListener('click', function() {
+            logoutModal.style.display = 'none';
+        });
+
+        logoutConfirmBtn.addEventListener('click', function() {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        });
+
+        logoutModal.addEventListener('click', function(e) {
+            if (e.target === logoutModal) {
+                logoutModal.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && logoutModal.style.display === 'flex') {
+                logoutModal.style.display = 'none';
+            }
+        });
+    })();
+
+    // =========================================================
+    // DELETE CONFIRMATION MODAL (NEW)
+    // =========================================================
+    let pendingDeleteId = null;
+    let pendingDeleteType = null; // 'user' or 'tanod'
+
+    function showDeleteModal(message, id, type) {
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteMessage = document.getElementById('deleteMessage');
+        
+        deleteMessage.textContent = message;
+        pendingDeleteId = id;
+        pendingDeleteType = type;
+        deleteModal.classList.add('active');
+    }
+
+    function closeDeleteModal() {
+        const deleteModal = document.getElementById('deleteModal');
+        deleteModal.classList.remove('active');
+        pendingDeleteId = null;
+        pendingDeleteType = null;
+    }
+
+    document.getElementById('deleteCancelBtn').addEventListener('click', function() {
+        closeDeleteModal();
+    });
+
+    document.getElementById('deleteConfirmBtn').addEventListener('click', function() {
+        if (pendingDeleteId !== null) {
+            if (pendingDeleteType === 'user' && typeof confirmDeleteUser === 'function') {
+                confirmDeleteUser(pendingDeleteId);
+            } else if (pendingDeleteType === 'tanod' && typeof confirmDeleteTanod === 'function') {
+                confirmDeleteTanod(pendingDeleteId);
+            }
+            closeDeleteModal();
+        }
+    });
+
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeDeleteModal();
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeDeleteModal();
+        }
+    });
+</script>
+
+</body>
+</html>
