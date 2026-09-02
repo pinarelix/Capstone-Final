@@ -1,0 +1,40 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# OS
+Thumbs.db
+*.log
+
+# Database
+*.sqlite
+*.db
+*.session.sql
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Backup
+*.bak
+*.backup
+
+# Project specific
+BACKEND/.env
+BACKEND/*.log
