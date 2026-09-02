@@ -122,6 +122,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // =========================================================
+    // 5b. LOAD STATS (Total / Open / Monitoring / Resolved)
+    // Independent of the table's search/filter/pagination state -
+    // always reflects the true counts across every visible record.
+    // =========================================================
+    function loadStats() {
+        fetch(`${API_URL}/incidents/view-only?page=1&limit=1000`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                const list = data.incidents || [];
+                const counts = { Open: 0, Monitoring: 0, Resolved: 0 };
+                list.forEach(item => {
+                    if (counts[item.status] !== undefined) counts[item.status]++;
+                });
+
+                const statTotal = document.getElementById('statTotal');
+                const statOpen = document.getElementById('statOpen');
+                const statMonitoring = document.getElementById('statMonitoring');
+                const statResolved = document.getElementById('statResolved');
+
+                if (statTotal) statTotal.textContent = data.total ?? list.length;
+                if (statOpen) statOpen.textContent = counts.Open;
+                if (statMonitoring) statMonitoring.textContent = counts.Monitoring;
+                if (statResolved) statResolved.textContent = counts.Resolved;
+            })
+            .catch(error => {
+                console.error('❌ Error loading stats:', error);
+            });
+    }
+
+    // =========================================================
     // 6. LOAD INCIDENTS
     // =========================================================
     function loadIncidents() {
@@ -139,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show loading state
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center py-4 text-muted">
+                <td colspan="8" class="text-center py-4 text-muted">
                     <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading incidents...
                 </td>
             </tr>
@@ -182,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center py-4 text-danger">
+                    <td colspan="8" class="text-center py-4 text-danger">
                         <i class="fa-solid fa-circle-exclamation me-2"></i>
                         Failed to load incidents. Please try again.
                         <br>
@@ -201,7 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!incidents || incidents.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center py-5">
+                    <td colspan="8" class="text-center py-5">
                         <div class="empty-state">
                             <i class="fa-regular fa-inbox"></i>
                             <h4>No Incidents Found</h4>
@@ -214,16 +249,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         tableBody.innerHTML = incidents.map((incident, index) => {
-            // Status badge class
+            // Status badge class - matches the real DB values (Open,
+            // Monitoring, Resolved) and dashboard.css's shared badge colors
             const statusClass = {
-                'Pending': 'pending',
-                'Under Investigation': 'investigating',
-                'Resolved': 'resolved',
-                'Closed': 'closed',
-                'Open': 'pending',
-                'Monitoring': 'investigating'
-            }[incident.status] || 'pending';
-            
+                'Open': 'badge-open',
+                'Monitoring': 'badge-monitoring',
+                'Resolved': 'badge-resolved'
+            }[incident.status] || 'badge-open';
+
+            // Danger level badge class - same thresholds as dashboard.js
+            const danger = incident.danger_level || '';
+            let dangerClass = 'badge-danger-low';
+            if (danger.includes('Level 3') || danger.includes('High')) {
+                dangerClass = 'badge-danger-high';
+            } else if (danger.includes('Level 2') || danger.includes('Moderate')) {
+                dangerClass = 'badge-danger-mod';
+            }
+
             // Format date - using date and time fields from MySQL
             let formattedDate = 'N/A';
             if (incident.date) {
@@ -257,7 +299,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td><strong>${escapeHTML(incident.incident_type || 'N/A')}</strong></td>
                     <td>${escapeHTML(location)}</td>
                     <td>${formattedDate}</td>
-                    <td><span class="badge-status ${statusClass}">${escapeHTML(incident.status || 'Pending')}</span></td>
+                    <td><span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span></td>
+                    <td><span class="badge ${dangerClass}">${escapeHTML(danger || 'Not assessed')}</span></td>
                     <td>${escapeHTML(reporterName)}</td>
                     <td>
                         <button class="btn-view" data-id="${incident.id}">
@@ -280,6 +323,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // =========================================================
     // 8. VIEW INCIDENT DETAILS - FIXED: Tamang column names
     // =========================================================
+    const INCIDENT_TYPE_ICONS = {
+        'Theft': 'fa-user-secret',
+        'Robbery': 'fa-mask',
+        'Assault': 'fa-hand-fist',
+        'Vandalism': 'fa-spray-can',
+        'Drug Related': 'fa-pills',
+        'Physical Injury': 'fa-truck-medical',
+        'Noise Complaint': 'fa-volume-high',
+        'Suspicious Activity': 'fa-magnifying-glass',
+        'Traffic Obstruction': 'fa-car-burst',
+        'Curfew Violation': 'fa-moon'
+    };
+
+    function getIncidentIcon(type) {
+        return INCIDENT_TYPE_ICONS[type] || 'fa-triangle-exclamation';
+    }
+
     function viewIncident(id) {
         const modalBody = document.getElementById('viewIncidentBody');
         modalBody.innerHTML = `
@@ -343,57 +403,81 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const statusClass = {
-                'Pending': 'pending',
-                'Under Investigation': 'investigating',
-                'Resolved': 'resolved',
-                'Closed': 'closed',
-                'Open': 'pending',
-                'Monitoring': 'investigating'
-            }[incident.status] || 'pending';
-            
+                'Open': 'badge-open',
+                'Monitoring': 'badge-monitoring',
+                'Resolved': 'badge-resolved'
+            }[incident.status] || 'badge-open';
+
+            const modalDanger = incident.danger_level || '';
+            let dangerTier = 'low';
+            if (modalDanger.includes('Level 3') || modalDanger.includes('High')) {
+                dangerTier = 'high';
+            } else if (modalDanger.includes('Level 2') || modalDanger.includes('Moderate')) {
+                dangerTier = 'mod';
+            }
+            const modalDangerClass = `badge-danger-${dangerTier}`;
+
             // ✅ FIXED: gumamit ng tamang column names
             modalBody.innerHTML = `
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="detail-label">Incident Type</div>
-                        <div class="detail-value"><strong>${escapeHTML(incident.incident_type || 'N/A')}</strong></div>
+                <div class="incident-hero danger-${dangerTier}">
+                    <div class="incident-hero-icon">
+                        <i class="fa-solid ${getIncidentIcon(incident.incident_type)}"></i>
                     </div>
-                    <div class="col-md-6">
-                        <div class="detail-label">Status</div>
-                        <div class="detail-value"><span class="badge-status ${statusClass}">${escapeHTML(incident.status || 'Pending')}</span></div>
+                    <div>
+                        <p class="incident-hero-id">Incident #${incident.id}</p>
+                        <h3 class="incident-hero-title">${escapeHTML(incident.incident_type || 'N/A')}</h3>
+                        <div class="incident-hero-badges">
+                            <span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span>
+                            <span class="badge ${modalDangerClass}">${escapeHTML(incident.danger_level || 'Not assessed')}</span>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="detail-label">Location</div>
-                        <div class="detail-value">${escapeHTML(incident.street_name || 'N/A')}</div>
+                </div>
+
+                <div class="incident-detail-grid">
+                    <div class="incident-detail-card">
+                        <div class="incident-detail-icon"><i class="fa-solid fa-location-dot"></i></div>
+                        <div>
+                            <div class="detail-label">Location</div>
+                            <div class="detail-value">${escapeHTML(incident.street_name || 'N/A')}</div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="detail-label">Coordinates</div>
-                        <div class="detail-value">${incident.latitude ? `${incident.latitude}, ${incident.longitude}` : 'N/A'}</div>
+                    <div class="incident-detail-card">
+                        <div class="incident-detail-icon"><i class="fa-solid fa-calendar-day"></i></div>
+                        <div>
+                            <div class="detail-label">Date &amp; Time</div>
+                            <div class="detail-value">${formattedDate}</div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="detail-label">Date & Time</div>
-                        <div class="detail-value">${formattedDate}</div>
+                    <div class="incident-detail-card">
+                        <div class="incident-detail-icon"><i class="fa-solid fa-user"></i></div>
+                        <div>
+                            <div class="detail-label">Reported By</div>
+                            <div class="detail-value">${escapeHTML(incident.reporter_name || 'N/A')}</div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="detail-label">Reported By</div>
-                        <div class="detail-value">${escapeHTML(incident.reporter_name || 'N/A')}</div>
+                    <div class="incident-detail-card">
+                        <div class="incident-detail-icon"><i class="fa-solid fa-map-pin"></i></div>
+                        <div>
+                            <div class="detail-label">Coordinates</div>
+                            <div class="detail-value">${incident.latitude ? `${incident.latitude}, ${incident.longitude}` : 'N/A'}</div>
+                        </div>
                     </div>
-                    <div class="col-12">
-                        <div class="detail-label">Description</div>
-                        <div class="detail-value">${escapeHTML(incident.description || 'No description provided.')}</div>
+                    <div class="incident-detail-card">
+                        <div class="incident-detail-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                        <div>
+                            <div class="detail-label">Reported On</div>
+                            <div class="detail-value">${formattedCreated}</div>
+                        </div>
                     </div>
-                    <div class="col-12">
-                        <div class="detail-label">Recommended Action</div>
-                        <div class="detail-value">${escapeHTML(incident.recommended_action || 'No action recommended.')}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="detail-label">Danger Level</div>
-                        <div class="detail-value">${escapeHTML(incident.danger_level || 'Not assessed')}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="detail-label">Reported On</div>
-                        <div class="detail-value">${formattedCreated}</div>
-                    </div>
+                </div>
+
+                <div class="incident-text-card">
+                    <div class="incident-text-card-header"><i class="fa-solid fa-align-left"></i> Description</div>
+                    <div class="incident-text-card-body">${escapeHTML(incident.description || 'No description provided.')}</div>
+                </div>
+                <div class="incident-text-card">
+                    <div class="incident-text-card-header"><i class="fa-solid fa-shield-halved"></i> Recommended Action</div>
+                    <div class="incident-text-card-body">${escapeHTML(incident.recommended_action || 'No action recommended.')}</div>
                 </div>
             `;
         })
@@ -507,11 +591,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     refreshBtn.addEventListener('click', () => {
         loadIncidents();
+        loadStats();
         showToast('Refreshed successfully!', 'success');
     });
-    
+
     // =========================================================
     // 12. LOAD INITIAL DATA
     // =========================================================
     loadIncidents();
+    loadStats();
 });

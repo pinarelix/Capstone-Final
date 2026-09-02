@@ -115,17 +115,15 @@
             background: #f8fafc;
         }
 
-        .badge-status {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
+        /* Status/danger badges and the stats row reuse dashboard.css's
+           .badge + .badge-open / .badge-monitoring / .badge-resolved /
+           .badge-danger-* and .kpi-grid / .kpi-card classes, so this page
+           matches the same colors and layout as the Dashboard and
+           Incident Records table for the same values. */
 
-        .badge-status.pending { background: #fef3c7; color: #d97706; }
-        .badge-status.investigating { background: #dbeafe; color: #2563eb; }
-        .badge-status.resolved { background: #d1fae5; color: #059669; }
-        .badge-status.closed { background: #f1f5f9; color: #64748b; }
+        .view-stats-grid {
+            margin-bottom: 24px;
+        }
 
         .btn-view {
             background: #e0e7ff;
@@ -231,6 +229,126 @@
             color: #0f172a;
             font-weight: 500;
             margin-bottom: 12px;
+        }
+
+        /* ============================================================
+           INCIDENT DETAIL MODAL - REDESIGN
+        ============================================================ */
+        .incident-hero {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 22px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .incident-hero.danger-high { background: linear-gradient(135deg, #fef2f2, #ffffff); border-color: #fecaca; }
+        .incident-hero.danger-mod  { background: linear-gradient(135deg, #fffbeb, #ffffff); border-color: #fde68a; }
+        .incident-hero.danger-low  { background: linear-gradient(135deg, #f0fdf4, #ffffff); border-color: #bbf7d0; }
+
+        .incident-hero-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .incident-hero.danger-high .incident-hero-icon { background: #fee2e2; color: #dc2626; }
+        .incident-hero.danger-mod  .incident-hero-icon { background: #fef3c7; color: #b45309; }
+        .incident-hero.danger-low  .incident-hero-icon { background: #d1fae5; color: #047857; }
+
+        .incident-hero-id {
+            font-size: 0.72rem;
+            color: #94a3b8;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin: 0 0 2px;
+        }
+
+        .incident-hero-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .incident-hero-badges {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .incident-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .incident-detail-card {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 12px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+
+        .incident-detail-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0e7ff;
+            color: #4338ca;
+            font-size: 0.8rem;
+        }
+
+        .incident-detail-card .detail-label { margin-bottom: 2px; }
+        .incident-detail-card .detail-value { margin-bottom: 0; font-size: 0.88rem; word-break: break-word; }
+
+        .incident-text-card {
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: white;
+            margin-bottom: 14px;
+        }
+
+        .incident-text-card:last-child { margin-bottom: 0; }
+
+        .incident-text-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            color: #64748b;
+        }
+
+        .incident-text-card-body {
+            font-size: 0.9rem;
+            color: #334155;
+            line-height: 1.6;
+            white-space: pre-wrap;
         }
 
         /* Toast notification */
@@ -432,6 +550,38 @@
             </div>
         </header>
 
+        <!-- STATS -->
+        <section class="kpi-grid view-stats-grid">
+            <div class="kpi-card animated-card">
+                <span class="kpi-label">Total Incidents</span>
+                <div class="kpi-value-wrapper">
+                    <span class="kpi-value" id="statTotal">0</span>
+                </div>
+                <p class="kpi-desc">All records visible to your role.</p>
+            </div>
+            <div class="kpi-card animated-card">
+                <span class="kpi-label">Open</span>
+                <div class="kpi-value-wrapper">
+                    <span class="kpi-value" id="statOpen">0</span>
+                </div>
+                <p class="kpi-desc">Newly reported, not yet handled.</p>
+            </div>
+            <div class="kpi-card animated-card">
+                <span class="kpi-label">Monitoring</span>
+                <div class="kpi-value-wrapper">
+                    <span class="kpi-value" id="statMonitoring">0</span>
+                </div>
+                <p class="kpi-desc">Being watched by tanod/patrol.</p>
+            </div>
+            <div class="kpi-card animated-card">
+                <span class="kpi-label">Resolved</span>
+                <div class="kpi-value-wrapper">
+                    <span class="kpi-value" id="statResolved">0</span>
+                </div>
+                <p class="kpi-desc">Closed out, no further action.</p>
+            </div>
+        </section>
+
         <!-- FILTER SECTION -->
         <section class="filter-section">
             <div class="row g-3 align-items-end">
@@ -460,10 +610,9 @@
                     <label class="form-label fw-semibold text-muted small">Status</label>
                     <select id="filterStatus" class="form-select">
                         <option value="">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Under Investigation">Under Investigation</option>
+                        <option value="Open">Open</option>
+                        <option value="Monitoring">Monitoring</option>
                         <option value="Resolved">Resolved</option>
-                        <option value="Closed">Closed</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -485,13 +634,14 @@
                             <th>Location</th>
                             <th>Date & Time</th>
                             <th>Status</th>
+                            <th>Danger Level</th>
                             <th>Reported By</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="incidentTableBody">
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">
+                            <td colspan="8" class="text-center py-4 text-muted">
                                 <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading incidents...
                             </td>
                         </tr>
