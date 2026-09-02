@@ -195,7 +195,9 @@ function executeCartAnalysis() {
     const frequencyElement = document.getElementById("incidentFrequency");
     const frequency = frequencyElement ? frequencyElement.value : "Low";
 
-    apiFetch('/cart/analyze', {
+    const inputs = { incidentType, repeated, timeOccur, day, location, history, frequency };
+
+    apiFetch('/cart/predict', {
         method: 'POST',
         body: JSON.stringify({
             incident_type: incidentType,
@@ -207,159 +209,49 @@ function executeCartAnalysis() {
             frequency: frequency
         })
     })
-    .then(response => {
-        if (!response.ok) throw new Error('Failed to log CART analysis');
-        return response.json();
-    })
-    .then(logResult => {
-        console.log('✅ CART analysis logged:', logResult);
-        
-        // 🔥 FIRE EVENT: Notify other pages that CART data has been updated
-        try {
-            // Store timestamp in sessionStorage so other pages can detect changes
-            sessionStorage.setItem('cartUpdated', Date.now().toString());
-            // Dispatch a custom event that other windows can listen to
-            window.dispatchEvent(new Event('cartDataUpdated'));
-            console.log('📢 CART update event fired to notify patrol page');
-        } catch (e) {
-            console.warn('Could not fire CART update event:', e);
-        }
-        
-        return apiFetch('/cart/risk-factors');
-    })
-    .then(response => {
-        if (!response.ok) throw new Error('Failed to fetch risk factors');
-        return response.json();
-    })
-    .then(riskFactors => {
-        console.log('📋 Risk Factors from DB:', riskFactors);
-        return apiFetch('/cart/decision-rules')
-            .then(response => {
-                if (!response.ok) throw new Error('Failed to fetch decision rules');
-                return response.json();
-            })
-            .then(rules => {
-                return { riskFactors, rules };
-            });
-    })
-    .then(({ riskFactors, rules }) => {
-        console.log('📜 Decision Rules from DB:', rules);
-        updatePredictionUIWithRealData(
-            incidentType,
-            repeated,
-            timeOccur,
-            day,
-            location,
-            history,
-            frequency,
-            riskFactors,
-            rules
-        );
-        loadAnalysisHistory();
-        if (loadingOverlay) loadingOverlay.classList.add("hidden");
-    })
-    .catch(error => {
-        console.error('❌ Error:', error);
-        console.log('⚠️ Falling back to simulated data...');
-        setTimeout(function () {
-            updatePredictionUI(
-                incidentType,
-                repeated,
-                timeOccur,
-                day,
-                location,
-                history,
-                frequency
-            );
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to run CART prediction');
+            return response.json();
+        })
+        .then(result => {
+            console.log('✅ CART prediction:', result);
+            renderPredictionResult(inputs, result);
+        })
+        .catch(error => {
+            console.error('❌ Error running CART prediction:', error);
+            const explanationText = document.getElementById("explanationText");
+            if (explanationText) {
+                explanationText.textContent = 'Failed to run CART prediction. Please try again.';
+            }
+        })
+        .finally(() => {
             if (loadingOverlay) loadingOverlay.classList.add("hidden");
-        }, 1000);
-    });
+        });
 }
 
-function updatePredictionUIWithRealData(
-    incidentType,
-    repeated,
-    timeOccur,
-    day,
-    location,
-    history,
-    frequency,
-    riskFactors,
-    rules
-) {
-    let hourVal = 12;
-    if (timeOccur) {
-        const parts = timeOccur.split(":");
-        const parsedHour = parseInt(parts[0], 10);
-        if (!isNaN(parsedHour)) hourVal = parsedHour;
-    }
+/**
+ * Render a CART prediction result (from POST /cart/predict, the real
+ * cartEngine - same one used for persisted incidents) into the page.
+ */
+function renderPredictionResult(inputs, result) {
+    const { incidentType, repeated, timeOccur, day, location, history, frequency } = inputs;
+    const { totalScore, dangerLevel, scores, locationCount } = result;
 
+    const hourVal = parseInt((timeOccur || "0:0").split(":")[0], 10) || 0;
     const isNightTime = hourVal >= 18 || hourVal < 6;
-    const isPeakTime = (hourVal >= 18 && hourVal <= 23) || (hourVal >= 0 && hourVal <= 2);
 
-    let locationRisk = 0;
-    let streetCount = 0;
-    let streetRiskLevel = 'No Data';
-    
-    if (riskFactors && riskFactors.length > 0) {
-        const streetIncidentCount = {};
-        riskFactors.forEach(item => {
-            const street = item.street_name || '';
-            if (street) {
-                streetIncidentCount[street] = (streetIncidentCount[street] || 0) + 1;
-            }
-        });
-        
-        streetCount = streetIncidentCount[location] || 0;
-        
-        if (streetCount >= 5) {
-            locationRisk = 25;
-            streetRiskLevel = 'Critical Hotspot';
-        } else if (streetCount >= 3) {
-            locationRisk = 20;
-            streetRiskLevel = 'High Risk Area';
-        } else if (streetCount >= 2) {
-            locationRisk = 12;
-            streetRiskLevel = 'Moderate Risk Area';
-        } else if (streetCount >= 1) {
-            locationRisk = 5;
-            streetRiskLevel = 'Low Risk Area';
-        } else {
-            locationRisk = 0;
-            streetRiskLevel = 'No Incidents Recorded';
-        }
-    }
+    const LEVEL_META = {
+        'Level 3': { badgeClass: 'high', borderColor: '#dc2626', confidence: '96% Confidence', label: 'Level 3 — High Crime / Considerable Danger' },
+        'Level 2': { badgeClass: 'moderate', borderColor: '#f59e0b', confidence: '88% Confidence', label: 'Level 2 — Moderate Danger / Caution Area' },
+        'Level 1': { badgeClass: 'low', borderColor: '#10b981', confidence: '91% Confidence', label: 'Level 1 — Low Danger / Stable Area' }
+    };
+    const { badgeClass, borderColor, confidence, label: riskLevel } = LEVEL_META[dangerLevel] || LEVEL_META['Level 1'];
 
-    let score = 24;
-    if (isPeakTime) score += 20;
-    else if (isNightTime) score += 10;
-    if (repeated >= 5) score += 25;
-    else if (repeated >= 3) score += 15;
-    else if (repeated >= 1) score += 5;
-    if (history === 'High') score += 20;
-    else if (history === 'Moderate') score += 10;
-    if (frequency === 'High') score += 15;
-    else if (frequency === 'Moderate') score += 5;
-    score += locationRisk;
-    score = Math.min(score, 100);
-
-    let riskLevel, badgeClass, borderColor, confidence;
-    if (score >= 67) {
-        riskLevel = "Level 3 — High Crime / Considerable Danger";
-        badgeClass = "high";
-        borderColor = "#dc2626";
-        confidence = "96% Confidence";
-    } else if (score >= 34) {
-        riskLevel = "Level 2 — Moderate Danger / Caution Area";
-        badgeClass = "moderate";
-        borderColor = "#f59e0b";
-        confidence = "88% Confidence";
-    } else {
-        riskLevel = "Level 1 — Low Danger / Stable Area";
-        badgeClass = "low";
-        borderColor = "#10b981";
-        confidence = "91% Confidence";
-    }
+    let streetRiskLevel = 'No Incidents Recorded';
+    if (locationCount >= 5) streetRiskLevel = 'Critical Hotspot';
+    else if (locationCount >= 3) streetRiskLevel = 'High Risk Area';
+    else if (locationCount >= 2) streetRiskLevel = 'Moderate Risk Area';
+    else if (locationCount >= 1) streetRiskLevel = 'Low Risk Area';
 
     const riskBadge = document.getElementById("riskLevelBadge");
     if (riskBadge) {
@@ -379,17 +271,17 @@ function updatePredictionUIWithRealData(
 
     const riskScore = document.getElementById("riskScore");
     if (riskScore) {
-        riskScore.textContent = score;
+        riskScore.textContent = totalScore;
     }
 
     const explanationText = document.getElementById("explanationText");
     if (explanationText) {
-        explanationText.textContent = `The CART prototype evaluated ${incidentType.toLowerCase()} at ${location} with ${repeated} recorded similar incident${repeated === 1 ? "" : "s"}. Based on ${streetCount} incident${streetCount === 1 ? '' : 's'} recorded in this location, the system classified it as ${streetRiskLevel}. The prediction is also influenced by ${frequency.toLowerCase()} incident frequency, ${history.toLowerCase()} previous risk history, and an occurrence time of ${timeOccur} on ${day}. The combined indicators resulted in a ${riskLevel} classification.`;
+        explanationText.textContent = `The CART engine evaluated ${incidentType.toLowerCase()} at ${location} with ${repeated} recorded similar incident${repeated === 1 ? "" : "s"}. Based on ${locationCount} incident${locationCount === 1 ? '' : 's'} recorded in this location, the system classified it as ${streetRiskLevel}. The prediction is also influenced by ${frequency.toLowerCase()} incident frequency, ${history.toLowerCase()} previous risk history, and an occurrence time of ${timeOccur} on ${day}. The combined indicators resulted in a ${riskLevel} classification.`;
     }
 
     const patrolActionText = document.getElementById("patrolActionText");
     if (patrolActionText) {
-        patrolActionText.textContent = badgeClass === 'high' 
+        patrolActionText.textContent = badgeClass === 'high'
             ? "Prioritize the identified area for patrol coverage, increase visible barangay personnel presence during vulnerable periods, conduct close monitoring, and coordinate response planning when recurring incidents are observed."
             : badgeClass === 'moderate'
             ? "Deploy targeted patrols during identified peak periods, conduct periodic spot checks, increase visible barangay personnel presence, and monitor recurring incidents."
@@ -398,7 +290,7 @@ function updatePredictionUIWithRealData(
 
     const predictionSummaryText = document.getElementById("predictionSummaryText");
     if (predictionSummaryText) {
-        predictionSummaryText.textContent = `The CART prediction indicates a ${badgeClass}-risk pattern. Multiple input variables are aligned with the ${badgeClass}-risk branch, particularly the combination of repeated incidents, historical risk, incident frequency, and vulnerable time conditions.`;
+        predictionSummaryText.textContent = `The CART prediction indicates a ${badgeClass}-risk pattern. Multiple input variables are aligned with the ${badgeClass}-risk branch, particularly the combination of incident type, repeated incidents, historical risk, incident frequency, and vulnerable time conditions.`;
     }
 
     const riskFactorsContainer = document.getElementById("riskFactors");
@@ -424,7 +316,7 @@ function updatePredictionUIWithRealData(
                 <div>
                     <strong>Location</strong>
                     <small>${escapeHTML(location)}</small>
-                    <small style="color: #64748b; font-size: 0.45rem;">${streetCount} incident${streetCount === 1 ? '' : 's'} recorded</small>
+                    <small style="color: #64748b; font-size: 0.45rem;">${locationCount} incident${locationCount === 1 ? '' : 's'} recorded</small>
                 </div>
             </div>
             <div class="risk-factor">
@@ -440,27 +332,27 @@ function updatePredictionUIWithRealData(
     const pathList = document.getElementById("decisionPathList");
     if (pathList) {
         pathList.innerHTML = `
-            <li>Incident type checked: ${escapeHTML(incidentType)}</li>
+            <li>Incident type checked: ${escapeHTML(incidentType)} (${scores.type} pts)</li>
             <li>Repeated incidents checked: ${repeated}</li>
-            <li>Time checked: ${timeOccur} (${isNightTime ? "Night period" : "Day period"})</li>
-            <li>Day checked: ${day}</li>
+            <li>Time checked: ${timeOccur} (${isNightTime ? "Night period" : "Day period"}, ${scores.time} pts)</li>
+            <li>Day checked: ${day} (${scores.day} pts)</li>
             <li>Location checked: ${escapeHTML(location)}</li>
-            <li>Incidents in this location: ${streetCount}</li>
+            <li>Incidents in this location: ${locationCount} (${scores.location} pts)</li>
             <li>Location risk: ${streetRiskLevel}</li>
             <li>Previous risk history: ${history}</li>
-            <li>Incident frequency: ${frequency}</li>
-            <li class="final-path">Final classification: ${riskLevel}</li>
+            <li>Incident frequency: ${frequency} (${scores.frequency} pts)</li>
+            <li class="final-path">Final classification: ${riskLevel} (${totalScore} pts)</li>
         `;
     }
 
     const rootEvalText = document.getElementById("rootEvalText");
     if (rootEvalText) {
-        rootEvalText.textContent = `The root node evaluates ${incidentType.toLowerCase()} at ${location} (${streetCount} incident${streetCount === 1 ? '' : 's'} recorded) using recurrence (${repeated} cases), historical risk (${history}), and frequency (${frequency}) before determining which CART branch should be followed.`;
+        rootEvalText.textContent = `The root node evaluates ${incidentType.toLowerCase()} at ${location} (${locationCount} incident${locationCount === 1 ? '' : 's'} recorded) using recurrence (${repeated} cases), historical risk (${history}), and frequency (${frequency}) before determining which CART branch should be followed.`;
     }
 
     const branchEvalText = document.getElementById("branchEvalText");
     if (branchEvalText) {
-        branchEvalText.textContent = `Branch triggered by combined indicators: recurrence=${repeated}, frequency=${frequency}, previous history=${history}, time=${timeOccur}, and location=${location} (${streetCount} incident${streetCount === 1 ? '' : 's'} recorded - ${streetRiskLevel}).`;
+        branchEvalText.textContent = `Branch triggered by combined indicators: recurrence=${repeated}, frequency=${frequency}, previous history=${history}, time=${timeOccur}, and location=${location} (${locationCount} incident${locationCount === 1 ? '' : 's'} recorded - ${streetRiskLevel}).`;
     }
 
     const branchEvalBox = document.getElementById("branchEvalBox");
@@ -475,177 +367,10 @@ function updatePredictionUIWithRealData(
 
     const evaluatedRuleText = document.getElementById("evaluatedRuleText");
     if (evaluatedRuleText) {
-        evaluatedRuleText.textContent = `If ${incidentType.toLowerCase()} incidents occur at ${location} (${streetCount} incident${streetCount === 1 ? '' : 's'} recorded, classified as ${streetRiskLevel}) with ${frequency.toLowerCase()} frequency, ${repeated} recorded recurrence${repeated === 1 ? "" : "s"}, ${history.toLowerCase()} previous risk history, and a ${isNightTime ? "night-time" : "daytime"} occurrence at ${timeOccur} on ${day}, the CART decision path evaluates the available branches and classifies the area as ${riskLevel}.`;
+        evaluatedRuleText.textContent = `If ${incidentType.toLowerCase()} incidents occur at ${location} (${locationCount} incident${locationCount === 1 ? '' : 's'} recorded, classified as ${streetRiskLevel}) with ${frequency.toLowerCase()} frequency, ${repeated} recorded recurrence${repeated === 1 ? "" : "s"}, ${history.toLowerCase()} previous risk history, and a ${isNightTime ? "night-time" : "daytime"} occurrence at ${timeOccur} on ${day}, the CART decision path evaluates the available branches and classifies the area as ${riskLevel}.`;
     }
 
-    updateRiskCircle(badgeClass, score);
-}
-
-function updatePredictionUI(
-    incidentType,
-    repeated,
-    timeOccur,
-    day,
-    location,
-    history,
-    frequency
-) {
-    // Fallback function - same logic but without DB data
-    let hourVal = 12;
-    if (timeOccur) {
-        const parts = timeOccur.split(":");
-        const parsedHour = parseInt(parts[0], 10);
-        if (!isNaN(parsedHour)) hourVal = parsedHour;
-    }
-
-    const isNightTime = hourVal >= 18 || hourVal < 6;
-    const isPeakTime = (hourVal >= 18 && hourVal <= 23) || (hourVal >= 0 && hourVal <= 2);
-
-    let score = 24;
-    if (isPeakTime) score += 20;
-    else if (isNightTime) score += 10;
-    if (repeated >= 5) score += 25;
-    else if (repeated >= 3) score += 15;
-    else if (repeated >= 1) score += 5;
-    if (history === 'High') score += 20;
-    else if (history === 'Moderate') score += 10;
-    if (frequency === 'High') score += 15;
-    else if (frequency === 'Moderate') score += 5;
-    score = Math.min(score, 100);
-
-    let riskLevel, badgeClass, borderColor, confidence;
-    if (score >= 67) {
-        riskLevel = "Level 3 — High Crime / Considerable Danger";
-        badgeClass = "high";
-        borderColor = "#dc2626";
-        confidence = "96% Confidence";
-    } else if (score >= 34) {
-        riskLevel = "Level 2 — Moderate Danger / Caution Area";
-        badgeClass = "moderate";
-        borderColor = "#f59e0b";
-        confidence = "88% Confidence";
-    } else {
-        riskLevel = "Level 1 — Low Danger / Stable Area";
-        badgeClass = "low";
-        borderColor = "#10b981";
-        confidence = "91% Confidence";
-    }
-
-    const riskBadge = document.getElementById("riskLevelBadge");
-    if (riskBadge) {
-        riskBadge.className = `risk-level-banner ${badgeClass}`;
-        riskBadge.textContent = riskLevel;
-    }
-
-    const resultCard = document.querySelector(".cart-result-card");
-    if (resultCard) {
-        resultCard.style.borderLeftColor = borderColor;
-    }
-
-    const confidenceBadge = document.getElementById("confidenceBadge");
-    if (confidenceBadge) {
-        confidenceBadge.textContent = confidence;
-    }
-
-    const riskScore = document.getElementById("riskScore");
-    if (riskScore) {
-        riskScore.textContent = score;
-    }
-
-    const explanationText = document.getElementById("explanationText");
-    if (explanationText) {
-        explanationText.textContent = `The CART prototype evaluated ${incidentType.toLowerCase()} at ${location} with ${repeated} recorded similar incident${repeated === 1 ? "" : "s"}. The prediction is influenced by ${frequency.toLowerCase()} incident frequency, ${history.toLowerCase()} previous risk history, and an occurrence time of ${timeOccur} on ${day}. The combined indicators resulted in a ${riskLevel} classification.`;
-    }
-
-    const patrolActionText = document.getElementById("patrolActionText");
-    if (patrolActionText) {
-        patrolActionText.textContent = badgeClass === 'high' 
-            ? "Prioritize the identified area for patrol coverage, increase visible barangay personnel presence during vulnerable periods, conduct close monitoring, and coordinate response planning when recurring incidents are observed."
-            : badgeClass === 'moderate'
-            ? "Deploy targeted patrols during identified peak periods, conduct periodic spot checks, increase visible barangay personnel presence, and monitor recurring incidents."
-            : "Maintain standard routine patrols, regular barangay monitoring, community visibility, and periodic checking of the identified area.";
-    }
-
-    const predictionSummaryText = document.getElementById("predictionSummaryText");
-    if (predictionSummaryText) {
-        predictionSummaryText.textContent = `The CART prediction indicates a ${badgeClass}-risk pattern. Multiple input variables are aligned with the ${badgeClass}-risk branch.`;
-    }
-
-    const riskFactorsContainer = document.getElementById("riskFactors");
-    if (riskFactorsContainer) {
-        const timeDescription = isNightTime ? "Night period" : "Day period";
-        riskFactorsContainer.innerHTML = `
-            <div class="risk-factor">
-                <span class="factor-icon">🔁</span>
-                <div>
-                    <strong>Recurrence</strong>
-                    <small>${repeated} incident${repeated === 1 ? "" : "s"}</small>
-                </div>
-            </div>
-            <div class="risk-factor">
-                <span class="factor-icon">${isNightTime ? "🌙" : "☀️"}</span>
-                <div>
-                    <strong>Time Pattern</strong>
-                    <small>${timeDescription}</small>
-                </div>
-            </div>
-            <div class="risk-factor">
-                <span class="factor-icon">📍</span>
-                <div>
-                    <strong>Location</strong>
-                    <small>${escapeHTML(location)}</small>
-                </div>
-            </div>
-            <div class="risk-factor">
-                <span class="factor-icon">⚠️</span>
-                <div>
-                    <strong>History</strong>
-                    <small>${history}</small>
-                </div>
-            </div>
-        `;
-    }
-
-    const pathList = document.getElementById("decisionPathList");
-    if (pathList) {
-        pathList.innerHTML = `
-            <li>Incident type checked: ${escapeHTML(incidentType)}</li>
-            <li>Repeated incidents checked: ${repeated}</li>
-            <li>Time checked: ${timeOccur} (${isNightTime ? "Night period" : "Day period"})</li>
-            <li>Day checked: ${day}</li>
-            <li>Location checked: ${escapeHTML(location)}</li>
-            <li>Previous risk history: ${history}</li>
-            <li>Incident frequency: ${frequency}</li>
-            <li class="final-path">Final classification: ${riskLevel}</li>
-        `;
-    }
-
-    const rootEvalText = document.getElementById("rootEvalText");
-    if (rootEvalText) {
-        rootEvalText.textContent = `The root node evaluates ${incidentType.toLowerCase()} at ${location} using recurrence (${repeated} cases), historical risk (${history}), and frequency (${frequency}) before determining which CART branch should be followed.`;
-    }
-
-    const branchEvalText = document.getElementById("branchEvalText");
-    if (branchEvalText) {
-        branchEvalText.textContent = `Branch triggered by combined indicators: recurrence=${repeated}, frequency=${frequency}, previous history=${history}, time=${timeOccur}, and location=${location}.`;
-    }
-
-    const branchEvalBox = document.getElementById("branchEvalBox");
-    if (branchEvalBox) {
-        branchEvalBox.className = `expl-box branch-eval${badgeClass === 'low' ? ' low-branch' : badgeClass === 'moderate' ? ' mod-branch' : ''}`;
-    }
-
-    const ruleMatchBox = document.getElementById("ruleMatchBox");
-    if (ruleMatchBox) {
-        ruleMatchBox.className = `example-rule-box large-orange-box${badgeClass === 'low' ? ' low-rule' : ''}`;
-    }
-
-    const evaluatedRuleText = document.getElementById("evaluatedRuleText");
-    if (evaluatedRuleText) {
-        evaluatedRuleText.textContent = `If ${incidentType.toLowerCase()} incidents occur at ${location} with ${frequency.toLowerCase()} frequency, ${repeated} recorded recurrence${repeated === 1 ? "" : "s"}, ${history.toLowerCase()} previous risk history, and a ${isNightTime ? "night-time" : "daytime"} occurrence at ${timeOccur} on ${day}, the CART decision path evaluates the available branches and classifies the area as ${riskLevel}.`;
-    }
-
-    updateRiskCircle(badgeClass, score);
+    updateRiskCircle(badgeClass, totalScore);
 }
 
 function updateRiskCircle(riskClass, score) {

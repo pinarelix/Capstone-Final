@@ -2271,6 +2271,70 @@ app.get('/api/cart/analysis-logs', authenticate, requireRole(['Administrator', '
     }
 });
 
+// ============================================================
+// 🆕 CART PREDICT - Stateless what-if prediction for the
+// CART Analytics prototype form. Runs the real cartEngine (the
+// same engine used for persisted incidents) against the submitted
+// field values plus real location/frequency stats for the chosen
+// street - but never writes to incidents or cart_risk_factors.
+// ============================================================
+app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+    try {
+        const { incident_type, time, day, location, repeated, history, frequency } = req.body;
+
+        if (!incident_type || !time || !day) {
+            return res.status(400).json({ error: 'incident_type, time, and day are required' });
+        }
+
+        const timeOfDay = computeTimeOfDay(time);
+        const isWeekend = ['Saturday', 'Sunday'].includes(day);
+
+        let streetCount = 0;
+        let recentCount = 0;
+        if (location) {
+            const [locationRows] = await pool.query(
+                'SELECT COUNT(*) as street_count FROM incidents WHERE street_name = ?',
+                [location]
+            );
+            streetCount = locationRows[0]?.street_count || 0;
+
+            const [frequencyRows] = await pool.query(
+                `SELECT COUNT(*) as recent_count FROM incidents
+                 WHERE street_name = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+                [location]
+            );
+            recentCount = frequencyRows[0]?.recent_count || 0;
+        }
+
+        // The prototype form's "Repeated Incidents" / "Previous Risk
+        // History" / "Incident Frequency" inputs don't map onto their own
+        // axes in the real 5-factor model (time/day/type/location/
+        // frequency) - blend them into the location/frequency counts so
+        // every field on the form still meaningfully affects the result,
+        // computed through the same scoring functions as real incidents.
+        const BUCKET_COUNT = { High: 5, Moderate: 2, Low: 1 };
+        const effectiveLocationCount = Math.max(streetCount, BUCKET_COUNT[history] || 0);
+        const effectiveRecentCount = Math.max(recentCount, parseInt(repeated) || 0, BUCKET_COUNT[frequency] || 0);
+
+        const result = cartEngine.analyze(
+            { incident_type, time_of_day: timeOfDay, is_weekend: isWeekend, street_name: location || null },
+            { street_count: effectiveLocationCount },
+            { recent_count: effectiveRecentCount }
+        );
+
+        res.json({
+            success: true,
+            ...result,
+            locationCount: effectiveLocationCount,
+            frequencyCount: effectiveRecentCount
+        });
+
+    } catch (error) {
+        console.error('❌ Error running CART prediction:', error);
+        res.status(500).json({ error: 'Failed to run CART prediction' });
+    }
+});
+
 app.post('/api/cart/analyze', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const startTime = Date.now();
