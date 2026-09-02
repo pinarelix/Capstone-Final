@@ -494,7 +494,7 @@
                 <span class="nav-icon">📊</span>
                 <span>BI Dashboard</span>
             </a>
-            <a href="incident.html" class="nav-item">
+            <a href="incident.html" class="nav-item admin-only">
                 <span class="nav-icon">📁</span>
                 <span>Incident Records</span>
             </a>
@@ -506,7 +506,7 @@
                 <span class="nav-icon">📍</span>
                 <span>Barangay Risk Map</span>
             </a>
-            <a href="cart.html" class="nav-item">
+            <a href="cart.html" class="nav-item admin-only">
                 <span class="nav-icon">📈</span>
                 <span>CART Analytics</span>
             </a>
@@ -821,8 +821,12 @@
                 const user = JSON.parse(userData);
                 const role = user.role || '';
 
-                // If user is Captain, hide admin-only links
-                if (role === 'Captain') {
+                // Only Administrator sees admin-only links - there is no
+                // literal 'Captain' role in the database (it only has
+                // 'Administrator' and 'Decision-Maker'), so checking for
+                // that string here always fell through to showing every
+                // admin-only link to everyone.
+                if (role !== 'Administrator') {
                     document.querySelectorAll('.admin-only').forEach(el => {
                         el.style.display = 'none';
                     });
