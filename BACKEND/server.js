@@ -579,8 +579,8 @@ async function recomputeAllCartRiskFactors() {
 app.get('/api/users', authenticate, requireRole(['Administrator']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT 
-                u.id, u.name, u.username, u.password_hash, u.role, 
+            SELECT
+                u.id, u.name, u.username, u.role,
                 u.contact_no, u.is_active, u.last_login_at, u.created_at, u.updated_at
             FROM users u
             ORDER BY u.id
@@ -595,8 +595,8 @@ app.get('/api/users', authenticate, requireRole(['Administrator']), async (req, 
 app.get('/api/users/:id', authenticate, requireRole(['Administrator']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT 
-                u.id, u.name, u.username, u.password_hash, u.role, 
+            SELECT
+                u.id, u.name, u.username, u.role,
                 u.contact_no, u.is_active, u.last_login_at, u.created_at, u.updated_at
             FROM users u
             WHERE u.id = ?
@@ -638,8 +638,8 @@ app.post('/api/users', authenticate, requireRole(['Administrator']), validate(us
         );
         
         const [newUser] = await pool.query(`
-            SELECT 
-                u.id, u.name, u.username, u.password_hash, u.role, 
+            SELECT
+                u.id, u.name, u.username, u.role,
                 u.contact_no, u.is_active, u.created_at, u.updated_at
             FROM users u
             WHERE u.id = ?
@@ -721,23 +721,23 @@ app.get('/api/users/search', authenticate, requireRole(['Administrator']), async
         
         if (!q) {
             const [rows] = await pool.query(`
-                SELECT 
-                    u.id, u.name, u.username, u.password_hash, u.role, 
+                SELECT
+                    u.id, u.name, u.username, u.role,
                     u.contact_no, u.is_active, u.last_login_at
                 FROM users u
                 ORDER BY u.id
             `);
             return res.json(rows);
         }
-        
+
         const searchTerm = `%${q}%`;
         const [rows] = await pool.query(`
-            SELECT 
-                u.id, u.name, u.username, u.password_hash, u.role, 
+            SELECT
+                u.id, u.name, u.username, u.role,
                 u.contact_no, u.is_active, u.last_login_at
             FROM users u
-            WHERE u.name LIKE ? 
-               OR u.username LIKE ? 
+            WHERE u.name LIKE ?
+               OR u.username LIKE ?
                OR u.role LIKE ?
             ORDER BY u.id
         `, [searchTerm, searchTerm, searchTerm]);
@@ -2174,8 +2174,9 @@ app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Administrator']),
 app.get('/api/cart/risk-factors', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT 
+            SELECT
                 i.id,
+                rf.incident_id,
                 i.incident_type,
                 i.date,
                 i.time,

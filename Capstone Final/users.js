@@ -442,41 +442,38 @@ function renderUsers(filteredUsers = users) {
         return;
     }
 
-    filteredUsers.forEach(function (user) {
+    filteredUsers.forEach(function (users) {
         const row = document.createElement("tr");
         
         let roleClass = 'role-badge role-field-user';
-        let roleDisplay = user.role || 'User';
+        let roleDisplay = users.role || 'User';
         
-        if (user.role === 'Administrator') {
+        if (users.role === 'Administrator') {
             roleClass = 'role-badge role-admin';
-        } else if (user.role === 'Decision-Maker') {
+        } else if (users.role === 'Decision-Maker') {
             roleClass = 'role-badge role-decision-maker';
         }
 
         row.innerHTML = `
             <td>
-                <span class="font-bold" style="color: #0f172a;">${escapeHTML(user.name)}</span>
+                <span class="font-bold" style="color: #0f172a;">${escapeHTML(users.name)}</span>
             </td>
-            <td style="color: #475569;">${escapeHTML(user.username)}</td>
+            <td style="color: #475569;">${escapeHTML(users.username)}</td>
             <td>
                 <span class="${roleClass}">
-                    ${getRoleIcon(user.role)}
+                    ${getRoleIcon(users.role)}
                     ${escapeHTML(roleDisplay)}
                 </span>
             </td>
             <td>
                 <div class="password-cell">
-                    <span class="password-text" id="password-${user.id}" data-password="••••••••">
+                    <span class="password-text" title="Passwords are not retrievable">
                         ••••••••
                     </span>
-                    <button type="button" class="password-visibility" data-id="${user.id}" title="Show password">
-                        <i class="fa-solid fa-eye"></i>
-                    </button>
                 </div>
             </td>
             <td>
-                <button type="button" class="btn-delete" data-delete-id="${user.id}">
+                <button type="button" class="btn-delete" data-delete-id="${users.id}">
                     <i class="fa-solid fa-trash"></i>
                     Delete
                 </button>
@@ -487,7 +484,6 @@ function renderUsers(filteredUsers = users) {
     });
 
     setupDeleteButtons();
-    setupPasswordVisibility();
 }
 
 function updateAccountCount() {
@@ -609,28 +605,6 @@ function setupPasswordToggle() {
     });
 }
 
-function setupPasswordVisibility() {
-    const buttons = document.querySelectorAll(".password-visibility");
-
-    buttons.forEach(function (button) {
-        button.addEventListener("click", function () {
-            const id = this.getAttribute("data-id");
-            const passwordElement = document.getElementById(`password-${id}`);
-
-            if (!passwordElement) return;
-
-            if (passwordElement.textContent.trim() === "••••••••") {
-                passwordElement.textContent = "••••••••";
-                this.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
-                this.title = "Hide password";
-            } else {
-                passwordElement.textContent = "••••••••";
-                this.innerHTML = '<i class="fa-solid fa-eye"></i>';
-                this.title = "Show password";
-            }
-        });
-    });
-}
 
 /* ============================================================
    NAVIGATION
