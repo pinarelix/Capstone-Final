@@ -30,6 +30,17 @@
             --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
         }
 
+        /* Bootstrap's reboot sets body { line-height: 1.5 }, which this
+           page inherits everywhere (sidebar labels, headings, table
+           text) since dashboard.css never sets its own - every other
+           page just uses the browser default ("normal", ~1.2). That
+           loosened spacing sitewide on this one page, not just the
+           modal it was added to fix. Restore the shared default so
+           this page's typography matches the rest of the app. */
+        body {
+            line-height: normal;
+        }
+
         /* Additional styles for incident view */
         .incident-view-header {
             background: white;
