@@ -13,10 +13,23 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 
+    <!-- Bootstrap CSS - this page uses bootstrap.Modal (JS) plus .row/
+         .col-md-*/.modal-*/.pagination markup throughout, but only the
+         JS bundle was ever linked. Without this, the incident-details
+         modal has no positioning at all (position: static - it just
+         sits inline in the page instead of overlaying it) and the
+         filter fields never form a row. -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+
     <!-- Dashboard CSS -->
     <link rel="stylesheet" href="dashboard.css" />
 
     <style>
+        :root {
+            /* Stronger than the built-in CSS ease-out - has real punch */
+            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
         /* Additional styles for incident view */
         .incident-view-header {
             background: white;
@@ -71,14 +84,20 @@
             border-radius: 10px;
             padding: 10px 20px;
             font-weight: 600;
-            transition: all 0.2s ease;
+            transition: background-color 160ms ease, transform 160ms var(--ease-out), box-shadow 160ms ease;
             width: 100%;
         }
 
-        .btn-refresh:hover {
-            background: #1d4ed8;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        @media (hover: hover) and (pointer: fine) {
+            .btn-refresh:hover {
+                background: #1d4ed8;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            }
+        }
+
+        .btn-refresh:active {
+            transform: scale(0.97);
         }
 
         .incident-table-card {
@@ -133,13 +152,19 @@
             padding: 4px 14px;
             font-size: 0.8rem;
             font-weight: 600;
-            transition: all 0.2s ease;
+            transition: background-color 160ms ease, color 160ms ease, transform 160ms var(--ease-out);
         }
 
-        .btn-view:hover {
-            background: #4338ca;
-            color: white;
-            transform: translateY(-1px);
+        @media (hover: hover) and (pointer: fine) {
+            .btn-view:hover {
+                background: #4338ca;
+                color: white;
+                transform: translateY(-1px);
+            }
+        }
+
+        .btn-view:active {
+            transform: scale(0.97);
         }
 
         .pagination-custom .page-link {
@@ -192,6 +217,29 @@
             border-radius: 16px;
             border: none;
             box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+
+        /* Entrance: scale + opacity with a strong custom ease-out,
+           replacing Bootstrap's default translateY slide. Starts from
+           0.95, not 0 - modals stay centered (only non-modal popovers
+           should be origin-aware to their trigger). */
+        .modal-custom.fade .modal-dialog {
+            transition: transform 220ms var(--ease-out), opacity 220ms var(--ease-out);
+            transform: scale(0.95);
+            opacity: 0;
+        }
+
+        .modal-custom.show .modal-dialog {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .modal-custom .btn-close {
+            transition: transform 160ms var(--ease-out), opacity 160ms ease;
+        }
+
+        .modal-custom .btn-close:active {
+            transform: scale(0.9);
         }
 
         .modal-custom .modal-header {
