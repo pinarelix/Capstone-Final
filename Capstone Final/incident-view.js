@@ -65,7 +65,17 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         userRoleDisplay.textContent = roleMap[user.role] || user.role || 'Captain';
     }
-    
+
+    // Adds the role-* class to <body> that dashboard.css's
+    // `body.role-decision-maker .admin-only { display: none !important; }`
+    // rule depends on - this page previously relied only on a separate
+    // inline script directly toggling el.style.display, which a plain
+    // (non-!important) inline style can lose against other same-page
+    // logic. Every other page already calls this; this page didn't.
+    if (typeof applyRoleBasedUI === 'function') {
+        applyRoleBasedUI();
+    }
+
     // =========================================================
     // 3. STATE VARIABLES
     // =========================================================

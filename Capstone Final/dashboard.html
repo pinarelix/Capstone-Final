@@ -672,37 +672,12 @@
 <script src="dashboard.js"></script>
 
 <script>
-    // =========================================================
-    // 1. ROLE-BASED SIDEBAR - HIDE/SHOW LINKS
-    // =========================================================
-    (function() {
-        const userData = sessionStorage.getItem('user');
-        if (userData) {
-            try {
-                const user = JSON.parse(userData);
-                const role = user.role || '';
-
-                console.log('👤 Current user role:', role);
-
-                // Only Administrator sees admin-only links - there is no
-                // literal 'Captain' role in the database (it only has
-                // 'Administrator' and 'Decision-Maker').
-                if (role !== 'Administrator') {
-                    document.querySelectorAll('.admin-only').forEach(el => {
-                        el.style.display = 'none';
-                    });
-                    console.log('✅ Non-admin mode: Admin links hidden');
-                } else {
-                    document.querySelectorAll('.admin-only').forEach(el => {
-                        el.style.display = 'flex';
-                    });
-                    console.log('✅ Admin mode: All links visible');
-                }
-            } catch (e) {
-                console.error('❌ Error parsing user data:', e);
-            }
-        }
-    })();
+    // Admin-only sidebar links are hidden via dashboard.js calling
+    // apiHelper.js's applyRoleBasedUI() (adds a role-* class to <body>
+    // that dashboard.css's !important rule reads). A previous inline
+    // script here duplicated this by setting el.style.display directly,
+    // which wasn't reliably winning - removed in favor of the one
+    // mechanism every page now uses consistently.
 
     // =========================================================
     // 2. LOGOUT CONFIRMATION MODAL

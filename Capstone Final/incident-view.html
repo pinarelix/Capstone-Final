@@ -810,37 +810,10 @@
     })();
 </script>
 
-<script>
-    // =========================================================
-    // ROLE-BASED SIDEBAR - HIDE/SHOW LINKS
-    // =========================================================
-    (function() {
-        const userData = sessionStorage.getItem('user');
-        if (userData) {
-            try {
-                const user = JSON.parse(userData);
-                const role = user.role || '';
-
-                // Only Administrator sees admin-only links - there is no
-                // literal 'Captain' role in the database (it only has
-                // 'Administrator' and 'Decision-Maker'), so checking for
-                // that string here always fell through to showing every
-                // admin-only link to everyone.
-                if (role !== 'Administrator') {
-                    document.querySelectorAll('.admin-only').forEach(el => {
-                        el.style.display = 'none';
-                    });
-                } else {
-                    document.querySelectorAll('.admin-only').forEach(el => {
-                        el.style.display = 'flex';
-                    });
-                }
-            } catch (e) {
-                console.error('❌ Error parsing user data:', e);
-            }
-        }
-    })();
-</script>
+<!-- Admin-only sidebar links are now hidden by incident-view.js calling
+     apiHelper.js's applyRoleBasedUI() (adds a role-* class to <body> that
+     dashboard.css's !important rule reads) - the old inline script here
+     set el.style.display directly, which wasn't reliably winning. -->
 
 </body>
 </html>
