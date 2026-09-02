@@ -651,14 +651,59 @@ function renderCartRecommendationCards(recs, container) {
 // 10. SCHEDULES CRUD
 // ============================================================
 
-function setupScheduleForm() {
-    const form = document.getElementById('scheduleForm');
+// Shared by the schedule and log forms below - both just wire a submit
+// handler to their own save function.
+function setupFormSubmit(formId, saveFn) {
+    const form = document.getElementById(formId);
     if (!form) return;
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        saveSchedule();
+        saveFn();
     });
+}
+
+// Shared empty-state row for the schedule/log tables.
+function emptyTableRow(colspan, icon, message) {
+    return `
+        <tr class="empty-row">
+            <td colspan="${colspan}">
+                <div class="empty-content">
+                    <i class="fa-solid ${icon}"></i>
+                    <span>${message}</span>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+// Shared delete-confirmation dispatch: show the styled modal if it's on
+// the page, otherwise fall back to a plain confirm() + direct call.
+function requestDelete(message, id, type, onConfirmFallback) {
+    if (typeof showDeleteModal === 'function') {
+        showDeleteModal(message, id, type);
+    } else if (confirm(message)) {
+        onConfirmFallback(id);
+    }
+}
+
+// Shared DELETE + reload + toast, used by both confirmDeleteSchedule and
+// confirmDeleteLog - only the endpoint and messages differ.
+async function confirmDelete(endpoint, id, successMsg, errorMsg) {
+    try {
+        const response = await window.apiFetch(`${endpoint}/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error(errorMsg);
+
+        await loadAllData();
+        showToast(successMsg, 'success');
+    } catch (error) {
+        console.error(`${errorMsg}:`, error);
+        showToast(`${errorMsg}.`, 'error');
+    }
+}
+
+function setupScheduleForm() {
+    setupFormSubmit('scheduleForm', saveSchedule);
 }
 
 async function saveSchedule() {
@@ -715,16 +760,7 @@ function renderSchedules(schedules) {
     if (!tbody) return;
 
     if (!schedules || schedules.length === 0) {
-        tbody.innerHTML = `
-            <tr class="empty-row">
-                <td colspan="7">
-                    <div class="empty-content">
-                        <i class="fa-solid fa-calendar-times"></i>
-                        <span>No patrol schedules found.</span>
-                    </div>
-                </td>
-            </tr>
-        `;
+        tbody.innerHTML = emptyTableRow(7, 'fa-calendar-times', 'No patrol schedules found.');
         return;
     }
 
@@ -781,28 +817,11 @@ window.requestDeleteSchedule = function(id) {
     const message = schedule
         ? `Are you sure you want to delete the schedule for "${schedule.location}"?`
         : 'Are you sure you want to delete this schedule?';
-
-    if (typeof showDeleteModal === 'function') {
-        showDeleteModal(message, id, 'schedule');
-    } else if (confirm(message)) {
-        confirmDeleteSchedule(id);
-    }
+    requestDelete(message, id, 'schedule', confirmDeleteSchedule);
 };
 
-window.confirmDeleteSchedule = async function(id) {
-    try {
-        const response = await window.apiFetch(`/patrol-schedules/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) throw new Error('Failed to delete schedule');
-
-        await loadAllData();
-        showToast('Schedule deleted successfully.', 'success');
-    } catch (error) {
-        console.error('Error deleting schedule:', error);
-        showToast('Failed to delete schedule.', 'error');
-    }
+window.confirmDeleteSchedule = function(id) {
+    return confirmDelete('/patrol-schedules', id, 'Schedule deleted successfully.', 'Failed to delete schedule');
 };
 
 // ============================================================
@@ -810,13 +829,7 @@ window.confirmDeleteSchedule = async function(id) {
 // ============================================================
 
 function setupLogForm() {
-    const form = document.getElementById('logForm');
-    if (!form) return;
-
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        saveLog();
-    });
+    setupFormSubmit('logForm', saveLog);
 }
 
 async function saveLog() {
@@ -869,16 +882,7 @@ function renderLogs(logs) {
     if (!tbody) return;
 
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = `
-            <tr class="empty-row">
-                <td colspan="7">
-                    <div class="empty-content">
-                        <i class="fa-solid fa-clipboard-list"></i>
-                        <span>No patrol logs found.</span>
-                    </div>
-                </td>
-            </tr>
-        `;
+        tbody.innerHTML = emptyTableRow(7, 'fa-clipboard-list', 'No patrol logs found.');
         return;
     }
 
@@ -946,28 +950,11 @@ window.requestDeleteLog = function(id) {
     const message = log
         ? `Are you sure you want to delete the patrol log for "${getScheduleName(log.schedule_id)}" (${getTanodName(log.tanod_id)})?`
         : 'Are you sure you want to delete this log?';
-
-    if (typeof showDeleteModal === 'function') {
-        showDeleteModal(message, id, 'log');
-    } else if (confirm(message)) {
-        confirmDeleteLog(id);
-    }
+    requestDelete(message, id, 'log', confirmDeleteLog);
 };
 
-window.confirmDeleteLog = async function(id) {
-    try {
-        const response = await window.apiFetch(`/patrol-logs/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) throw new Error('Failed to delete log');
-
-        await loadAllData();
-        showToast('Log deleted successfully.', 'success');
-    } catch (error) {
-        console.error('Error deleting log:', error);
-        showToast('Failed to delete log.', 'error');
-    }
+window.confirmDeleteLog = function(id) {
+    return confirmDelete('/patrol-logs', id, 'Log deleted successfully.', 'Failed to delete log');
 };
 
 // ============================================================

@@ -1,8 +1,8 @@
 "use strict";
 
 // ✅ API_URL ay naka-define na sa apiHelper.js
-
-const BARANGAY_CENTER = [14.7468, 121.0789];
+// BARANGAY_CENTER / BARANGAY_BOUNDARY_COORDS / createBarangayMap come
+// from mapHelper.js, shared with incident.js.
 
 let map;
 let boundaryLayer;
@@ -21,85 +21,21 @@ let allIncidentsData = [];
 
 function initializeMap() {
     console.log("🚀 Initializing Map...");
-    
-    const boundaryCoords = [
-        [14.759055, 121.068181],
-        [14.758775, 121.081208],
-        [14.754012, 121.081317],
-        [14.753785, 121.084781],
-        [14.751778, 121.084528],
-        [14.749692, 121.083159],
-        [14.749858, 121.081282],
-        [14.746963, 121.081271],
-        [14.745345, 121.078353],
-        [14.742305, 121.077591],
-        [14.740230, 121.075112],
-        [14.741330, 121.073074],
-        [14.740354, 121.072044],
-        [14.740365, 121.068793],
-        [14.739151, 121.068825],
-        [14.739182, 121.067227],
-        [14.758127, 121.067320],
-        [14.758158, 121.067813]
-    ];
 
-    const latLngs = boundaryCoords.map(coord => L.latLng(coord[0], coord[1]));
-    const polygonBounds = L.latLngBounds(latLngs);
-
-    map = L.map("map", {
-        center: BARANGAY_CENTER,
+    const created = createBarangayMap("map", {
         zoom: 15,
         zoomControl: true,
         preferCanvas: true,
         minZoom: 14,
         maxZoom: 19,
-        maxBounds: polygonBounds,
-        maxBoundsViscosity: 1.0,
         fadeAnimation: true,
         zoomAnimation: true
     });
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    const outerMaskCoords = [
-        [90, -180], [90, 180], [-90, 180], [-90, -180], [90, -180]
-    ];
-    const holeCoords = boundaryCoords.map(coord => [coord[0], coord[1]]);
-
-    const blurMask = L.polygon([outerMaskCoords, holeCoords], {
-        color: "transparent",
-        weight: 0,
-        fillColor: "rgba(0, 0, 0, 0.65)",
-        fillOpacity: 0.65,
-        interactive: false,
-        className: "blur-mask",
-        pane: "overlayPane"
-    }).addTo(map);
-
-    boundaryLayer = L.polygon(boundaryCoords, {
-        color: "#111111",
-        weight: 4,
-        opacity: 1,
-        fillColor: "transparent",
-        interactive: false
-    }).addTo(map);
-
-    const glowBorder = L.polygon(boundaryCoords, {
-        color: "#0ea5e9",
-        weight: 8,
-        opacity: 0.15,
-        fillColor: "transparent",
-        interactive: false,
-        className: "boundary-glow"
-    }).addTo(map);
-
-    map.fitBounds(polygonBounds, { padding: [40, 40] });
+    map = created.map;
+    boundaryLayer = created.boundaryLayer;
 
     console.log("✅ Map Initialized!");
-    loadRealData(); 
+    loadRealData();
 }
 
 async function loadRealData() {

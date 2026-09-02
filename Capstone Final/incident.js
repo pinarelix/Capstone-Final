@@ -56,35 +56,15 @@ document.addEventListener('DOMContentLoaded', () => {
    MAP PICKER SETUP
 ============================================================ */
 
-const BARANGAY_CENTER = [14.7468, 121.0789];
-
-const boundaryCoords = [
-    [14.759055, 121.068181],
-    [14.758775, 121.081208],
-    [14.754012, 121.081317],
-    [14.753785, 121.084781],
-    [14.751778, 121.084528],
-    [14.749692, 121.083159],
-    [14.749858, 121.081282],
-    [14.746963, 121.081271],
-    [14.745345, 121.078353],
-    [14.742305, 121.077591],
-    [14.740230, 121.075112],
-    [14.741330, 121.073074],
-    [14.740354, 121.072044],
-    [14.740365, 121.068793],
-    [14.739151, 121.068825],
-    [14.739182, 121.067227],
-    [14.758127, 121.067320],
-    [14.758158, 121.067813]
-];
+// BARANGAY_CENTER / BARANGAY_BOUNDARY_COORDS / createBarangayMap come
+// from mapHelper.js, shared with grid-heatmap.js.
 
 // Real point-in-polygon check against the actual (concave) barangay
 // boundary shape via turf.js - a bounding-box check previously accepted
 // clicks that fell inside the boundary's rectangular extent but outside
 // the true outline (i.e. inside the blurred/masked-out area).
 const barangayBoundaryPolygon = turf.polygon([
-    [...boundaryCoords.map(coord => [coord[1], coord[0]]), [boundaryCoords[0][1], boundaryCoords[0][0]]]
+    [...BARANGAY_BOUNDARY_COORDS.map(coord => [coord[1], coord[0]]), [BARANGAY_BOUNDARY_COORDS[0][1], BARANGAY_BOUNDARY_COORDS[0][0]]]
 ]);
 
 function isPointInsideBarangay(lat, lng) {
@@ -92,62 +72,18 @@ function isPointInsideBarangay(lat, lng) {
 }
 
 function initMapPicker() {
-    const latLngs = boundaryCoords.map(coord => L.latLng(coord[0], coord[1]));
-    const barangayPolygon = L.latLngBounds(latLngs);
-
     const container = document.getElementById('mapPicker');
     if (container) {
         container.innerHTML = '';
     }
 
-    mapPicker = L.map('mapPicker', {
-        center: BARANGAY_CENTER,
+    const created = createBarangayMap('mapPicker', {
         zoom: 16,
         zoomControl: false,
         minZoom: 13.5,
-        maxZoom: 19,
-        maxBounds: barangayPolygon,
-        maxBoundsViscosity: 1.0
+        maxZoom: 19
     });
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(mapPicker);
-
-    const outerMaskCoords = [
-        [90, -180], [90, 180], [-90, 180], [-90, -180], [90, -180]
-    ];
-    const holeCoords = boundaryCoords.map(coord => [coord[0], coord[1]]);
-
-    L.polygon([outerMaskCoords, holeCoords], {
-        color: "transparent",
-        weight: 0,
-        fillColor: "rgba(0, 0, 0, 0.65)",
-        fillOpacity: 0.65,
-        interactive: false,
-        className: "blur-mask",
-        pane: "overlayPane"
-    }).addTo(mapPicker);
-
-    L.polygon(boundaryCoords, {
-        color: "#111111",
-        weight: 4,
-        opacity: 1,
-        fillColor: "transparent",
-        interactive: false
-    }).addTo(mapPicker);
-
-    L.polygon(boundaryCoords, {
-        color: "#0ea5e9",
-        weight: 8,
-        opacity: 0.15,
-        fillColor: "transparent",
-        interactive: false,
-        className: "boundary-glow"
-    }).addTo(mapPicker);
-
-    mapPicker.fitBounds(barangayPolygon, { padding: [40, 40] });
+    mapPicker = created.map;
 
     mapPicker.on('click', function(e) {
         const lat = e.latlng.lat;
@@ -192,61 +128,15 @@ function createModalMap() {
     if (!container) return;
     
     container.innerHTML = '';
-    
-    const latLngs = boundaryCoords.map(coord => L.latLng(coord[0], coord[1]));
-    const barangayPolygon = L.latLngBounds(latLngs);
-    
-    const center = mapPicker.getCenter();
-    const zoom = mapPicker.getZoom();
-    
-    modalMap = L.map(container, {
-        center: center,
-        zoom: zoom,
+
+    const created = createBarangayMap(container, {
+        center: mapPicker.getCenter(),
+        zoom: mapPicker.getZoom(),
         zoomControl: true,
         minZoom: 13.5,
-        maxZoom: 19,
-        maxBounds: barangayPolygon,
-        maxBoundsViscosity: 1.0
+        maxZoom: 19
     });
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(modalMap);
-
-    const outerMaskCoords = [
-        [90, -180], [90, 180], [-90, 180], [-90, -180], [90, -180]
-    ];
-    const holeCoords = boundaryCoords.map(coord => [coord[0], coord[1]]);
-
-    L.polygon([outerMaskCoords, holeCoords], {
-        color: "transparent",
-        weight: 0,
-        fillColor: "rgba(0, 0, 0, 0.65)",
-        fillOpacity: 0.65,
-        interactive: false,
-        className: "blur-mask",
-        pane: "overlayPane"
-    }).addTo(modalMap);
-
-    L.polygon(boundaryCoords, {
-        color: "#111111",
-        weight: 4,
-        opacity: 1,
-        fillColor: "transparent",
-        interactive: false
-    }).addTo(modalMap);
-
-    L.polygon(boundaryCoords, {
-        color: "#0ea5e9",
-        weight: 8,
-        opacity: 0.15,
-        fillColor: "transparent",
-        interactive: false,
-        className: "boundary-glow"
-    }).addTo(modalMap);
-
-    modalMap.fitBounds(barangayPolygon, { padding: [40, 40] });
+    modalMap = created.map;
 
     modalMap.on('click', function(e) {
         const lat = e.latlng.lat;
