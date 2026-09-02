@@ -379,6 +379,15 @@ async function computeCartRiskFactors(incidentId) {
             'v1.0'
         ]);
 
+        // 7. Reflect the real computed level back onto the incident itself -
+        // incidents.danger_level was otherwise left as the literal placeholder
+        // 'Calculated by System' forever, even though the real Level 1/2/3
+        // result was sitting in cart_risk_factors the whole time.
+        await pool.query(
+            'UPDATE incidents SET danger_level = ? WHERE id = ?',
+            [result.dangerDescription || 'Level 1 — Low Danger / Stable Area', incidentId]
+        );
+
         console.log(`✅ CART risk factors saved for incident ${incidentId}`);
 
     } catch (error) {
@@ -508,7 +517,14 @@ async function recomputeAllCartRiskFactors() {
                     result.decisionPath ? result.decisionPath.join('\n') : 'No decision path',
                     'v1.0'
                 ]);
-                
+
+                // Keep incidents.danger_level in sync with the real result,
+                // same as the single-incident path in computeCartRiskFactors.
+                await pool.query(
+                    'UPDATE incidents SET danger_level = ? WHERE id = ?',
+                    [result.dangerDescription || 'Level 1 — Low Danger / Stable Area', incident.id]
+                );
+
                 processed++;
                 
                 if (processed % 10 === 0) {
