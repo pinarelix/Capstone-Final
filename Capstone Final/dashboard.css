@@ -18,8 +18,14 @@
     --text-secondary: #334155;
     --text-muted: #64748b;
 
-    --sidebar-text: #0f172a;
-    --sidebar-text-muted: #451a03;
+    /* Light text for the sidebar's actual dark-navy background (see
+       .sidebar below) - not the amber background --sidebar-bg implies.
+       This was #0f172a (near-black) until now, which is only readable
+       on a light background; nav-item labels rendered invisible
+       (dark-on-dark) once a stale duplicate .nav-item rule that had
+       hardcoded a working light color was removed. */
+    --sidebar-text: #cbd5e1;
+    --sidebar-text-muted: #94a3b8;
 
     --accent-blue: #0ea5e9;
     --accent-dark: #0f172a;
@@ -140,61 +146,18 @@ body {
     margin-top: 2px;
 }
 
+/* NOTE: this used to be a full second copy of .user-profile / .sidebar-nav
+   / .nav-item (background, padding, transition: all, plain hover) that
+   silently outranked the real design further down this file on
+   specificity (.sidebar-nav .nav-item > .nav-item) for every property
+   they both set - so the translateX/icon-rotate hover, the proper
+   transition list, and the :active press-scale down below were never
+   actually rendering. Only margin-bottom survives here (spacing below
+   the profile card); everything else now comes from the single
+   .user-profile / .sidebar-nav / .nav-item definitions later in this
+   file, matching the actual .profile-info-wrapped markup in the HTML. */
 .user-profile {
-    background: #1e293b;
-    border-radius: 12px;
-    padding: 14px 16px;
     margin-bottom: 24px;
-}
-
-.user-profile h3 {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #f8fafc;
-}
-
-.user-profile p {
-    font-size: 0.7rem;
-    color: #94a3b8;
-    margin-top: 2px;
-}
-
-.sidebar-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1;
-}
-
-.sidebar-nav .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    border-radius: 8px;
-    color: #cbd5e1;
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.sidebar-nav .nav-item:hover {
-    background: #1e293b;
-    color: #f8fafc;
-}
-
-.sidebar-nav .nav-item.active {
-    background: #1e293b;
-    color: #f8fafc;
-}
-
-.sidebar-nav .nav-item .nav-icon {
-    font-size: 1.1rem;
-    width: 24px;
-    text-align: center;
 }
 
 /* Responsive */
