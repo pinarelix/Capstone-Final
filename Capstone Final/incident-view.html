@@ -573,7 +573,7 @@
         logoutConfirmBtn.addEventListener('click', function() {
             const sessionToken = getSessionToken();
             if (sessionToken) {
-                fetch('http://localhost:3000/api/auth/logout', {
+                fetch(`${API_URL}/auth/logout`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ session_token: sessionToken })

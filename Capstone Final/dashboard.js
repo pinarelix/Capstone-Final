@@ -35,22 +35,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
     
+    // applyRoleBasedUI() (from apiHelper.js) already updates the sidebar
+    // name/role labels for every role, Captain included — no need to
+    // redo it here (a previous re-implementation only branched
+    // Administrator vs. everyone else, which mislabeled Captain as
+    // "Decision-Maker").
     applyRoleBasedUI(); // mula sa apiHelper.js
-    
-    // Update user profile in sidebar
-    const nameEl = document.getElementById('userNameDisplay');
-    const roleEl = document.getElementById('userRoleDisplay');
-    
-    if (nameEl) {
-        nameEl.textContent = user?.name || 'User';
-    }
-    
-    if (roleEl) {
-        const roleDisplay = user?.role === 'Administrator' 
-            ? '👑 Administrator — Full System Access' 
-            : '📊 Decision-Maker — View & Analytics Access';
-        roleEl.textContent = roleDisplay || 'User';
-    }
 
     // ============================================================
     // 🔥 STEP 2: Check if logged in
@@ -516,7 +506,7 @@ function setupLogoutButton() {
                 if (confirm('Are you sure you want to logout?')) {
                     const token = getSessionToken();
                     if (token) {
-                        fetch('http://localhost:3000/api/auth/logout', {
+                        fetch(`${API_URL}/auth/logout`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ session_token: token })

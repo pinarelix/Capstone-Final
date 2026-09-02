@@ -6,86 +6,18 @@
 ============================================================ */
 
 // ============================================================
-// 1. ROLE-BASED ACCESS CONTROL - sessionStorage
+// 1. ROLE-BASED ACCESS CONTROL
+// getCurrentUser / getSessionToken / isAdmin / isDecisionMaker /
+// isCaptain / applyRoleBasedUI all come from apiHelper.js, loaded
+// before this file — no local copies here anymore (they had drifted
+// from apiHelper's versions, e.g. missing the Captain label fix).
 // ============================================================
-
-function getCurrentUser() {
-    try {
-        const userData = sessionStorage.getItem('user');
-        if (userData) {
-            return JSON.parse(userData);
-        }
-        return null;
-    } catch (e) {
-        console.error('❌ Error parsing user data:', e);
-        return null;
-    }
-}
-
-function getSessionToken() {
-    return sessionStorage.getItem('token') || '';
-}
-
-function isAdmin() {
-    const user = getCurrentUser();
-    return user && user.role === 'Administrator';
-}
-
-function isDecisionMaker() {
-    const user = getCurrentUser();
-    return user && user.role === 'Decision-Maker';
-}
-
-function isCaptain() {
-    const user = getCurrentUser();
-    return user && user.role === 'Captain';
-}
-
-function applyRoleBasedUI() {
-    const user = getCurrentUser();
-    if (!user) {
-        console.log('❌ No user found, redirecting to login');
-        window.location.href = 'login.html';
-        return;
-    }
-    
-    console.log('👤 Current user:', user);
-    console.log('👤 User role:', user.role);
-    
-    const nameEl = document.getElementById('userNameDisplay');
-    const roleEl = document.getElementById('userRoleDisplay');
-    
-    if (nameEl) {
-        nameEl.textContent = user.name || user.username || 'User';
-    }
-    
-    if (roleEl) {
-        const roleDisplay = user.role === 'Administrator' 
-            ? '👑 Administrator — Full System Access' 
-            : user.role === 'Captain'
-            ? '📊 Captain — View & Analytics Access'
-            : '📊 Decision-Maker — View & Analytics Access';
-        roleEl.textContent = roleDisplay;
-    }
-    
-    if (user.role === 'Captain' || user.role === 'Decision-Maker') {
-        document.querySelectorAll('.admin-only').forEach(el => {
-            el.style.display = 'none';
-        });
-        document.querySelectorAll('.admin-action').forEach(el => {
-            el.style.display = 'none';
-        });
-        document.querySelectorAll('.admin-section').forEach(el => {
-            el.style.display = 'none';
-        });
-    }
-}
 
 // ✅ EXPORTED FOR LOGOUT
 window.logoutUser = function() {
     const sessionToken = getSessionToken();
     if (sessionToken) {
-        fetch('http://localhost:3000/api/auth/logout', {
+        fetch(`${API_URL}/auth/logout`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ session_token: sessionToken })

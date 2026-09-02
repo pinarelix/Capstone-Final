@@ -41,7 +41,12 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME || 'brgydata',
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    // Return DATE columns as plain 'YYYY-MM-DD' strings instead of JS Date
+    // objects. Without this, mysql2 builds the Date at local midnight and
+    // res.json() serializes it as UTC, silently shifting the date back one
+    // day for any timezone ahead of UTC (e.g. Asia/Manila, UTC+8).
+    dateStrings: ['DATE']
 });
 
 async function testConnection() {
@@ -2396,6 +2401,19 @@ app.get('/api/settings/:key', authenticate, requireRole(['Administrator']), asyn
     }
 });
 
+const SETTINGS_DEFAULTS = {
+    session_timeout_minutes: '30',
+    max_login_attempts: '5',
+    audit_log_retention_days: '90',
+    enable_audit_logging: 'true',
+    require_strong_password: 'true',
+    enable_2fa: 'false',
+    maintenance_mode: 'false',
+    cart_model_version: 'v1.0',
+    default_danger_threshold_high: '67',
+    default_danger_threshold_moderate: '34'
+};
+
 app.post('/api/settings', authenticate, requireRole(['Administrator']), async (req, res) => {
     try {
         const { setting_key, setting_value } = req.body;
@@ -2406,21 +2424,9 @@ app.post('/api/settings', authenticate, requireRole(['Administrator']), async (r
         }
 
         let valueToStore = String(setting_value).trim();
-        
+
         if (valueToStore === '' || valueToStore === 'NaN' || valueToStore === 'undefined' || valueToStore === 'null') {
-            const defaults = {
-                session_timeout_minutes: '30',
-                max_login_attempts: '5',
-                audit_log_retention_days: '90',
-                enable_audit_logging: 'true',
-                require_strong_password: 'true',
-                enable_2fa: 'false',
-                maintenance_mode: 'false',
-                cart_model_version: 'v1.0',
-                default_danger_threshold_high: '67',
-                default_danger_threshold_moderate: '34'
-            };
-            valueToStore = defaults[setting_key] || '';
+            valueToStore = SETTINGS_DEFAULTS[setting_key] || '';
         }
 
         const [existing] = await pool.query(
@@ -2428,16 +2434,19 @@ app.post('/api/settings', authenticate, requireRole(['Administrator']), async (r
             [setting_key]
         );
 
+        let entityId;
         if (existing.length > 0) {
+            entityId = existing[0].id;
             await pool.query(
                 'UPDATE system_settings SET setting_value = ?, updated_by = ? WHERE setting_key = ?',
                 [valueToStore, userId || null, setting_key]
             );
         } else {
-            await pool.query(`
+            const [insertResult] = await pool.query(`
                 INSERT INTO system_settings (setting_key, setting_value, updated_by)
                 VALUES (?, ?, ?)
             `, [setting_key, valueToStore, userId || null]);
+            entityId = insertResult.insertId;
         }
 
         if (userId) {
@@ -2445,7 +2454,7 @@ app.post('/api/settings', authenticate, requireRole(['Administrator']), async (r
                 userId,
                 'UPDATE_SETTINGS',
                 'system_settings',
-                null,
+                entityId,
                 null,
                 { setting_key, setting_value: valueToStore },
                 req
@@ -2471,21 +2480,9 @@ app.put('/api/settings/:key', authenticate, requireRole(['Administrator']), asyn
         }
 
         let valueToStore = String(setting_value).trim();
-        
+
         if (valueToStore === '' || valueToStore === 'NaN' || valueToStore === 'undefined' || valueToStore === 'null') {
-            const defaults = {
-                session_timeout_minutes: '30',
-                max_login_attempts: '5',
-                audit_log_retention_days: '90',
-                enable_audit_logging: 'true',
-                require_strong_password: 'true',
-                enable_2fa: 'false',
-                maintenance_mode: 'false',
-                cart_model_version: 'v1.0',
-                default_danger_threshold_high: '67',
-                default_danger_threshold_moderate: '34'
-            };
-            valueToStore = defaults[key] || '';
+            valueToStore = SETTINGS_DEFAULTS[key] || '';
         }
 
         const [oldData] = await pool.query(
@@ -2498,7 +2495,7 @@ app.put('/api/settings/:key', authenticate, requireRole(['Administrator']), asyn
         }
 
         await pool.query(`
-            UPDATE system_settings 
+            UPDATE system_settings
             SET setting_value = ?, updated_by = ?
             WHERE setting_key = ?
         `, [valueToStore, userId || null, key]);
@@ -2508,7 +2505,7 @@ app.put('/api/settings/:key', authenticate, requireRole(['Administrator']), asyn
                 userId,
                 'UPDATE_SETTINGS',
                 'system_settings',
-                null,
+                oldData[0].id,
                 oldData[0] || null,
                 { setting_key: key, setting_value: valueToStore },
                 req
