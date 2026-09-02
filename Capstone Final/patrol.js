@@ -743,7 +743,7 @@ function renderSchedules(schedules) {
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
                     <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})">Edit</button>
-                    <button type="button" class="btn-action-delete admin-action" onclick="deleteSchedule(${schedule.id})">Delete</button>
+                    <button type="button" class="btn-action-delete admin-action" onclick="requestDeleteSchedule(${schedule.id})">Delete</button>
                 </td>
             </tr>
         `;
@@ -776,16 +776,27 @@ window.editSchedule = async function(id) {
     }
 };
 
-window.deleteSchedule = async function(id) {
-    if (!confirm('Are you sure you want to delete this schedule?')) return;
-    
+window.requestDeleteSchedule = function(id) {
+    const schedule = allSchedules.find(s => s.id === id);
+    const message = schedule
+        ? `Are you sure you want to delete the schedule for "${schedule.location}"?`
+        : 'Are you sure you want to delete this schedule?';
+
+    if (typeof showDeleteModal === 'function') {
+        showDeleteModal(message, id, 'schedule');
+    } else if (confirm(message)) {
+        confirmDeleteSchedule(id);
+    }
+};
+
+window.confirmDeleteSchedule = async function(id) {
     try {
         const response = await window.apiFetch(`/patrol-schedules/${id}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) throw new Error('Failed to delete schedule');
-        
+
         await loadAllData();
         showToast('Schedule deleted successfully.', 'success');
     } catch (error) {
@@ -887,7 +898,7 @@ function renderLogs(logs) {
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(log.report || '')}">${escapeHTML(log.report || 'N/A')}</td>
                 <td>
                     <button type="button" class="btn-action-edit admin-action" onclick="editLog(${log.id})">Edit</button>
-                    <button type="button" class="btn-action-delete admin-action" onclick="deleteLog(${log.id})">Delete</button>
+                    <button type="button" class="btn-action-delete admin-action" onclick="requestDeleteLog(${log.id})">Delete</button>
                 </td>
             </tr>
         `;
@@ -930,16 +941,27 @@ window.editLog = async function(id) {
     }
 };
 
-window.deleteLog = async function(id) {
-    if (!confirm('Are you sure you want to delete this log?')) return;
-    
+window.requestDeleteLog = function(id) {
+    const log = allLogs.find(l => l.id === id);
+    const message = log
+        ? `Are you sure you want to delete the patrol log for "${getScheduleName(log.schedule_id)}" (${getTanodName(log.tanod_id)})?`
+        : 'Are you sure you want to delete this log?';
+
+    if (typeof showDeleteModal === 'function') {
+        showDeleteModal(message, id, 'log');
+    } else if (confirm(message)) {
+        confirmDeleteLog(id);
+    }
+};
+
+window.confirmDeleteLog = async function(id) {
     try {
         const response = await window.apiFetch(`/patrol-logs/${id}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) throw new Error('Failed to delete log');
-        
+
         await loadAllData();
         showToast('Log deleted successfully.', 'success');
     } catch (error) {
