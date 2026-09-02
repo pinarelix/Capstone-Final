@@ -1559,6 +1559,14 @@ async function loadLoginHistory() {
     // INITIAL LOAD
     // =========================================================
     document.addEventListener('DOMContentLoaded', function() {
+        // settings.html has no external settings.js and, unlike every
+        // other page, never called this - so its admin-only sidebar
+        // links (and this page's own "Settings" link) were never hidden
+        // for non-admins who navigate here directly.
+        if (typeof applyRoleBasedUI === 'function') {
+            applyRoleBasedUI();
+        }
+
         loadSystemStatus();
         loadCurrentUser();
         loadLoginHistory();
