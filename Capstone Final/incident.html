@@ -111,13 +111,81 @@
                             <div class="form-group">
                                 <label>Incident Type</label>
                                 <select id="incidentType" class="form-select" required>
-                                    <option value="Theft">Theft</option>
-                                    <option value="Physical Injury">Physical Injury</option>
-                                    <option value="Noise Complaint">Noise Complaint</option>
-                                    <option value="Vandalism">Vandalism</option>
-                                    <option value="Suspicious Activity">Suspicious Activity</option>
-                                    <option value="Traffic Obstruction">Traffic Obstruction</option>
-                                    <option value="Curfew Violation">Curfew Violation</option>
+                                    <option value="" disabled selected>Select Incident Type</option>
+                                    <optgroup label="Violent Crimes">
+                                        <option value="Homicide">Homicide</option>
+                                        <option value="Attempted Murder">Attempted Murder</option>
+                                        <option value="Kidnapping">Kidnapping</option>
+                                        <option value="Child Abuse">Child Abuse</option>
+                                        <option value="VAWC">VAWC (Violence Against Women and Children)</option>
+                                        <option value="Illegal Release of Fire Arms">Illegal Release of Fire Arms</option>
+                                        <option value="Attempted Arson">Attempted Arson</option>
+                                        <option value="Robbery">Robbery</option>
+                                        <option value="Grave Threat">Grave Threat</option>
+                                        <option value="Act of Lasciviousness">Act of Lasciviousness</option>
+                                        <option value="Physical Injury">Physical Injury</option>
+                                        <option value="Threats">Threats</option>
+                                        <option value="Less Serious Physical Injuries">Less Serious Physical Injuries</option>
+                                        <option value="Falsification of Documents">Falsification of Documents</option>
+                                        <option value="Slight Physical Injuries and Maltreatment">Slight Physical Injuries and Maltreatment</option>
+                                        <option value="Light Threats">Light Threats</option>
+                                    </optgroup>
+                                    <optgroup label="Property Crimes">
+                                        <option value="Arson">Arson</option>
+                                        <option value="Theft">Theft</option>
+                                        <option value="Fencing of Stolen Properties">Fencing of Stolen Properties</option>
+                                        <option value="Qualified Trespass to Dwelling">Qualified Trespass to Dwelling</option>
+                                        <option value="Occupation of Real Property or Usurpation of">Occupation of Real Property or Usurpation of</option>
+                                        <option value="Removal, Sale or Pledge of Mortgaged Property">Removal, Sale or Pledge of Mortgaged Property</option>
+                                        <option value="Trespassing">Trespassing</option>
+                                        <option value="Altering Boundaries of Landmarks">Altering Boundaries of Landmarks</option>
+                                        <option value="Vandalism">Vandalism</option>
+                                    </optgroup>
+                                    <optgroup label="Financial / Fraud Crimes">
+                                        <option value="Scam">Scam</option>
+                                        <option value="Swindling of Estafa">Swindling of Estafa</option>
+                                        <option value="Estafa">Estafa</option>
+                                        <option value="Cybercrime Prevention Act 2012 (RA 10175)">Cybercrime Prevention Act 2012 (RA 10175)</option>
+                                        <option value="Estafa/Debts">Estafa/Debts</option>
+                                        <option value="Cyber Bullying">Cyber Bullying</option>
+                                    </optgroup>
+                                    <optgroup label="Social / Public Order Crimes">
+                                        <option value="Voyeurism Act">Voyeurism Act</option>
+                                        <option value="Alarms and Scandals">Alarms and Scandals</option>
+                                        <option value="Incriminating Innocent Persons">Incriminating Innocent Persons</option>
+                                        <option value="Threatening to Publish and offer to prevent">Threatening to Publish and offer to prevent</option>
+                                        <option value="Oral Defamation">Oral Defamation</option>
+                                        <option value="Harassment">Harassment</option>
+                                        <option value="Intriguing Against Honor">Intriguing Against Honor</option>
+                                        <option value="Unlawful Use of Means of Publication and Unlaw">Unlawful Use of Means of Publication and Unlawful Utterances</option>
+                                        <option value="Prohibiting Publication of Acts Referred to in the">Prohibiting Publication of Acts Referred to in the Proceedings</option>
+                                    </optgroup>
+                                    <optgroup label="Special / Child-Related">
+                                        <option value="BCPC">BCPC (Barangay Council for the Protection of Children)</option>
+                                        <option value="Child Support">Child Support</option>
+                                    </optgroup>
+                                    <optgroup label="Other Incidents">
+                                        <option value="Hit and Run">Hit and Run</option>
+                                        <option value="Reckless Impudence Resulting to Damage to Property and Physical Injury">Reckless Impudence Resulting to Damage to Property and Physical Injury</option>
+                                        <option value="Reckless Impudence Resulting Physical Injury">Reckless Impudence Resulting Physical Injury</option>
+                                        <option value="Noise Complaint">Noise Complaint</option>
+                                        <option value="Anti Electricity Pilferage">Anti Electricity Pilferage</option>
+                                        <option value="Reckless Impudence Resulting to Damage to Property">Reckless Impudence Resulting to Damage to Property</option>
+                                        <option value="Safe Special Act">Safe Special Act</option>
+                                        <option value="Bastos Law">Bastos Law</option>
+                                        <option value="Abandoning a Minor">Abandoning a Minor</option>
+                                        <option value="Abandonment of a Person in Danger">Abandonment of a Person in Danger</option>
+                                        <option value="Inducing a Minor to Abandon His/her Home">Inducing a Minor to Abandon His/her Home</option>
+                                        <option value="Animal Welfare Acts">Animal Welfare Acts</option>
+                                        <option value="Suspicious Activity">Suspicious Activity</option>
+                                        <option value="Traffic Obstruction">Traffic Obstruction</option>
+                                        <option value="Breach of Contract">Breach of Contract</option>
+                                        <option value="Breach Contact">Breach Contact</option>
+                                        <option value="Curfew Violation">Curfew Violation</option>
+                                        <option value="Abandon">Abandon</option>
+                                        <option value="Missing">Missing</option>
+                                        <option value="Suicide">Suicide</option>
+                                    </optgroup>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -291,13 +359,80 @@
                         <div class="form-group">
                             <select id="filterType" class="form-select">
                                 <option value="">All Incident Types</option>
-                                <option value="Theft">Theft</option>
-                                <option value="Physical Injury">Physical Injury</option>
-                                <option value="Noise Complaint">Noise Complaint</option>
-                                <option value="Vandalism">Vandalism</option>
-                                <option value="Suspicious Activity">Suspicious Activity</option>
-                                <option value="Traffic Obstruction">Traffic Obstruction</option>
-                                <option value="Curfew Violation">Curfew Violation</option>
+                                <optgroup label="Violent Crimes">
+                                    <option value="Homicide">Homicide</option>
+                                    <option value="Attempted Murder">Attempted Murder</option>
+                                    <option value="Kidnapping">Kidnapping</option>
+                                    <option value="Child Abuse">Child Abuse</option>
+                                    <option value="VAWC">VAWC (Violence Against Women and Children)</option>
+                                    <option value="Illegal Release of Fire Arms">Illegal Release of Fire Arms</option>
+                                    <option value="Attempted Arson">Attempted Arson</option>
+                                    <option value="Robbery">Robbery</option>
+                                    <option value="Grave Threat">Grave Threat</option>
+                                    <option value="Act of Lasciviousness">Act of Lasciviousness</option>
+                                    <option value="Physical Injury">Physical Injury</option>
+                                    <option value="Threats">Threats</option>
+                                    <option value="Less Serious Physical Injuries">Less Serious Physical Injuries</option>
+                                    <option value="Falsification of Documents">Falsification of Documents</option>
+                                    <option value="Slight Physical Injuries and Maltreatment">Slight Physical Injuries and Maltreatment</option>
+                                    <option value="Light Threats">Light Threats</option>
+                                </optgroup>
+                                <optgroup label="Property Crimes">
+                                    <option value="Arson">Arson</option>
+                                    <option value="Theft">Theft</option>
+                                    <option value="Fencing of Stolen Properties">Fencing of Stolen Properties</option>
+                                    <option value="Qualified Trespass to Dwelling">Qualified Trespass to Dwelling</option>
+                                    <option value="Occupation of Real Property or Usurpation of">Occupation of Real Property or Usurpation of</option>
+                                    <option value="Removal, Sale or Pledge of Mortgaged Property">Removal, Sale or Pledge of Mortgaged Property</option>
+                                    <option value="Trespassing">Trespassing</option>
+                                    <option value="Altering Boundaries of Landmarks">Altering Boundaries of Landmarks</option>
+                                    <option value="Vandalism">Vandalism</option>
+                                </optgroup>
+                                <optgroup label="Financial / Fraud Crimes">
+                                    <option value="Scam">Scam</option>
+                                    <option value="Swindling of Estafa">Swindling of Estafa</option>
+                                    <option value="Estafa">Estafa</option>
+                                    <option value="Cybercrime Prevention Act 2012 (RA 10175)">Cybercrime Prevention Act 2012 (RA 10175)</option>
+                                    <option value="Estafa/Debts">Estafa/Debts</option>
+                                    <option value="Cyber Bullying">Cyber Bullying</option>
+                                </optgroup>
+                                <optgroup label="Social / Public Order Crimes">
+                                    <option value="Voyeurism Act">Voyeurism Act</option>
+                                    <option value="Alarms and Scandals">Alarms and Scandals</option>
+                                    <option value="Incriminating Innocent Persons">Incriminating Innocent Persons</option>
+                                    <option value="Threatening to Publish and offer to prevent">Threatening to Publish and offer to prevent</option>
+                                    <option value="Oral Defamation">Oral Defamation</option>
+                                    <option value="Harassment">Harassment</option>
+                                    <option value="Intriguing Against Honor">Intriguing Against Honor</option>
+                                    <option value="Unlawful Use of Means of Publication and Unlaw">Unlawful Use of Means of Publication and Unlawful Utterances</option>
+                                    <option value="Prohibiting Publication of Acts Referred to in the">Prohibiting Publication of Acts Referred to in the Proceedings</option>
+                                </optgroup>
+                                <optgroup label="Special / Child-Related">
+                                    <option value="BCPC">BCPC (Barangay Council for the Protection of Children)</option>
+                                    <option value="Child Support">Child Support</option>
+                                </optgroup>
+                                <optgroup label="Other Incidents">
+                                    <option value="Hit and Run">Hit and Run</option>
+                                    <option value="Reckless Impudence Resulting to Damage to Property and Physical Injury">Reckless Impudence Resulting to Damage to Property and Physical Injury</option>
+                                    <option value="Reckless Impudence Resulting Physical Injury">Reckless Impudence Resulting Physical Injury</option>
+                                    <option value="Noise Complaint">Noise Complaint</option>
+                                    <option value="Anti Electricity Pilferage">Anti Electricity Pilferage</option>
+                                    <option value="Reckless Impudence Resulting to Damage to Property">Reckless Impudence Resulting to Damage to Property</option>
+                                    <option value="Safe Special Act">Safe Special Act</option>
+                                    <option value="Bastos Law">Bastos Law</option>
+                                    <option value="Abandoning a Minor">Abandoning a Minor</option>
+                                    <option value="Abandonment of a Person in Danger">Abandonment of a Person in Danger</option>
+                                    <option value="Inducing a Minor to Abandon His/her Home">Inducing a Minor to Abandon His/her Home</option>
+                                    <option value="Animal Welfare Acts">Animal Welfare Acts</option>
+                                    <option value="Suspicious Activity">Suspicious Activity</option>
+                                    <option value="Traffic Obstruction">Traffic Obstruction</option>
+                                    <option value="Breach of Contract">Breach of Contract</option>
+                                    <option value="Breach Contact">Breach Contact</option>
+                                    <option value="Curfew Violation">Curfew Violation</option>
+                                    <option value="Abandon">Abandon</option>
+                                    <option value="Missing">Missing</option>
+                                    <option value="Suicide">Suicide</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div class="form-group">

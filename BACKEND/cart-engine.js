@@ -45,15 +45,83 @@ class CARTEngine {
                 'weekday': 40
             },
             
-            // Incident Type Scores
+            // Incident Type Scores - Barangay 179 blotter categories
+            // (Jan-Jun 2026), grouped by severity tier.
             type: {
-                'Theft': 90,
+                // -- Violent Crimes (70-95) --------------------------
+                'Homicide': 95,
+                'Attempted Murder': 95,
+                'Kidnapping': 95,
+                'Child Abuse': 95,
+                'VAWC': 90,
+                'Illegal Release of Fire Arms': 90,
+                'Attempted Arson': 90,
+                'Robbery': 90,
+                'Grave Threat': 85,
+                'Act of Lasciviousness': 85,
                 'Physical Injury': 85,
+                'Threats': 80,
+                'Less Serious Physical Injuries': 80,
+                'Falsification of Documents': 80,
+                'Slight Physical Injuries and Maltreatment': 75,
+                'Light Threats': 70,
+
+                // -- Property Crimes (55-90) -------------------------
+                'Arson': 90,
+                'Theft': 85,
+                'Fencing of Stolen Properties': 75,
+                'Qualified Trespass to Dwelling': 75,
+                'Occupation of Real Property or Usurpation of': 70,
+                'Removal, Sale or Pledge of Mortgaged Property': 70,
+                'Trespassing': 65,
+                'Altering Boundaries of Landmarks': 60,
+                'Vandalism': 55,
+
+                // -- Financial / Fraud Crimes (65-75) ----------------
+                'Scam': 75,
+                'Swindling of Estafa': 70,
+                'Estafa': 70,
+                'Cybercrime Prevention Act 2012 (RA 10175)': 70,
+                'Estafa/Debts': 65,
+                'Cyber Bullying': 65,
+
+                // -- Social / Public Order Crimes (40-60) ------------
+                'Voyeurism Act': 60,
+                'Alarms and Scandals': 55,
+                'Incriminating Innocent Persons': 50,
+                'Threatening to Publish and offer to prevent': 50,
+                'Oral Defamation': 50,
+                'Harassment': 50,
+                'Intriguing Against Honor': 45,
+                'Unlawful Use of Means of Publication and Unlaw': 45,
+                'Prohibiting Publication of Acts Referred to in the': 40,
+
+                // -- Special / Child-Related (35-45) -----------------
+                'BCPC': 45,
+                'Child Support': 35,
+
+                // -- Other Incidents (30-60) --------------------------
+                'Hit and Run': 60,
+                'Reckless Impudence Resulting to Damage to Property and Physical Injury': 60,
+                'Reckless Impudence Resulting Physical Injury': 55,
                 'Noise Complaint': 50,
-                'Vandalism': 30,
+                'Anti Electricity Pilferage': 50,
+                'Reckless Impudence Resulting to Damage to Property': 50,
+                'Safe Special Act': 50,
+                'Bastos Law': 40,
+                'Abandoning a Minor': 40,
+                'Abandonment of a Person in Danger': 40,
+                'Inducing a Minor to Abandon His/her Home': 40,
+                'Animal Welfare Acts': 40,
                 'Suspicious Activity': 40,
                 'Traffic Obstruction': 40,
+                'Breach of Contract': 40,
+                'Breach Contact': 40,
                 'Curfew Violation': 50,
+                'Abandon': 35,
+                'Missing': 35,
+                'Suicide': 30,
+
                 'default': 30
             },
             
