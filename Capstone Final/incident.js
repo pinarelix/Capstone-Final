@@ -79,18 +79,16 @@ const boundaryCoords = [
     [14.758158, 121.067813]
 ];
 
+// Real point-in-polygon check against the actual (concave) barangay
+// boundary shape via turf.js - a bounding-box check previously accepted
+// clicks that fell inside the boundary's rectangular extent but outside
+// the true outline (i.e. inside the blurred/masked-out area).
+const barangayBoundaryPolygon = turf.polygon([
+    [...boundaryCoords.map(coord => [coord[1], coord[0]]), [boundaryCoords[0][1], boundaryCoords[0][0]]]
+]);
+
 function isPointInsideBarangay(lat, lng) {
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
-    
-    boundaryCoords.forEach(coord => {
-        if (coord[0] < minLat) minLat = coord[0];
-        if (coord[0] > maxLat) maxLat = coord[0];
-        if (coord[1] < minLng) minLng = coord[1];
-        if (coord[1] > maxLng) maxLng = coord[1];
-    });
-    
-    return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+    return turf.booleanPointInPolygon(turf.point([lng, lat]), barangayBoundaryPolygon);
 }
 
 function initMapPicker() {
