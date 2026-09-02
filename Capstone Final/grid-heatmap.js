@@ -324,12 +324,12 @@ function showIncidentDetails(incidents, lat, lng) {
         return `
             <tr>
                 <td class="font-bold">${item.id || 'N/A'}</td>
-                <td>${item.incident_type || 'N/A'}</td>
+                <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                 <td>${dateStr} ${timeStr}</td>
-                <td><span class="${statusClass}">${item.status || 'Open'}</span></td>
-                <td><span class="${dangerClass}">${danger || 'Calculated by System'}</span></td>
-                <td>${item.recommended_action || 'Scheduled patrol and risk monitoring'}</td>
-                <td><strong>${streetName}</strong></td>
+                <td><span class="${statusClass}">${escapeHTML(item.status || 'Open')}</span></td>
+                <td><span class="${dangerClass}">${escapeHTML(danger || 'Calculated by System')}</span></td>
+                <td>${escapeHTML(item.recommended_action || 'Scheduled patrol and risk monitoring')}</td>
+                <td><strong>${escapeHTML(streetName)}</strong></td>
             </tr>
         `;
     }).join('');

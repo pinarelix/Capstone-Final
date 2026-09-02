@@ -201,11 +201,11 @@ function renderTable(rows) {
 
         tr.innerHTML = `
             <td class="font-bold">${row.id}</td>
-            <td>${row.incident_type}</td>
+            <td>${escapeHTML(row.incident_type)}</td>
             <td class="text-secondary">${formatDate(row.date)} ${formatTime(row.time)}</td>
-            <td>${row.location || row.street_name || 'N/A'}</td>
-            <td><span class="badge ${statusClass}">${row.status}</span></td>
-            <td><span class="badge ${dangerClass}">${row.danger_level}</span></td>
+            <td>${escapeHTML(row.location || row.street_name || 'N/A')}</td>
+            <td><span class="badge ${statusClass}">${escapeHTML(row.status)}</span></td>
+            <td><span class="badge ${dangerClass}">${escapeHTML(row.danger_level)}</span></td>
         `;
         tbody.appendChild(tr);
     });
@@ -281,7 +281,7 @@ function renderHotspots(hotspots) {
 
         div.innerHTML = `
             <div class="hotspot-header">
-                <span class="hotspot-title">${item.title}</span>
+                <span class="hotspot-title">${escapeHTML(item.title)}</span>
                 <span class="badge ${item.levelClass}">${item.danger} Risk</span>
             </div>
             <p class="hotspot-desc">

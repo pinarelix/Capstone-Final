@@ -177,12 +177,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     tr.innerHTML = `
                         <td class="font-bold">${item.id || 'N/A'}</td>
-                        <td>${item.incident_type || 'N/A'}</td>
+                        <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                         <td>${formattedDate} ${formattedTime}</td>
-                        <td>${location}</td>
-                        <td><span class="${statusClass}">${item.status || 'Open'}</span></td>
-                        <td><span class="${dangerClass}">${item.danger_level || 'Calculated by System'}</span></td>
-                        <td>${item.recommended_action || 'Scheduled patrol and risk monitoring'}</td>
+                        <td>${escapeHTML(location)}</td>
+                        <td><span class="${statusClass}">${escapeHTML(item.status || 'Open')}</span></td>
+                        <td><span class="${dangerClass}">${escapeHTML(item.danger_level || 'Calculated by System')}</span></td>
+                        <td>${escapeHTML(item.recommended_action || 'Scheduled patrol and risk monitoring')}</td>
                     `;
                     tableBody.appendChild(tr);
                 });
@@ -339,15 +339,21 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
             
+            const csvField = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
             let csvContent = "Incident ID,Type,Date,Time,Location,Status,Danger Level,Recommended Action,Reporter Name,Reporter Contact\n";
-            
+
             filteredData.forEach(item => {
                 const location = item.street_name || item.location || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
-                
+
                 const reporterName = item.reporter_name || 'N/A';
                 const reporterContact = item.reporter_contact_no || 'N/A';
-                
-                csvContent += `"${item.id || ''}","${item.incident_type || ''}","${item.date || ''}","${item.time || ''}","${location}","${item.status || ''}","${item.danger_level || ''}","${item.recommended_action || ''}","${reporterName}","${reporterContact}"\n`;
+
+                csvContent += [
+                    item.id || '', item.incident_type || '', item.date || '', item.time || '',
+                    location, item.status || '', item.danger_level || '',
+                    item.recommended_action || '', reporterName, reporterContact
+                ].map(csvField).join(',') + '\n';
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

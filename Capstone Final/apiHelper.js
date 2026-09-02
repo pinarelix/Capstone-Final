@@ -10,6 +10,20 @@
 const API_URL = 'http://localhost:3000/api';
 
 // ============================================================
+// 1b. HTML ESCAPING (shared — use before inserting any API/user
+//     data into innerHTML to prevent stored XSS)
+// ============================================================
+
+function escapeHTML(value) {
+    return String(value ?? '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// ============================================================
 // 2. SESSION TOKEN MANAGEMENT
 // ============================================================
 

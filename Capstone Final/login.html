@@ -265,10 +265,11 @@
 
             </div>
 
-            <!-- ✅ NEW: Reset token display area -->
+            <!-- Reset request confirmation area (token itself is never sent to the browser) -->
             <div id="resetTokenDisplay" style="display: none; margin-top: 12px; padding: 10px; background: #fef3c7; border-radius: 8px; text-align: center;">
-                <p style="font-size: 0.75rem; color: #92400e; margin-bottom: 4px;">Your Reset Token:</p>
-                <code id="resetTokenValue" style="font-size: 0.85rem; font-weight: bold; color: #b45309; word-break: break-all;"></code>
+                <p style="font-size: 0.8rem; color: #92400e; margin: 0;" id="resetTokenValue">
+                    If that account exists, a reset code has been generated. Please contact your barangay system administrator to receive it.
+                </p>
             </div>
 
         </div>

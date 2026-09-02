@@ -96,15 +96,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(data.error || 'Failed to send reset request');
                 }
 
-                if (resetTokenDisplay && resetTokenValue && data.reset_token) {
-                    resetTokenValue.textContent = data.reset_token;
+                if (resetTokenDisplay) {
                     resetTokenDisplay.style.display = 'block';
                 }
 
-                alert('✅ Reset token generated!\n\n📋 TOKEN: ' + data.reset_token + '\n\n⚠️ I-copy mo ito bago mag-proceed. May 10 seconds ka.');
-
                 submitReset.disabled = true;
-                submitReset.innerHTML = '✅ Token Generated';
+                submitReset.innerHTML = '✅ Request Sent';
 
                 setTimeout(() => {
                     const resetPasswordModal = document.getElementById('resetPasswordModal');

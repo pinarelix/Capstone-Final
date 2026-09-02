@@ -949,8 +949,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         console.log(`⏰ Expires at: ${expiresAt.toLocaleString()}`);
 
         res.json({
-            message: 'If the username exists, a reset link has been sent.',
-            reset_token: resetToken
+            message: 'If the username exists, a reset link has been sent.'
         });
 
     } catch (error) {
@@ -1976,8 +1975,10 @@ app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Administrato
         const userId = req.userId;
         
         const [oldData] = await pool.query('SELECT * FROM patrol_schedules WHERE id = ?', [id]);
-        
-        await pool.query('DELETE FROM patrol_logs WHERE schedule_id = ?', [id]);
+
+        // Detach (don't delete) historical patrol logs — deleting a schedule
+        // shouldn't erase the real patrol reports that were filed against it.
+        await pool.query('UPDATE patrol_logs SET schedule_id = NULL WHERE schedule_id = ?', [id]);
         const [result] = await pool.query(
             'DELETE FROM patrol_schedules WHERE id = ?',
             [id]
@@ -2088,16 +2089,16 @@ app.post('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decisi
 
 app.put('/api/patrol-logs/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(logSchema), async (req, res) => {
     try {
-        const { report, status } = req.body;
+        const { schedule_id, tanod_id, report, status, patrol_date } = req.body;
         const id = req.params.id;
-        
+
         const [oldData] = await pool.query('SELECT * FROM patrol_logs WHERE id = ?', [id]);
-        
+
         const [result] = await pool.query(`
-            UPDATE patrol_logs 
-            SET report = ?, status = ?
+            UPDATE patrol_logs
+            SET schedule_id = ?, tanod_id = ?, report = ?, status = ?, patrol_date = ?
             WHERE id = ?
-        `, [report || null, status || 'Completed', id]);
+        `, [schedule_id, tanod_id, report || null, status || 'Completed', patrol_date, id]);
         
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Patrol log not found' });

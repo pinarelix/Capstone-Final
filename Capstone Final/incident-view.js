@@ -254,11 +254,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return `
                 <tr>
                     <td>${(currentPage - 1) * limit + index + 1}</td>
-                    <td><strong>${incident.incident_type || 'N/A'}</strong></td>
-                    <td>${location}</td>
+                    <td><strong>${escapeHTML(incident.incident_type || 'N/A')}</strong></td>
+                    <td>${escapeHTML(location)}</td>
                     <td>${formattedDate}</td>
-                    <td><span class="badge-status ${statusClass}">${incident.status || 'Pending'}</span></td>
-                    <td>${reporterName}</td>
+                    <td><span class="badge-status ${statusClass}">${escapeHTML(incident.status || 'Pending')}</span></td>
+                    <td>${escapeHTML(reporterName)}</td>
                     <td>
                         <button class="btn-view" data-id="${incident.id}">
                             <i class="fa-regular fa-eye me-1"></i> View
@@ -356,15 +356,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="row g-3">
                     <div class="col-md-6">
                         <div class="detail-label">Incident Type</div>
-                        <div class="detail-value"><strong>${incident.incident_type || 'N/A'}</strong></div>
+                        <div class="detail-value"><strong>${escapeHTML(incident.incident_type || 'N/A')}</strong></div>
                     </div>
                     <div class="col-md-6">
                         <div class="detail-label">Status</div>
-                        <div class="detail-value"><span class="badge-status ${statusClass}">${incident.status || 'Pending'}</span></div>
+                        <div class="detail-value"><span class="badge-status ${statusClass}">${escapeHTML(incident.status || 'Pending')}</span></div>
                     </div>
                     <div class="col-md-6">
                         <div class="detail-label">Location</div>
-                        <div class="detail-value">${incident.street_name || 'N/A'}</div>
+                        <div class="detail-value">${escapeHTML(incident.street_name || 'N/A')}</div>
                     </div>
                     <div class="col-md-6">
                         <div class="detail-label">Coordinates</div>
@@ -376,19 +376,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="col-md-6">
                         <div class="detail-label">Reported By</div>
-                        <div class="detail-value">${incident.reporter_name || 'N/A'}</div>
+                        <div class="detail-value">${escapeHTML(incident.reporter_name || 'N/A')}</div>
                     </div>
                     <div class="col-12">
                         <div class="detail-label">Description</div>
-                        <div class="detail-value">${incident.description || 'No description provided.'}</div>
+                        <div class="detail-value">${escapeHTML(incident.description || 'No description provided.')}</div>
                     </div>
                     <div class="col-12">
                         <div class="detail-label">Recommended Action</div>
-                        <div class="detail-value">${incident.recommended_action || 'No action recommended.'}</div>
+                        <div class="detail-value">${escapeHTML(incident.recommended_action || 'No action recommended.')}</div>
                     </div>
                     <div class="col-md-6">
                         <div class="detail-label">Danger Level</div>
-                        <div class="detail-value">${incident.danger_level || 'Not assessed'}</div>
+                        <div class="detail-value">${escapeHTML(incident.danger_level || 'Not assessed')}</div>
                     </div>
                     <div class="col-md-6">
                         <div class="detail-label">Reported On</div>

@@ -423,7 +423,7 @@ function updatePredictionUIWithRealData(
                 <span class="factor-icon">📍</span>
                 <div>
                     <strong>Location</strong>
-                    <small>${location}</small>
+                    <small>${escapeHTML(location)}</small>
                     <small style="color: #64748b; font-size: 0.45rem;">${streetCount} incident${streetCount === 1 ? '' : 's'} recorded</small>
                 </div>
             </div>
@@ -440,11 +440,11 @@ function updatePredictionUIWithRealData(
     const pathList = document.getElementById("decisionPathList");
     if (pathList) {
         pathList.innerHTML = `
-            <li>Incident type checked: ${incidentType}</li>
+            <li>Incident type checked: ${escapeHTML(incidentType)}</li>
             <li>Repeated incidents checked: ${repeated}</li>
             <li>Time checked: ${timeOccur} (${isNightTime ? "Night period" : "Day period"})</li>
             <li>Day checked: ${day}</li>
-            <li>Location checked: ${location}</li>
+            <li>Location checked: ${escapeHTML(location)}</li>
             <li>Incidents in this location: ${streetCount}</li>
             <li>Location risk: ${streetRiskLevel}</li>
             <li>Previous risk history: ${history}</li>
@@ -593,7 +593,7 @@ function updatePredictionUI(
                 <span class="factor-icon">📍</span>
                 <div>
                     <strong>Location</strong>
-                    <small>${location}</small>
+                    <small>${escapeHTML(location)}</small>
                 </div>
             </div>
             <div class="risk-factor">
@@ -609,11 +609,11 @@ function updatePredictionUI(
     const pathList = document.getElementById("decisionPathList");
     if (pathList) {
         pathList.innerHTML = `
-            <li>Incident type checked: ${incidentType}</li>
+            <li>Incident type checked: ${escapeHTML(incidentType)}</li>
             <li>Repeated incidents checked: ${repeated}</li>
             <li>Time checked: ${timeOccur} (${isNightTime ? "Night period" : "Day period"})</li>
             <li>Day checked: ${day}</li>
-            <li>Location checked: ${location}</li>
+            <li>Location checked: ${escapeHTML(location)}</li>
             <li>Previous risk history: ${history}</li>
             <li>Incident frequency: ${frequency}</li>
             <li class="final-path">Final classification: ${riskLevel}</li>

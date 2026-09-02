@@ -624,12 +624,12 @@ function renderTable(dataToRender) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="font-bold">${item.id}</td>
-            <td>${item.incident_type || 'N/A'}</td>
+            <td>${escapeHTML(item.incident_type || 'N/A')}</td>
             <td class="text-secondary">${formattedDate} ${formattedTime}</td>
-            <td>${locationDisplay}</td>
-            <td><span class="badge ${getStatusClass(item.status)}">${item.status || 'N/A'}</span></td>
-            <td><span class="badge ${getDangerClass(item.danger_level)}">${item.danger_level || 'N/A'}</span></td>
-            <td class="text-secondary" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.recommended_action || ''}">${item.recommended_action || 'N/A'}</td>
+            <td>${escapeHTML(locationDisplay)}</td>
+            <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
+            <td><span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span></td>
+            <td class="text-secondary" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(item.recommended_action || '')}">${escapeHTML(item.recommended_action || 'N/A')}</td>
             <td>${actionButtons}</td>
         `;
         
