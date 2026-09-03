@@ -842,6 +842,9 @@
                         <option value="DELETE_LOG">Delete Log</option>
                         <option value="RUN_CART_ANALYSIS">Run CART Analysis</option>
                         <option value="UPDATE_SETTINGS">Update Settings</option>
+                        <option value="TANOD_LOGIN">Tanod Login</option>
+                        <option value="TANOD_CREATE_INCIDENT">Tanod Report Incident</option>
+                        <option value="TANOD_CREATE_PATROL_LOG">Tanod Add Patrol Log</option>
                     </select>
 
                     <select id="auditFilterEntity">
@@ -1333,7 +1336,8 @@ async function loadLoginHistory() {
                 else if (action.includes('DELETE')) badgeClass = 'delete';
                 else if (action.includes('VIEW')) badgeClass = 'view';
 
-                const userDisplay = log.user_name || log.username || `User #${log.user_id}` || 'System';
+                const userDisplay = (log.user_name || log.username || 'System') +
+                    (log.actor_type === 'tanod' ? ' <span style="color:#d97706; font-size:0.68rem; font-weight:600;">(Tanod)</span>' : '');
 
                 return `
                     <tr>

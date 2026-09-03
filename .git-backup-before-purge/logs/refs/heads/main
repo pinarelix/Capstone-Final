@@ -1,0 +1,35 @@
+0000000000000000000000000000000000000000 60fafe04dc1f17edcba3de82eaf2e83f6a6d2e07 pinarelix <abellakevin12@gmail.com> 1788350863 +0800	commit (initial): first commit
+60fafe04dc1f17edcba3de82eaf2e83f6a6d2e07 4b7c914cd984f894dc01fc0f0af47a25739bc36a pinarelix <abellakevin12@gmail.com> 1788351698 +0800	pull --tags origin main: Fast-forward
+4b7c914cd984f894dc01fc0f0af47a25739bc36a 05476da395cd5699c1e165efd12d2464b965128a pinarelix <abellakevin12@gmail.com> 1788352213 +0800	commit: "Add .gitignore"
+05476da395cd5699c1e165efd12d2464b965128a 87c89920d158f123fe1462bce7ed087d19025784 pinarelix <abellakevin12@gmail.com> 1788358297 +0800	commit: ClaudeCheck
+87c89920d158f123fe1462bce7ed087d19025784 c9ffc988777c94e306cd257ceab83825e84d53eb pinarelix <abellakevin12@gmail.com> 1788360722 +0800	commit: Claude Update Ver
+c9ffc988777c94e306cd257ceab83825e84d53eb d3a480f1c36bf7f4fdeaebae31aee9a95f559a7b pinarelix <abellakevin12@gmail.com> 1788361262 +0800	commit: Claude Fix password reset
+d3a480f1c36bf7f4fdeaebae31aee9a95f559a7b 96b0e6245dbf1b70d8a945f05650e8716dfb3d5c pinarelix <abellakevin12@gmail.com> 1788361761 +0800	commit: Claude Incident view fix
+96b0e6245dbf1b70d8a945f05650e8716dfb3d5c 70282ae7d772b2f405b499d887686a34dfb237b0 pinarelix <abellakevin12@gmail.com> 1788362403 +0800	commit: navigation side bar
+70282ae7d772b2f405b499d887686a34dfb237b0 51996954f8d34beb6661041f90543071f64ec05e pinarelix <abellakevin12@gmail.com> 1788362789 +0800	commit: patrol pop up modal for all
+51996954f8d34beb6661041f90543071f64ec05e 0a7146d2079b007f297a9b53d4bb9d73fc0429ef pinarelix <abellakevin12@gmail.com> 1788363533 +0800	commit: Incident view UI update
+0a7146d2079b007f297a9b53d4bb9d73fc0429ef df61f74e785f759288804fbfb16f0ff0bae36c6e pinarelix <abellakevin12@gmail.com> 1788363742 +0800	commit: danger badge delay
+df61f74e785f759288804fbfb16f0ff0bae36c6e 2128fd7e68c1c7767230ff12158678e2408e9c6b pinarelix <abellakevin12@gmail.com> 1788364375 +0800	commit: Street name Added
+2128fd7e68c1c7767230ff12158678e2408e9c6b 5c712903092521158f302b0cf76eb076ee0523f8 pinarelix <abellakevin12@gmail.com> 1788364850 +0800	commit: Full-run 1
+5c712903092521158f302b0cf76eb076ee0523f8 b259df73d65eeff44fd53718c16ff1ab33964197 pinarelix <abellakevin12@gmail.com> 1788365506 +0800	commit: full run fix 2
+b259df73d65eeff44fd53718c16ff1ab33964197 ac39887b37e52d485fad235dd757221d2479f4e6 pinarelix <abellakevin12@gmail.com> 1788366081 +0800	commit: cart analytics demo bug fix
+ac39887b37e52d485fad235dd757221d2479f4e6 d1132f9ececd9a99913cc02fbaad8e025a569950 pinarelix <abellakevin12@gmail.com> 1788366615 +0800	commit: full run 3
+d1132f9ececd9a99913cc02fbaad8e025a569950 1db4e970d56daea02ddfdd1a780ff98cb40127b0 pinarelix <abellakevin12@gmail.com> 1788367250 +0800	commit: Captain Interface fix
+1db4e970d56daea02ddfdd1a780ff98cb40127b0 2becab3dd9b9aeae18dc5aa6afd8fec5f5e1a283 pinarelix <abellakevin12@gmail.com> 1788367879 +0800	commit: captain Ui fix 2
+2becab3dd9b9aeae18dc5aa6afd8fec5f5e1a283 3291f5c08b81abb9585139c56d99040b81f8f18d pinarelix <abellakevin12@gmail.com> 1788368299 +0800	commit: run run
+3291f5c08b81abb9585139c56d99040b81f8f18d 669d7dcc1343d351a46f6fa47353cf7362375bb5 pinarelix <abellakevin12@gmail.com> 1788368456 +0800	commit: mapmap
+669d7dcc1343d351a46f6fa47353cf7362375bb5 88363ac089483283745a1f0bf537ecacfcd728d5 pinarelix <abellakevin12@gmail.com> 1788368573 +0800	commit: who is json
+88363ac089483283745a1f0bf537ecacfcd728d5 9d58fc8f8eb34f054be09e0795098c231141965a pinarelix <abellakevin12@gmail.com> 1788369115 +0800	commit: clean up
+9d58fc8f8eb34f054be09e0795098c231141965a 789a15076e83025085aa84ef5e5a5933f5c8095b pinarelix <abellakevin12@gmail.com> 1788369345 +0800	commit: emilyo
+789a15076e83025085aa84ef5e5a5933f5c8095b d94092d74c90aa6ff96207ff317f663ba4c3f072 pinarelix <abellakevin12@gmail.com> 1788369741 +0800	commit: UI fix
+d94092d74c90aa6ff96207ff317f663ba4c3f072 8497c324f1120d82f8d39a7f5a08409a81c959b1 pinarelix <abellakevin12@gmail.com> 1788370365 +0800	commit: dashboard UI fix
+8497c324f1120d82f8d39a7f5a08409a81c959b1 b1f13667ea865c64cadbfd49b76e5d3795ea874e pinarelix <abellakevin12@gmail.com> 1788370658 +0800	commit: Incident UI fix again
+b1f13667ea865c64cadbfd49b76e5d3795ea874e cd6241b24227740082314ffa903c862285924665 pinarelix <abellakevin12@gmail.com> 1788426419 +0800	commit: Transitioning into application based
+cd6241b24227740082314ffa903c862285924665 a93bba67bcda959012ea5fd3be1d3973d3a06d91 pinarelix <abellakevin12@gmail.com> 1788426897 +0800	commit: transitioning
+a93bba67bcda959012ea5fd3be1d3973d3a06d91 3ef6aa31e075d1b277875630bc7ef33af5e21392 pinarelix <abellakevin12@gmail.com> 1788427465 +0800	commit: password error fix
+3ef6aa31e075d1b277875630bc7ef33af5e21392 814d161ed6fec43c8819ab748d432c7ac8f50263 pinarelix <abellakevin12@gmail.com> 1788427947 +0800	commit: full run check after transitioning
+814d161ed6fec43c8819ab748d432c7ac8f50263 de0614b985ad21b94aa4f2c453c6ba3dfa42e19d pinarelix <abellakevin12@gmail.com> 1788428081 +0800	commit: README update
+de0614b985ad21b94aa4f2c453c6ba3dfa42e19d 6aac18e9a36c62039f05a54f78d6940099df2b35 pinarelix <abellakevin12@gmail.com> 1788431162 +0800	commit: tanod interface development
+6aac18e9a36c62039f05a54f78d6940099df2b35 dd7b2351f5fde241ee27214f212e52a0ddf0d9ac pinarelix <abellakevin12@gmail.com> 1788431605 +0800	commit: Tanod UI enhanced
+dd7b2351f5fde241ee27214f212e52a0ddf0d9ac b47abe11deaab896224a711fb1555b257e3ff28e pinarelix <abellakevin12@gmail.com> 1788434135 +0800	commit: Tanod details Update
+b47abe11deaab896224a711fb1555b257e3ff28e b1ec64fec82800e1ac36672d3fca0e43c0ba6eb3 pinarelix <abellakevin12@gmail.com> 1788435826 +0800	commit: Full run checking for bugs errors

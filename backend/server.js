@@ -209,6 +209,34 @@ async function logAudit(userId, action, entityType, entityId, oldData, newData, 
     }
 }
 
+// Tanod equivalent of logAudit() above — a separate table since
+// audit_logs.user_id is a NOT NULL FK into `users`, and tanods aren't
+// rows there.
+async function logTanodAudit(tanodId, action, entityType, entityId, newData, req) {
+    try {
+        const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+        const userAgent = req.headers?.['user-agent'] || '';
+
+        await pool.query(`
+            INSERT INTO tanod_audit_logs
+            (tanod_id, action, entity_type, entity_id, new_data, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+            tanodId,
+            action,
+            entityType || null,
+            entityId || null,
+            newData ? JSON.stringify(newData) : null,
+            ip,
+            userAgent
+        ]);
+
+        console.log(`✅ Tanod Audit: ${action} by tanod ${tanodId} on ${entityType} #${entityId || 'N/A'}`);
+    } catch (error) {
+        console.error('❌ Tanod audit log error:', error.message);
+    }
+}
+
 // ============================================================
 // 🔐 MIDDLEWARE: SESSION-BASED AUTHENTICATION
 // ============================================================
@@ -1966,6 +1994,22 @@ app.delete('/api/tanods/:id', authenticate, requireRole(['Administrator']), asyn
 app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
     try {
         const { username, pin_code } = req.body;
+        const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+
+        const [attempts] = await pool.query(
+            `SELECT COUNT(*) as count FROM tanod_login_attempts
+             WHERE username = ? AND success = 0 AND attempt_time > DATE_SUB(NOW(), INTERVAL 15 MINUTE)`,
+            [username]
+        );
+
+        const failedCount = attempts[0]?.count || 0;
+
+        if (failedCount >= 5) {
+            return res.status(429).json({
+                error: 'Too many failed login attempts. Please wait 15 minutes.',
+                locked: true
+            });
+        }
 
         const [tanods] = await pool.query(
             'SELECT id, name, position, pin_code_hash FROM tanod_record WHERE username = ? AND is_active = 1',
@@ -1975,6 +2019,10 @@ app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
         // Same generic error either way — don't reveal whether the
         // username or the PIN was the wrong part.
         if (tanods.length === 0) {
+            await pool.query(
+                'INSERT INTO tanod_login_attempts (username, ip_address, success) VALUES (?, ?, ?)',
+                [username, ip, false]
+            );
             return res.status(401).json({ error: 'Invalid username or PIN.' });
         }
 
@@ -1982,8 +2030,17 @@ app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
         const match = await bcrypt.compare(pin_code, tanod.pin_code_hash);
 
         if (!match) {
+            await pool.query(
+                'INSERT INTO tanod_login_attempts (username, ip_address, success) VALUES (?, ?, ?)',
+                [username, ip, false]
+            );
             return res.status(401).json({ error: 'Invalid username or PIN.' });
         }
+
+        await pool.query(
+            'INSERT INTO tanod_login_attempts (username, ip_address, success) VALUES (?, ?, ?)',
+            [username, ip, true]
+        );
 
         const sessionToken = crypto.randomBytes(32).toString('hex');
 
@@ -1991,6 +2048,8 @@ app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
             'INSERT INTO tanod_sessions (tanod_id, session_token, is_active) VALUES (?, ?, ?)',
             [tanod.id, sessionToken, true]
         );
+
+        await logTanodAudit(tanod.id, 'TANOD_LOGIN', 'tanod_record', tanod.id, { username }, req);
 
         const { pin_code_hash, ...tanodData } = tanod;
 
@@ -2110,6 +2169,9 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
 
         await computeCartRiskFactors(result.insertId);
 
+        await logTanodAudit(req.tanodId, 'TANOD_CREATE_INCIDENT', 'incidents', result.insertId,
+            { incident_type, location, date, time }, req);
+
         res.status(201).json({
             message: 'Incident reported successfully.',
             id: result.insertId
@@ -2144,6 +2206,9 @@ app.post('/api/tanod/patrol-log', authenticateTanod, validate(tanodLogSchema), a
         `, [schedule_id, req.tanodId, report || null, status || 'Completed', patrol_date]);
 
         const [newLog] = await pool.query('SELECT * FROM patrol_logs WHERE id = ?', [result.insertId]);
+
+        await logTanodAudit(req.tanodId, 'TANOD_CREATE_PATROL_LOG', 'patrol_logs', result.insertId,
+            { schedule_id, status, patrol_date }, req);
 
         res.status(201).json({
             message: 'Patrol log added successfully',
@@ -2741,34 +2806,49 @@ app.get('/api/audit-logs', authenticate, requireRole(['Administrator']), async (
     try {
         const { limit = 100, offset = 0, action, entity_type, user_id } = req.query;
 
+        // Combines the staff audit trail (audit_logs) with the tanod audit
+        // trail (tanod_audit_logs, a separate table since audit_logs.user_id
+        // is a NOT NULL FK into `users` and tanods aren't rows there) into
+        // one merged, time-sorted view so admins see everyone's activity in
+        // one place instead of having to check two screens.
         let query = `
-            SELECT 
-                al.*,
-                u.name as user_name,
-                u.username
-            FROM audit_logs al
-            LEFT JOIN users u ON al.user_id = u.id
+            SELECT * FROM (
+                SELECT
+                    al.id, al.action, al.entity_type, al.entity_id,
+                    al.ip_address, al.created_at,
+                    u.name as user_name, u.username, 'staff' as actor_type
+                FROM audit_logs al
+                LEFT JOIN users u ON al.user_id = u.id
+                UNION ALL
+                SELECT
+                    tal.id, tal.action, tal.entity_type, tal.entity_id,
+                    tal.ip_address, tal.created_at,
+                    tr.name as user_name, tr.username, 'tanod' as actor_type
+                FROM tanod_audit_logs tal
+                LEFT JOIN tanod_record tr ON tal.tanod_id = tr.id
+            ) combined
             WHERE 1=1
         `;
 
         const params = [];
 
         if (action) {
-            query += ' AND al.action = ?';
+            query += ' AND action = ?';
             params.push(action);
         }
 
         if (entity_type) {
-            query += ' AND al.entity_type = ?';
+            query += ' AND entity_type = ?';
             params.push(entity_type);
         }
 
         if (user_id) {
-            query += ' AND al.user_id = ?';
+            // Only meaningful for staff rows — tanod rows have no users.id.
+            query += " AND actor_type = 'staff' AND username = (SELECT username FROM users WHERE id = ?)";
             params.push(user_id);
         }
 
-        query += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
+        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
         params.push(parseInt(limit), parseInt(offset));
 
         const [rows] = await pool.query(query, params);
