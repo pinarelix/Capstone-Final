@@ -1,11 +1,11 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
-const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const crypto = require('crypto');
 const Joi = require('joi');
 const path = require('path');
+const NodeCache = require('node-cache');
 const cartEngine = require('./cart-engine');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -13,25 +13,21 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ============================================================
-// CORS & MIDDLEWARE
-// ============================================================
-const allowedOrigins = [
-    'http://127.0.0.1:5500', 'http://localhost:5500',
-    `http://127.0.0.1:${process.env.PORT || 3000}`, `http://localhost:${process.env.PORT || 3000}`
-];
+// Caches GET /api/heatmap/incidents' result — that query re-runs on
+// every risk-map load, but the underlying data only changes when an
+// incident is created/updated/deleted. stdTTL is just a safety-net
+// expiry; the real invalidation is the explicit heatmapCache.del(...)
+// calls next to every incident-mutating route below.
+const heatmapCache = new NodeCache({ stdTTL: 60 });
 
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// ============================================================
+// MIDDLEWARE
+// ============================================================
+// No CORS middleware — the app converted from a two-port web app
+// (frontend on :5500, API on :3000) to a single-origin Electron app
+// where Express serves the frontend itself (see express.static below).
+// Every request is same-origin now, so a CORS allowlist has nothing
+// left to do.
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
@@ -1373,6 +1369,11 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
 
 app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
+        const cached = heatmapCache.get('incidents');
+        if (cached) {
+            return res.json(cached);
+        }
+
         const [rows] = await pool.query(`
             SELECT
                 incidents.*,
@@ -1386,6 +1387,8 @@ app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'D
               AND incidents.longitude IS NOT NULL
             ORDER BY incidents.date DESC, incidents.time DESC
         `);
+
+        heatmapCache.set('incidents', rows);
         res.json(rows);
     } catch (error) {
         console.error('❌ Error fetching heatmap incidents:', error);
@@ -1431,6 +1434,7 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
         ]);
 
         await computeCartRiskFactors(result.insertId);
+        heatmapCache.del('incidents');
 
         const userId = req.userId;
 
@@ -1446,9 +1450,9 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
             );
         }
 
-        res.status(201).json({ 
-            message: 'Incident saved successfully.', 
-            id: result.insertId 
+        res.status(201).json({
+            message: 'Incident saved successfully.',
+            id: result.insertId
         });
 
     } catch (error) {
@@ -1494,6 +1498,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), vali
         }
 
         await computeCartRiskFactors(id);
+        heatmapCache.del('incidents');
 
         const userId = req.userId;
 
@@ -1530,6 +1535,8 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Administrator']), a
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Incident not found' });
         }
+
+        heatmapCache.del('incidents');
 
         if (userId) {
             await logAudit(
@@ -2238,6 +2245,7 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
         ]);
 
         await computeCartRiskFactors(result.insertId);
+        heatmapCache.del('incidents');
 
         await logTanodAudit(req.tanodId, 'TANOD_CREATE_INCIDENT', 'incidents', result.insertId,
             { incident_type, location, date, time }, req);
@@ -3158,4 +3166,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { app, startServer };
+module.exports = { app, startServer, pool };
