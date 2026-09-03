@@ -184,7 +184,11 @@ mysql -u root -p -e "CREATE DATABASE brgydata"
 mysql -u root -p brgydata < database/schema.sql
 ```
 
-Create `backend/.env` with your local database credentials:
+Copy `backend/.env.example` to `backend/.env` and fill in your local database credentials:
+
+```powershell
+cp backend/.env.example backend/.env
+```
 
 ```
 DB_HOST=localhost
