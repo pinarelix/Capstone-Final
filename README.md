@@ -253,3 +253,12 @@ at this stage of deployment.
 - `backend/.env` holds real database credentials and is **git-ignored** — never commit it.
 - Passwords are hashed with `bcryptjs`; sessions use server-issued tokens with expiry.
 - Role-based UI restrictions (Administrator vs. Decision-Maker vs. Tanod) are enforced both in the frontend nav and on the backend API routes.
+
+---
+
+## 🗺️ Future Work
+
+Known gaps and deferred improvements — see [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md)
+for the full list with context on why each one isn't done yet (CART weight-editing UI,
+a `street_id` foreign key, the pending Express 5 security upgrade, code signing for the
+installer, and more).
