@@ -1,14 +1,34 @@
 {
-  "name": "capstone-final",
+  "name": "barangay179-crime-bi",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Barangay 179 Crime Intelligence and Patrol Decision Support System",
+  "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "electron .",
+    "build": "electron-builder"
   },
-  "keywords": [],
   "type": "commonjs",
-  "dependencies": {
-    "@turf/turf": "^7.4.0"
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.barangay179.crimebi",
+    "productName": "Barangay 179 Crime BI",
+    "asar": false,
+    "files": [
+      "main.js",
+      "package.json",
+      "backend/**/*",
+      "frontend/**/*",
+      "!backend/.env",
+      "!backend/*.log"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "allowScripts": {
+    "electron@31.7.7": true
   }
 }

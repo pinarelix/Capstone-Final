@@ -36,5 +36,9 @@ temp/
 *.backup
 
 # Project specific
-BACKEND/.env
-BACKEND/*.log
+backend/.env
+backend/*.log
+
+# Electron build output
+dist/
+out/
