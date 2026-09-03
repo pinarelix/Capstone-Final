@@ -63,6 +63,17 @@ function initTanodLoginPage() {
     const form = document.getElementById('tanodLoginForm');
     if (!form) return;
 
+    const togglePin = document.getElementById('toggleTanodPin');
+    const pinInput = document.getElementById('tanodPin');
+    if (togglePin && pinInput) {
+        togglePin.addEventListener('click', function () {
+            const type = pinInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            pinInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+    }
+
     const errorMsg = document.getElementById('errorMsg');
     const errorText = document.getElementById('errorText');
     const loginBtn = form.querySelector('.btn-login');
@@ -70,11 +81,12 @@ function initTanodLoginPage() {
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
 
-        const name = document.getElementById('tanodName').value.trim();
+        const username = document.getElementById('tanodUsername').value.trim();
+        const pin_code = document.getElementById('tanodPin').value.trim();
         if (errorMsg) errorMsg.style.display = 'none';
 
-        if (!name) {
-            if (errorText) errorText.textContent = 'Please enter your name.';
+        if (!username || !pin_code) {
+            if (errorText) errorText.textContent = 'Please enter your username and PIN.';
             if (errorMsg) errorMsg.style.display = 'flex';
             return;
         }
@@ -88,13 +100,13 @@ function initTanodLoginPage() {
             const response = await fetch(`${TANOD_API_URL}/tanod/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
+                body: JSON.stringify({ username, pin_code })
             });
 
             const data = await response.json();
 
             if (!response.ok) {
-                if (errorText) errorText.textContent = data.error || 'Tanod not found.';
+                if (errorText) errorText.textContent = data.error || 'Invalid username or PIN.';
                 if (errorMsg) errorMsg.style.display = 'flex';
                 if (loginBtn) {
                     loginBtn.disabled = false;
@@ -145,8 +157,6 @@ function initTanodDashboardPage() {
     const now = new Date();
     if (dateField) dateField.value = now.toISOString().slice(0, 10);
     if (timeField) timeField.value = now.toTimeString().slice(0, 5);
-    const locationField = document.getElementById('reportLocation');
-    if (locationField) locationField.textContent = tanod.assigned_area || 'Not assigned';
 
     const logDateField = document.getElementById('logDate');
     if (logDateField) logDateField.value = now.toISOString().slice(0, 10);
@@ -163,12 +173,31 @@ function initTanodDashboardPage() {
 function renderProfile(tanod) {
     document.getElementById('profileName').textContent = tanod.name || '—';
     document.getElementById('profilePosition').textContent = tanod.position || 'Tanod';
-    document.getElementById('profileArea').textContent = tanod.assigned_area || 'Not assigned';
+}
 
-    const shiftStart = tanod.shift_start || null;
-    const shiftEnd = tanod.shift_end || null;
-    const shiftText = (shiftStart && shiftEnd) ? `${shiftStart} — ${shiftEnd}` : 'Not set';
-    document.getElementById('profileShift').textContent = shiftText;
+// A tanod's assigned area(s) are now whatever locations their active
+// patrol schedules cover — updates the Report Incident location <select>
+// and toggles the form vs. the "not yet assigned" message accordingly.
+function updateAssignedLocations(schedules) {
+    const locations = [...new Set(schedules.map(s => s.location))];
+
+    const locationSelect = document.getElementById('reportLocation');
+    const form = document.getElementById('incidentReportForm');
+    const unassignedMsg = document.getElementById('reportUnassignedMsg');
+
+    if (!locationSelect) return;
+
+    if (locations.length === 0) {
+        if (form) form.style.display = 'none';
+        if (unassignedMsg) unassignedMsg.style.display = 'block';
+        return;
+    }
+
+    if (form) form.style.display = '';
+    if (unassignedMsg) unassignedMsg.style.display = 'none';
+
+    locationSelect.innerHTML = '<option value="" disabled selected>Select an assigned area</option>' +
+        locations.map(loc => `<option value="${escapeHTML(loc)}">${escapeHTML(loc)}</option>`).join('');
 }
 
 async function loadSchedule(tanodId) {
@@ -179,8 +208,10 @@ async function loadSchedule(tanodId) {
         const response = await tanodFetch(`/tanod/schedules/${tanodId}`);
         const schedules = await response.json();
 
+        updateAssignedLocations(Array.isArray(schedules) ? schedules : []);
+
         if (!Array.isArray(schedules) || schedules.length === 0) {
-            list.innerHTML = '<p class="tanod-empty">No schedules currently match your assigned area.</p>';
+            list.innerHTML = '<p class="tanod-empty">You have not been assigned to any patrol schedule yet.</p>';
             return;
         }
 
@@ -270,10 +301,11 @@ async function handleIncidentReport(e, tanod) {
         incident_type: document.getElementById('reportType').value,
         date: document.getElementById('reportDate').value,
         time: document.getElementById('reportTime').value,
+        location: document.getElementById('reportLocation').value,
         description: document.getElementById('reportDescription').value.trim()
     };
 
-    if (!payload.incident_type || !payload.date || !payload.time) {
+    if (!payload.incident_type || !payload.date || !payload.time || !payload.location) {
         statusEl.textContent = 'Please fill in all required fields.';
         statusEl.className = 'tanod-form-status tanod-status-error';
         return;

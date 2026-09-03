@@ -233,19 +233,20 @@
                             </div>
                         </div>
 
-                        <div class="form-grid-2">
-                            <div class="form-group">
-                                <label for="scheduleTanods">Number of Tanods</label>
-                                <input type="number" id="scheduleTanods" class="form-control" placeholder="2" min="1" max="10" required>
+                        <div class="form-group">
+                            <label>Assigned Tanods</label>
+                            <div id="scheduleTanodsChecklist" class="tanod-checklist">
+                                <!-- JavaScript generated: one checkbox per active tanod -->
                             </div>
-                            <div class="form-group">
-                                <label for="scheduleStatus">Status</label>
-                                <select id="scheduleStatus" class="form-control">
-                                    <option value="Active">Active</option>
-                                    <option value="Completed">Completed</option>
-                                    <option value="Cancelled">Cancelled</option>
-                                </select>
-                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="scheduleStatus">Status</label>
+                            <select id="scheduleStatus" class="form-control">
+                                <option value="Active">Active</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
                         </div>
 
                         <div class="form-group">

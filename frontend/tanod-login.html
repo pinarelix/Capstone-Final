@@ -59,14 +59,14 @@
                     <h2>Tanod Login</h2>
 
                     <p class="login-subtext">
-                        Enter your full name to continue.
+                        Enter your username and PIN to continue.
                     </p>
 
                 </div>
 
                 <div id="errorMsg" style="display: none;">
                     <span class="error-icon">⚠️</span>
-                    <p id="errorText">Tanod not found.</p>
+                    <p id="errorText">Invalid username or PIN.</p>
                 </div>
 
                 <form id="tanodLoginForm">
@@ -75,12 +75,28 @@
                         <i class="fa-regular fa-user input-icon"></i>
                         <input
                             type="text"
-                            id="tanodName"
-                            name="tanodName"
-                            placeholder="Enter your full name (e.g. Juan Dela Cruz)"
-                            autocomplete="name"
+                            id="tanodUsername"
+                            name="tanodUsername"
+                            placeholder="Username"
+                            autocomplete="username"
                             required
                         >
+                    </div>
+
+                    <div class="input-group">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <input
+                            type="password"
+                            id="tanodPin"
+                            name="tanodPin"
+                            placeholder="4-digit PIN"
+                            maxlength="4"
+                            inputmode="numeric"
+                            pattern="\d{4}"
+                            autocomplete="current-password"
+                            required
+                        >
+                        <i class="fa-regular fa-eye toggle-password" id="toggleTanodPin"></i>
                     </div>
 
                     <button type="submit" class="btn-login" name="tanod_login_btn">

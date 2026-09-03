@@ -99,22 +99,28 @@ const tanodSchema = Joi.object({
     name: Joi.string().required(),
     position: Joi.string().allow('', null),
     contact_no: Joi.string().allow('', null),
-    shift_start: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).allow('', null),
-    shift_end: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).allow('', null),
-    assigned_area: Joi.string().allow('', null)
+    username: Joi.string().min(3).required(),
+    // Optional here (not required) so PUT can omit it to leave the PIN
+    // unchanged; POST enforces "must set a PIN on create" in the route
+    // handler itself, since Joi can't make a field conditionally required
+    // by HTTP method alone.
+    pin_code: Joi.string().pattern(/^\d{4}$/).allow('', null)
 });
 
 // Tanod Login Schema
 const tanodLoginSchema = Joi.object({
-    name: Joi.string().required()
+    username: Joi.string().required(),
+    pin_code: Joi.string().pattern(/^\d{4}$/).required()
 });
 
-// Tanod Incident Report Schema (simplified — no lat/long/street_name,
-// those are filled server-side from the tanod's assigned_area)
+// Tanod Incident Report Schema (simplified — no lat/long, those stay
+// null; location must be one of the tanod's currently-assigned patrol
+// schedule locations, checked server-side in the route handler)
 const tanodIncidentSchema = Joi.object({
     incident_type: Joi.string().required(),
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
+    location: Joi.string().required(),
     description: Joi.string().allow('', null)
 });
 
@@ -132,7 +138,10 @@ const scheduleSchema = Joi.object({
     start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     day_of_week: Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday').required(),
-    assigned_tanods: Joi.number().integer().min(0).default(0),
+    // Which specific tanods are on this schedule. assigned_tanods (the
+    // headcount column) is derived server-side from tanod_ids.length —
+    // no longer accepted directly from the client.
+    tanod_ids: Joi.array().items(Joi.number().integer().positive()).default([]),
     reason: Joi.string().allow('', null),
     status: Joi.string().valid('Active', 'Completed', 'Cancelled').default('Active')
 });
@@ -1752,11 +1761,13 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Administrator', 'De
 // TANOD & PATROL API ROUTES
 // ============================================================
 
+const TANOD_PUBLIC_COLUMNS = 'id, name, position, contact_no, username, is_active, created_at, updated_at, user_id';
+
 app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT * FROM tanod_record 
-            WHERE is_active = 1 
+            SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record
+            WHERE is_active = 1
             ORDER BY name
         `);
         res.json(rows);
@@ -1769,7 +1780,7 @@ app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Mak
 app.get('/api/tanods/all', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT * FROM tanod_record 
+            SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record
             ORDER BY is_active DESC, name
         `);
         res.json(rows);
@@ -1782,14 +1793,14 @@ app.get('/api/tanods/all', authenticate, requireRole(['Administrator', 'Decision
 app.get('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const [rows] = await pool.query(
-            'SELECT * FROM tanod_record WHERE id = ?',
+            `SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record WHERE id = ?`,
             [req.params.id]
         );
-        
+
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Tanod not found' });
         }
-        
+
         res.json(rows[0]);
     } catch (error) {
         console.error('❌ Error fetching tanod:', error);
@@ -1799,28 +1810,33 @@ app.get('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
 
 app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(tanodSchema), async (req, res) => {
     try {
-        const { name, position, contact_no, shift_start, shift_end, assigned_area } = req.body;
-        
+        const { name, position, contact_no, username, pin_code } = req.body;
+
+        if (!pin_code) {
+            return res.status(400).json({ error: 'A 4-digit PIN is required when adding a tanod.' });
+        }
+
+        const pinHash = await bcrypt.hash(pin_code, 10);
+
         const [result] = await pool.query(`
-            INSERT INTO tanod_record 
-            (name, position, contact_no, shift_start, shift_end, assigned_area) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO tanod_record
+            (name, position, contact_no, username, pin_code_hash)
+            VALUES (?, ?, ?, ?, ?)
         `, [
-            name, 
-            position || 'Tanod', 
-            contact_no || null, 
-            shift_start || null, 
-            shift_end || null, 
-            assigned_area || null
+            name,
+            position || 'Tanod',
+            contact_no || null,
+            username,
+            pinHash
         ]);
-        
+
         const [newTanod] = await pool.query(
-            'SELECT * FROM tanod_record WHERE id = ?',
+            `SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record WHERE id = ?`,
             [result.insertId]
         );
-        
+
         const userId = req.userId;
-        
+
         if (userId) {
             await logAudit(
                 userId,
@@ -1828,16 +1844,19 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
                 'tanod_record',
                 result.insertId,
                 null,
-                { name, position, assigned_area },
+                { name, position, username },
                 req
             );
         }
-        
-        res.status(201).json({ 
-            message: 'Tanod added successfully', 
-            tanod: newTanod[0] 
+
+        res.status(201).json({
+            message: 'Tanod added successfully',
+            tanod: newTanod[0]
         });
     } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'That username is already taken.' });
+        }
         console.error('❌ Error adding tanod:', error);
         res.status(500).json({ error: 'Failed to add tanod' });
     }
@@ -1845,50 +1864,63 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
 
 app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(tanodSchema), async (req, res) => {
     try {
-        const { name, position, contact_no, shift_start, shift_end, assigned_area, is_active } = req.body;
+        const { name, position, contact_no, username, pin_code, is_active } = req.body;
         const id = req.params.id;
-        
+
         const [oldData] = await pool.query('SELECT * FROM tanod_record WHERE id = ?', [id]);
-        
+
+        if (oldData.length === 0) {
+            return res.status(404).json({ error: 'Tanod not found' });
+        }
+
+        // Blank pin_code means "leave the existing PIN unchanged" — same
+        // convention as the admin Users form not forcing a password reset
+        // on every edit.
+        const pinHash = pin_code ? await bcrypt.hash(pin_code, 10) : oldData[0].pin_code_hash;
+
         const [result] = await pool.query(`
-            UPDATE tanod_record 
-            SET name = ?, position = ?, contact_no = ?, 
-                shift_start = ?, shift_end = ?, assigned_area = ?, is_active = ?
+            UPDATE tanod_record
+            SET name = ?, position = ?, contact_no = ?,
+                username = ?, pin_code_hash = ?, is_active = ?
             WHERE id = ?
         `, [
             name, position || 'Tanod', contact_no || null,
-            shift_start || null, shift_end || null, assigned_area || null,
+            username, pinHash,
             is_active !== undefined ? is_active : 1, id
         ]);
-        
+
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Tanod not found' });
         }
-        
+
         const [updatedTanod] = await pool.query(
-            'SELECT * FROM tanod_record WHERE id = ?',
+            `SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record WHERE id = ?`,
             [id]
         );
-        
+
         const userId = req.userId;
-        
+
         if (userId) {
+            const { pin_code: _omit, ...auditBody } = req.body;
             await logAudit(
                 userId,
                 'UPDATE_TANOD',
                 'tanod_record',
                 id,
-                oldData[0] || null,
-                req.body,
+                { ...oldData[0], pin_code_hash: undefined },
+                auditBody,
                 req
             );
         }
-        
-        res.json({ 
-            message: 'Tanod updated successfully', 
-            tanod: updatedTanod[0] 
+
+        res.json({
+            message: 'Tanod updated successfully',
+            tanod: updatedTanod[0]
         });
     } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'That username is already taken.' });
+        }
         console.error('❌ Error updating tanod:', error);
         res.status(500).json({ error: 'Failed to update tanod' });
     }
@@ -1933,18 +1965,26 @@ app.delete('/api/tanods/:id', authenticate, requireRole(['Administrator']), asyn
 
 app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
     try {
-        const { name } = req.body;
+        const { username, pin_code } = req.body;
 
         const [tanods] = await pool.query(
-            'SELECT id, name, position, assigned_area, shift_start, shift_end FROM tanod_record WHERE LOWER(name) = LOWER(?) AND is_active = 1',
-            [name]
+            'SELECT id, name, position, pin_code_hash FROM tanod_record WHERE username = ? AND is_active = 1',
+            [username]
         );
 
+        // Same generic error either way — don't reveal whether the
+        // username or the PIN was the wrong part.
         if (tanods.length === 0) {
-            return res.status(401).json({ error: 'Tanod not found' });
+            return res.status(401).json({ error: 'Invalid username or PIN.' });
         }
 
         const tanod = tanods[0];
+        const match = await bcrypt.compare(pin_code, tanod.pin_code_hash);
+
+        if (!match) {
+            return res.status(401).json({ error: 'Invalid username or PIN.' });
+        }
+
         const sessionToken = crypto.randomBytes(32).toString('hex');
 
         await pool.query(
@@ -1952,9 +1992,11 @@ app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
             [tanod.id, sessionToken, true]
         );
 
+        const { pin_code_hash, ...tanodData } = tanod;
+
         res.json({
             message: 'Login successful.',
-            tanod,
+            tanod: tanodData,
             session_token: sessionToken
         });
     } catch (error) {
@@ -1966,7 +2008,7 @@ app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
 app.get('/api/tanod/dashboard/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
     try {
         const [tanods] = await pool.query(
-            'SELECT id, name, position, contact_no, assigned_area, shift_start, shift_end FROM tanod_record WHERE id = ?',
+            'SELECT id, name, position, contact_no, username FROM tanod_record WHERE id = ?',
             [req.tanodId]
         );
 
@@ -1981,20 +2023,28 @@ app.get('/api/tanod/dashboard/:tanodId', authenticateTanod, requireOwnTanodId, a
     }
 });
 
+// Shared by the schedules/incidents/incident-report routes below — a
+// tanod's "area(s)" are now whatever locations they're actually assigned
+// to via patrol_schedule_tanods, not a static field on tanod_record.
+async function getTanodScheduleLocations(tanodId) {
+    const [rows] = await pool.query(
+        `SELECT DISTINCT ps.location
+         FROM patrol_schedules ps
+         JOIN patrol_schedule_tanods pst ON ps.id = pst.schedule_id
+         WHERE pst.tanod_id = ? AND ps.status = 'Active'`,
+        [tanodId]
+    );
+    return rows.map(r => r.location);
+}
+
 app.get('/api/tanod/schedules/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
     try {
-        const [tanods] = await pool.query(
-            'SELECT assigned_area FROM tanod_record WHERE id = ?',
-            [req.tanodId]
-        );
-
-        if (tanods.length === 0 || !tanods[0].assigned_area) {
-            return res.json([]);
-        }
-
         const [rows] = await pool.query(
-            `SELECT * FROM patrol_schedules WHERE location = ? AND status = 'Active' ORDER BY day_of_week, start_time`,
-            [tanods[0].assigned_area]
+            `SELECT ps.* FROM patrol_schedules ps
+             JOIN patrol_schedule_tanods pst ON ps.id = pst.schedule_id
+             WHERE pst.tanod_id = ? AND ps.status = 'Active'
+             ORDER BY ps.day_of_week, ps.start_time`,
+            [req.tanodId]
         );
 
         res.json(rows);
@@ -2006,19 +2056,16 @@ app.get('/api/tanod/schedules/:tanodId', authenticateTanod, requireOwnTanodId, a
 
 app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
     try {
-        const [tanods] = await pool.query(
-            'SELECT assigned_area FROM tanod_record WHERE id = ?',
-            [req.tanodId]
-        );
+        const locations = await getTanodScheduleLocations(req.tanodId);
 
-        if (tanods.length === 0 || !tanods[0].assigned_area) {
+        if (locations.length === 0) {
             return res.json([]);
         }
 
         const [rows] = await pool.query(
             `SELECT id, incident_type, date, time, status, danger_level, description
-             FROM incidents WHERE street_name = ? ORDER BY date DESC, time DESC LIMIT 20`,
-            [tanods[0].assigned_area]
+             FROM incidents WHERE street_name IN (?) ORDER BY date DESC, time DESC LIMIT 20`,
+            [locations]
         );
 
         res.json(rows);
@@ -2030,18 +2077,14 @@ app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, a
 
 app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema), async (req, res) => {
     try {
-        const { incident_type, date, time, description } = req.body;
+        const { incident_type, date, time, location, description } = req.body;
 
-        const [tanods] = await pool.query(
-            'SELECT assigned_area FROM tanod_record WHERE id = ?',
-            [req.tanodId]
-        );
+        const locations = await getTanodScheduleLocations(req.tanodId);
 
-        if (tanods.length === 0) {
-            return res.status(404).json({ error: 'Tanod not found' });
+        if (!locations.includes(location)) {
+            return res.status(400).json({ error: 'You can only report incidents in an area you are currently assigned to patrol.' });
         }
 
-        const streetName = tanods[0].assigned_area || null;
         const timeOfDay = computeTimeOfDay(time);
         const dayOfWeek = getDayOfWeek(date);
         const isWeekend = isDateWeekend(date);
@@ -2055,7 +2098,7 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
             incident_type,
             date,
             time,
-            streetName,
+            location,
             req.tanodId,
             'Open',
             'Calculated by System',
@@ -2147,38 +2190,59 @@ app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator',
             'SELECT * FROM patrol_schedules WHERE id = ?',
             [req.params.id]
         );
-        
+
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Schedule not found' });
         }
-        
-        res.json(rows[0]);
+
+        const [tanodRows] = await pool.query(
+            'SELECT tanod_id FROM patrol_schedule_tanods WHERE schedule_id = ?',
+            [req.params.id]
+        );
+
+        res.json({ ...rows[0], tanod_ids: tanodRows.map(r => r.tanod_id) });
     } catch (error) {
         console.error('❌ Error fetching schedule:', error);
         res.status(500).json({ error: 'Failed to fetch schedule' });
     }
 });
 
+// Replaces a schedule's tanod assignments and keeps assigned_tanods (the
+// headcount column other pages already display) in sync with the real
+// count. Shared by POST and PUT below.
+async function syncScheduleTanods(scheduleId, tanodIds) {
+    await pool.query('DELETE FROM patrol_schedule_tanods WHERE schedule_id = ?', [scheduleId]);
+
+    if (tanodIds.length > 0) {
+        const values = tanodIds.map(tanodId => [scheduleId, tanodId]);
+        await pool.query('INSERT INTO patrol_schedule_tanods (schedule_id, tanod_id) VALUES ?', [values]);
+    }
+
+    await pool.query('UPDATE patrol_schedules SET assigned_tanods = ? WHERE id = ?', [tanodIds.length, scheduleId]);
+}
+
 app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(scheduleSchema), async (req, res) => {
     try {
-        const { location, start_time, end_time, day_of_week, assigned_tanods, reason } = req.body;
-        
+        const { location, start_time, end_time, day_of_week, tanod_ids, reason } = req.body;
+
         const [result] = await pool.query(`
-            INSERT INTO patrol_schedules 
-            (location, start_time, end_time, day_of_week, assigned_tanods, reason) 
+            INSERT INTO patrol_schedules
+            (location, start_time, end_time, day_of_week, assigned_tanods, reason)
             VALUES (?, ?, ?, ?, ?, ?)
         `, [
-            location, start_time, end_time, day_of_week, 
-            assigned_tanods || 0, reason || null
+            location, start_time, end_time, day_of_week,
+            tanod_ids.length, reason || null
         ]);
-        
+
+        await syncScheduleTanods(result.insertId, tanod_ids);
+
         const [newSchedule] = await pool.query(
             'SELECT * FROM patrol_schedules WHERE id = ?',
             [result.insertId]
         );
-        
+
         const userId = req.userId;
-        
+
         if (userId) {
             await logAudit(
                 userId,
@@ -2186,14 +2250,14 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'D
                 'patrol_schedules',
                 result.insertId,
                 null,
-                { location, day_of_week, start_time, end_time },
+                { location, day_of_week, start_time, end_time, tanod_ids },
                 req
             );
         }
-        
-        res.status(201).json({ 
-            message: 'Patrol schedule created successfully', 
-            schedule: newSchedule[0] 
+
+        res.status(201).json({
+            message: 'Patrol schedule created successfully',
+            schedule: { ...newSchedule[0], tanod_ids }
         });
     } catch (error) {
         console.error('❌ Error creating patrol schedule:', error);
@@ -2203,32 +2267,38 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'D
 
 app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(scheduleSchema), async (req, res) => {
     try {
-        const { location, start_time, end_time, day_of_week, assigned_tanods, reason, status } = req.body;
+        const { location, start_time, end_time, day_of_week, tanod_ids, reason, status } = req.body;
         const id = req.params.id;
-        
+
         const [oldData] = await pool.query('SELECT * FROM patrol_schedules WHERE id = ?', [id]);
-        
+
+        if (oldData.length === 0) {
+            return res.status(404).json({ error: 'Schedule not found' });
+        }
+
         const [result] = await pool.query(`
-            UPDATE patrol_schedules 
-            SET location = ?, start_time = ?, end_time = ?, 
+            UPDATE patrol_schedules
+            SET location = ?, start_time = ?, end_time = ?,
                 day_of_week = ?, assigned_tanods = ?, reason = ?, status = ?
             WHERE id = ?
         `, [
-            location, start_time, end_time, day_of_week, 
-            assigned_tanods || 0, reason || null, status || 'Active', id
+            location, start_time, end_time, day_of_week,
+            tanod_ids.length, reason || null, status || 'Active', id
         ]);
-        
+
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Schedule not found' });
         }
-        
+
+        await syncScheduleTanods(id, tanod_ids);
+
         const [updatedSchedule] = await pool.query(
             'SELECT * FROM patrol_schedules WHERE id = ?',
             [id]
         );
-        
+
         const userId = req.userId;
-        
+
         if (userId) {
             await logAudit(
                 userId,
@@ -2240,10 +2310,10 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator',
                 req
             );
         }
-        
-        res.json({ 
-            message: 'Patrol schedule updated successfully', 
-            schedule: updatedSchedule[0] 
+
+        res.json({
+            message: 'Patrol schedule updated successfully',
+            schedule: { ...updatedSchedule[0], tanod_ids }
         });
     } catch (error) {
         console.error('❌ Error updating patrol schedule:', error);

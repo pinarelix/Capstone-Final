@@ -190,7 +190,7 @@ function renderTanods(tanods) {
     if (tanods.length === 0) {
         tbody.innerHTML = `
             <tr class="empty-row">
-                <td colspan="6">
+                <td colspan="5">
                     <div class="empty-content">
                         <i class="fa-solid fa-users-slash"></i>
                         <span>No tanod records found.</span>
@@ -203,7 +203,7 @@ function renderTanods(tanods) {
 
     tbody.innerHTML = tanods.map(tanod => {
         const positionBadge = getPositionBadge(tanod.position);
-        
+
         return `
         <tr>
             <td><span class="font-bold" style="color: #0f172a;">${escapeHTML(tanod.name)}</span></td>
@@ -213,8 +213,7 @@ function renderTanods(tanods) {
                 </span>
             </td>
             <td style="color: #475569;">${escapeHTML(tanod.contact_no || 'N/A')}</td>
-            <td style="color: #475569;">${escapeHTML(tanod.assigned_area || 'N/A')}</td>
-            <td style="color: #475569;">${tanod.shift_start ? `${tanod.shift_start.substring(0,5)} - ${tanod.shift_end ? tanod.shift_end.substring(0,5) : 'N/A'}` : 'N/A'}</td>
+            <td style="color: #475569;">${escapeHTML(tanod.username || 'N/A')}</td>
             <td>
                 <button type="button" class="btn-action-edit admin-action" onclick="editTanod(${tanod.id})">
                     <i class="fa-solid fa-pen"></i> Edit
@@ -321,42 +320,61 @@ async function addUser() {
 ============================================================ */
 
 async function addTanod() {
+    const id = document.getElementById('editTanodId').value;
     const name = document.getElementById('tanodName').value.trim();
     const position = document.getElementById('tanodPosition').value;
     const contact_no = document.getElementById('tanodContact').value.trim();
-    const assigned_area = document.getElementById('tanodArea').value;
-    const shift_start = document.getElementById('tanodShiftStart').value;
-    const shift_end = document.getElementById('tanodShiftEnd').value;
+    const username = document.getElementById('tanodUsername').value.trim();
+    const pin_code = document.getElementById('tanodPin').value.trim();
 
-    if (!name) {
-        showToast('Please enter tanod name.', 'error');
+    if (!name || !username) {
+        showToast('Please enter tanod name and username.', 'error');
         return;
     }
 
+    if (!id && !pin_code) {
+        showToast('Please set a 4-digit PIN for this tanod.', 'error');
+        return;
+    }
+
+    if (pin_code && !/^\d{4}$/.test(pin_code)) {
+        showToast('PIN must be exactly 4 digits.', 'error');
+        return;
+    }
+
+    // Editing (id set) updates the existing record via PUT; adding
+    // (id blank) creates a new one via POST — this was previously always
+    // POST regardless, silently duplicating the record on every "edit".
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/tanods/${id}` : '/tanods';
+
     try {
-        const response = await apiFetch('/tanods', {
-            method: 'POST',
-            body: JSON.stringify({ 
-                name, 
-                position, 
-                contact_no, 
-                assigned_area, 
-                shift_start, 
-                shift_end
+        const response = await apiFetch(url, {
+            method,
+            body: JSON.stringify({
+                name,
+                position,
+                contact_no,
+                username,
+                pin_code
             })
         });
 
-        if (!response.ok) throw new Error('Failed to add tanod');
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || 'Failed to save tanod');
+        }
 
         document.getElementById('tanodForm').reset();
         document.getElementById('editTanodId').value = '';
         document.getElementById('tanodFormTitle').textContent = 'Add New Tanod';
         document.getElementById('tanodSubmitBtn').innerHTML = '<i class="fa-solid fa-user-plus"></i> Add Tanod';
+        document.getElementById('tanodPinHint').style.display = 'none';
         await loadTanods();
-        showToast('Tanod added successfully!', 'success');
+        showToast(id ? 'Tanod updated successfully!' : 'Tanod added successfully!', 'success');
     } catch (error) {
-        console.error('Error adding tanod:', error);
-        showToast('Failed to add tanod.', 'error');
+        console.error('Error saving tanod:', error);
+        showToast(error.message || 'Failed to save tanod.', 'error');
     }
 }
 
@@ -368,20 +386,20 @@ window.editTanod = async function(id) {
     try {
         const response = await apiFetch(`/tanods/${id}`);
         if (!response.ok) throw new Error('Failed to fetch tanod');
-        
+
         const tanod = await response.json();
-        
+
         document.getElementById('editTanodId').value = tanod.id;
         document.getElementById('tanodName').value = tanod.name;
         document.getElementById('tanodPosition').value = tanod.position || 'Tanod';
         document.getElementById('tanodContact').value = tanod.contact_no || '';
-        document.getElementById('tanodArea').value = tanod.assigned_area || '';
-        document.getElementById('tanodShiftStart').value = tanod.shift_start ? tanod.shift_start.substring(0, 5) : '';
-        document.getElementById('tanodShiftEnd').value = tanod.shift_end ? tanod.shift_end.substring(0, 5) : '';
-        
+        document.getElementById('tanodUsername').value = tanod.username || '';
+        document.getElementById('tanodPin').value = '';
+        document.getElementById('tanodPinHint').style.display = 'block';
+
         document.getElementById('tanodFormTitle').textContent = 'Edit Tanod';
         document.getElementById('tanodSubmitBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update Tanod';
-        
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
         console.error('Error fetching tanod:', error);

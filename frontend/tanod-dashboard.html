@@ -39,14 +39,6 @@
                     <span class="tanod-label">Position</span>
                     <p id="profilePosition" class="tanod-value">—</p>
                 </div>
-                <div>
-                    <span class="tanod-label">Assigned Area</span>
-                    <p id="profileArea" class="tanod-value">—</p>
-                </div>
-                <div>
-                    <span class="tanod-label">Shift Schedule</span>
-                    <p id="profileShift" class="tanod-value">—</p>
-                </div>
             </div>
         </section>
 
@@ -67,6 +59,10 @@
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <h2>Report Incident</h2>
             </div>
+            <p id="reportUnassignedMsg" class="tanod-empty" style="display: none;">
+                You have not been assigned to a patrol schedule yet — contact your admin
+                before reporting an incident.
+            </p>
             <form id="incidentReportForm" class="tanod-form">
                 <div class="tanod-form-group">
                     <label for="reportType">Incident Type</label>
@@ -161,8 +157,10 @@
                 </div>
 
                 <div class="tanod-form-group">
-                    <label>Location</label>
-                    <p id="reportLocation" class="tanod-value tanod-readonly-field">—</p>
+                    <label for="reportLocation">Location</label>
+                    <select id="reportLocation" class="tanod-input" required>
+                        <option value="" disabled selected>Select an assigned area</option>
+                    </select>
                 </div>
 
                 <div class="tanod-form-group">

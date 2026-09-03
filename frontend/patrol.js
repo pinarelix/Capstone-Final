@@ -185,7 +185,8 @@ async function loadAllData() {
         
         populateScheduleDropdown();
         populateTanodDropdown();
-        
+        renderTanodChecklist();
+
         updateCounts();
         
     } catch (error) {
@@ -712,7 +713,7 @@ async function saveSchedule() {
     const day_of_week = document.getElementById('scheduleDay').value;
     const start_time = document.getElementById('scheduleStart').value;
     const end_time = document.getElementById('scheduleEnd').value;
-    const assigned_tanods = parseInt(document.getElementById('scheduleTanods').value) || 0;
+    const tanod_ids = getCheckedTanodIds();
     const reason = document.getElementById('scheduleReason').value.trim();
     const status = document.getElementById('scheduleStatus').value;
 
@@ -721,13 +722,13 @@ async function saveSchedule() {
         return;
     }
 
-    const payload = { 
-        location, 
-        start_time, 
-        end_time, 
-        day_of_week, 
-        assigned_tanods, 
-        reason, 
+    const payload = {
+        location,
+        start_time,
+        end_time,
+        day_of_week,
+        tanod_ids,
+        reason,
         status
     };
 
@@ -798,7 +799,7 @@ window.editSchedule = async function(id) {
         document.getElementById('scheduleDay').value = schedule.day_of_week || 'Monday';
         document.getElementById('scheduleStart').value = schedule.start_time ? schedule.start_time.substring(0,5) : '';
         document.getElementById('scheduleEnd').value = schedule.end_time ? schedule.end_time.substring(0,5) : '';
-        document.getElementById('scheduleTanods').value = schedule.assigned_tanods || 0;
+        renderTanodChecklist(schedule.tanod_ids || []);
         document.getElementById('scheduleStatus').value = schedule.status || 'Active';
         document.getElementById('scheduleReason').value = schedule.reason || '';
         
@@ -1008,6 +1009,32 @@ function populateTanodDropdown() {
         option.textContent = tanod.name;
         select.appendChild(option);
     });
+}
+
+function renderTanodChecklist(checkedIds = []) {
+    const container = document.getElementById('scheduleTanodsChecklist');
+    if (!container) return;
+
+    if (!allTanods || allTanods.length === 0) {
+        container.innerHTML = '<p class="tanod-checklist-empty">No active tanods available. Add tanods in User Management first.</p>';
+        return;
+    }
+
+    const checkedSet = new Set(checkedIds.map(id => String(id)));
+
+    container.innerHTML = allTanods.map(tanod => `
+        <label class="tanod-checklist-item">
+            <input type="checkbox" value="${tanod.id}" ${checkedSet.has(String(tanod.id)) ? 'checked' : ''}>
+            <span>${escapeHTML(tanod.name)}${tanod.position ? ` <span style="color:#64748b;">(${escapeHTML(tanod.position)})</span>` : ''}</span>
+        </label>
+    `).join('');
+}
+
+function getCheckedTanodIds() {
+    const container = document.getElementById('scheduleTanodsChecklist');
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(cb => parseInt(cb.value, 10));
 }
 
 // ============================================================

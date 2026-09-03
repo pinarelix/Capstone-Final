@@ -426,7 +426,7 @@
                 <div class="card-title-bar">
                     <div>
                         <h2 id="tanodFormTitle">Add New Tanod</h2>
-                        <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Barangay tanod personnel (no login)</p>
+                        <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Barangay tanod personnel — area &amp; shift come from Patrol Decision Support schedules</p>
                     </div>
                     <span class="section-label">Barangay Personnel</span>
                 </div>
@@ -457,25 +457,15 @@
 
                     <div class="tanod-form-row">
                         <div class="form-group">
-                            <label for="tanodArea">Assigned Area</label>
-                            <select id="tanodArea" class="form-select-full">
-                                <option value="Purok 1-3">Purok 1-3</option>
-                                <option value="Purok 4-6">Purok 4-6</option>
-                                <option value="Market Area">Market Area</option>
-                                <option value="Amparo Main Road">Amparo Main Road</option>
-                                <option value="All Areas">All Areas</option>
-                            </select>
+                            <label for="tanodUsername">Username</label>
+                            <input type="text" id="tanodUsername" class="form-input" placeholder="Login username" required>
                         </div>
 
                         <div class="form-group">
-                            <label for="tanodShiftStart">Shift Start</label>
-                            <input type="time" id="tanodShiftStart" class="form-input">
+                            <label for="tanodPin">4-Digit PIN</label>
+                            <input type="text" id="tanodPin" class="form-input" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="\d{4}" autocomplete="new-password">
+                            <p class="form-hint" id="tanodPinHint" style="font-size: 0.68rem; color: #64748b; margin-top: 4px; display: none;">Leave blank to keep the current PIN.</p>
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="tanodShiftEnd">Shift End</label>
-                        <input type="time" id="tanodShiftEnd" class="form-input">
                     </div>
 
                     <button type="submit" class="btn btn-add" id="tanodSubmitBtn">
@@ -489,7 +479,7 @@
                 <div class="card-title-bar users-header">
                     <div>
                         <h2>Tanod Records</h2>
-                        <p class="table-description">Manage barangay tanod personnel.</p>
+                        <p class="table-description">Manage barangay tanod personnel. Assign them to patrol schedules from Patrol Decision Support.</p>
                     </div>
                     <span class="badge-subtle" id="tanodCount">0 tanods</span>
                 </div>
@@ -501,8 +491,7 @@
                                 <th>NAME</th>
                                 <th>POSITION</th>
                                 <th>CONTACT</th>
-                                <th>ASSIGNED AREA</th>
-                                <th>SHIFT</th>
+                                <th>USERNAME</th>
                                 <th>ACTIONS</th>
                             </tr>
                         </thead>
