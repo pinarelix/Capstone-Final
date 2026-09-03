@@ -1,0 +1,304 @@
+/* ============================================================
+   TANOD.CSS
+   Standalone, mobile-first stylesheet for the Tanod field portal
+   (tanod-login.html reuses login.css for its background/hero;
+   this file only adds the dashboard layout + a couple of shared
+   small bits like .tanod-login-link's page, kept separate on
+   purpose since a fixed admin sidebar doesn't fit a phone screen)
+============================================================ */
+
+:root {
+    --tanod-amber: #f59e0b;
+    --tanod-amber-dark: #d97706;
+    --tanod-navy: #0f172a;
+    --tanod-text-secondary: #334155;
+    --tanod-text-muted: #64748b;
+    --tanod-bg: #f1f5f9;
+    --tanod-card-bg: #ffffff;
+    --tanod-border: #e2e8f0;
+    --tanod-green: #059669;
+    --tanod-red: #dc2626;
+    --tanod-yellow: #d97706;
+}
+
+.tanod-body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: var(--tanod-bg);
+    color: var(--tanod-navy);
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- Top bar ---------- */
+
+.tanod-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--tanod-navy);
+    color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.tanod-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.tanod-brand i {
+    color: var(--tanod-amber);
+    font-size: 20px;
+}
+
+/* ---------- Buttons ---------- */
+
+.tanod-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    min-height: 44px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.tanod-btn:active {
+    transform: scale(0.97);
+}
+
+.tanod-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.tanod-btn-primary {
+    background: var(--tanod-amber);
+    color: #fff;
+}
+
+.tanod-btn-ghost {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tanod-btn-block {
+    width: 100%;
+}
+
+/* ---------- Main layout ---------- */
+
+.tanod-main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+@media (min-width: 720px) {
+    .tanod-main {
+        grid-template-columns: 1fr 1fr;
+        padding: 24px;
+        gap: 20px;
+    }
+
+    #profileCard,
+    #reportCard {
+        grid-column: 1 / -1;
+    }
+}
+
+/* ---------- Cards ---------- */
+
+.tanod-card {
+    background: var(--tanod-card-bg);
+    border: 1px solid var(--tanod-border);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.tanod-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.tanod-card-header i {
+    color: var(--tanod-amber-dark);
+    font-size: 18px;
+}
+
+.tanod-card-header h2 {
+    font-size: 16px;
+    margin: 0;
+    color: var(--tanod-navy);
+}
+
+/* ---------- Profile ---------- */
+
+.tanod-profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.tanod-label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--tanod-text-muted);
+    margin-bottom: 2px;
+}
+
+.tanod-value {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tanod-navy);
+}
+
+.tanod-readonly-field {
+    background: var(--tanod-bg);
+    border: 1px solid var(--tanod-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-weight: 500;
+}
+
+/* ---------- Lists ---------- */
+
+.tanod-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tanod-list-item {
+    padding: 12px;
+    border: 1px solid var(--tanod-border);
+    border-radius: 10px;
+    background: var(--tanod-bg);
+}
+
+.tanod-list-item-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.tanod-list-item-sub {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--tanod-text-secondary);
+}
+
+.tanod-muted {
+    color: var(--tanod-text-muted);
+}
+
+.tanod-empty {
+    color: var(--tanod-text-muted);
+    font-size: 14px;
+    text-align: center;
+    padding: 12px 0;
+    margin: 0;
+}
+
+.tanod-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--tanod-amber);
+    color: #fff;
+    white-space: nowrap;
+}
+
+.tanod-badge-open { background: var(--tanod-yellow); }
+.tanod-badge-monitoring { background: var(--tanod-amber-dark); }
+.tanod-badge-resolved { background: var(--tanod-green); }
+
+/* ---------- Forms ---------- */
+
+.tanod-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.tanod-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.tanod-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tanod-form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tanod-text-secondary);
+}
+
+.tanod-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    font-size: 15px;
+    font-family: inherit;
+    border: 1px solid var(--tanod-border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--tanod-navy);
+    min-height: 44px;
+}
+
+.tanod-input:focus {
+    outline: none;
+    border-color: var(--tanod-amber);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+textarea.tanod-input {
+    resize: vertical;
+    min-height: 70px;
+}
+
+.tanod-form-status {
+    margin: 0;
+    font-size: 13px;
+    min-height: 16px;
+}
+
+.tanod-status-success { color: var(--tanod-green); }
+.tanod-status-error { color: var(--tanod-red); }
+
+@media (max-width: 480px) {
+    .tanod-profile-grid,
+    .tanod-form-row {
+        grid-template-columns: 1fr;
+    }
+}

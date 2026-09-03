@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tanod Login — Barangay 179</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="tanod.css">
+</head>
+<body>
+
+    <div class="background-wrapper">
+
+        <div class="left-hero-section">
+
+            <div class="hero-badges">
+                <span>Field Reporting</span> •
+                <span>Patrol Schedule</span> •
+                <span>Incident Alerts</span>
+            </div>
+
+            <h1>
+                Barangay 179 Tanod<br>
+                Field Access Portal
+            </h1>
+
+            <p class="hero-description">
+                Check your patrol schedule, report incidents from the field, and log your
+                patrols — right from your phone.
+            </p>
+
+        </div>
+
+        <div class="right-auth-section">
+
+            <div class="login-card">
+
+                <div class="logo-section">
+
+                    <img
+                        src="logo_jpeg.jfif"
+                        alt="Barangay 179 Logo"
+                        class="logo"
+                        onerror="this.src='https://via.placeholder.com/110'"
+                    >
+
+                    <div class="stars">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+
+                    <h2>Tanod Login</h2>
+
+                    <p class="login-subtext">
+                        Enter your full name to continue.
+                    </p>
+
+                </div>
+
+                <div id="errorMsg" style="display: none;">
+                    <span class="error-icon">⚠️</span>
+                    <p id="errorText">Tanod not found.</p>
+                </div>
+
+                <form id="tanodLoginForm">
+
+                    <div class="input-group">
+                        <i class="fa-regular fa-user input-icon"></i>
+                        <input
+                            type="text"
+                            id="tanodName"
+                            name="tanodName"
+                            placeholder="Enter your full name (e.g. Juan Dela Cruz)"
+                            autocomplete="name"
+                            required
+                        >
+                    </div>
+
+                    <button type="submit" class="btn-login" name="tanod_login_btn">
+                        Tanod Login
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+
+                </form>
+
+                <div class="footer-section">
+                    <p class="copyright">
+                        &copy; 2026 Barangay 179 Amparo, Caloocan City.
+                        All rights reserved.
+                    </p>
+                </div>
+
+            </div>
+
+            <p class="tanod-login-link">
+                <a href="login.html"><i class="fa-solid fa-arrow-left"></i> Back to Admin / Captain Login</a>
+            </p>
+
+        </div>
+
+    </div>
+
+    <script src="tanod.js"></script>
+</body>
+</html>

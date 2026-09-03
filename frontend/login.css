@@ -416,6 +416,24 @@ body {
     font-weight: 600;
 }
 
+.tanod-login-link {
+    width: 100%;
+    text-align: center;
+    font-size: 13px;
+    color: #ffd8b1;
+}
+
+.tanod-login-link a {
+    color: #ffb347;
+    font-weight: 600;
+    text-decoration: none;
+    margin-left: 4px;
+}
+
+.tanod-login-link a:hover {
+    text-decoration: underline;
+}
+
 .role-option {
     display: flex;
     align-items: center;

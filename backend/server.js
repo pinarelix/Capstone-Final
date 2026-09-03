@@ -104,6 +104,28 @@ const tanodSchema = Joi.object({
     assigned_area: Joi.string().allow('', null)
 });
 
+// Tanod Login Schema
+const tanodLoginSchema = Joi.object({
+    name: Joi.string().required()
+});
+
+// Tanod Incident Report Schema (simplified — no lat/long/street_name,
+// those are filled server-side from the tanod's assigned_area)
+const tanodIncidentSchema = Joi.object({
+    incident_type: Joi.string().required(),
+    date: Joi.date().required(),
+    time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
+    description: Joi.string().allow('', null)
+});
+
+// Tanod Patrol Log Schema (tanod_id comes from the session, not the client)
+const tanodLogSchema = Joi.object({
+    schedule_id: Joi.number().integer().positive().required(),
+    report: Joi.string().allow('', null),
+    status: Joi.string().valid('Completed', 'Partial', 'Failed').default('Completed'),
+    patrol_date: Joi.date().required()
+});
+
 // Patrol Schedule Schema
 const scheduleSchema = Joi.object({
     location: Joi.string().required(),
@@ -241,6 +263,56 @@ function requireRole(allowedRoles) {
             return res.status(500).json({ error: 'Server error during authorization' });
         }
     };
+}
+
+// ============================================================
+// 🔐 MIDDLEWARE: TANOD SESSION AUTHENTICATION
+// ============================================================
+// Separate from authenticate()/requireRole() above — tanods are not rows
+// in `users` (users.role is a hard ENUM that doesn't include 'Tanod'),
+// so they get their own lightweight session table (tanod_sessions)
+// instead of user_sessions.
+
+async function authenticateTanod(req, res, next) {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Unauthorized: No session token provided' });
+        }
+
+        const token = authHeader.split(' ')[1];
+
+        const [sessions] = await pool.query(
+            `SELECT tanod_sessions.tanod_id
+             FROM tanod_sessions
+             JOIN tanod_record ON tanod_sessions.tanod_id = tanod_record.id
+             WHERE tanod_sessions.session_token = ?
+               AND tanod_sessions.is_active = 1
+               AND tanod_sessions.logout_time IS NULL
+               AND tanod_record.is_active = 1`,
+            [token]
+        );
+
+        if (sessions.length === 0) {
+            return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
+        }
+
+        req.tanodId = sessions[0].tanod_id;
+        next();
+
+    } catch (error) {
+        console.error('❌ Tanod authentication error:', error);
+        return res.status(500).json({ error: 'Server error during authentication' });
+    }
+}
+
+// Guards routes with a :tanodId param so one tanod's token can't read
+// another tanod's data.
+function requireOwnTanodId(req, res, next) {
+    if (parseInt(req.params.tanodId, 10) !== req.tanodId) {
+        return res.status(403).json({ error: 'Forbidden: Cannot access another tanod\'s data' });
+    }
+    next();
 }
 
 // ============================================================
@@ -1070,12 +1142,14 @@ app.post('/api/auth/logout', async (req, res) => {
 app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT 
-                incidents.*, 
-                users.name as reporter_name,
-                users.contact_no as reporter_contact_no
-            FROM incidents 
-            LEFT JOIN users ON incidents.reporter_id = users.id 
+            SELECT
+                incidents.*,
+                COALESCE(users.name, tanod_record.name) as reporter_name,
+                users.contact_no as reporter_contact_no,
+                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type
+            FROM incidents
+            LEFT JOIN users ON incidents.reporter_id = users.id
+            LEFT JOIN tanod_record ON incidents.reporter_tanod_id = tanod_record.id
             WHERE TRIM(incidents.status) != 'Resolved'
             ORDER BY incidents.date DESC, incidents.time DESC
         `);
@@ -1145,12 +1219,14 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         params.push(parseInt(limit), skip);
 
         const [rows] = await pool.query(`
-            SELECT 
-                incidents.*, 
-                users.name as reporter_name,
-                users.contact_no as reporter_contact_no
-            FROM incidents 
-            LEFT JOIN users ON incidents.reporter_id = users.id 
+            SELECT
+                incidents.*,
+                COALESCE(users.name, tanod_record.name) as reporter_name,
+                users.contact_no as reporter_contact_no,
+                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type
+            FROM incidents
+            LEFT JOIN users ON incidents.reporter_id = users.id
+            LEFT JOIN tanod_record ON incidents.reporter_tanod_id = tanod_record.id
             ${whereClause}
             ORDER BY incidents.date DESC, incidents.time DESC
             LIMIT ? OFFSET ?
@@ -1192,12 +1268,14 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
         }
 
         const [rows] = await pool.query(`
-            SELECT 
-                incidents.*, 
-                users.name as reporter_name,
-                users.contact_no as reporter_contact_no
-            FROM incidents 
-            LEFT JOIN users ON incidents.reporter_id = users.id 
+            SELECT
+                incidents.*,
+                COALESCE(users.name, tanod_record.name) as reporter_name,
+                users.contact_no as reporter_contact_no,
+                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type
+            FROM incidents
+            LEFT JOIN users ON incidents.reporter_id = users.id
+            LEFT JOIN tanod_record ON incidents.reporter_tanod_id = tanod_record.id
             WHERE incidents.id = ?
         `, [req.params.id]);
 
@@ -1216,10 +1294,16 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
 app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT incidents.*, users.name as reporter_name 
-            FROM incidents 
-            LEFT JOIN users ON incidents.reporter_id = users.id 
+            SELECT
+                incidents.*,
+                COALESCE(users.name, tanod_record.name) as reporter_name,
+                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type
+            FROM incidents
+            LEFT JOIN users ON incidents.reporter_id = users.id
+            LEFT JOIN tanod_record ON incidents.reporter_tanod_id = tanod_record.id
             WHERE TRIM(incidents.status) != 'Resolved'
+              AND incidents.latitude IS NOT NULL
+              AND incidents.longitude IS NOT NULL
             ORDER BY incidents.date DESC, incidents.time DESC
         `);
         res.json(rows);
@@ -1842,6 +1926,189 @@ app.delete('/api/tanods/:id', authenticate, requireRole(['Administrator']), asyn
     } catch (error) {
         console.error('❌ Error deleting tanod:', error);
         res.status(500).json({ error: 'Failed to delete tanod' });
+    }
+});
+
+// ---------- TANOD SELF-SERVICE (login, dashboard, own schedule/incidents/logs) ----------
+
+app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
+    try {
+        const { name } = req.body;
+
+        const [tanods] = await pool.query(
+            'SELECT id, name, position, assigned_area, shift_start, shift_end FROM tanod_record WHERE LOWER(name) = LOWER(?) AND is_active = 1',
+            [name]
+        );
+
+        if (tanods.length === 0) {
+            return res.status(401).json({ error: 'Tanod not found' });
+        }
+
+        const tanod = tanods[0];
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+
+        await pool.query(
+            'INSERT INTO tanod_sessions (tanod_id, session_token, is_active) VALUES (?, ?, ?)',
+            [tanod.id, sessionToken, true]
+        );
+
+        res.json({
+            message: 'Login successful.',
+            tanod,
+            session_token: sessionToken
+        });
+    } catch (error) {
+        console.error('❌ Error during tanod login:', error);
+        res.status(500).json({ error: 'Server error during login' });
+    }
+});
+
+app.get('/api/tanod/dashboard/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
+    try {
+        const [tanods] = await pool.query(
+            'SELECT id, name, position, contact_no, assigned_area, shift_start, shift_end FROM tanod_record WHERE id = ?',
+            [req.tanodId]
+        );
+
+        if (tanods.length === 0) {
+            return res.status(404).json({ error: 'Tanod not found' });
+        }
+
+        res.json(tanods[0]);
+    } catch (error) {
+        console.error('❌ Error fetching tanod dashboard:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard' });
+    }
+});
+
+app.get('/api/tanod/schedules/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
+    try {
+        const [tanods] = await pool.query(
+            'SELECT assigned_area FROM tanod_record WHERE id = ?',
+            [req.tanodId]
+        );
+
+        if (tanods.length === 0 || !tanods[0].assigned_area) {
+            return res.json([]);
+        }
+
+        const [rows] = await pool.query(
+            `SELECT * FROM patrol_schedules WHERE location = ? AND status = 'Active' ORDER BY day_of_week, start_time`,
+            [tanods[0].assigned_area]
+        );
+
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching tanod schedules:', error);
+        res.status(500).json({ error: 'Failed to fetch schedules' });
+    }
+});
+
+app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
+    try {
+        const [tanods] = await pool.query(
+            'SELECT assigned_area FROM tanod_record WHERE id = ?',
+            [req.tanodId]
+        );
+
+        if (tanods.length === 0 || !tanods[0].assigned_area) {
+            return res.json([]);
+        }
+
+        const [rows] = await pool.query(
+            `SELECT id, incident_type, date, time, status, danger_level, description
+             FROM incidents WHERE street_name = ? ORDER BY date DESC, time DESC LIMIT 20`,
+            [tanods[0].assigned_area]
+        );
+
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching tanod area incidents:', error);
+        res.status(500).json({ error: 'Failed to fetch incidents' });
+    }
+});
+
+app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema), async (req, res) => {
+    try {
+        const { incident_type, date, time, description } = req.body;
+
+        const [tanods] = await pool.query(
+            'SELECT assigned_area FROM tanod_record WHERE id = ?',
+            [req.tanodId]
+        );
+
+        if (tanods.length === 0) {
+            return res.status(404).json({ error: 'Tanod not found' });
+        }
+
+        const streetName = tanods[0].assigned_area || null;
+        const timeOfDay = computeTimeOfDay(time);
+        const dayOfWeek = getDayOfWeek(date);
+        const isWeekend = isDateWeekend(date);
+
+        const [result] = await pool.query(`
+            INSERT INTO incidents
+            (incident_type, date, time, latitude, longitude, street_name, reporter_tanod_id,
+             status, danger_level, description, time_of_day, day_of_week, is_weekend)
+            VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            incident_type,
+            date,
+            time,
+            streetName,
+            req.tanodId,
+            'Open',
+            'Calculated by System',
+            description || '',
+            timeOfDay,
+            dayOfWeek,
+            isWeekend
+        ]);
+
+        await computeCartRiskFactors(result.insertId);
+
+        res.status(201).json({
+            message: 'Incident reported successfully.',
+            id: result.insertId
+        });
+    } catch (error) {
+        console.error('❌ Error creating tanod incident report:', error);
+        res.status(500).json({ error: 'Failed to report incident' });
+    }
+});
+
+app.get('/api/tanod/patrol-logs/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT * FROM patrol_logs WHERE tanod_id = ? ORDER BY patrol_date DESC',
+            [req.tanodId]
+        );
+
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching tanod patrol logs:', error);
+        res.status(500).json({ error: 'Failed to fetch patrol logs' });
+    }
+});
+
+app.post('/api/tanod/patrol-log', authenticateTanod, validate(tanodLogSchema), async (req, res) => {
+    try {
+        const { schedule_id, report, status, patrol_date } = req.body;
+
+        const [result] = await pool.query(`
+            INSERT INTO patrol_logs (schedule_id, tanod_id, report, status, patrol_date)
+            VALUES (?, ?, ?, ?, ?)
+        `, [schedule_id, req.tanodId, report || null, status || 'Completed', patrol_date]);
+
+        const [newLog] = await pool.query('SELECT * FROM patrol_logs WHERE id = ?', [result.insertId]);
+
+        res.status(201).json({
+            message: 'Patrol log added successfully',
+            log: newLog[0]
+        });
+    } catch (error) {
+        console.error('❌ Error adding tanod patrol log:', error);
+        res.status(500).json({ error: 'Failed to add patrol log' });
     }
 });
 
