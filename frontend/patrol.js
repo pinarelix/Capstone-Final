@@ -74,6 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
     applyRoleBasedUI();
     setupTabs();
     loadAllData();
+    populateScheduleLocationOptions();
     setupScheduleForm();
     setupLogForm();
     
@@ -155,6 +156,18 @@ function isScheduleLocationInsideBarangay(lat, lng) {
         [...BARANGAY_BOUNDARY_COORDS.map(coord => [coord[1], coord[0]]), [BARANGAY_BOUNDARY_COORDS[0][1], BARANGAY_BOUNDARY_COORDS[0][0]]]
     ]);
     return turf.booleanPointInPolygon(turf.point([lng, lat]), boundaryPolygon);
+}
+
+function populateScheduleLocationOptions() {
+    const select = document.getElementById('scheduleLocation');
+    if (!select || typeof BARANGAY_LOCATIONS === 'undefined') return;
+
+    BARANGAY_LOCATIONS.forEach(location => {
+        const option = document.createElement('option');
+        option.value = location;
+        option.textContent = location;
+        select.appendChild(option);
+    });
 }
 
 function initScheduleMapPicker() {

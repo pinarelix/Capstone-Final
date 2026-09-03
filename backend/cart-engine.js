@@ -1,6 +1,27 @@
 // ============================================================
 // CART ENGINE - Barangay 179 Crime BI
-// Rule-Based Decision Tree for Risk Classification
+//
+// Despite the name (kept for continuity with the rest of the system -
+// routes, DB tables, and UI all call it "CART"), this is NOT a trained
+// Classification and Regression Tree. It is a transparent, weighted
+// rule-based scoring model: each of 5 factors (incident type, time of
+// day, location history, day of week, recent frequency) is looked up
+// in a fixed score table below, combined by fixed percentage weights
+// into one 0-100 total, then bucketed into Level 1/2/3 by fixed
+// thresholds. There is no training data, no recursive splitting, and
+// no accuracy metric, because there is no historical labeled dataset
+// to train against yet at this stage of deployment.
+//
+// This is a deliberate choice, not a placeholder: with only a few
+// months of real incident data, a trained model would overfit to
+// whatever happened to occur first and its reasoning would be opaque.
+// A rule-based model is auditable (every score traces back to a
+// documented weight and a documented table entry - see
+// docs/CART_MODEL.md) and its weights/thresholds are already
+// configurable (updateWeights/updateThresholds below, wired to the
+// Settings page's threshold fields) without retraining. It's a
+// sensible foundation to later validate a trained model against, once
+// enough labeled incident history exists.
 // ============================================================
 
 class CARTEngine {

@@ -47,7 +47,7 @@ describe('Incident CRUD + role enforcement', () => {
         time: '14:30',
         latitude: 14.75,
         longitude: 121.07,
-        street_name: 'Test Jest Street',
+        street_name: 'Balite Street',
         status: 'Open',
         description: 'created by an automated test'
     };

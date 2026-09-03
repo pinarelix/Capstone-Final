@@ -7,6 +7,7 @@ const Joi = require('joi');
 const path = require('path');
 const NodeCache = require('node-cache');
 const cartEngine = require('./cart-engine');
+const { BARANGAY_LOCATIONS } = require('./locationList');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
@@ -68,7 +69,7 @@ const incidentSchema = Joi.object({
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
-    street_name: Joi.string().allow('', null),
+    street_name: Joi.string().valid(...BARANGAY_LOCATIONS).allow('', null),
     reporter_id: Joi.number().integer().positive().allow(null),
     status: Joi.string().valid('Open', 'Monitoring', 'Resolved').default('Open'),
     description: Joi.string().allow('', null),
@@ -130,7 +131,7 @@ const tanodLogSchema = Joi.object({
 
 // Patrol Schedule Schema
 const scheduleSchema = Joi.object({
-    location: Joi.string().required(),
+    location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
     start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     day_of_week: Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday').required(),
@@ -396,6 +397,32 @@ function isDateWeekend(dateStr) {
 }
 
 // ============================================================
+// 🆕 CART ENGINE - APPLY CONFIGURED THRESHOLDS
+// ============================================================
+// The Settings page lets an Administrator edit "High Risk Threshold" /
+// "Moderate Risk Threshold" into system_settings. cartEngine keeps its
+// own built-in defaults (67/34) until told otherwise, so every scoring
+// call reads the current configured values first - otherwise editing
+// the setting in the UI would have no real effect on scoring.
+async function applyConfiguredThresholds() {
+    const [rows] = await pool.query(
+        `SELECT setting_key, setting_value FROM system_settings
+         WHERE setting_key IN ('default_danger_threshold_high', 'default_danger_threshold_moderate')`
+    );
+
+    const settings = {};
+    rows.forEach(row => { settings[row.setting_key] = row.setting_value; });
+
+    const level3 = parseInt(settings.default_danger_threshold_high, 10);
+    const level2 = parseInt(settings.default_danger_threshold_moderate, 10);
+
+    cartEngine.updateThresholds({
+        level3: Number.isFinite(level3) ? level3 : 67,
+        level2: Number.isFinite(level2) ? level2 : 34
+    });
+}
+
+// ============================================================
 // 🆕 CART ENGINE - COMPUTE FOR SINGLE INCIDENT
 // ============================================================
 
@@ -444,6 +471,7 @@ async function computeCartRiskFactors(incidentId) {
         }
 
         // 4. Analyze using CART Engine
+        await applyConfiguredThresholds();
         const result = cartEngine.analyze(
             incident,
             locationData,
@@ -574,7 +602,9 @@ async function recomputeAllCartRiskFactors() {
         let highRisk = 0;
         let moderateRisk = 0;
         let lowRisk = 0;
-        
+
+        await applyConfiguredThresholds();
+
         for (const incident of incidents) {
             try {
                 const locationData = incident.street_name ? {
@@ -2790,6 +2820,7 @@ app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decis
         const effectiveLocationCount = Math.max(streetCount, BUCKET_COUNT[history] || 0);
         const effectiveRecentCount = Math.max(recentCount, parseInt(repeated) || 0, BUCKET_COUNT[frequency] || 0);
 
+        await applyConfiguredThresholds();
         const result = cartEngine.analyze(
             { incident_type, time_of_day: timeOfDay, is_weekend: isWeekend, street_name: location || null },
             { street_count: effectiveLocationCount },
