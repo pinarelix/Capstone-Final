@@ -41,8 +41,8 @@ Start-Service MySQL80        # if it isn't
   `backend/.env` has the connection details (`DB_HOST`, `DB_USER`,
   `DB_PASSWORD`, `DB_NAME=brgydata`, `PORT=3000`). The database already
   has seeded data (11 incidents, 3 users as of this writing) — there is
-  a `brgydata.session.sql` at the repo root if it ever needs
-  reimporting, but it wasn't needed here.
+  a `database/schema.sql` at the repo root if the schema (plus the two
+  demo accounts) ever needs reimporting, but it wasn't needed here.
 
 ## Setup
 
