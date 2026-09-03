@@ -142,6 +142,10 @@ const scheduleSchema = Joi.object({
     // headcount column) is derived server-side from tanod_ids.length —
     // no longer accepted directly from the client.
     tanod_ids: Joi.array().items(Joi.number().integer().positive()).default([]),
+    // Optional map pin for this schedule's location — lets tanod-reported
+    // incidents at this location inherit real coordinates instead of NULL.
+    latitude: Joi.number().min(-90).max(90).allow(null),
+    longitude: Joi.number().min(-180).max(180).allow(null),
     reason: Joi.string().allow('', null),
     status: Joi.string().valid('Active', 'Completed', 'Cancelled').default('Active')
 });
@@ -1178,6 +1182,43 @@ app.post('/api/auth/logout', async (req, res) => {
 
 app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
+        const { page = 1, limit = 25, search = '', type = '', danger = '', date = '' } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        // Search/filter moved server-side (was previously done client-side
+        // over the whole loaded array) so real pagination doesn't silently
+        // break search-outside-the-current-page — mirrors the same
+        // pattern /api/incidents/view-only already uses successfully.
+        let filter = ["TRIM(incidents.status) != 'Resolved'"];
+        let params = [];
+
+        if (search) {
+            filter.push("(incidents.incident_type LIKE ? OR incidents.street_name LIKE ? OR incidents.description LIKE ?)");
+            const searchTerm = `%${search}%`;
+            params.push(searchTerm, searchTerm, searchTerm);
+        }
+        if (type) {
+            filter.push('incidents.incident_type = ?');
+            params.push(type);
+        }
+        if (danger) {
+            filter.push('incidents.danger_level LIKE ?');
+            params.push(`%${danger}%`);
+        }
+        if (date) {
+            filter.push('incidents.date = ?');
+            params.push(date);
+        }
+
+        const whereClause = `WHERE ${filter.join(' AND ')}`;
+
+        const [countResult] = await pool.query(
+            `SELECT COUNT(*) as total FROM incidents ${whereClause}`,
+            params
+        );
+        const total = countResult[0].total;
+        const totalPages = Math.ceil(total / parseInt(limit));
+
         const [rows] = await pool.query(`
             SELECT
                 incidents.*,
@@ -1187,10 +1228,12 @@ app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-
             FROM incidents
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN tanod_record ON incidents.reporter_tanod_id = tanod_record.id
-            WHERE TRIM(incidents.status) != 'Resolved'
+            ${whereClause}
             ORDER BY incidents.date DESC, incidents.time DESC
-        `);
-        res.json(rows);
+            LIMIT ? OFFSET ?
+        `, [...params, parseInt(limit), skip]);
+
+        res.json({ incidents: rows, total, totalPages, currentPage: parseInt(page) });
     } catch (error) {
         console.error('❌ Error fetching incidents:', error);
         res.status(500).json({ error: 'Failed to fetch incidents' });
@@ -1791,10 +1834,21 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Administrator', 'De
 
 const TANOD_PUBLIC_COLUMNS = 'id, name, position, contact_no, username, is_active, created_at, updated_at, user_id';
 
+// Correlated EXISTS check (not a JOIN) so a tanod with more than one
+// active schedule doesn't come back as duplicate rows. Powers the
+// admin-facing "unassigned tanod" warning in the Tanod List UI.
+const HAS_ACTIVE_SCHEDULE_SQL = `
+    EXISTS(
+        SELECT 1 FROM patrol_schedule_tanods pst
+        JOIN patrol_schedules ps ON pst.schedule_id = ps.id
+        WHERE pst.tanod_id = tanod_record.id AND ps.status = 'Active'
+    ) as has_active_schedule
+`;
+
 app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record
+            SELECT ${TANOD_PUBLIC_COLUMNS}, ${HAS_ACTIVE_SCHEDULE_SQL} FROM tanod_record
             WHERE is_active = 1
             ORDER BY name
         `);
@@ -1808,7 +1862,7 @@ app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Mak
 app.get('/api/tanods/all', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record
+            SELECT ${TANOD_PUBLIC_COLUMNS}, ${HAS_ACTIVE_SCHEDULE_SQL} FROM tanod_record
             ORDER BY is_active DESC, name
         `);
         res.json(rows);
@@ -2085,15 +2139,28 @@ app.get('/api/tanod/dashboard/:tanodId', authenticateTanod, requireOwnTanodId, a
 // Shared by the schedules/incidents/incident-report routes below — a
 // tanod's "area(s)" are now whatever locations they're actually assigned
 // to via patrol_schedule_tanods, not a static field on tanod_record.
+// Returns each active schedule location this tanod is assigned to, along
+// with that schedule's map pin (if the admin set one) — so a tanod's
+// incident report can inherit real coordinates instead of NULL. If more
+// than one active schedule shares the same location name with different
+// pins, the most recently created one wins (ORDER BY + first-match below).
 async function getTanodScheduleLocations(tanodId) {
     const [rows] = await pool.query(
-        `SELECT DISTINCT ps.location
+        `SELECT ps.location, ps.latitude, ps.longitude
          FROM patrol_schedules ps
          JOIN patrol_schedule_tanods pst ON ps.id = pst.schedule_id
-         WHERE pst.tanod_id = ? AND ps.status = 'Active'`,
+         WHERE pst.tanod_id = ? AND ps.status = 'Active'
+         ORDER BY ps.created_at DESC`,
         [tanodId]
     );
-    return rows.map(r => r.location);
+
+    const byLocation = new Map();
+    for (const row of rows) {
+        if (!byLocation.has(row.location)) {
+            byLocation.set(row.location, row);
+        }
+    }
+    return [...byLocation.values()];
 }
 
 app.get('/api/tanod/schedules/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
@@ -2124,7 +2191,7 @@ app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, a
         const [rows] = await pool.query(
             `SELECT id, incident_type, date, time, status, danger_level, description
              FROM incidents WHERE street_name IN (?) ORDER BY date DESC, time DESC LIMIT 20`,
-            [locations]
+            [locations.map(l => l.location)]
         );
 
         res.json(rows);
@@ -2139,8 +2206,9 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
         const { incident_type, date, time, location, description } = req.body;
 
         const locations = await getTanodScheduleLocations(req.tanodId);
+        const matchedLocation = locations.find(l => l.location === location);
 
-        if (!locations.includes(location)) {
+        if (!matchedLocation) {
             return res.status(400).json({ error: 'You can only report incidents in an area you are currently assigned to patrol.' });
         }
 
@@ -2152,11 +2220,13 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
             INSERT INTO incidents
             (incident_type, date, time, latitude, longitude, street_name, reporter_tanod_id,
              status, danger_level, description, time_of_day, day_of_week, is_weekend)
-            VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             incident_type,
             date,
             time,
+            matchedLocation.latitude,
+            matchedLocation.longitude,
             location,
             req.tanodId,
             'Open',
@@ -2288,15 +2358,15 @@ async function syncScheduleTanods(scheduleId, tanodIds) {
 
 app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(scheduleSchema), async (req, res) => {
     try {
-        const { location, start_time, end_time, day_of_week, tanod_ids, reason } = req.body;
+        const { location, start_time, end_time, day_of_week, tanod_ids, latitude, longitude, reason } = req.body;
 
         const [result] = await pool.query(`
             INSERT INTO patrol_schedules
-            (location, start_time, end_time, day_of_week, assigned_tanods, reason)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (location, start_time, end_time, day_of_week, assigned_tanods, latitude, longitude, reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             location, start_time, end_time, day_of_week,
-            tanod_ids.length, reason || null
+            tanod_ids.length, latitude ?? null, longitude ?? null, reason || null
         ]);
 
         await syncScheduleTanods(result.insertId, tanod_ids);
@@ -2332,7 +2402,7 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'D
 
 app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(scheduleSchema), async (req, res) => {
     try {
-        const { location, start_time, end_time, day_of_week, tanod_ids, reason, status } = req.body;
+        const { location, start_time, end_time, day_of_week, tanod_ids, latitude, longitude, reason, status } = req.body;
         const id = req.params.id;
 
         const [oldData] = await pool.query('SELECT * FROM patrol_schedules WHERE id = ?', [id]);
@@ -2344,11 +2414,11 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator',
         const [result] = await pool.query(`
             UPDATE patrol_schedules
             SET location = ?, start_time = ?, end_time = ?,
-                day_of_week = ?, assigned_tanods = ?, reason = ?, status = ?
+                day_of_week = ?, assigned_tanods = ?, latitude = ?, longitude = ?, reason = ?, status = ?
             WHERE id = ?
         `, [
             location, start_time, end_time, day_of_week,
-            tanod_ids.length, reason || null, status || 'Active', id
+            tanod_ids.length, latitude ?? null, longitude ?? null, reason || null, status || 'Active', id
         ]);
 
         if (result.affectedRows === 0) {

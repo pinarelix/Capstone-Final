@@ -7,6 +7,10 @@
 // ✅ API_URL ay naka-define na sa apiHelper.js
 
 let incidents = [];
+let currentPage = 1;
+let totalPages = 0;
+let totalRecords = 0;
+const incidentsPerPage = 25;
 let mapPicker;
 let marker;
 let modalMap = null;
@@ -355,27 +359,44 @@ async function loadIncidents() {
     }
 
     try {
-        console.log('🔄 Fetching incidents from /incidents');
-        const response = await apiFetch('/incidents');
-        
+        const params = new URLSearchParams({ page: currentPage, limit: incidentsPerPage });
+
+        const searchVal = document.getElementById('searchInput')?.value.trim();
+        const typeVal = document.getElementById('filterType')?.value;
+        const dangerVal = document.getElementById('filterDanger')?.value;
+        const dateVal = document.getElementById('filterDate')?.value;
+
+        if (searchVal) params.set('search', searchVal);
+        if (typeVal) params.set('type', typeVal);
+        if (dangerVal) params.set('danger', dangerVal);
+        if (dateVal) params.set('date', dateVal);
+
+        console.log('🔄 Fetching incidents from /incidents?' + params.toString());
+        const response = await apiFetch(`/incidents?${params.toString()}`);
+
         console.log('📡 Response status:', response.status);
         console.log('📡 Response ok:', response.ok);
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
-        incidents = await response.json();
-        console.log('✅ Loaded incidents:', incidents.length);
-        console.log('📋 First incident:', incidents.length > 0 ? incidents[0] : 'No data');
-        
+
+        const data = await response.json();
+        incidents = data.incidents || [];
+        totalPages = data.totalPages || 0;
+        totalRecords = data.total || 0;
+        currentPage = data.currentPage || 1;
+        console.log('✅ Loaded incidents:', incidents.length, 'of', totalRecords);
+
         if (countSpan) {
-            countSpan.textContent = `${incidents.length} total record${incidents.length !== 1 ? 's' : ''}`;
+            countSpan.textContent = `${totalRecords} total record${totalRecords !== 1 ? 's' : ''}`;
         }
-        
+
         // ✅ Render table
         renderTable(incidents);
-        
+        renderIncidentPagination();
+        updateRecordRangeText();
+
     } catch (error) {
         console.error('❌ Error loading incidents:', error);
         if (tbody) {
@@ -391,6 +412,84 @@ async function loadIncidents() {
         }
         showErrorModal('Error', 'Failed to load incidents. Please check your connection.');
     }
+}
+
+/* ============================================================
+   PAGINATION (mirrors incident-view.js's renderPagination(), same
+   markup/behavior — admin's Incident Records list now paginates
+   server-side too instead of loading every row into memory)
+============================================================ */
+
+function renderIncidentPagination() {
+    const paginationControls = document.getElementById('paginationControls');
+    if (!paginationControls) return;
+
+    if (totalPages <= 1) {
+        paginationControls.innerHTML = '';
+        return;
+    }
+
+    let html = `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+        </li>
+    `;
+
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+
+    if (startPage > 1) {
+        html += `<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`;
+        if (startPage > 2) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        html += `
+            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+        `;
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+        html += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
+    }
+
+    html += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+        </li>
+    `;
+
+    paginationControls.innerHTML = html;
+
+    paginationControls.querySelectorAll('.page-link').forEach(link => {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            const page = parseInt(this.dataset.page);
+            if (page && page !== currentPage && page >= 1 && page <= totalPages) {
+                currentPage = page;
+                loadIncidents();
+            }
+        });
+    });
+}
+
+function updateRecordRangeText() {
+    const rangeEl = document.getElementById('recordRangeText');
+    if (!rangeEl) return;
+    if (totalRecords === 0) {
+        rangeEl.textContent = 'No records';
+        return;
+    }
+    const start = (currentPage - 1) * incidentsPerPage + 1;
+    const end = Math.min(currentPage * incidentsPerPage, totalRecords);
+    rangeEl.textContent = `Showing ${start}-${end} of ${totalRecords} records`;
 }
 
 /* ============================================================
@@ -770,22 +869,12 @@ function setupSearchAndFilters() {
     const filterDanger = document.getElementById('filterDanger');
     const filterDate = document.getElementById('filterDate');
 
+    // Search/filter now happens server-side (see loadIncidents()) so it
+    // searches the whole dataset, not just whichever page is currently
+    // loaded in memory — any change resets back to page 1 and re-fetches.
     const filterFunction = () => {
-        const query = searchInput.value.toLowerCase();
-        const typeFilter = filterType.value;
-        const dangerFilter = filterDanger.value;
-        const dateFilter = filterDate.value;
-
-        const filtered = incidents.filter(item => {
-            const searchableText = `${item.id} ${item.incident_type} ${item.street_name || ''} ${item.latitude} ${item.longitude} ${item.description || ''}`.toLowerCase();
-            const matchesQuery = searchableText.includes(query);
-            const matchesType = typeFilter === "" || item.incident_type === typeFilter;
-            const matchesDanger = dangerFilter === "" || item.danger_level?.includes(dangerFilter);
-            const matchesDate = dateFilter === "" || item.date === dateFilter;
-            return matchesQuery && matchesType && matchesDanger && matchesDate;
-        });
-
-        renderTable(filtered);
+        currentPage = 1;
+        loadIncidents();
     };
 
     if (searchInput) searchInput.addEventListener('input', filterFunction);

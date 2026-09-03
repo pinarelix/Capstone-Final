@@ -65,14 +65,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function loadIncidents() {
         try {
-            const response = await apiFetch('/incidents');
+            // Reports need the full active-incidents dataset (month-based
+            // filtering happens client-side across all of it), not one
+            // page of it — request a high limit rather than the (now
+            // paginated) default of 25.
+            const response = await apiFetch('/incidents?limit=10000');
             if (!response.ok) throw new Error('Failed to load incidents');
-            
-            const data = await response.json();
+
+            const responseData = await response.json();
+            const data = responseData.incidents || [];
             currentIncidentData = data;
-            
+
             populateMonthDropdown(data);
-            
+
             const initialMonth = monthSelect.value;
             updateReportView(initialMonth, data);
 

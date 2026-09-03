@@ -147,3 +147,65 @@
         min-width: 150px;
     }
 }
+/* ============================================================
+   PAGINATION (Incident Records)
+============================================================ */
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-card, #94a3b8);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pagination-range {
+    font-size: 0.75rem;
+    color: var(--text-muted, #64748b);
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.pagination-controls .page-item {
+    display: inline-flex;
+}
+
+.pagination-controls .page-item.disabled .page-link {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.pagination-controls .page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-card, #94a3b8);
+    background: #fff;
+    color: var(--text-secondary, #334155);
+    font-size: 0.78rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pagination-controls .page-link:hover {
+    background: #f1f5f9;
+}
+
+.pagination-controls .page-item.active .page-link {
+    background: var(--accent-blue, #0ea5e9);
+    border-color: var(--accent-blue, #0ea5e9);
+    color: #fff;
+}

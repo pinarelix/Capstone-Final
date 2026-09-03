@@ -187,6 +187,8 @@ function renderTanods(tanods) {
     const tbody = document.getElementById('tanodTableBody');
     if (!tbody) return;
 
+    updateUnassignedTanodBanner(tanods);
+
     if (tanods.length === 0) {
         tbody.innerHTML = `
             <tr class="empty-row">
@@ -203,10 +205,14 @@ function renderTanods(tanods) {
 
     tbody.innerHTML = tanods.map(tanod => {
         const positionBadge = getPositionBadge(tanod.position);
+        const unassigned = !tanod.has_active_schedule;
 
         return `
         <tr>
-            <td><span class="font-bold" style="color: #0f172a;">${escapeHTML(tanod.name)}</span></td>
+            <td>
+                <span class="font-bold" style="color: #0f172a;">${escapeHTML(tanod.name)}</span>
+                ${unassigned ? '<i class="fa-solid fa-triangle-exclamation" style="color:#d97706; margin-left:6px;" title="No active patrol assignment"></i>' : ''}
+            </td>
             <td>
                 <span class="${positionBadge.class}">
                     ${positionBadge.icon} ${escapeHTML(positionBadge.text)}
@@ -225,6 +231,22 @@ function renderTanods(tanods) {
         </tr>
     `;
     }).join('');
+}
+
+function updateUnassignedTanodBanner(tanods) {
+    const banner = document.getElementById('unassignedTanodBanner');
+    const text = document.getElementById('unassignedTanodText');
+    if (!banner || !text) return;
+
+    const unassignedCount = tanods.filter(t => !t.has_active_schedule).length;
+
+    if (unassignedCount === 0) {
+        banner.style.display = 'none';
+        return;
+    }
+
+    banner.style.display = 'flex';
+    text.textContent = `${unassignedCount} of ${tanods.length} tanod${tanods.length !== 1 ? 's' : ''} ${unassignedCount === 1 ? 'has' : 'have'} no active patrol assignment. Assign them via Patrol Decision Support → Schedules.`;
 }
 
 /* ============================================================

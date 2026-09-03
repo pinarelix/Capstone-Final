@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="patrol.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS (for the schedule location map picker) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
 <body>
 
@@ -203,11 +205,20 @@
                     <form id="scheduleForm">
                         <input type="hidden" id="editScheduleId">
 
+                        <div class="form-group">
+                            <label for="scheduleLocation">Location</label>
+                            <input type="text" id="scheduleLocation" class="form-control" placeholder="e.g., Balite Street" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Map Pin (optional)</label>
+                            <div id="scheduleMapPicker" style="height: 220px; width: 100%; border-radius: 8px; border: 1px solid #94a3b8; cursor: pointer;"></div>
+                            <input type="hidden" id="scheduleLat">
+                            <input type="hidden" id="scheduleLng">
+                            <small id="scheduleMapPrompt" style="color: #64748b; margin-top: 4px; display: block;">Click the map to pin this location — incidents tanods report here will inherit this exact point on the risk map.</small>
+                        </div>
+
                         <div class="form-grid-2">
-                            <div class="form-group">
-                                <label for="scheduleLocation">Location</label>
-                                <input type="text" id="scheduleLocation" class="form-control" placeholder="e.g., Balite Street" required>
-                            </div>
                             <div class="form-group">
                                 <label for="scheduleDay">Day of Week</label>
                                 <select id="scheduleDay" class="form-control" required>
@@ -220,17 +231,15 @@
                                     <option value="Sunday">Sunday</option>
                                 </select>
                             </div>
-                        </div>
-
-                        <div class="form-grid-2">
                             <div class="form-group">
                                 <label for="scheduleStart">Start Time</label>
                                 <input type="time" id="scheduleStart" class="form-control" required>
                             </div>
-                            <div class="form-group">
-                                <label for="scheduleEnd">End Time</label>
-                                <input type="time" id="scheduleEnd" class="form-control" required>
-                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="scheduleEnd">End Time</label>
+                            <input type="time" id="scheduleEnd" class="form-control" required>
                         </div>
 
                         <div class="form-group">
@@ -283,6 +292,9 @@
                                 <!-- Injected by JavaScript -->
                             </tbody>
                         </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <ul class="pagination-controls" id="schedulePaginationControls"></ul>
                     </div>
                 </div>
 
@@ -370,6 +382,9 @@
                                 <!-- Injected by JavaScript -->
                             </tbody>
                         </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <ul class="pagination-controls" id="logPaginationControls"></ul>
                     </div>
                 </div>
 
@@ -607,6 +622,12 @@
 
     <!-- 1. API HELPER (UNA - CRITICAL!) -->
     <script src="apiHelper.js"></script>
+
+    <!-- Leaflet + turf.js + shared barangay boundary helper, for the
+         schedule location map picker (same libraries incident.html uses) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+    <script src="mapHelper.js"></script>
 
     <script src="patrol.js"></script>
 

@@ -36,6 +36,17 @@ let allRiskFactors = []; // 🔥 NEW: CART risk factors
 let allTanods = [];
 let allSchedules = [];
 let allLogs = [];
+let scheduleMapPicker;
+let scheduleMarker;
+
+// Client-side table pagination — allSchedules/allLogs stay fully loaded
+// (other features on this page need the complete list: the "Select
+// Schedule" dropdown on the log form, getScheduleName()/getTanodName()
+// cross-reference lookups, and the CART recommendations tab), only the
+// rendered table rows are paginated.
+let schedulePage = 1;
+let logPage = 1;
+const rowsPerPage = 10;
 
 // ============================================================
 // 3. DOM READY
@@ -117,8 +128,87 @@ function setupTabs() {
             if (targetContent) {
                 targetContent.classList.add('active');
             }
+
+            // Leaflet can't measure a hidden (display:none) container, so
+            // the schedule map picker is lazy-initialized the first time
+            // its tab is actually shown, and re-measured on every
+            // subsequent visit in case its size was stale while hidden.
+            if (tabId === 'schedules') {
+                if (!scheduleMapPicker) {
+                    initScheduleMapPicker();
+                } else {
+                    setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
+                }
+            }
         });
     });
+}
+
+/* ============================================================
+   SCHEDULE LOCATION MAP PICKER
+   Mirrors incident.js's initMapPicker()/isPointInsideBarangay() pattern —
+   same libraries (Leaflet + turf.js), same boundary-check approach.
+============================================================ */
+
+function isScheduleLocationInsideBarangay(lat, lng) {
+    const boundaryPolygon = turf.polygon([
+        [...BARANGAY_BOUNDARY_COORDS.map(coord => [coord[1], coord[0]]), [BARANGAY_BOUNDARY_COORDS[0][1], BARANGAY_BOUNDARY_COORDS[0][0]]]
+    ]);
+    return turf.booleanPointInPolygon(turf.point([lng, lat]), boundaryPolygon);
+}
+
+function initScheduleMapPicker() {
+    const created = createBarangayMap('scheduleMapPicker', {
+        zoom: 16,
+        zoomControl: false,
+        minZoom: 13.5,
+        maxZoom: 19
+    });
+    scheduleMapPicker = created.map;
+
+    scheduleMapPicker.on('click', function (e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        const prompt = document.getElementById('scheduleMapPrompt');
+
+        if (!isScheduleLocationInsideBarangay(lat, lng)) {
+            if (prompt) prompt.textContent = '⚠️ Please click inside the barangay boundary!';
+            return;
+        }
+
+        document.getElementById('scheduleLat').value = lat;
+        document.getElementById('scheduleLng').value = lng;
+        placeScheduleMarker(lat, lng);
+
+        if (prompt) prompt.textContent = '📍 Location pinned!';
+    });
+
+    setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
+}
+
+function placeScheduleMarker(lat, lng) {
+    if (scheduleMarker) {
+        scheduleMapPicker.removeLayer(scheduleMarker);
+    }
+    const customIcon = L.divIcon({
+        className: 'custom-marker',
+        html: '<div style="background: #dc2626; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+    });
+    scheduleMarker = L.marker([lat, lng], { icon: customIcon }).addTo(scheduleMapPicker);
+    scheduleMapPicker.setView([lat, lng], 16);
+}
+
+function resetScheduleMapPicker() {
+    document.getElementById('scheduleLat').value = '';
+    document.getElementById('scheduleLng').value = '';
+    if (scheduleMarker && scheduleMapPicker) {
+        scheduleMapPicker.removeLayer(scheduleMarker);
+        scheduleMarker = null;
+    }
+    const prompt = document.getElementById('scheduleMapPrompt');
+    if (prompt) prompt.textContent = 'Click the map to pin this location — incidents tanods report here will inherit this exact point on the risk map.';
 }
 
 // ============================================================
@@ -129,10 +219,13 @@ async function loadAllData() {
     try {
         console.log('📡 Loading patrol data with CART integration...');
         
-        // Load incidents
-        const incResponse = await window.apiFetch('/incidents');
+        // Load incidents — CART recommendations need the full active
+        // dataset, not one page of it (see /api/incidents' pagination,
+        // added for the admin Incident Records list specifically).
+        const incResponse = await window.apiFetch('/incidents?limit=10000');
         if (incResponse.ok) {
-            allIncidents = await incResponse.json();
+            const incData = await incResponse.json();
+            allIncidents = incData.incidents || [];
             console.log('✅ Incidents loaded:', allIncidents.length);
         } else {
             console.warn('⚠️ Failed to load incidents:', incResponse.status);
@@ -716,6 +809,8 @@ async function saveSchedule() {
     const tanod_ids = getCheckedTanodIds();
     const reason = document.getElementById('scheduleReason').value.trim();
     const status = document.getElementById('scheduleStatus').value;
+    const latRaw = document.getElementById('scheduleLat').value;
+    const lngRaw = document.getElementById('scheduleLng').value;
 
     if (!location || !start_time || !end_time || !day_of_week) {
         showToast('Please fill in all required fields.', 'error');
@@ -728,6 +823,8 @@ async function saveSchedule() {
         end_time,
         day_of_week,
         tanod_ids,
+        latitude: latRaw ? parseFloat(latRaw) : null,
+        longitude: lngRaw ? parseFloat(lngRaw) : null,
         reason,
         status
     };
@@ -747,6 +844,7 @@ async function saveSchedule() {
         document.getElementById('editScheduleId').value = '';
         document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
         document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
+        resetScheduleMapPicker();
 
         await loadAllData();
         showToast('Schedule saved successfully!', 'success');
@@ -756,16 +854,59 @@ async function saveSchedule() {
     }
 }
 
+// Shared client-side paginator for a table body: renders one page's
+// worth of rows (via rowRenderFn) and a Prev/Next/numbered control list
+// (reusing the same .pagination-controls/.page-item/.page-link markup
+// and CSS as the server-paginated Incident Records table).
+function renderPaginatedTable(items, page, controlsId, onPageChange, rowRenderFn, emptyColspan, emptyIcon, emptyText) {
+    const totalPages = Math.max(1, Math.ceil(items.length / rowsPerPage));
+    const clampedPage = Math.min(Math.max(1, page), totalPages);
+    const start = (clampedPage - 1) * rowsPerPage;
+    const pageItems = items.slice(start, start + rowsPerPage);
+
+    const controls = document.getElementById(controlsId);
+    if (controls) {
+        if (totalPages <= 1) {
+            controls.innerHTML = '';
+        } else {
+            let html = `<li class="page-item ${clampedPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${clampedPage - 1}">Previous</a></li>`;
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<li class="page-item ${i === clampedPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+            }
+            html += `<li class="page-item ${clampedPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${clampedPage + 1}">Next</a></li>`;
+            controls.innerHTML = html;
+
+            controls.querySelectorAll('.page-link').forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const p = parseInt(this.dataset.page);
+                    if (p && p !== clampedPage && p >= 1 && p <= totalPages) {
+                        onPageChange(p);
+                    }
+                });
+            });
+        }
+    }
+
+    return { pageItems, clampedPage, totalPages, isEmpty: items.length === 0 };
+}
+
 function renderSchedules(schedules) {
     const tbody = document.getElementById('scheduleTableBody');
     if (!tbody) return;
 
     if (!schedules || schedules.length === 0) {
         tbody.innerHTML = emptyTableRow(7, 'fa-calendar-times', 'No patrol schedules found.');
+        document.getElementById('schedulePaginationControls').innerHTML = '';
         return;
     }
 
-    tbody.innerHTML = schedules.map(schedule => {
+    const { pageItems } = renderPaginatedTable(
+        schedules, schedulePage, 'schedulePaginationControls',
+        (p) => { schedulePage = p; renderSchedules(allSchedules); }
+    );
+
+    tbody.innerHTML = pageItems.map(schedule => {
         const statusClass = schedule.status === 'Active' ? 'badge-open' : 
                            schedule.status === 'Completed' ? 'badge-resolved' : 'badge-monitoring';
         const timeDisplay = `${schedule.start_time ? schedule.start_time.substring(0,5) : 'N/A'} - ${schedule.end_time ? schedule.end_time.substring(0,5) : 'N/A'}`;
@@ -802,10 +943,23 @@ window.editSchedule = async function(id) {
         renderTanodChecklist(schedule.tanod_ids || []);
         document.getElementById('scheduleStatus').value = schedule.status || 'Active';
         document.getElementById('scheduleReason').value = schedule.reason || '';
-        
+
+        if (scheduleMapPicker) {
+            if (schedule.latitude != null && schedule.longitude != null) {
+                document.getElementById('scheduleLat').value = schedule.latitude;
+                document.getElementById('scheduleLng').value = schedule.longitude;
+                placeScheduleMarker(parseFloat(schedule.latitude), parseFloat(schedule.longitude));
+                const prompt = document.getElementById('scheduleMapPrompt');
+                if (prompt) prompt.textContent = '📍 Location pinned! Click elsewhere on the map to move it.';
+            } else {
+                resetScheduleMapPicker();
+            }
+            setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
+        }
+
         document.getElementById('scheduleFormTitle').textContent = 'Edit Patrol Schedule';
         document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update Schedule';
-        
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
         console.error('Error fetching schedule:', error);
@@ -884,10 +1038,16 @@ function renderLogs(logs) {
 
     if (!logs || logs.length === 0) {
         tbody.innerHTML = emptyTableRow(7, 'fa-clipboard-list', 'No patrol logs found.');
+        document.getElementById('logPaginationControls').innerHTML = '';
         return;
     }
 
-    tbody.innerHTML = logs.map(log => {
+    const { pageItems } = renderPaginatedTable(
+        logs, logPage, 'logPaginationControls',
+        (p) => { logPage = p; renderLogs(allLogs); }
+    );
+
+    tbody.innerHTML = pageItems.map(log => {
         const statusClass = log.status === 'Completed' ? 'badge-open' : 
                            log.status === 'Partial' ? 'badge-monitoring' : 'badge-resolved';
         const scheduleName = getScheduleName(log.schedule_id);

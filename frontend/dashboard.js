@@ -153,12 +153,17 @@ function updateKPIs(data) {
 
 async function loadIncidentsTable() {
     try {
-        const response = await apiFetch('/incidents');
+        // /api/incidents now returns {incidents, total, totalPages,
+        // currentPage} (server-side pagination added for the admin
+        // Incident Records page) — this widget only ever shows 5 rows,
+        // so it asks the server for exactly that instead of fetching
+        // everything and slicing client-side.
+        const response = await apiFetch('/incidents?limit=5');
         if (!response.ok) throw new Error('Failed to fetch incidents');
-        
-        const incidents = await response.json();
-        renderTable(incidents);
-        
+
+        const data = await response.json();
+        renderTable(data.incidents || []);
+
     } catch (error) {
         console.error('Error loading incidents for table:', error);
     }
@@ -207,11 +212,15 @@ function renderTable(rows) {
 
 async function loadHotspots() {
     try {
-        const response = await apiFetch('/incidents');
+        // Hotspot aggregation needs the full active-incidents dataset, not
+        // one page of it — request a high limit rather than the (now
+        // paginated) default of 25.
+        const response = await apiFetch('/incidents?limit=10000');
         if (!response.ok) throw new Error('Failed to fetch hotspots');
-        
-        const incidents = await response.json();
-        
+
+        const data = await response.json();
+        const incidents = data.incidents || [];
+
         const locationMap = {};
         incidents.forEach(item => {
             const location = item.street_name || item.location || 'Unknown';
