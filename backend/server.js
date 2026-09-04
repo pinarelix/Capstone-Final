@@ -239,6 +239,23 @@ async function logTanodAudit(tanodId, action, entityType, entityId, newData, req
 }
 
 // ============================================================
+// 🔐 SESSION IDLE TIMEOUT
+// ============================================================
+// Settings has a "Session Timeout (minutes)" field (system_settings.
+// session_timeout_minutes) that used to be purely decorative - nothing
+// ever read it back, so sessions stayed valid forever until an explicit
+// logout. Shared by authenticate() and authenticateTanod() below: an
+// idle timeout (elapsed time since last_activity), not a fixed session
+// length, so an actively-used session never gets cut off mid-use.
+async function getSessionTimeoutMinutes() {
+    const [rows] = await pool.query(
+        `SELECT setting_value FROM system_settings WHERE setting_key = 'session_timeout_minutes'`
+    );
+    const minutes = parseInt(rows[0]?.setting_value, 10);
+    return Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
+}
+
+// ============================================================
 // 🔐 MIDDLEWARE: SESSION-BASED AUTHENTICATION
 // ============================================================
 
@@ -252,8 +269,8 @@ async function authenticate(req, res, next) {
         const token = authHeader.split(' ')[1];
 
         const [sessions] = await pool.query(
-            `SELECT user_id, is_active 
-             FROM user_sessions 
+            `SELECT user_id, last_activity
+             FROM user_sessions
              WHERE session_token = ? AND is_active = 1 AND logout_time IS NULL`,
             [token]
         );
@@ -262,7 +279,21 @@ async function authenticate(req, res, next) {
             return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
         }
 
-        req.userId = sessions[0].user_id;
+        const session = sessions[0];
+        const timeoutMinutes = await getSessionTimeoutMinutes();
+        const idleMinutes = (Date.now() - new Date(session.last_activity).getTime()) / 60000;
+
+        if (idleMinutes > timeoutMinutes) {
+            await pool.query(
+                'UPDATE user_sessions SET is_active = 0, logout_time = NOW() WHERE session_token = ?',
+                [token]
+            );
+            return res.status(401).json({ error: 'Unauthorized: Session expired due to inactivity' });
+        }
+
+        await pool.query('UPDATE user_sessions SET last_activity = NOW() WHERE session_token = ?', [token]);
+
+        req.userId = session.user_id;
         next();
 
     } catch (error) {
@@ -321,7 +352,7 @@ async function authenticateTanod(req, res, next) {
         const token = authHeader.split(' ')[1];
 
         const [sessions] = await pool.query(
-            `SELECT tanod_sessions.tanod_id
+            `SELECT tanod_sessions.tanod_id, tanod_sessions.last_activity
              FROM tanod_sessions
              JOIN tanod_record ON tanod_sessions.tanod_id = tanod_record.id
              WHERE tanod_sessions.session_token = ?
@@ -335,7 +366,21 @@ async function authenticateTanod(req, res, next) {
             return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
         }
 
-        req.tanodId = sessions[0].tanod_id;
+        const session = sessions[0];
+        const timeoutMinutes = await getSessionTimeoutMinutes();
+        const idleMinutes = (Date.now() - new Date(session.last_activity).getTime()) / 60000;
+
+        if (idleMinutes > timeoutMinutes) {
+            await pool.query(
+                'UPDATE tanod_sessions SET is_active = 0, logout_time = NOW() WHERE session_token = ?',
+                [token]
+            );
+            return res.status(401).json({ error: 'Unauthorized: Session expired due to inactivity' });
+        }
+
+        await pool.query('UPDATE tanod_sessions SET last_activity = NOW() WHERE session_token = ?', [token]);
+
+        req.tanodId = session.tanod_id;
         next();
 
     } catch (error) {
@@ -1041,9 +1086,9 @@ app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
 // 📋 GET LOGIN HISTORY - PUBLIC (NO AUTH REQUIRED)
 // ============================================================
 
-app.get('/api/login-history', async (req, res) => {
+app.get('/api/login-history', authenticate, requireRole(['Administrator']), async (req, res) => {
     try {
-        console.log('📋 /api/login-history called (public)');
+        console.log('📋 /api/login-history called');
         
         const [rows] = await pool.query(`
             SELECT 
@@ -3182,7 +3227,7 @@ async function startServer() {
     console.log(`   GET  /api/settings/:key`);
     console.log(`   POST /api/settings`);
     console.log(`   PUT  /api/settings/:key`);
-    console.log(`\n📋 LOGIN HISTORY (PUBLIC):`);
+    console.log(`\n📋 LOGIN HISTORY:`);
     console.log(`   GET  /api/login-history`);
             resolve(server);
         });

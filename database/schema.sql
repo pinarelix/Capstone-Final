@@ -399,6 +399,7 @@ CREATE TABLE `tanod_sessions` (
   `tanod_id` int NOT NULL,
   `session_token` varchar(64) NOT NULL,
   `login_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_activity` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `logout_time` timestamp NULL DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id`),
@@ -475,4 +476,4 @@ INSERT INTO `users` (`name`, `username`, `password_hash`, `role`, `is_active`) V
 ('Demo Administrator', 'admin', '$2b$10$ip7Eo1S35tl3RKWWZ30vNeXtkGE5f5uhYJtqtPxrc2Nx4wnCB1I8.', 'Administrator', 1),
 ('Demo Barangay Captain', 'captain', '$2b$10$IqJllqxbyiiznMCV5GyGPuePb1GVVryljozpbx8522ZGbyj5jadWy', 'Decision-Maker', 1);
 
--- Dump completed on 2026-09-03 22:54:09
+-- Dump completed on 2026-09-04 23:11:21
