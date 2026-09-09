@@ -313,18 +313,21 @@ body {
 }
 
 
+/* Was var(--accent-dark) (#0f172a) - identical to .sidebar's own
+   background, so the "active" page was never actually visible. Reuses
+   the same orange already used for the profile card above. */
 .nav-item.active {
-    background: var(--accent-dark);
+    background: var(--sidebar-card-bg);
 
     color: white;
 
     box-shadow:
-        0 6px 16px rgba(15, 23, 42, 0.28);
+        0 6px 16px rgba(217, 119, 6, 0.35);
 }
 
 
 .nav-item.active .nav-icon {
-    color: var(--accent-blue);
+    color: white;
 }
 
 
