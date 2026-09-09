@@ -80,7 +80,7 @@ body {
 }
 
 /* =========================================================
-   REPORT PAGE CONTENT - GRAY UI
+   REPORT PAGE CONTENT - WHITE CARD UI
    ========================================================= */
 
 /* GENERAL REPORT CARDS */
@@ -97,14 +97,14 @@ body {
 .main-content .table-card,
 .main-content .action-card,
 .main-content .report-action-card {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
     border-color: #94a3b8 !important;
     border-radius: 12px !important;
     box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08) !important;
 }
 
 .main-content [class*="bg-white"] {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
 }
 
 /* FILTER / CONTROL PANEL */
@@ -112,7 +112,7 @@ body {
 .main-content .report-filter,
 .main-content .filter-container,
 .main-content .control-panel {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
     border: 1px solid #94a3b8 !important;
     border-radius: 12px !important;
     box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08) !important;
@@ -121,7 +121,7 @@ body {
 /* REPORT HEADER */
 .main-content .report-header,
 .main-content .page-header {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
     border: 1px solid #94a3b8 !important;
     border-radius: 12px !important;
     box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08) !important;
@@ -285,7 +285,7 @@ body {
 /* ACTION BUTTON CARDS */
 .main-content .report-action-card,
 .main-content .action-card {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
     border: 1px solid #94a3b8 !important;
     border-radius: 12px !important;
     padding: 20px;
@@ -301,7 +301,7 @@ body {
 
 /* METRIC CARDS */
 .main-content .metric-card {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
     border: 1px solid #94a3b8 !important;
     border-radius: 12px !important;
     box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08) !important;
@@ -315,7 +315,7 @@ body {
 
 /* TABLE */
 .main-content .table-card {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
     border: 1px solid #94a3b8 !important;
     border-radius: 12px !important;
     overflow: hidden;
@@ -339,7 +339,7 @@ body {
 }
 
 .main-content table td {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
     color: #0f172a;
     border-bottom: 1px solid #cbd5e1;
 }
@@ -365,7 +365,7 @@ body {
 }
 
 .btn-action-edit {
-    background-color: #e2e8f0 !important;
+    background-color: #ffffff !important;
     color: #0f172a !important;
     margin-right: 6px;
 }

@@ -6,8 +6,8 @@
 
 :root {
 
-    --bg-main: #f8fafc;
-    --bg-card: #e2e8f0;
+    --bg-main: #cbd5e1;
+    --bg-card: #ffffff;
     --border-card: #94a3b8;
 
     --sidebar-bg: #f59e0b;
@@ -89,9 +89,9 @@ body {
 ============================================================ */
 .sidebar {
     width: 260px;
-    background: #cbd5e1;
+    background: #f0f9ff;
     color: #334155;
-    border-right: 1px solid #94a3b8;
+    border-right: 1px solid #bae6fd;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -108,7 +108,7 @@ body {
     gap: 14px;
     margin-bottom: 24px;
     padding-bottom: 20px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid #bae6fd;
 }
 
 .brand-logo-container {
@@ -117,8 +117,8 @@ body {
     flex-shrink: 0;
     border-radius: 12px;
     overflow: hidden;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    border: 1px solid #bae6fd;
     display: flex;
     align-items: center;
     justify-content: center;
