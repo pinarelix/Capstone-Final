@@ -89,9 +89,9 @@ body {
 ============================================================ */
 .sidebar {
     width: 260px;
-    background: #fa7623;
+    background: linear-gradient(135deg, #f39c12, #d35400);
     color: #334155;
-    border-right: 1px solid #ea580c;
+    border-right: 1px solid #d35400;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
