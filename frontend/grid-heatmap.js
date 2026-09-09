@@ -7,6 +7,7 @@
 let map;
 let boundaryLayer;
 let allIncidentsData = [];
+let heatmapLayerGroup;
 
 /* ============================================================
    🔥 FIXED: Gumamit ng functions mula sa apiHelper.js
@@ -33,6 +34,7 @@ function initializeMap() {
     });
     map = created.map;
     boundaryLayer = created.boundaryLayer;
+    heatmapLayerGroup = L.layerGroup().addTo(map);
 
     console.log("✅ Map Initialized!");
     loadRealData();
@@ -42,19 +44,19 @@ async function loadRealData() {
     try {
         const url = '/heatmap/incidents';
         console.log(`⏳ Fetching: ${url}`);
-        
+
         const response = await apiFetch(url);
         console.log(`📡 Response Status: ${response.status}`);
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
         const incidents = await response.json();
         console.log(`✅ Loaded ${incidents.length} incidents from API`);
-        
+
         allIncidentsData = incidents;
-        
+
         if (incidents.length > 0) {
             console.log("📋 INCIDENT STATUSES FROM API:");
             incidents.forEach(item => {
@@ -62,14 +64,8 @@ async function loadRealData() {
             });
         }
 
-        if (incidents.length === 0) {
-            console.warn("⚠️ No active incidents found in database.");
-            updateKPIs(0, 0, 0, 0);
-            showEmptyState();
-            return;
-        }
-
-        renderGrid(incidents);
+        populateHeatmapPeriodOptions();
+        applyFilterAndRender();
 
     } catch (error) {
         console.error("❌ Error:", error.message);
@@ -78,15 +74,146 @@ async function loadRealData() {
     }
 }
 
+/* ============================================================
+   DATE FILTER (Day / Week / Month / All Time)
+============================================================ */
+
+// Monday of the ISO week containing dateStr (YYYY-MM-DD), also as YYYY-MM-DD.
+function getMondayOfWeek(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const day = d.getDay(); // 0=Sun..6=Sat
+    const diff = day === 0 ? -6 : 1 - day; // shift Sunday back to the prior Monday
+    d.setDate(d.getDate() + diff);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const date = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${date}`;
+}
+
+function formatDateLabel(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatWeekLabel(mondayStr) {
+    const start = new Date(mondayStr + 'T00:00:00');
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `Week of ${startLabel} – ${endLabel}`;
+}
+
+function formatMonthLabel(yearMonth) {
+    const [year, month] = yearMonth.split('-');
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return `${monthNames[parseInt(month, 10) - 1]} ${year}`;
+}
+
+function populateHeatmapPeriodOptions() {
+    const granularitySelect = document.getElementById('heatmapGranularity');
+    const periodSelect = document.getElementById('heatmapPeriod');
+    if (!granularitySelect || !periodSelect) return;
+
+    const granularity = granularitySelect.value;
+    periodSelect.innerHTML = '';
+
+    if (granularity === 'all') {
+        periodSelect.style.display = 'none';
+        return;
+    }
+
+    const datedIncidents = allIncidentsData.filter(item => item.date);
+    const keySet = new Set();
+
+    datedIncidents.forEach(item => {
+        if (granularity === 'day') {
+            keySet.add(item.date);
+        } else if (granularity === 'week') {
+            keySet.add(getMondayOfWeek(item.date));
+        } else if (granularity === 'month') {
+            keySet.add(item.date.substring(0, 7));
+        }
+    });
+
+    const sortedKeys = Array.from(keySet).sort((a, b) => b.localeCompare(a));
+
+    if (sortedKeys.length === 0) {
+        periodSelect.innerHTML = '<option value="">No incidents found</option>';
+        periodSelect.style.display = '';
+        return;
+    }
+
+    sortedKeys.forEach(key => {
+        const option = document.createElement('option');
+        option.value = key;
+        if (granularity === 'day') option.textContent = formatDateLabel(key);
+        else if (granularity === 'week') option.textContent = formatWeekLabel(key);
+        else option.textContent = formatMonthLabel(key);
+        periodSelect.appendChild(option);
+    });
+
+    periodSelect.value = sortedKeys[0];
+    periodSelect.style.display = '';
+}
+
+function applyFilterAndRender() {
+    const granularity = document.getElementById('heatmapGranularity')?.value || 'all';
+    const period = document.getElementById('heatmapPeriod')?.value || '';
+
+    let filtered = allIncidentsData;
+
+    if (granularity === 'day') {
+        filtered = allIncidentsData.filter(item => item.date === period);
+    } else if (granularity === 'week') {
+        filtered = allIncidentsData.filter(item => item.date && getMondayOfWeek(item.date) === period);
+    } else if (granularity === 'month') {
+        filtered = allIncidentsData.filter(item => item.date && item.date.substring(0, 7) === period);
+    }
+
+    // A previously-selected circle's details no longer necessarily apply
+    // to the new filtered set - reset to the prompt state.
+    const badge = document.getElementById('selectedLocationBadge');
+    if (badge) {
+        badge.textContent = 'Click a circle on the map';
+        badge.classList.remove('active');
+    }
+    const tbody = document.getElementById('detailsTableBody');
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7">
+                    <div class="empty-state">
+                        <i class="fa-regular fa-circle"></i>
+                        <p>Click on a heatmap circle to view incident details</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+
+    if (filtered.length === 0) {
+        console.warn("⚠️ No incidents match the current filter.");
+        heatmapLayerGroup.clearLayers();
+        updateKPIs(0, 0, 0, 0);
+        showEmptyState();
+        return;
+    }
+
+    renderGrid(filtered);
+}
+
 function renderGrid(incidents) {
     console.log("🔄 Rendering grid with glowing circles...");
-    
+
+    heatmapLayerGroup.clearLayers();
+
     let totalIncidents = 0;
     let activeCells = 0;
     let peakCount = 0;
     let highRiskCells = 0;
-    
-    const gridSize = 3; 
+
+    const gridSize = 3;
     const locationMap = {};
 
     const validIncidents = incidents.filter(item => {
@@ -157,7 +284,7 @@ function renderGrid(incidents) {
             fillOpacity: 0.7,
             interactive: true,
             className: 'heatmap-circle'
-        }).addTo(map);
+        }).addTo(heatmapLayerGroup);
 
         const glow = L.circle([cell.lat, cell.lng], {
             radius: radius * 1.8,
@@ -166,7 +293,7 @@ function renderGrid(incidents) {
             fillOpacity: 0.08,
             interactive: false,
             className: 'heatmap-glow'
-        }).addTo(map);
+        }).addTo(heatmapLayerGroup);
 
         circle.bindTooltip(`${count} incident${count > 1 ? 's' : ''}`, {
             permanent: false,
@@ -330,7 +457,23 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     
     applyRoleBasedUI(); // mula sa apiHelper.js
-    
+
+    const granularitySelect = document.getElementById('heatmapGranularity');
+    const periodSelect = document.getElementById('heatmapPeriod');
+
+    if (granularitySelect) {
+        granularitySelect.addEventListener('change', function() {
+            populateHeatmapPeriodOptions();
+            applyFilterAndRender();
+        });
+    }
+
+    if (periodSelect) {
+        periodSelect.addEventListener('change', function() {
+            applyFilterAndRender();
+        });
+    }
+
     console.log("🚀 Grid Heatmap page loaded");
     initializeMap();
 });

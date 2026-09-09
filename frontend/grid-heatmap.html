@@ -466,12 +466,21 @@
 
         <!-- MAP CARD -->
         <div class="map-card card" style="padding: 14px; min-width: 0;">
-            <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px;">
+            <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
                 <div>
                     <h2>Barangay 179 — Quadrat Grid Heatmap</h2>
                     <span class="map-subtitle">Click on any circle to view incident details</span>
                 </div>
-                <span class="badge-subtle">Scientific Mapping</span>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <select id="heatmapGranularity" class="form-select" style="padding: 7px 10px; font-size: 0.75rem;">
+                        <option value="all">All Time</option>
+                        <option value="day">Day</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                    </select>
+                    <select id="heatmapPeriod" class="form-select" style="padding: 7px 10px; font-size: 0.75rem; display: none;"></select>
+                    <span class="badge-subtle">Scientific Mapping</span>
+                </div>
             </div>
 
             <div id="mapWrap">
