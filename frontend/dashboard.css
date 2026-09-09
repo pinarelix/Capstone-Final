@@ -18,14 +18,9 @@
     --text-secondary: #334155;
     --text-muted: #64748b;
 
-    /* Light text for the sidebar's actual dark-navy background (see
-       .sidebar below) - not the amber background --sidebar-bg implies.
-       This was #0f172a (near-black) until now, which is only readable
-       on a light background; nav-item labels rendered invisible
-       (dark-on-dark) once a stale duplicate .nav-item rule that had
-       hardcoded a working light color was removed. */
-    --sidebar-text: #cbd5e1;
-    --sidebar-text-muted: #94a3b8;
+    /* Dark text for the sidebar's light background (see .sidebar below). */
+    --sidebar-text: #334155;
+    --sidebar-text-muted: #64748b;
 
     --accent-blue: #0ea5e9;
     --accent-dark: #0f172a;
@@ -94,8 +89,9 @@ body {
 ============================================================ */
 .sidebar {
     width: 260px;
-    background: #0f172a;
-    color: #e2e8f0;
+    background: #f8fafc;
+    color: #334155;
+    border-right: 1px solid #e2e8f0;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -112,7 +108,7 @@ body {
     gap: 14px;
     margin-bottom: 24px;
     padding-bottom: 20px;
-    border-bottom: 1px solid #1e293b;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .brand-logo-container {
@@ -121,7 +117,8 @@ body {
     flex-shrink: 0;
     border-radius: 12px;
     overflow: hidden;
-    background: #1e293b;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -136,13 +133,13 @@ body {
 .brand-info h2 {
     font-size: 1rem;
     font-weight: 700;
-    color: #f8fafc;
+    color: #0f172a;
     line-height: 1.2;
 }
 
 .brand-info p {
     font-size: 0.7rem;
-    color: #94a3b8;
+    color: #64748b;
     margin-top: 2px;
 }
 
