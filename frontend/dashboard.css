@@ -11,14 +11,15 @@
     --border-card: #94a3b8;
 
     --sidebar-bg: #f59e0b;
-    --sidebar-card-bg: #0f172a;
-    --sidebar-border: #1e293b;
+    --sidebar-card-bg: #075985;
+    --sidebar-border: #0c4a6e;
 
     --text-primary: #0f172a;
     --text-secondary: #334155;
     --text-muted: #64748b;
 
-    /* Dark text for the sidebar's light background (see .sidebar below). */
+    /* Dark text for the sidebar's light orange background (see .sidebar
+       below). */
     --sidebar-text: #334155;
     --sidebar-text-muted: #64748b;
 
@@ -90,7 +91,7 @@ body {
 .sidebar {
     width: 260px;
     background: linear-gradient(135deg, #f39c12, #d35400);
-    color: #334155;
+    color: var(--sidebar-text);
     border-right: 1px solid #d35400;
     display: flex;
     flex-direction: column;
@@ -310,15 +311,16 @@ body {
 }
 
 
-/* Dark navy so it stays legible against the sidebar's orange
-   background - matches the profile card above. */
+/* Blue - orange's complement on the color wheel - so it stands out
+   clearly against the sidebar's orange gradient. A deep, dark blue
+   rather than the lighter --accent-blue for a bolder highlight. */
 .nav-item.active {
     background: var(--sidebar-card-bg);
 
     color: white;
 
     box-shadow:
-        0 6px 16px rgba(15, 23, 42, 0.35);
+        0 6px 16px rgba(7, 89, 133, 0.45);
 }
 
 
@@ -575,6 +577,20 @@ body {
 
     box-shadow:
         0 5px 15px rgba(15,23,42,0.25);
+}
+
+
+/* Logout only - same gradient as the sidebar/login button, not shared
+   with the other .btn-primary buttons (Save, Submit, etc.). */
+#logoutBtn {
+    background: linear-gradient(135deg, #f39c12, #d35400);
+}
+
+#logoutBtn:hover {
+    background: linear-gradient(135deg, #d35400, #a84300);
+
+    box-shadow:
+        0 5px 15px rgba(211, 84, 0, 0.35);
 }
 
 
