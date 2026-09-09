@@ -11,8 +11,8 @@
     --border-card: #94a3b8;
 
     --sidebar-bg: #f59e0b;
-    --sidebar-card-bg: #d97706;
-    --sidebar-border: #b45309;
+    --sidebar-card-bg: #0f172a;
+    --sidebar-border: #1e293b;
 
     --text-primary: #0f172a;
     --text-secondary: #334155;
@@ -89,9 +89,9 @@ body {
 ============================================================ */
 .sidebar {
     width: 260px;
-    background: #f0f9ff;
+    background: #fa7623;
     color: #334155;
-    border-right: 1px solid #bae6fd;
+    border-right: 1px solid #ea580c;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -108,7 +108,7 @@ body {
     gap: 14px;
     margin-bottom: 24px;
     padding-bottom: 20px;
-    border-bottom: 1px solid #bae6fd;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 .brand-logo-container {
@@ -118,7 +118,7 @@ body {
     border-radius: 12px;
     overflow: hidden;
     background: #ffffff;
-    border: 1px solid #bae6fd;
+    border: 1px solid rgba(255, 255, 255, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -219,7 +219,7 @@ body {
 .profile-info p {
     font-size: 0.73rem;
 
-    color: #fef3c7;
+    color: #cbd5e1;
 
     margin-top: 6px;
 
@@ -310,16 +310,15 @@ body {
 }
 
 
-/* Was var(--accent-dark) (#0f172a) - identical to .sidebar's own
-   background, so the "active" page was never actually visible. Reuses
-   the same orange already used for the profile card above. */
+/* Dark navy so it stays legible against the sidebar's orange
+   background - matches the profile card above. */
 .nav-item.active {
     background: var(--sidebar-card-bg);
 
     color: white;
 
     box-shadow:
-        0 6px 16px rgba(217, 119, 6, 0.35);
+        0 6px 16px rgba(15, 23, 42, 0.35);
 }
 
 
