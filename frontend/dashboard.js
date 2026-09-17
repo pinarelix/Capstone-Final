@@ -140,6 +140,9 @@ function updateKPIs(data) {
     setText("kpi-risk", data.risk);
     setText("kpi-risk-desc", `Level 3 high-risk indicators recorded: ${data.risk}.`);
 
+    setText("kpi-resolution", `${data.resolutionRate}%`);
+    setText("kpi-resolution-desc", `${data.resolvedCount} of ${data.totalAllIncidents} incidents resolved.`);
+
     const progress = document.getElementById("incidentProgress");
     if (progress) {
         const percentage = Math.min((data.incidents / 30) * 100, 100);

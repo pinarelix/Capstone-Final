@@ -1845,6 +1845,21 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Dec
         );
         const risk = riskResult[0].risk;
 
+        // Resolution rate looks at ALL incidents (Resolved included), unlike
+        // the other KPIs above which deliberately exclude Resolved rows to
+        // focus on active caseload.
+        const [resolutionResult] = await pool.query(`
+            SELECT
+                SUM(CASE WHEN TRIM(status) = 'Resolved' THEN 1 ELSE 0 END) as resolved,
+                COUNT(*) as total
+            FROM incidents
+        `);
+        const resolvedCount = resolutionResult[0].resolved || 0;
+        const totalAllIncidents = resolutionResult[0].total || 0;
+        const resolutionRate = totalAllIncidents > 0
+            ? Math.round((resolvedCount / totalAllIncidents) * 100)
+            : 0;
+
         res.json({
             incidents: totalIncidents,
             activeDay: activeDay,
@@ -1853,7 +1868,10 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Dec
             common: common,
             area: area,
             peak: peak,
-            risk: risk
+            risk: risk,
+            resolutionRate: resolutionRate,
+            resolvedCount: resolvedCount,
+            totalAllIncidents: totalAllIncidents
         });
 
     } catch (error) {
