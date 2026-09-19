@@ -39,6 +39,11 @@ let allLogs = [];
 let scheduleMapPicker;
 let scheduleMarker;
 
+// Latest CART recommendations, kept around so the Schedules tab can
+// surface the same "Active Priority Recommendations" without
+// recomputing them itself.
+let currentRecommendations = [];
+
 // Client-side table pagination — allSchedules/allLogs stay fully loaded
 // (other features on this page need the complete list: the "Select
 // Schedule" dropdown on the log form, getScheduleName()/getTanodName()
@@ -622,6 +627,8 @@ function updateDashboardWithCartData(selectedMonth) {
     if (!allIncidents || allIncidents.length === 0) {
         console.warn('No incidents available');
         updateMetricsEmptyState();
+        currentRecommendations = [];
+        renderScheduleSuggestions([]);
         return;
     }
     
@@ -675,6 +682,10 @@ function updateDashboardWithCartData(selectedMonth) {
     // Render recommendation cards
     const container = document.getElementById('recommendationsContainer');
     renderCartRecommendationCards(recommendations, container);
+
+    // Keep the Schedules tab's suggestions in sync with the same data.
+    currentRecommendations = recommendations;
+    renderScheduleSuggestions(recommendations);
 }
 
 function updateMetricsEmptyState() {
@@ -752,6 +763,86 @@ function renderCartRecommendationCards(recs, container) {
         `;
         container.appendChild(card);
     });
+}
+
+// ============================================================
+// 9b. 🔥 NEW: SURFACE RECOMMENDATIONS ON THE SCHEDULES TAB
+// Compact version of the same CART recommendations, shown above the
+// "Add Patrol Schedule" form so admins see the priority areas without
+// switching back to the Recommendations tab. "Use This" prefills the
+// form below instead of building the schedule from scratch.
+// ============================================================
+
+function renderScheduleSuggestions(recs) {
+    const section = document.getElementById('scheduleSuggestionsSection');
+    const container = document.getElementById('scheduleSuggestionsContainer');
+    if (!section || !container) return;
+
+    // Placeholder entries (no CART data / no incidents this month) carry
+    // count: 0 — real recommendations always have at least one incident.
+    const validRecs = (recs || []).filter(rec => rec.count > 0);
+
+    if (validRecs.length === 0) {
+        section.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    section.style.display = '';
+    container.innerHTML = '';
+
+    validRecs.forEach(rec => {
+        const idx = recs.indexOf(rec);
+        const card = document.createElement('div');
+        card.className = `rec-card ${rec.priority}`;
+
+        card.innerHTML = `
+            <div class="rec-card-header">
+                <h3>${escapeHTML(rec.area)}</h3>
+                <span class="priority-badge ${rec.priority}">${rec.priority.toUpperCase()} PRIORITY</span>
+            </div>
+            <div class="danger-level ${rec.priority}">${escapeHTML(rec.level)}</div>
+            <div class="rec-details">
+                <div><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
+                <div><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
+            </div>
+            <button type="button" class="btn btn-secondary" style="margin-top: 12px; padding: 8px 14px; font-size: 0.8rem;" onclick="applyRecommendationToScheduleForm(${idx})">
+                <i class="fa-solid fa-arrow-turn-down"></i> Use This
+            </button>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// Prefills the Add Patrol Schedule form from a recommendation card.
+// Only location, time, and reason are inferable from CART's monthly
+// aggregate — day of week and which tanods to assign are still a human
+// call, so those fields are left for the admin to set.
+function applyRecommendationToScheduleForm(idx) {
+    const rec = currentRecommendations[idx];
+    if (!rec) return;
+
+    // Applying a suggestion always starts a fresh schedule, not an edit.
+    document.getElementById('editScheduleId').value = '';
+    document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
+    document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
+
+    const locationSelect = document.getElementById('scheduleLocation');
+    if ([...locationSelect.options].some(opt => opt.value === rec.area)) {
+        locationSelect.value = rec.area;
+    }
+
+    const timeParts = rec.time.split(' – ');
+    if (timeParts.length === 2) {
+        document.getElementById('scheduleStart').value = timeParts[0];
+        document.getElementById('scheduleEnd').value = timeParts[1];
+    }
+
+    document.getElementById('scheduleReason').value =
+        `Suggested from CART priority recommendation: ${rec.reason}. ${rec.action}`;
+
+    document.getElementById('scheduleFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast(`Prefilled from "${rec.area}" — suggested ${rec.tanods} tanod(s). Review day and assignment before saving.`, 'info');
 }
 
 // ============================================================

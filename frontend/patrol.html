@@ -194,8 +194,17 @@
             ====================================================== -->
             <div id="tab-schedules" class="patrol-tab-content">
 
+                <!-- Suggested From Active Priority Recommendations -->
+                <div class="patrol-recommendations" id="scheduleSuggestionsSection" style="display: none; margin-bottom: 24px;">
+                    <div class="section-header">
+                        <h3><i class="fa-solid fa-lightbulb"></i> Suggested From Active Priority Recommendations</h3>
+                        <span class="badge-subtle">Click "Use This" to prefill the form below</span>
+                    </div>
+                    <div class="recommendations-grid" id="scheduleSuggestionsContainer"></div>
+                </div>
+
                 <!-- Add Schedule Form -->
-                <div class="patrol-form-card">
+                <div class="patrol-form-card" id="scheduleFormCard">
                     <div class="form-header">
                         <div>
                             <h3 id="scheduleFormTitle"><i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule</h3>
