@@ -610,4 +610,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // =========================================================
     loadIncidents();
     loadStats();
+
+    // Keeps this view current with incidents reported from the field
+    // (e.g. a tanod's phone) without the Captain needing to re-login.
+    startLivePolling(() => {
+        loadIncidents();
+        loadStats();
+    }, 15000);
 });

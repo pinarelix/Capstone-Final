@@ -445,6 +445,29 @@ const LoginHistoryAPI = {
 };
 
 // ============================================================
+// 6b. LIVE POLLING HELPER
+// Periodically re-runs fn() so admin/captain views pick up incidents
+// and patrol logs submitted from a tanod's phone without needing to
+// log out and back in. Skips ticks while the tab is in the background
+// (no point burning requests on a page nobody's looking at) and
+// refreshes immediately the moment it's visible again.
+// ============================================================
+
+function startLivePolling(fn, intervalMs = 15000) {
+    const timer = setInterval(() => {
+        if (document.visibilityState === 'visible') fn();
+    }, intervalMs);
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') fn();
+    });
+
+    return timer;
+}
+
+window.startLivePolling = startLivePolling;
+
+// ============================================================
 // 7. EXPORT (Ginagawang global para magamit sa HTML)
 // ============================================================
 window.apiFetch = apiFetch;

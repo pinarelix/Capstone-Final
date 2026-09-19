@@ -58,6 +58,15 @@ document.addEventListener("DOMContentLoaded", () => {
     loadHotspots();
     loadCharts();
 
+    // Keeps the dashboard current with incidents reported from the
+    // field (e.g. a tanod's phone) without needing to re-login.
+    startLivePolling(() => {
+        loadDashboardStats();
+        loadIncidentsTable();
+        loadHotspots();
+        loadCharts();
+    }, 15000);
+
     // ============================================================
     // 🔥 STEP 4: Sidebar ripple effect
     // ============================================================

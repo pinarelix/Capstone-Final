@@ -82,6 +82,10 @@ document.addEventListener("DOMContentLoaded", function () {
     populateScheduleLocationOptions();
     setupScheduleForm();
     setupLogForm();
+
+    // Keeps the Patrol Logs list current with logs submitted from a
+    // tanod's phone without the admin needing to re-login.
+    startLivePolling(refreshPatrolLogsOnly, 15000);
     
     const monthSelect = document.getElementById('monthSelect');
     if (monthSelect) {
@@ -305,6 +309,26 @@ async function loadAllData() {
         if (error.message !== 'Session expired. Please login again.' && error.message !== 'No session token') {
             showToast('Failed to load patrol data. Please refresh.', 'error');
         }
+    }
+}
+
+// ============================================================
+// 5a2. 🔥 NEW: Refresh only the Patrol Logs list
+// Used for live polling — reloading everything via loadAllData()
+// would also rebuild the tanod checklist and schedule/tanod dropdowns,
+// wiping out any in-progress selection on the Add Schedule form.
+// ============================================================
+
+async function refreshPatrolLogsOnly() {
+    try {
+        const response = await window.apiFetch('/patrol-logs');
+        if (!response.ok) return;
+
+        allLogs = await response.json();
+        renderLogs(allLogs);
+        updateCounts();
+    } catch (error) {
+        console.error('❌ Error refreshing patrol logs:', error);
     }
 }
 

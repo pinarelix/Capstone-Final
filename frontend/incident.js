@@ -49,11 +49,15 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('⏳ Delayed loadIncidents() triggered');
         loadIncidents();
     }, 300);
-    
+
     setupForm();
     setupSearchAndFilters();
     setupRippleEffect();
     setupModalMapClose();
+
+    // Keeps this list current with incidents reported from the field
+    // (e.g. a tanod's phone) without the admin needing to re-login.
+    startLivePolling(loadIncidents, 15000);
 });
 
 /* ============================================================
