@@ -361,23 +361,77 @@ function populateAllReportLocations(assignedLocations = []) {
     }
 }
 
+// Populated by loadSchedule() and read by renderScheduleList() - kept
+// separate from the fetch so it can also be re-rendered from
+// loadAreaIncidents() (see below), since either one can finish loading
+// last and both are needed for the incident-type breakdown per schedule.
+let currentSchedules = [];
+
 async function loadSchedule(tanodId) {
-    const list = document.getElementById('scheduleList');
     const logScheduleSelect = document.getElementById('logSchedule');
 
     try {
         const response = await tanodFetch(`/tanod/schedules/${tanodId}`);
         const schedules = await response.json();
+        currentSchedules = Array.isArray(schedules) ? schedules : [];
 
-        const assignedLocations = [...new Set((Array.isArray(schedules) ? schedules : []).map(s => s.location))];
+        const assignedLocations = [...new Set(currentSchedules.map(s => s.location))];
         populateAllReportLocations(assignedLocations);
 
-        if (!Array.isArray(schedules) || schedules.length === 0) {
-            list.innerHTML = '<p class="tanod-empty">You have not been assigned to any patrol schedule yet.</p>';
-            return;
-        }
+        renderScheduleList();
 
-        list.innerHTML = schedules.map(s => `
+        if (logScheduleSelect) {
+            // Preserved across live-polling refreshes - without this,
+            // a poll firing mid-way through filling out the Add Patrol
+            // Log form would silently reset whatever schedule was picked.
+            const previousScheduleValue = logScheduleSelect.value;
+            logScheduleSelect.innerHTML = '<option value="" disabled selected>Select a schedule</option>' +
+                currentSchedules.map(s => `<option value="${s.id}">${escapeHTML(s.location)} — ${escapeHTML(s.day_of_week)} (${escapeHTML(s.start_time)}–${escapeHTML(s.end_time)})</option>`).join('');
+            if (previousScheduleValue && currentSchedules.some(s => String(s.id) === previousScheduleValue)) {
+                logScheduleSelect.value = previousScheduleValue;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading schedule:', error);
+        const list = document.getElementById('scheduleList');
+        if (list) list.innerHTML = '<p class="tanod-empty">Failed to load schedule.</p>';
+    }
+}
+
+// Groups currentAreaIncidents by location -> incident type counts, so a
+// tanod sees at a glance what's actually been happening in an area
+// they're assigned to (e.g. "5 incidents: Theft (3), Vandalism (2)")
+// instead of five otherwise-identical-looking schedule cards for the
+// same location.
+function getIncidentTypesForArea(location) {
+    const counts = {};
+    currentAreaIncidents.forEach(inc => {
+        if (inc.street_name === location) {
+            counts[inc.incident_type] = (counts[inc.incident_type] || 0) + 1;
+        }
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+// Re-run from both loadSchedule() and loadAreaIncidents() (whichever
+// finishes last) since it needs data from both.
+function renderScheduleList() {
+    const list = document.getElementById('scheduleList');
+    if (!list) return;
+
+    if (currentSchedules.length === 0) {
+        list.innerHTML = '<p class="tanod-empty">You have not been assigned to any patrol schedule yet.</p>';
+        return;
+    }
+
+    list.innerHTML = currentSchedules.map(s => {
+        const types = getIncidentTypesForArea(s.location);
+        const total = types.reduce((sum, [, count]) => sum + count, 0);
+        const typesSummary = types.length > 0
+            ? `${total} incident${total > 1 ? 's' : ''}: ${types.map(([type, count]) => `${type} (${count})`).join(', ')}`
+            : 'No recorded incidents in this area yet';
+
+        return `
             <div class="tanod-list-item">
                 <div class="tanod-list-item-main">
                     <strong>${escapeHTML(s.location)}</strong>
@@ -387,24 +441,12 @@ async function loadSchedule(tanodId) {
                     <i class="fa-regular fa-clock"></i> ${escapeHTML(s.start_time)} – ${escapeHTML(s.end_time)}
                     ${s.reason ? `<br><span class="tanod-muted">${escapeHTML(s.reason)}</span>` : ''}
                 </div>
+                <div class="tanod-list-item-sub" style="margin-top: 6px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(typesSummary)}
+                </div>
             </div>
-        `).join('');
-
-        if (logScheduleSelect) {
-            // Preserved across live-polling refreshes - without this,
-            // a poll firing mid-way through filling out the Add Patrol
-            // Log form would silently reset whatever schedule was picked.
-            const previousScheduleValue = logScheduleSelect.value;
-            logScheduleSelect.innerHTML = '<option value="" disabled selected>Select a schedule</option>' +
-                schedules.map(s => `<option value="${s.id}">${escapeHTML(s.location)} — ${escapeHTML(s.day_of_week)} (${escapeHTML(s.start_time)}–${escapeHTML(s.end_time)})</option>`).join('');
-            if (previousScheduleValue && schedules.some(s => String(s.id) === previousScheduleValue)) {
-                logScheduleSelect.value = previousScheduleValue;
-            }
-        }
-    } catch (error) {
-        console.error('Error loading schedule:', error);
-        list.innerHTML = '<p class="tanod-empty">Failed to load schedule.</p>';
-    }
+        `;
+    }).join('');
 }
 
 // Populated by loadAreaIncidents() and read by the click handler below -
@@ -418,6 +460,11 @@ async function loadAreaIncidents(tanodId) {
         const incidents = await response.json();
 
         currentAreaIncidents = Array.isArray(incidents) ? incidents : [];
+        // Re-render the schedule cards too - they show an incident-type
+        // breakdown per location that depends on this same data (see
+        // getIncidentTypesForArea), and this fetch can finish after
+        // loadSchedule()'s.
+        renderScheduleList();
 
         if (currentAreaIncidents.length === 0) {
             list.innerHTML = '<p class="tanod-empty">No recent incidents recorded in your area.</p>';

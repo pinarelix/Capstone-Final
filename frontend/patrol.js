@@ -1057,12 +1057,45 @@ function renderPaginatedTable(items, page, controlsId, onPageChange, rowRenderFn
     return { pageItems, clampedPage, totalPages, isEmpty: items.length === 0 };
 }
 
+// Groups allIncidents by street_name so a Schedules/Logs row can show
+// what's actually been happening at that location at a glance, instead
+// of admins having to cross-reference Incident Records by hand to tell
+// otherwise-identical rows (same day/time pattern, different location)
+// apart.
+function getIncidentTypesForLocation(location) {
+    const counts = {};
+    (allIncidents || []).forEach(inc => {
+        if (inc.street_name === location) {
+            counts[inc.incident_type] = (counts[inc.incident_type] || 0) + 1;
+        }
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+}
+
+function renderIncidentTypeBadges(location, maxShown = 2) {
+    const types = getIncidentTypesForLocation(location);
+    if (types.length === 0) {
+        return '<span style="font-size: 0.72rem; color: #94a3b8;">No incidents recorded</span>';
+    }
+
+    const shown = types.slice(0, maxShown);
+    const remaining = types.length - shown.length;
+    const badges = shown.map(([type, count]) =>
+        `<span class="badge-subtle" style="font-size: 0.65rem; padding: 2px 8px; white-space: nowrap;">${escapeHTML(type)} (${count})</span>`
+    ).join(' ');
+    const moreBadge = remaining > 0
+        ? `<span class="badge-subtle" style="font-size: 0.65rem; padding: 2px 8px;" title="${escapeHTML(types.slice(maxShown).map(([t, c]) => `${t} (${c})`).join(', '))}">+${remaining} more</span>`
+        : '';
+
+    return `<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px;">${badges}${moreBadge}</div>`;
+}
+
 function renderSchedules(schedules) {
     const tbody = document.getElementById('scheduleTableBody');
     if (!tbody) return;
 
     if (!schedules || schedules.length === 0) {
-        tbody.innerHTML = emptyTableRow(7, 'fa-calendar-times', 'No patrol schedules found.');
+        tbody.innerHTML = emptyTableRow(8, 'fa-calendar-times', 'No patrol schedules found.');
         document.getElementById('schedulePaginationControls').innerHTML = '';
         return;
     }
@@ -1073,7 +1106,7 @@ function renderSchedules(schedules) {
     );
 
     tbody.innerHTML = pageItems.map(schedule => {
-        const statusClass = schedule.status === 'Active' ? 'badge-open' : 
+        const statusClass = schedule.status === 'Active' ? 'badge-open' :
                            schedule.status === 'Completed' ? 'badge-resolved' : 'badge-monitoring';
         const timeDisplay = `${schedule.start_time ? schedule.start_time.substring(0,5) : 'N/A'} - ${schedule.end_time ? schedule.end_time.substring(0,5) : 'N/A'}`;
 
@@ -1084,6 +1117,7 @@ function renderSchedules(schedules) {
                 <td>${escapeHTML(schedule.day_of_week)}</td>
                 <td>${timeDisplay}</td>
                 <td>${schedule.assigned_tanods || 0}</td>
+                <td>${renderIncidentTypeBadges(schedule.location)}</td>
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
                     <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})">Edit</button>
@@ -1203,7 +1237,7 @@ function renderLogs(logs) {
     if (!tbody) return;
 
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = emptyTableRow(7, 'fa-clipboard-list', 'No patrol logs found.');
+        tbody.innerHTML = emptyTableRow(8, 'fa-clipboard-list', 'No patrol logs found.');
         document.getElementById('logPaginationControls').innerHTML = '';
         return;
     }
@@ -1214,7 +1248,7 @@ function renderLogs(logs) {
     );
 
     tbody.innerHTML = pageItems.map(log => {
-        const statusClass = log.status === 'Completed' ? 'badge-open' : 
+        const statusClass = log.status === 'Completed' ? 'badge-open' :
                            log.status === 'Partial' ? 'badge-monitoring' : 'badge-resolved';
         const scheduleName = getScheduleName(log.schedule_id);
         const tanodName = getTanodName(log.tanod_id);
@@ -1225,6 +1259,7 @@ function renderLogs(logs) {
                 <td>${escapeHTML(scheduleName)}</td>
                 <td>${escapeHTML(tanodName)}</td>
                 <td>${log.patrol_date || 'N/A'}</td>
+                <td>${renderIncidentTypeBadges(scheduleName)}</td>
                 <td><span class="badge ${statusClass}">${log.status || 'Completed'}</span></td>
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(log.report || '')}">${escapeHTML(log.report || 'N/A')}</td>
                 <td>
