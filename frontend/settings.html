@@ -459,40 +459,40 @@
 
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span>BI Dashboard</span>
             </a>
             <a href="incident.html" class="nav-item admin-only">
-                <span class="nav-icon">📁</span>
+                <span class="nav-icon"><i class="fa-solid fa-folder-open"></i></span>
                 <span>Incident Records</span>
             </a>
             <a href="incident-view.html" class="nav-item">
-                <span class="nav-icon">👁️</span>
+                <span class="nav-icon"><i class="fa-solid fa-eye"></i></span>
                 <span>Incident View</span>
             </a>
             <a href="grid-heatmap.html" class="nav-item">
-                <span class="nav-icon">📍</span>
+                <span class="nav-icon"><i class="fa-solid fa-location-dot"></i></span>
                 <span>Barangay Risk Map</span>
             </a>
             <a href="cart.html" class="nav-item admin-only">
-                <span class="nav-icon">📈</span>
+                <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
                 <span>CART Analytics</span>
             </a>
             <a href="patrol.html" class="nav-item">
-                <span class="nav-icon">🛡️</span>
+                <span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span>
                 <span>Patrol Decision Support</span>
             </a>
             <a href="report.html" class="nav-item">
-                <span class="nav-icon">📄</span>
+                <span class="nav-icon"><i class="fa-solid fa-file-lines"></i></span>
                 <span>Reports</span>
             </a>
             <!-- ADMIN ONLY -->
             <a href="users.html" class="nav-item admin-only">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
                 <span>User Management</span>
             </a>
             <a href="settings.html" class="nav-item active admin-only">
-                <span class="nav-icon">⚙️</span>
+                <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
                 <span>Settings</span>
             </a>
         </nav>
@@ -919,13 +919,14 @@
             height: 64px;
             border-radius: 50%;
             background: #fee2e2;
+            color: #334155;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 16px;
             font-size: 2rem;
         ">
-            ⚠️
+            <i class="fa-solid fa-triangle-exclamation"></i>
         </div>
         <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
             Confirm Logout
@@ -1041,11 +1042,11 @@
     }
 
     function getRoleIcon(role) {
-        if (!role) return '👤';
+        if (!role) return '<i class="fa-solid fa-user"></i>';
         const roleLower = role.toLowerCase();
-        if (roleLower.includes('admin')) return '🛡️';
-        if (roleLower.includes('decision')) return '👔';
-        return '🚶';
+        if (roleLower.includes('admin')) return '<i class="fa-solid fa-shield-halved"></i>';
+        if (roleLower.includes('decision')) return '<i class="fa-solid fa-user-tie"></i>';
+        return '<i class="fa-solid fa-person-walking"></i>';
     }
 
     function loadCurrentUser() {

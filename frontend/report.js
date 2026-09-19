@@ -37,10 +37,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     if (roleEl) {
-        const roleDisplay = user?.role === 'Administrator' 
-            ? '👑 Administrator — Full System Access' 
-            : '📊 Decision-Maker — View & Analytics Access';
-        roleEl.textContent = roleDisplay || 'User';
+        const roleDisplay = user?.role === 'Administrator'
+            ? '<i class="fa-solid fa-crown"></i> Administrator — Full System Access'
+            : '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
+        roleEl.innerHTML = roleDisplay || 'User';
     }
     
     const monthSelect = document.getElementById("reportMonthSelect");
@@ -261,25 +261,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         let directives = ["Maintain routine tanod roving patrol."];
         
         if (highRiskCount > 2) {
-            summary = `⚠️ High crime intensity detected. Heavy tanod deployment advised across ${hotspots}.`;
+            summary = `High crime intensity detected. Heavy tanod deployment advised across ${hotspots}.`;
             directives = [
-                `🚨 Deploy stationary Tanod Outpost in ${locations[0] || 'Priority Zones'} between 7:00 PM and 11:00 PM.`,
-                "🛵 Mobile motorcycle patrol every 30 minutes.",
-                "📞 Mandatory coordination with Caloocan Police Station 12 for high-risk zones."
+                `Deploy stationary Tanod Outpost in ${locations[0] || 'Priority Zones'} between 7:00 PM and 11:00 PM.`,
+                "Mobile motorcycle patrol every 30 minutes.",
+                "Mandatory coordination with Caloocan Police Station 12 for high-risk zones."
             ];
         } else if (moderateRiskCount > 2) {
-            summary = `⚡ Moderate disturbance risk. Increase evening foot patrols around ${hotspots}.`;
+            summary = `Moderate disturbance risk. Increase evening foot patrols around ${hotspots}.`;
             directives = [
-                `👮 Deploy 4 Barangay Tanods at ${locations[0] || 'designated areas'} during closing hours (6 PM - 9 PM).`,
-                "🚗 Regular patrol drive for traffic decongestion.",
-                "💪 Maintain active presence to prevent late-night altercations."
+                `Deploy 4 Barangay Tanods at ${locations[0] || 'designated areas'} during closing hours (6 PM - 9 PM).`,
+                "Regular patrol drive for traffic decongestion.",
+                "Maintain active presence to prevent late-night altercations."
             ];
         } else if (monthData.length > 0) {
-            summary = `✅ Low risk level detected. Standard patrol procedures recommended.`;
+            summary = `Low risk level detected. Standard patrol procedures recommended.`;
             directives = [
-                "🚶 Regular foot patrol in designated areas.",
-                "📋 Monitor and report any suspicious activities.",
-                "🤝 Maintain community engagement and visibility."
+                "Regular foot patrol in designated areas.",
+                "Monitor and report any suspicious activities.",
+                "Maintain community engagement and visibility."
             ];
         }
 

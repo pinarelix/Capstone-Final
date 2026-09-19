@@ -128,8 +128,8 @@ function updateKPIs(data) {
 
     const changeEl = document.getElementById("kpi-change");
     if (changeEl) {
-        const arrow = data.change >= 0 ? "↗" : "↘";
-        changeEl.textContent = `${data.change > 0 ? "+" : ""}${data.change} ${arrow}`;
+        const arrowIcon = data.change >= 0 ? "fa-arrow-trend-up" : "fa-arrow-trend-down";
+        changeEl.innerHTML = `${data.change > 0 ? "+" : ""}${data.change} <i class="fa-solid ${arrowIcon}"></i>`;
         changeEl.style.color = data.change > 0 ? "var(--status-high)" : "var(--status-low)";
     }
 

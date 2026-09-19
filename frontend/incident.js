@@ -94,7 +94,7 @@ function initMapPicker() {
         const lng = e.latlng.lng;
         
         if (!isPointInsideBarangay(lat, lng)) {
-            document.getElementById('locationPrompt').textContent = "⚠️ Please click inside the barangay boundary!";
+            document.getElementById('locationPrompt').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please click inside the barangay boundary!';
             return;
         }
 
@@ -113,7 +113,7 @@ function initMapPicker() {
         });
 
         marker = L.marker([lat, lng], { icon: customIcon }).addTo(mapPicker);
-        document.getElementById('locationPrompt').textContent = "📍 Location Selected!";
+        document.getElementById('locationPrompt').innerHTML = '<i class="fa-solid fa-location-dot"></i> Location Selected!';
         
         if (isMapModalOpen && modalMap) {
             updateModalMarker(lat, lng);
@@ -147,13 +147,13 @@ function createModalMap() {
         const lng = e.latlng.lng;
         
         if (!isPointInsideBarangay(lat, lng)) {
-            alert('⚠️ Please click inside the barangay boundary!');
+            alert('Please click inside the barangay boundary!');
             return;
         }
 
         document.getElementById('incidentLat').value = lat;
         document.getElementById('incidentLng').value = lng;
-        document.getElementById('locationPrompt').textContent = "📍 Location Selected!";
+        document.getElementById('locationPrompt').innerHTML = '<i class="fa-solid fa-location-dot"></i> Location Selected!';
 
         if (marker) {
             mapPicker.removeLayer(marker);
@@ -264,7 +264,7 @@ function setupMapExpand() {
         transition: opacity 0.5s ease;
         white-space: nowrap;
     `;
-    hint.textContent = '🖱️ Click to expand map';
+    hint.innerHTML = '<i class="fa-solid fa-arrow-pointer"></i> Click to expand map';
     mapContainer.appendChild(hint);
     
     setTimeout(() => {
@@ -324,7 +324,7 @@ async function loadReporters() {
         if (users.length === 0) {
             const option = document.createElement('option');
             option.value = "";
-            option.textContent = "⚠️ No users available - add a user first";
+            option.textContent = "No users available - add a user first";
             option.disabled = true;
             select.appendChild(option);
             return;
@@ -752,7 +752,7 @@ function clearForm() {
     if (form) form.reset();
     document.getElementById('editIndex').value = '';
     document.getElementById('formTitle').textContent = "Add New Incident";
-    document.getElementById('saveBtn').innerHTML = `💾 Save Incident`;
+    document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Incident`;
     document.getElementById('reportedBy').value = '';
     document.getElementById('incidentStreet').value = '';
     document.getElementById('incidentLat').value = '';
@@ -850,7 +850,7 @@ window.editIncident = async (id) => {
         document.getElementById('recommendedAction').value = record.recommended_action || '';
 
         document.getElementById('formTitle').textContent = `Edit Incident (#${record.id})`;
-        document.getElementById('saveBtn').innerHTML = `✏️ Update Incident`;
+        document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {

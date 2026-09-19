@@ -11,7 +11,10 @@
     <!-- Custom Stylesheets -->
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="incident.css">
-    
+
+    <!-- Font Awesome (standard icons, replacing emoji) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
     <!-- Leaflet CSS for Map Picker -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
@@ -40,40 +43,40 @@
 
             <nav class="sidebar-nav">
                 <a href="dashboard.html" class="nav-item">
-                    <span class="nav-icon">📊</span>
+                    <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                     <span>BI Dashboard</span>
                 </a>
                 <a href="incident.html" class="nav-item active">
-                    <span class="nav-icon">📁</span>
+                    <span class="nav-icon"><i class="fa-solid fa-folder-open"></i></span>
                     <span>Incident Records</span>
                 </a>
                 <a href="incident-view.html" class="nav-item">
-                    <span class="nav-icon">👁️</span>
+                    <span class="nav-icon"><i class="fa-solid fa-eye"></i></span>
                     <span>Incident View</span>
                 </a>
                 <a href="grid-heatmap.html" class="nav-item">
-                    <span class="nav-icon">📍</span>
+                    <span class="nav-icon"><i class="fa-solid fa-location-dot"></i></span>
                     <span>Barangay Risk Map</span>
                 </a>
                 <a href="cart.html" class="nav-item admin-only">
-                    <span class="nav-icon">📈</span>
+                    <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
                     <span>CART Analytics</span>
                 </a>
                 <a href="patrol.html" class="nav-item">
-                    <span class="nav-icon">🛡️</span>
+                    <span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span>
                     <span>Patrol Decision Support</span>
                 </a>
                 <a href="report.html" class="nav-item">
-                    <span class="nav-icon">📄</span>
+                    <span class="nav-icon"><i class="fa-solid fa-file-lines"></i></span>
                     <span>Reports</span>
                 </a>
                 <!-- 🔥 ADMIN ONLY -->
                 <a href="users.html" class="nav-item admin-only">
-                    <span class="nav-icon">👥</span>
+                    <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
                     <span>User Management</span>
                 </a>
                 <a href="settings.html" class="nav-item admin-only">
-                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
                     <span>Settings</span>
                 </a>
             </nav>
@@ -87,8 +90,8 @@
                     <p>Administrator module for adding, editing, deleting, searching, and filtering incident records.</p>
                 </div>
                 <div class="header-actions">
-                    <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">🏠 Home</button>
-                    <button class="btn btn-primary" id="logoutBtn">⏻ Logout</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'"><i class="fa-solid fa-house"></i> Home</button>
+                    <button class="btn btn-primary" id="logoutBtn"><i class="fa-solid fa-power-off"></i> Logout</button>
                 </div>
             </header>
 
@@ -341,7 +344,7 @@
                              ROW 6: Buttons
                         ========================================================== -->
                         <div class="form-actions">
-                            <button type="submit" class="btn btn-primary" id="saveBtn">💾 Save Incident</button>
+                            <button type="submit" class="btn btn-primary" id="saveBtn"><i class="fa-solid fa-floppy-disk"></i> Save Incident</button>
                             <button type="button" class="btn btn-secondary" id="clearBtn">Clear Form</button>
                         </div>
                     </form>
@@ -516,13 +519,14 @@
                 height: 64px;
                 border-radius: 50%;
                 background: #fee2e2;
+                color: #334155;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 margin: 0 auto 16px;
                 font-size: 2rem;
             ">
-                ⚠️
+                <i class="fa-solid fa-triangle-exclamation"></i>
             </div>
             <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
                 Confirm Logout
@@ -587,13 +591,14 @@
                 height: 64px;
                 border-radius: 50%;
                 background: #d1fae5;
+                color: #334155;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 margin: 0 auto 16px;
                 font-size: 2rem;
             ">
-                ✅
+                <i class="fa-solid fa-circle-check"></i>
             </div>
             <h2 id="successTitle" style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
                 Success!
@@ -644,13 +649,14 @@
                 height: 64px;
                 border-radius: 50%;
                 background: #fee2e2;
+                color: #334155;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 margin: 0 auto 16px;
                 font-size: 2rem;
             ">
-                ❌
+                <i class="fa-solid fa-circle-xmark"></i>
             </div>
             <h2 id="errorTitle" style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
                 Error!
@@ -701,13 +707,14 @@
                 height: 64px;
                 border-radius: 50%;
                 background: #fee2e2;
+                color: #334155;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 margin: 0 auto 16px;
                 font-size: 2rem;
             ">
-                🗑️
+                <i class="fa-solid fa-trash-can"></i>
             </div>
             <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
                 Confirm Delete
@@ -777,7 +784,7 @@
                 margin-bottom: 16px;
             ">
                 <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">
-                    📍 Pick Location on Map
+                    <i class="fa-solid fa-location-dot"></i> Pick Location on Map
                 </h3>
                 <button id="closeMapModal" style="
                     background: none;

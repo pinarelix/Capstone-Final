@@ -414,7 +414,7 @@ function showIncidentDetails(incidents, lat, lng) {
     if (!tbody) return;
 
     if (badge) {
-        badge.textContent = `📍 ${lat.toFixed(4)}, ${lng.toFixed(4)} (${incidents.length} incidents)`;
+        badge.innerHTML = `<i class="fa-solid fa-location-dot"></i> ${lat.toFixed(4)}, ${lng.toFixed(4)} (${incidents.length} incidents)`;
         badge.classList.add('active');
     }
 

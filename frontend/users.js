@@ -41,10 +41,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     if (roleEl) {
-        const roleDisplay = user?.role === 'Administrator' 
-            ? '👑 Administrator — Full System Access' 
-            : '📊 Decision-Maker — View & Analytics Access';
-        roleEl.textContent = roleDisplay || 'User';
+        const roleDisplay = user?.role === 'Administrator'
+            ? '<i class="fa-solid fa-crown"></i> Administrator — Full System Access'
+            : '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
+        roleEl.innerHTML = roleDisplay || 'User';
     }
     
     loadUsers();
@@ -161,19 +161,19 @@ function getPositionBadge(position) {
     if (pos.includes('head') || pos.includes('chief') || pos.includes('leader')) {
         return {
             class: 'position-badge position-head',
-            icon: '👑',
+            icon: '<i class="fa-solid fa-crown"></i>',
             text: position || 'Head Tanod'
         };
     } else if (pos.includes('deputy') || pos.includes('assistant') || pos.includes('vice')) {
         return {
             class: 'position-badge position-deputy',
-            icon: '🛡️',
+            icon: '<i class="fa-solid fa-shield-halved"></i>',
             text: position || 'Deputy Tanod'
         };
     } else {
         return {
             class: 'position-badge position-tanod',
-            icon: '👮',
+            icon: '<i class="fa-solid fa-user-shield"></i>',
             text: position || 'Tanod'
         };
     }

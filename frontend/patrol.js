@@ -185,7 +185,7 @@ function initScheduleMapPicker() {
         const prompt = document.getElementById('scheduleMapPrompt');
 
         if (!isScheduleLocationInsideBarangay(lat, lng)) {
-            if (prompt) prompt.textContent = '⚠️ Please click inside the barangay boundary!';
+            if (prompt) prompt.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please click inside the barangay boundary!';
             return;
         }
 
@@ -193,7 +193,7 @@ function initScheduleMapPicker() {
         document.getElementById('scheduleLng').value = lng;
         placeScheduleMarker(lat, lng);
 
-        if (prompt) prompt.textContent = '📍 Location pinned!';
+        if (prompt) prompt.innerHTML = '<i class="fa-solid fa-location-dot"></i> Location pinned!';
     });
 
     setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
@@ -545,19 +545,19 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month) {
         if (dominantLevel === 'Level 3' || maxRisk >= 67) {
             priority = 'high';
             levelText = 'Level 3 — High Crime / Considerable Danger';
-            action = '🚨 PRIORITY: Deploy additional tanods, increase patrol frequency, and coordinate with barangay officials.';
+            action = 'PRIORITY: Deploy additional tanods, increase patrol frequency, and coordinate with barangay officials.';
             tanods = Math.min(Math.ceil(count / 1.5) + 2, 8);
             riskBadgeColor = '#dc2626';
         } else if (dominantLevel === 'Level 2' || maxRisk >= 34) {
             priority = 'medium';
             levelText = 'Level 2 — Moderate Danger / Caution Area';
-            action = '⚡ Deploy targeted patrols, conduct periodic spot checks, and monitor for escalation.';
+            action = 'Deploy targeted patrols, conduct periodic spot checks, and monitor for escalation.';
             tanods = Math.min(Math.ceil(count / 2) + 1, 5);
             riskBadgeColor = '#f59e0b';
         } else {
             priority = 'low';
             levelText = 'Level 1 — Low Danger / Stable Area';
-            action = '✅ Maintain standard routine patrols and community visibility.';
+            action = 'Maintain standard routine patrols and community visibility.';
             tanods = Math.max(1, Math.ceil(count / 3));
             riskBadgeColor = '#10b981';
         }
@@ -963,7 +963,7 @@ window.editSchedule = async function(id) {
                 document.getElementById('scheduleLng').value = schedule.longitude;
                 placeScheduleMarker(parseFloat(schedule.latitude), parseFloat(schedule.longitude));
                 const prompt = document.getElementById('scheduleMapPrompt');
-                if (prompt) prompt.textContent = '📍 Location pinned! Click elsewhere on the map to move it.';
+                if (prompt) prompt.innerHTML = '<i class="fa-solid fa-location-dot"></i> Location pinned! Click elsewhere on the map to move it.';
             } else {
                 resetScheduleMapPicker();
             }

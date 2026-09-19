@@ -150,6 +150,7 @@
     justify-content: center;
     border-radius: 10px;
     background: #dbeafe;
+    color: #334155;
     font-size: 1.2rem;
     flex-shrink: 0;
 }

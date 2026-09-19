@@ -179,14 +179,14 @@ function showToast(message, type = 'success') {
     `;
 
     const icons = {
-        success: '✅',
-        error: '❌',
-        warning: '⚠️',
-        info: 'ℹ️'
+        success: '<i class="fa-solid fa-circle-check"></i>',
+        error: '<i class="fa-solid fa-circle-xmark"></i>',
+        warning: '<i class="fa-solid fa-triangle-exclamation"></i>',
+        info: '<i class="fa-solid fa-circle-info"></i>'
     };
 
     toast.innerHTML = `
-        <span style="font-size: 1.2rem;">${icons[type] || 'ℹ️'}</span>
+        <span style="font-size: 1.2rem;">${icons[type] || icons.info}</span>
         <span>${message}</span>
     `;
 
@@ -297,13 +297,13 @@ function applyRoleBasedUI() {
     if (roleEl) {
         let roleDisplay = 'User';
         if (user.role === 'Administrator') {
-            roleDisplay = '👑 Administrator — Full System Access';
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Administrator — Full System Access';
         } else if (user.role === 'Decision-Maker') {
-            roleDisplay = '📊 Decision-Maker — View & Analytics Access';
+            roleDisplay = '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
         } else if (user.role === 'Captain') {
-            roleDisplay = '📊 Captain — View & Analytics Access';
+            roleDisplay = '<i class="fa-solid fa-chart-column"></i> Captain — View & Analytics Access';
         }
-        roleEl.textContent = roleDisplay;
+        roleEl.innerHTML = roleDisplay;
     }
 }
 

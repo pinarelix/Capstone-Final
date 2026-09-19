@@ -52,13 +52,14 @@
             height: 64px;
             border-radius: 50%;
             background: #fee2e2;
+            color: #334155;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 16px;
             font-size: 2rem;
         ">
-            ⚠️
+            <i class="fa-solid fa-triangle-exclamation"></i>
         </div>
         <h2 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
             Confirm Logout
@@ -128,55 +129,55 @@
         <nav class="sidebar-nav">
             <!-- Dashboard - visible to all -->
             <a href="dashboard.html" class="nav-item active">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
                 <span>BI Dashboard</span>
             </a>
 
             <!-- Incident Records - ADMIN ONLY -->
             <a href="incident.html" class="nav-item admin-only" id="navIncidentRecords">
-                <span class="nav-icon">📁</span>
+                <span class="nav-icon"><i class="fa-solid fa-folder-open"></i></span>
                 <span>Incident Records</span>
             </a>
 
             <!-- Incident View - visible to ALL (Admin + Captain) -->
             <a href="incident-view.html" class="nav-item" id="navIncidentView">
-                <span class="nav-icon">👁️</span>
+                <span class="nav-icon"><i class="fa-solid fa-eye"></i></span>
                 <span>Incident View</span>
             </a>
 
             <!-- Barangay Risk Map - visible to all -->
             <a href="grid-heatmap.html" class="nav-item">
-                <span class="nav-icon">📍</span>
+                <span class="nav-icon"><i class="fa-solid fa-location-dot"></i></span>
                 <span>Barangay Risk Map</span>
             </a>
 
             <!-- CART Analytics - visible to all -->
             <a href="cart.html" class="nav-item admin-only">
-                <span class="nav-icon">📈</span>
+                <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
                 <span>CART Analytics</span>
             </a>
 
             <!-- Patrol Decision Support - visible to all -->
             <a href="patrol.html" class="nav-item">
-                <span class="nav-icon">🛡️</span>
+                <span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span>
                 <span>Patrol Decision Support</span>
             </a>
 
             <!-- Reports - visible to all -->
             <a href="report.html" class="nav-item">
-                <span class="nav-icon">📄</span>
+                <span class="nav-icon"><i class="fa-solid fa-file-lines"></i></span>
                 <span>Reports</span>
             </a>
 
             <!-- User Management - ADMIN ONLY -->
             <a href="users.html" class="nav-item admin-only" id="navUserManagement">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
                 <span>User Management</span>
             </a>
 
             <!-- Settings - ADMIN ONLY -->
             <a href="settings.html" class="nav-item admin-only" id="navSettings">
-                <span class="nav-icon">⚙️</span>
+                <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
                 <span>Settings</span>
             </a>
         </nav>

@@ -298,21 +298,21 @@ function renderPredictionResult(inputs, result) {
         const timeDescription = isNightTime ? "Night period" : "Day period";
         riskFactorsContainer.innerHTML = `
             <div class="risk-factor">
-                <span class="factor-icon">🔁</span>
+                <span class="factor-icon"><i class="fa-solid fa-rotate"></i></span>
                 <div>
                     <strong>Recurrence</strong>
                     <small>${repeated} incident${repeated === 1 ? "" : "s"}</small>
                 </div>
             </div>
             <div class="risk-factor">
-                <span class="factor-icon">${isNightTime ? "🌙" : "☀️"}</span>
+                <span class="factor-icon"><i class="fa-solid ${isNightTime ? "fa-moon" : "fa-sun"}"></i></span>
                 <div>
                     <strong>Time Pattern</strong>
                     <small>${timeDescription}</small>
                 </div>
             </div>
             <div class="risk-factor">
-                <span class="factor-icon">📍</span>
+                <span class="factor-icon"><i class="fa-solid fa-location-dot"></i></span>
                 <div>
                     <strong>Location</strong>
                     <small>${escapeHTML(location)}</small>
@@ -320,7 +320,7 @@ function renderPredictionResult(inputs, result) {
                 </div>
             </div>
             <div class="risk-factor">
-                <span class="factor-icon">⚠️</span>
+                <span class="factor-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
                 <div>
                     <strong>History</strong>
                     <small>${history}</small>
