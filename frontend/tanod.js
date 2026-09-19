@@ -729,3 +729,13 @@ document.addEventListener('DOMContentLoaded', function () {
     initTanodLoginPage();
     initTanodDashboardPage();
 });
+
+// PWA install support - scoped to "/tanod" (matches tanod-manifest.json's
+// own scope) so this service worker only ever controls tanod-login.html/
+// tanod-dashboard.html and their assets, never the admin/captain pages.
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/tanod-sw.js', { scope: '/tanod' })
+            .catch((error) => console.error('Tanod service worker registration failed:', error));
+    });
+}
