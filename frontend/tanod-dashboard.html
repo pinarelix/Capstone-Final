@@ -24,8 +24,8 @@
 
     <main class="tanod-main">
 
-        <!-- Profile Card -->
-        <section class="tanod-card tanod-card-accent" id="profileCard">
+        <!-- Profile -->
+        <section class="tanod-card tanod-card-accent tanod-panel active" id="profileCard" data-panel="profile">
             <div class="tanod-card-header">
                 <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="tanod-profile-logo" onerror="this.replaceWith(Object.assign(document.createElement('i'), {className: 'fa-solid fa-id-badge'}))">
                 <h2>My Profile</h2>
@@ -43,7 +43,7 @@
         </section>
 
         <!-- My Patrol Schedule -->
-        <section class="tanod-card" id="scheduleCard">
+        <section class="tanod-card tanod-panel" id="scheduleCard" data-panel="schedule">
             <div class="tanod-card-header">
                 <i class="fa-solid fa-calendar-days"></i>
                 <h2>My Patrol Schedule</h2>
@@ -54,14 +54,14 @@
         </section>
 
         <!-- Report Incident -->
-        <section class="tanod-card" id="reportCard">
+        <section class="tanod-card tanod-panel" id="reportCard" data-panel="report">
             <div class="tanod-card-header">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <h2>Report Incident</h2>
             </div>
-            <p id="reportUnassignedMsg" class="tanod-empty" style="display: none;">
-                You have not been assigned to a patrol schedule yet — contact your admin
-                before reporting an incident.
+            <p class="tanod-muted" style="margin-bottom: 14px; font-size: 14px;">
+                You can report an incident from any area in the barangay — it doesn't have
+                to be your currently assigned patrol area.
             </p>
             <form id="incidentReportForm" class="tanod-form">
                 <div class="tanod-form-group">
@@ -159,7 +159,7 @@
                 <div class="tanod-form-group">
                     <label for="reportLocation">Location</label>
                     <select id="reportLocation" class="tanod-input" required>
-                        <option value="" disabled selected>Select an assigned area</option>
+                        <option value="" disabled selected>Select a location</option>
                     </select>
                 </div>
 
@@ -176,7 +176,7 @@
         </section>
 
         <!-- Recent Incidents in My Area -->
-        <section class="tanod-card" id="areaIncidentsCard">
+        <section class="tanod-card tanod-panel" id="areaIncidentsCard" data-panel="area">
             <div class="tanod-card-header">
                 <i class="fa-solid fa-map-location-dot"></i>
                 <h2>Recent Incidents in My Area</h2>
@@ -187,7 +187,7 @@
         </section>
 
         <!-- My Patrol Logs -->
-        <section class="tanod-card" id="logsCard">
+        <section class="tanod-card tanod-panel" id="logsCard" data-panel="logs">
             <div class="tanod-card-header">
                 <i class="fa-solid fa-clipboard-list"></i>
                 <h2>My Patrol Logs</h2>
@@ -231,6 +231,29 @@
 
     </main>
 
+    <nav class="tanod-bottom-nav">
+        <button type="button" class="tanod-nav-btn active" data-panel="profile">
+            <i class="fa-solid fa-id-badge"></i>
+            <span>Profile</span>
+        </button>
+        <button type="button" class="tanod-nav-btn" data-panel="schedule">
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Schedule</span>
+        </button>
+        <button type="button" class="tanod-nav-btn" data-panel="report">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Report</span>
+        </button>
+        <button type="button" class="tanod-nav-btn" data-panel="area">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <span>Area</span>
+        </button>
+        <button type="button" class="tanod-nav-btn" data-panel="logs">
+            <i class="fa-solid fa-clipboard-list"></i>
+            <span>Logs</span>
+        </button>
+    </nav>
+
     <div id="tanodLogoutModal" class="tanod-modal-overlay">
         <div class="tanod-modal">
             <div class="tanod-modal-icon">
@@ -249,6 +272,7 @@
         </div>
     </div>
 
+    <script src="locationList.js"></script>
     <script src="tanod.js"></script>
 </body>
 </html>

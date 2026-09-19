@@ -121,27 +121,84 @@
 }
 
 /* ---------- Main layout ---------- */
+/* One panel visible at a time (switched via the bottom nav below), not
+   a scrolling stack - a phone screen only fits one of these
+   comfortably anyway, and jumping straight to "Report" beats scrolling
+   past four other cards to find it. */
 
 .tanod-main {
-    max-width: 900px;
+    max-width: 640px;
     margin: 0 auto;
     padding: 16px;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
+    /* Clears the fixed bottom nav's height (~76px) plus safe-area inset. */
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
 }
 
 @media (min-width: 720px) {
     .tanod-main {
-        grid-template-columns: 1fr 1fr;
         padding: 24px;
-        gap: 20px;
+        padding-bottom: calc(100px + env(safe-area-inset-bottom));
     }
+}
 
-    #profileCard,
-    #reportCard {
-        grid-column: 1 / -1;
-    }
+.tanod-panel {
+    display: none;
+}
+
+.tanod-panel.active {
+    display: block;
+    animation: tanodPanelIn 0.2s ease;
+}
+
+@keyframes tanodPanelIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Bottom nav ---------- */
+
+.tanod-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    background: var(--tanod-navy);
+    border-top: 3px solid var(--tanod-amber);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+
+.tanod-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 2px;
+    border-radius: 10px;
+    cursor: pointer;
+    min-height: 44px;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.tanod-nav-btn i {
+    font-size: 18px;
+}
+
+.tanod-nav-btn:active {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.tanod-nav-btn.active {
+    color: var(--tanod-amber);
 }
 
 /* ---------- Cards ---------- */

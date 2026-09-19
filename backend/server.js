@@ -110,14 +110,16 @@ const tanodLoginSchema = Joi.object({
     pin_code: Joi.string().pattern(/^\d{4}$/).required()
 });
 
-// Tanod Incident Report Schema (simplified — no lat/long, those stay
-// null; location must be one of the tanod's currently-assigned patrol
-// schedule locations, checked server-side in the route handler)
+// Tanod Incident Report Schema — any active tanod can report from any
+// barangay location (not just their own assigned patrol area); location
+// is still validated against BARANGAY_LOCATIONS so it can't be garbage/
+// free-text. Coordinates aren't taken from the client — the route
+// handler best-effort looks them up from a matching patrol schedule.
 const tanodIncidentSchema = Joi.object({
     incident_type: Joi.string().required(),
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
-    location: Joi.string().required(),
+    location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
     description: Joi.string().allow('', null)
 });
 
@@ -2251,6 +2253,23 @@ async function getTanodScheduleLocations(tanodId) {
     return [...byLocation.values()];
 }
 
+// Best-effort map pin for a tanod incident report: any tanod can report
+// from any barangay location now, not just their own assigned area, so
+// this isn't scoped to the reporting tanod - it just reuses whichever
+// active schedule (anyone's) already has that location pinned. Falls
+// back to NULL coordinates (still a valid incident, just absent from
+// the heatmap, which requires both) if no schedule has pinned it yet.
+async function getAnyPinForLocation(location) {
+    const [rows] = await pool.query(
+        `SELECT latitude, longitude FROM patrol_schedules
+         WHERE location = ? AND status = 'Active'
+           AND latitude IS NOT NULL AND longitude IS NOT NULL
+         ORDER BY created_at DESC LIMIT 1`,
+        [location]
+    );
+    return rows[0] || { latitude: null, longitude: null };
+}
+
 app.get('/api/tanod/schedules/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
     try {
         const [rows] = await pool.query(
@@ -2293,12 +2312,7 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
     try {
         const { incident_type, date, time, location, description } = req.body;
 
-        const locations = await getTanodScheduleLocations(req.tanodId);
-        const matchedLocation = locations.find(l => l.location === location);
-
-        if (!matchedLocation) {
-            return res.status(400).json({ error: 'You can only report incidents in an area you are currently assigned to patrol.' });
-        }
+        const pin = await getAnyPinForLocation(location);
 
         const timeOfDay = computeTimeOfDay(time);
         const dayOfWeek = getDayOfWeek(date);
@@ -2313,8 +2327,8 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
             incident_type,
             date,
             time,
-            matchedLocation.latitude,
-            matchedLocation.longitude,
+            pin.latitude,
+            pin.longitude,
             location,
             req.tanodId,
             'Open',

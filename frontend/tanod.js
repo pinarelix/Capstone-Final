@@ -146,6 +146,8 @@ function initTanodDashboardPage() {
         return;
     }
 
+    initTanodPanelNav();
+    populateAllReportLocations();
     renderProfile(tanod);
     loadSchedule(tanod.id);
     loadAreaIncidents(tanod.id);
@@ -188,29 +190,57 @@ function renderProfile(tanod) {
     document.getElementById('profilePosition').textContent = tanod.position || 'Tanod';
 }
 
-// A tanod's assigned area(s) are now whatever locations their active
-// patrol schedules cover — updates the Report Incident location <select>
-// and toggles the form vs. the "not yet assigned" message accordingly.
-function updateAssignedLocations(schedules) {
-    const locations = [...new Set(schedules.map(s => s.location))];
+// ============================================================
+// BOTTOM NAV — PANEL SWITCHING
+// ============================================================
 
+function initTanodPanelNav() {
+    const navBtns = document.querySelectorAll('.tanod-nav-btn');
+    const panels = document.querySelectorAll('.tanod-panel');
+
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', function () {
+            const target = this.getAttribute('data-panel');
+
+            navBtns.forEach(b => b.classList.remove('active'));
+            panels.forEach(p => p.classList.remove('active'));
+
+            this.classList.add('active');
+            document.querySelector(`.tanod-panel[data-panel="${target}"]`)?.classList.add('active');
+
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        });
+    });
+}
+
+// Any tanod can report an incident from any barangay location, not just
+// one they're currently assigned to patrol (see /api/tanod/incident) —
+// this just lists every location, with the tanod's own assigned area(s)
+// grouped first as a convenience since that's the common case.
+function populateAllReportLocations(assignedLocations = []) {
     const locationSelect = document.getElementById('reportLocation');
-    const form = document.getElementById('incidentReportForm');
-    const unassignedMsg = document.getElementById('reportUnassignedMsg');
+    if (!locationSelect || typeof BARANGAY_LOCATIONS === 'undefined') return;
 
-    if (!locationSelect) return;
+    const previousValue = locationSelect.value;
+    const assignedSet = new Set(assignedLocations);
+    const otherLocations = BARANGAY_LOCATIONS.filter(loc => !assignedSet.has(loc));
 
-    if (locations.length === 0) {
-        if (form) form.style.display = 'none';
-        if (unassignedMsg) unassignedMsg.style.display = 'block';
-        return;
+    let optionsHtml = '<option value="" disabled selected>Select a location</option>';
+
+    if (assignedLocations.length > 0) {
+        optionsHtml += '<optgroup label="My Assigned Areas">' +
+            assignedLocations.map(loc => `<option value="${escapeHTML(loc)}">${escapeHTML(loc)}</option>`).join('') +
+            '</optgroup>';
+        optionsHtml += `<optgroup label="All Other Areas">${otherLocations.map(loc => `<option value="${escapeHTML(loc)}">${escapeHTML(loc)}</option>`).join('')}</optgroup>`;
+    } else {
+        optionsHtml += otherLocations.map(loc => `<option value="${escapeHTML(loc)}">${escapeHTML(loc)}</option>`).join('');
     }
 
-    if (form) form.style.display = '';
-    if (unassignedMsg) unassignedMsg.style.display = 'none';
+    locationSelect.innerHTML = optionsHtml;
 
-    locationSelect.innerHTML = '<option value="" disabled selected>Select an assigned area</option>' +
-        locations.map(loc => `<option value="${escapeHTML(loc)}">${escapeHTML(loc)}</option>`).join('');
+    if (previousValue && BARANGAY_LOCATIONS.includes(previousValue)) {
+        locationSelect.value = previousValue;
+    }
 }
 
 async function loadSchedule(tanodId) {
@@ -221,7 +251,8 @@ async function loadSchedule(tanodId) {
         const response = await tanodFetch(`/tanod/schedules/${tanodId}`);
         const schedules = await response.json();
 
-        updateAssignedLocations(Array.isArray(schedules) ? schedules : []);
+        const assignedLocations = [...new Set((Array.isArray(schedules) ? schedules : []).map(s => s.location))];
+        populateAllReportLocations(assignedLocations);
 
         if (!Array.isArray(schedules) || schedules.length === 0) {
             list.innerHTML = '<p class="tanod-empty">You have not been assigned to any patrol schedule yet.</p>';
