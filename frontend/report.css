@@ -7,8 +7,8 @@
     /* =====================================================
        MAIN BACKGROUND
        ===================================================== */
-    --bg-main: #cbd5e1;
-    --bg-card: #e2e8f0;
+    --bg-main: #ffffff;
+    --bg-card: #ffffff;
     --border-card: #94a3b8;
 
     /* =====================================================
@@ -63,7 +63,7 @@ body {
 }
 
 body {
-    background-color: #cbd5e1;
+    background-color: #ffffff;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: var(--text-primary);
 }
