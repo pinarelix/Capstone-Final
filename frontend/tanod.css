@@ -1,10 +1,9 @@
 /* ============================================================
    TANOD.CSS
    Standalone, mobile-first stylesheet for the Tanod field portal
-   (tanod-login.html reuses login.css for its background/hero;
-   this file only adds the dashboard layout + a couple of shared
-   small bits like .tanod-login-link's page, kept separate on
-   purpose since a fixed admin sidebar doesn't fit a phone screen)
+   (tanod-login.html reuses login.css for its background/hero; this
+   file only adds the dashboard layout, kept separate on purpose since
+   a fixed admin sidebar doesn't fit a phone screen)
 ============================================================ */
 
 :root {
