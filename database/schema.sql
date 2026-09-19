@@ -167,6 +167,34 @@ CREATE TABLE `incidents` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `location_coordinates`
+--
+-- A one-time fixed pin per canonical barangay location (see
+-- backend/locationList.js), so an incident reported at that location -
+-- by a tanod or an admin - always has coordinates to plot on the Risk
+-- Map heatmap, even when no patrol schedule happens to have pinned
+-- that exact spot. Set once by an admin via Settings > Location
+-- Coordinates; getAnyPinForLocation() in server.js falls back to it
+-- when no active schedule pin exists for the location.
+--
+
+DROP TABLE IF EXISTS `location_coordinates`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `location_coordinates` (
+  `location` varchar(100) NOT NULL,
+  `latitude` decimal(10,8) NOT NULL,
+  `longitude` decimal(11,8) NOT NULL,
+  `set_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`location`),
+  KEY `set_by` (`set_by`),
+  CONSTRAINT `fk_location_coordinates_set_by` FOREIGN KEY (`set_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `login_attempts`
 --
 

@@ -14,6 +14,9 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
+    <!-- Leaflet (for the Location Coordinates map picker) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
     <!-- Dashboard CSS -->
     <link rel="stylesheet" href="dashboard.css">
 
@@ -802,6 +805,43 @@
                 </div>
             </div>
 
+            <!-- =========================================================
+                 🆕 CARD 8: LOCATION COORDINATES (FULL WIDTH)
+            ========================================================== -->
+            <div class="settings-card full-width">
+                <div class="card-header">
+                    <div class="icon green">
+                        <i class="fa-solid fa-map-pin"></i>
+                    </div>
+                    <div>
+                        <h2>Location Coordinates</h2>
+                        <p>Pin each barangay location once so incidents reported there always appear on the Risk Map heatmap</p>
+                    </div>
+                    <span style="margin-left: auto; font-size: 0.75rem; font-weight: 700; color: #475569;" id="locCoordProgress">Loading...</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; align-items: start;">
+                    <div>
+                        <div class="form-group">
+                            <label for="locCoordSelect">Location</label>
+                            <select id="locCoordSelect" class="form-input"></select>
+                        </div>
+                        <div id="locCoordMapPicker" style="height: 300px; width: 100%; border-radius: 8px; border: 1px solid #94a3b8; cursor: pointer; margin-top: 8px;"></div>
+                        <input type="hidden" id="locCoordLat">
+                        <input type="hidden" id="locCoordLng">
+                        <small id="locCoordMapPrompt" style="color: #64748b; margin-top: 6px; display: block;">Click the map to place (or move) the pin for this location.</small>
+                        <button type="button" class="btn-save" id="saveLocCoordBtn" style="margin-top: 12px;" disabled>
+                            <i class="fa-solid fa-save"></i> Save Coordinates
+                        </button>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 8px;">All Locations</label>
+                        <div id="locCoordList" style="max-height: 340px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;"></div>
+                    </div>
+                </div>
+            </div>
+
         </section>
 
         <!-- =========================================================
@@ -976,6 +1016,14 @@
 
 <!-- 1. API HELPER (UNA - CRITICAL!) -->
 <script src="apiHelper.js"></script>
+
+<!-- Leaflet + turf.js + shared barangay boundary helper, for the
+     Location Coordinates map picker (same libraries incident.html and
+     patrol.html use for their own map pickers) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+<script src="mapHelper.js"></script>
+<script src="locationList.js"></script>
 
 <script>
     // =========================================================
@@ -1514,6 +1562,183 @@ async function loadLoginHistory() {
     }
 
     // =========================================================
+    // LOCATION COORDINATES
+    // Mirrors incident.js's/patrol.js's map picker pattern (same
+    // Leaflet + turf.js boundary check), just picking a fixed point per
+    // canonical location instead of per incident/schedule.
+    // =========================================================
+    let locCoordMap = null;
+    let locCoordMarker = null;
+    let allLocationCoords = [];
+
+    function isLocationInsideBarangay(lat, lng) {
+        const boundaryPolygon = turf.polygon([
+            [...BARANGAY_BOUNDARY_COORDS.map(coord => [coord[1], coord[0]]), [BARANGAY_BOUNDARY_COORDS[0][1], BARANGAY_BOUNDARY_COORDS[0][0]]]
+        ]);
+        return turf.booleanPointInPolygon(turf.point([lng, lat]), boundaryPolygon);
+    }
+
+    function initLocCoordMap() {
+        const created = createBarangayMap('locCoordMapPicker', {
+            zoom: 16,
+            zoomControl: false,
+            minZoom: 13.5,
+            maxZoom: 19
+        });
+        locCoordMap = created.map;
+
+        locCoordMap.on('click', function (e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            const prompt = document.getElementById('locCoordMapPrompt');
+
+            if (!isLocationInsideBarangay(lat, lng)) {
+                if (prompt) prompt.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please click inside the barangay boundary!';
+                return;
+            }
+
+            document.getElementById('locCoordLat').value = lat;
+            document.getElementById('locCoordLng').value = lng;
+            placeLocCoordMarker(lat, lng);
+
+            if (prompt) prompt.innerHTML = '<i class="fa-solid fa-location-dot"></i> Pin placed — click Save to confirm.';
+            document.getElementById('saveLocCoordBtn').disabled = false;
+        });
+
+        setTimeout(() => locCoordMap.invalidateSize(), 50);
+    }
+
+    function placeLocCoordMarker(lat, lng) {
+        if (locCoordMarker) {
+            locCoordMap.removeLayer(locCoordMarker);
+        }
+        const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: '<div style="background: #059669; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+        locCoordMarker = L.marker([lat, lng], { icon: customIcon }).addTo(locCoordMap);
+        locCoordMap.setView([lat, lng], 16);
+    }
+
+    async function loadLocationCoordinates() {
+        try {
+            const response = await apiFetch('/location-coordinates');
+            if (!response.ok) throw new Error('Failed to load location coordinates');
+            allLocationCoords = await response.json();
+            renderLocCoordProgress();
+            renderLocCoordSelect();
+            renderLocCoordList();
+        } catch (error) {
+            console.error('Error loading location coordinates:', error);
+        }
+    }
+
+    function renderLocCoordProgress() {
+        const pinned = allLocationCoords.filter(l => l.latitude !== null).length;
+        const el = document.getElementById('locCoordProgress');
+        if (el) el.textContent = `${pinned} / ${allLocationCoords.length} pinned`;
+    }
+
+    function renderLocCoordSelect() {
+        const select = document.getElementById('locCoordSelect');
+        if (!select) return;
+        const previousValue = select.value;
+
+        select.innerHTML = allLocationCoords.map(l =>
+            `<option value="${escapeHTML(l.location)}">${l.latitude !== null ? '✓ ' : ''}${escapeHTML(l.location)}</option>`
+        ).join('');
+
+        select.value = (previousValue && allLocationCoords.some(l => l.location === previousValue))
+            ? previousValue
+            : (allLocationCoords[0]?.location || '');
+
+        onLocCoordSelectChange();
+    }
+
+    function renderLocCoordList() {
+        const list = document.getElementById('locCoordList');
+        if (!list) return;
+
+        list.innerHTML = allLocationCoords.map(l => `
+            <div class="loc-coord-row" data-location="${escapeHTML(l.location)}" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 0.82rem;">
+                <span>${escapeHTML(l.location)}</span>
+                ${l.latitude !== null
+                    ? '<span style="color: #059669; font-weight: 700;"><i class="fa-solid fa-circle-check"></i> Pinned</span>'
+                    : '<span style="color: #94a3b8; font-weight: 600;">Not set</span>'}
+            </div>
+        `).join('');
+
+        list.querySelectorAll('.loc-coord-row').forEach(row => {
+            row.addEventListener('click', function () {
+                document.getElementById('locCoordSelect').value = this.getAttribute('data-location');
+                onLocCoordSelectChange();
+            });
+        });
+    }
+
+    function onLocCoordSelectChange() {
+        const location = document.getElementById('locCoordSelect').value;
+        const entry = allLocationCoords.find(l => l.location === location);
+        const prompt = document.getElementById('locCoordMapPrompt');
+        const saveBtn = document.getElementById('saveLocCoordBtn');
+
+        if (locCoordMarker) {
+            locCoordMap.removeLayer(locCoordMarker);
+            locCoordMarker = null;
+        }
+        document.getElementById('locCoordLat').value = '';
+        document.getElementById('locCoordLng').value = '';
+        if (saveBtn) saveBtn.disabled = true;
+
+        if (entry && entry.latitude !== null) {
+            document.getElementById('locCoordLat').value = entry.latitude;
+            document.getElementById('locCoordLng').value = entry.longitude;
+            if (locCoordMap) placeLocCoordMarker(entry.latitude, entry.longitude);
+            if (prompt) prompt.innerHTML = '<i class="fa-solid fa-location-dot"></i> Already pinned — click the map to move it.';
+            if (saveBtn) saveBtn.disabled = false;
+        } else if (prompt) {
+            prompt.textContent = 'Click the map to place the pin for this location.';
+        }
+    }
+
+    async function saveLocCoord() {
+        const location = document.getElementById('locCoordSelect').value;
+        const lat = document.getElementById('locCoordLat').value;
+        const lng = document.getElementById('locCoordLng').value;
+
+        if (!location || !lat || !lng) return;
+
+        const saveBtn = document.getElementById('saveLocCoordBtn');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+        try {
+            const response = await apiFetch('/location-coordinates', {
+                method: 'POST',
+                body: JSON.stringify({ location, latitude: parseFloat(lat), longitude: parseFloat(lng) })
+            });
+            if (!response.ok) throw new Error('Failed to save');
+
+            const data = await response.json();
+            const backfillNote = data.backfilled_incidents > 0
+                ? ` ${data.backfilled_incidents} existing report${data.backfilled_incidents > 1 ? 's' : ''} there now show${data.backfilled_incidents > 1 ? '' : 's'} on the heatmap too.`
+                : '';
+            showToast(`Pinned "${location}".${backfillNote}`, 'success');
+            await loadLocationCoordinates();
+            document.getElementById('locCoordSelect').value = location;
+            onLocCoordSelectChange();
+        } catch (error) {
+            console.error('Error saving location coordinates:', error);
+            showToast('Failed to save coordinates.', 'error');
+            saveBtn.disabled = false;
+        } finally {
+            saveBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save Coordinates';
+        }
+    }
+
+    // =========================================================
     // LOGOUT CONFIRMATION MODAL
     // =========================================================
     (function() {
@@ -1586,6 +1811,12 @@ async function loadLoginHistory() {
         // Settings listeners
         document.getElementById('saveSettingsBtn').addEventListener('click', saveAllSettings);
         document.getElementById('refreshSettingsBtn').addEventListener('click', loadSystemSettings);
+
+        // Location Coordinates
+        initLocCoordMap();
+        loadLocationCoordinates();
+        document.getElementById('locCoordSelect').addEventListener('change', onLocCoordSelectChange);
+        document.getElementById('saveLocCoordBtn').addEventListener('click', saveLocCoord);
     });
 </script>
 

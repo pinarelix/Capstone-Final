@@ -2330,18 +2330,26 @@ async function getTanodScheduleLocations(tanodId) {
 // Best-effort map pin for a tanod incident report: any tanod can report
 // from any barangay location now, not just their own assigned area, so
 // this isn't scoped to the reporting tanod - it just reuses whichever
-// active schedule (anyone's) already has that location pinned. Falls
-// back to NULL coordinates (still a valid incident, just absent from
-// the heatmap, which requires both) if no schedule has pinned it yet.
+// active schedule (anyone's) already has that location pinned, then
+// falls back to the fixed one-time pin an admin set in Settings >
+// Location Coordinates (see /api/location-coordinates below). Only
+// falls back to NULL coordinates (still a valid incident, just absent
+// from the heatmap, which requires both) if neither exists yet.
 async function getAnyPinForLocation(location) {
-    const [rows] = await pool.query(
+    const [scheduleRows] = await pool.query(
         `SELECT latitude, longitude FROM patrol_schedules
          WHERE location = ? AND status = 'Active'
            AND latitude IS NOT NULL AND longitude IS NOT NULL
          ORDER BY created_at DESC LIMIT 1`,
         [location]
     );
-    return rows[0] || { latitude: null, longitude: null };
+    if (scheduleRows[0]) return scheduleRows[0];
+
+    const [fixedRows] = await pool.query(
+        'SELECT latitude, longitude FROM location_coordinates WHERE location = ?',
+        [location]
+    );
+    return fixedRows[0] || { latitude: null, longitude: null };
 }
 
 app.get('/api/tanod/schedules/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
@@ -3275,6 +3283,80 @@ app.put('/api/settings/:key', authenticate, requireRole(['Administrator']), asyn
     } catch (error) {
         console.error('❌ Error updating setting:', error);
         res.status(500).json({ error: 'Failed to update setting' });
+    }
+});
+
+// ============================================================
+// LOCATION COORDINATES
+// One-time fixed pin per canonical location (see getAnyPinForLocation
+// above) - lets an incident reported anywhere in the barangay always
+// have coordinates for the Risk Map heatmap, not just locations that
+// happen to already have an active patrol schedule pinned.
+// ============================================================
+
+const locationCoordinateSchema = Joi.object({
+    location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
+    latitude: Joi.number().min(-90).max(90).required(),
+    longitude: Joi.number().min(-180).max(180).required()
+});
+
+app.get('/api/location-coordinates', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT location, latitude, longitude FROM location_coordinates');
+        const byLocation = new Map(rows.map(r => [r.location, r]));
+
+        const result = BARANGAY_LOCATIONS.map(location => ({
+            location,
+            latitude: byLocation.get(location)?.latitude ?? null,
+            longitude: byLocation.get(location)?.longitude ?? null
+        }));
+
+        res.json(result);
+    } catch (error) {
+        console.error('❌ Error fetching location coordinates:', error);
+        res.status(500).json({ error: 'Failed to fetch location coordinates' });
+    }
+});
+
+app.post('/api/location-coordinates', authenticate, requireRole(['Administrator']), validate(locationCoordinateSchema), async (req, res) => {
+    try {
+        const { location, latitude, longitude } = req.body;
+        const userId = req.userId;
+
+        await pool.query(`
+            INSERT INTO location_coordinates (location, latitude, longitude, set_by)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE latitude = VALUES(latitude), longitude = VALUES(longitude), set_by = VALUES(set_by)
+        `, [location, latitude, longitude, userId || null]);
+
+        // Backfills existing incidents at this location that had no pin
+        // at report time (e.g. reported before this location was pinned,
+        // or before any schedule had a pin here) - without this, pinning
+        // a location only helps *future* reports there, and whatever a
+        // tanod already reported today would stay permanently absent
+        // from the heatmap even after the admin pins the street.
+        const [backfillResult] = await pool.query(
+            `UPDATE incidents SET latitude = ?, longitude = ?
+             WHERE street_name = ? AND latitude IS NULL AND longitude IS NULL`,
+            [latitude, longitude, location]
+        );
+        if (backfillResult.affectedRows > 0) {
+            heatmapCache.del('incidents');
+        }
+
+        if (userId) {
+            await logAudit(userId, 'SET_LOCATION_COORDINATES', 'location_coordinates', null, null,
+                { location, latitude, longitude, backfilled_incidents: backfillResult.affectedRows }, req);
+        }
+
+        res.json({
+            message: 'Location coordinates saved.',
+            location, latitude, longitude,
+            backfilled_incidents: backfillResult.affectedRows
+        });
+    } catch (error) {
+        console.error('❌ Error saving location coordinates:', error);
+        res.status(500).json({ error: 'Failed to save location coordinates' });
     }
 });
 
