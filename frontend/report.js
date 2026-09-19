@@ -95,6 +95,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
+        // Preserved across live-polling refreshes below - without this,
+        // every poll would silently jump whoever's reviewing an older
+        // month's report back to the newest month.
+        const previousValue = monthSelect.value;
+
         const monthSet = new Set();
         allIncidents.forEach(item => {
             if (item.date) {
@@ -121,7 +126,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             monthSelect.appendChild(option);
         });
 
-        if (monthSelect.options.length > 0) {
+        if (previousValue && sortedMonths.includes(previousValue)) {
+            monthSelect.value = previousValue;
+        } else if (monthSelect.options.length > 0) {
             monthSelect.value = monthSelect.options[0].value;
         }
     }
@@ -408,6 +415,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     await loadIncidents();
+
+    // Keeps the report current with incidents reported from the field
+    // (e.g. a tanod's phone) without needing to re-login.
+    startLivePolling(loadIncidents, 15000);
 });
 
 console.log('✅ report.js loaded successfully');

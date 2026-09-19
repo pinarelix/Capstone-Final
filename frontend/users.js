@@ -56,6 +56,11 @@ document.addEventListener("DOMContentLoaded", function () {
     setupNavigation();
     setupPasswordToggle();
     setupRippleEffect();
+
+    // Keeps both tables current if another admin adds/edits a user or
+    // tanod, without needing to re-login.
+    startLivePolling(refreshUsersOnly, 15000);
+    startLivePolling(loadTanods, 15000);
 });
 
 /* ============================================================
@@ -102,6 +107,29 @@ async function loadUsers() {
         users = [];
         renderUsers();
         updateAccountCount();
+    }
+}
+
+// Used for live polling instead of loadUsers() directly - that one
+// flashes a loading spinner over the table on every call (fine for a
+// one-off page load, jarring every 15s) and would stomp an in-progress
+// search (setupSearch() below renders search results without touching
+// the `users` array, so a blind refresh+render would replace them with
+// the unfiltered list).
+async function refreshUsersOnly() {
+    try {
+        const response = await apiFetch('/users');
+        if (!response.ok) return;
+
+        users = await response.json();
+
+        const searchInput = document.getElementById('searchUsers');
+        if (searchInput && searchInput.value.trim()) return;
+
+        renderUsers();
+        updateAccountCount();
+    } catch (error) {
+        console.error('❌ Error refreshing users:', error);
     }
 }
 

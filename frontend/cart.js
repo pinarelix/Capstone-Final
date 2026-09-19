@@ -50,6 +50,13 @@ document.addEventListener("DOMContentLoaded", function () {
     setupNavigationButtons();
     loadRealCartData();
     loadAnalysisHistory();
+
+    // Keeps this page current if CART analysis is re-run from another
+    // session/admin, without needing to re-login.
+    startLivePolling(() => {
+        loadRealCartData();
+        loadAnalysisHistory();
+    }, 15000);
 });
 
 /* ============================================================

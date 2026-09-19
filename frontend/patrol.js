@@ -83,9 +83,13 @@ document.addEventListener("DOMContentLoaded", function () {
     setupScheduleForm();
     setupLogForm();
 
-    // Keeps the Patrol Logs list current with logs submitted from a
-    // tanod's phone without the admin needing to re-login.
+    // Keeps all three tabs current without the admin needing to
+    // re-login: logs submitted from a tanod's phone, schedules added by
+    // another admin, and recommendations reacting to new incidents or a
+    // CART re-run triggered elsewhere.
     startLivePolling(refreshPatrolLogsOnly, 15000);
+    startLivePolling(refreshSchedulesOnly, 15000);
+    startLivePolling(refreshRecommendationsOnly, 15000);
     
     const monthSelect = document.getElementById('monthSelect');
     if (monthSelect) {
@@ -329,6 +333,40 @@ async function refreshPatrolLogsOnly() {
         updateCounts();
     } catch (error) {
         console.error('❌ Error refreshing patrol logs:', error);
+    }
+}
+
+// Same idea as refreshPatrolLogsOnly() above - only re-renders the
+// Schedules table, not populateScheduleDropdown()/renderTanodChecklist()
+// (those wipe whatever's currently selected on the Add Log/Add Schedule
+// forms since they rebuild <option>/checkbox lists from scratch).
+async function refreshSchedulesOnly() {
+    try {
+        const response = await window.apiFetch('/patrol-schedules');
+        if (!response.ok) return;
+
+        allSchedules = await response.json();
+        renderSchedules(allSchedules);
+        updateCounts();
+    } catch (error) {
+        console.error('❌ Error refreshing schedules:', error);
+    }
+}
+
+// Recommendations are computed client-side from allIncidents +
+// allRiskFactors (see getCartBasedPatrolRecommendations) - refreshing
+// both and recomputing picks up both new incidents and a CART re-run
+// triggered by another admin, without touching the Schedules/Logs tabs.
+async function refreshRecommendationsOnly() {
+    try {
+        const incResponse = await window.apiFetch('/incidents?limit=10000');
+        if (incResponse.ok) {
+            const incData = await incResponse.json();
+            allIncidents = incData.incidents || [];
+        }
+        await loadCartDataOnly();
+    } catch (error) {
+        console.error('❌ Error refreshing recommendations:', error);
     }
 }
 

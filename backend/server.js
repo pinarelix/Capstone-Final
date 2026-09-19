@@ -832,6 +832,44 @@ app.get('/api/users', authenticate, requireRole(['Administrator']), async (req, 
     }
 });
 
+// Registered before /api/users/:id - Express matches routes in
+// registration order, and "search" would otherwise match :id first
+// (as a literal id value, 404ing instead of ever reaching this handler).
+app.get('/api/users/search', authenticate, requireRole(['Administrator']), async (req, res) => {
+    try {
+        const { q } = req.query;
+
+        if (!q) {
+            const [rows] = await pool.query(`
+                SELECT
+                    u.id, u.name, u.username, u.role,
+                    u.contact_no, u.is_active, u.last_login_at
+                FROM users u
+                ORDER BY u.id
+            `);
+            return res.json(rows);
+        }
+
+        const searchTerm = `%${q}%`;
+        const [rows] = await pool.query(`
+            SELECT
+                u.id, u.name, u.username, u.role,
+                u.contact_no, u.is_active, u.last_login_at
+            FROM users u
+            WHERE u.name LIKE ?
+               OR u.username LIKE ?
+               OR u.role LIKE ?
+            ORDER BY u.id
+        `, [searchTerm, searchTerm, searchTerm]);
+
+        res.json(rows);
+
+    } catch (error) {
+        console.error('❌ Error searching users:', error);
+        res.status(500).json({ error: 'Search failed' });
+    }
+});
+
 app.get('/api/users/:id', authenticate, requireRole(['Administrator']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
@@ -841,11 +879,11 @@ app.get('/api/users/:id', authenticate, requireRole(['Administrator']), async (r
             FROM users u
             WHERE u.id = ?
         `, [req.params.id]);
-        
+
         if (rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-        
+
         res.json(rows[0]);
     } catch (error) {
         console.error('❌ Error fetching user:', error);
@@ -952,41 +990,6 @@ app.delete('/api/users/:id', authenticate, requireRole(['Administrator']), async
     } catch (error) {
         console.error('❌ Error deleting user:', error);
         res.status(500).json({ error: 'Failed to delete user' });
-    }
-});
-
-app.get('/api/users/search', authenticate, requireRole(['Administrator']), async (req, res) => {
-    try {
-        const { q } = req.query;
-        
-        if (!q) {
-            const [rows] = await pool.query(`
-                SELECT
-                    u.id, u.name, u.username, u.role,
-                    u.contact_no, u.is_active, u.last_login_at
-                FROM users u
-                ORDER BY u.id
-            `);
-            return res.json(rows);
-        }
-
-        const searchTerm = `%${q}%`;
-        const [rows] = await pool.query(`
-            SELECT
-                u.id, u.name, u.username, u.role,
-                u.contact_no, u.is_active, u.last_login_at
-            FROM users u
-            WHERE u.name LIKE ?
-               OR u.username LIKE ?
-               OR u.role LIKE ?
-            ORDER BY u.id
-        `, [searchTerm, searchTerm, searchTerm]);
-        
-        res.json(rows);
-        
-    } catch (error) {
-        console.error('❌ Error searching users:', error);
-        res.status(500).json({ error: 'Search failed' });
     }
 });
 
@@ -2376,6 +2379,25 @@ app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, a
     } catch (error) {
         console.error('❌ Error fetching tanod area incidents:', error);
         res.status(500).json({ error: 'Failed to fetch incidents' });
+    }
+});
+
+// A tanod's own report history - everything they personally submitted
+// via POST /api/tanod/incident, regardless of area (unlike the endpoint
+// above, which is every incident in their assigned area regardless of
+// who reported it).
+app.get('/api/tanod/my-reports/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT id, incident_type, date, time, status, danger_level, description, street_name, recommended_action
+             FROM incidents WHERE reporter_tanod_id = ? ORDER BY date DESC, time DESC LIMIT 20`,
+            [req.tanodId]
+        );
+
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching tanod own reports:', error);
+        res.status(500).json({ error: 'Failed to fetch report logs' });
     }
 });
 

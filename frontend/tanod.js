@@ -165,15 +165,18 @@ function initTanodDashboardPage() {
     loadSchedule(tanod.id);
     loadAreaIncidents(tanod.id);
     loadPatrolLogs(tanod.id);
+    loadMyReportLogs(tanod.id);
     initIncidentDetailModal();
 
-    // Keeps "Recent Incidents in My Area" current with reports from
-    // other tanods/admin without needing to re-login - mirrors
-    // apiHelper.js's startLivePolling(), duplicated locally (see this
-    // file's header comment on why tanod.js doesn't just include
-    // apiHelper.js) rather than pulling in that whole unrelated file
-    // for one small helper.
+    // Keeps every panel current without the tanod needing to re-login -
+    // mirrors apiHelper.js's startLivePolling(), duplicated locally (see
+    // this file's header comment on why tanod.js doesn't just include
+    // apiHelper.js) rather than pulling in that whole unrelated file for
+    // one small helper.
     startTanodPolling(() => loadAreaIncidents(tanod.id), 15000);
+    startTanodPolling(() => loadSchedule(tanod.id), 15000);
+    startTanodPolling(() => loadPatrolLogs(tanod.id), 15000);
+    startTanodPolling(() => loadMyReportLogs(tanod.id), 15000);
 
     // Report Incident form defaults
     const dateField = document.getElementById('reportDate');
@@ -388,8 +391,15 @@ async function loadSchedule(tanodId) {
         `).join('');
 
         if (logScheduleSelect) {
+            // Preserved across live-polling refreshes - without this,
+            // a poll firing mid-way through filling out the Add Patrol
+            // Log form would silently reset whatever schedule was picked.
+            const previousScheduleValue = logScheduleSelect.value;
             logScheduleSelect.innerHTML = '<option value="" disabled selected>Select a schedule</option>' +
                 schedules.map(s => `<option value="${s.id}">${escapeHTML(s.location)} — ${escapeHTML(s.day_of_week)} (${escapeHTML(s.start_time)}–${escapeHTML(s.end_time)})</option>`).join('');
+            if (previousScheduleValue && schedules.some(s => String(s.id) === previousScheduleValue)) {
+                logScheduleSelect.value = previousScheduleValue;
+            }
         }
     } catch (error) {
         console.error('Error loading schedule:', error);
@@ -432,21 +442,66 @@ async function loadAreaIncidents(tanodId) {
     }
 }
 
-function initIncidentDetailModal() {
-    const modal = document.getElementById('tanodIncidentModal');
-    const list = document.getElementById('areaIncidentsList');
-    if (!modal || !list) return;
+// Populated by loadMyReportLogs() and read by the click handler wired
+// up in initIncidentDetailModal() - same pattern as currentAreaIncidents
+// above, just for reports this tanod personally submitted.
+let currentMyReports = [];
 
-    // Delegated on the list container (not per-item) since the list is
-    // fully re-rendered on every load/poll - per-item listeners would
-    // just get thrown away and re-added on each refresh.
+async function loadMyReportLogs(tanodId) {
+    const list = document.getElementById('myReportLogsList');
+    if (!list) return;
+    try {
+        const response = await tanodFetch(`/tanod/my-reports/${tanodId}`);
+        const reports = await response.json();
+
+        currentMyReports = Array.isArray(reports) ? reports : [];
+
+        if (currentMyReports.length === 0) {
+            list.innerHTML = '<p class="tanod-empty">You haven\'t submitted any incident reports yet.</p>';
+            return;
+        }
+
+        list.innerHTML = currentMyReports.map(inc => `
+            <div class="tanod-list-item tanod-list-item-clickable" data-incident-id="${inc.id}">
+                <div class="tanod-list-item-main">
+                    <strong>${escapeHTML(inc.incident_type)}</strong>
+                    <span class="tanod-badge tanod-badge-${(inc.status || '').toLowerCase()}">${escapeHTML(inc.status)}</span>
+                </div>
+                <div class="tanod-list-item-sub">
+                    <i class="fa-regular fa-calendar"></i> ${escapeHTML(inc.date)} ${escapeHTML(inc.time)}
+                    ${inc.street_name ? ` &middot; <i class="fa-solid fa-location-dot"></i> ${escapeHTML(inc.street_name)}` : ''}
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading my report logs:', error);
+        list.innerHTML = '<p class="tanod-empty">Failed to load your report logs.</p>';
+    }
+}
+
+// Wires one list container's delegated click-to-open-detail behavior.
+// Delegated on the container (not per-item) since both lists are fully
+// re-rendered on every load/poll - per-item listeners would just get
+// thrown away and re-added on each refresh.
+function wireIncidentListClicks(listId, getIncidents) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+
     list.addEventListener('click', function (e) {
         const item = e.target.closest('.tanod-list-item-clickable');
         if (!item) return;
         const id = parseInt(item.getAttribute('data-incident-id'), 10);
-        const incident = currentAreaIncidents.find(inc => inc.id === id);
+        const incident = getIncidents().find(inc => inc.id === id);
         if (incident) openIncidentDetailModal(incident);
     });
+}
+
+function initIncidentDetailModal() {
+    const modal = document.getElementById('tanodIncidentModal');
+    if (!modal) return;
+
+    wireIncidentListClicks('areaIncidentsList', () => currentAreaIncidents);
+    wireIncidentListClicks('myReportLogsList', () => currentMyReports);
 
     document.getElementById('tanodIncidentModalClose')?.addEventListener('click', function () {
         modal.classList.remove('active');
@@ -558,6 +613,7 @@ async function handleIncidentReport(e, tanod) {
         document.getElementById('reportTime').value = now.toTimeString().slice(0, 5);
 
         loadAreaIncidents(tanod.id);
+        loadMyReportLogs(tanod.id);
     } catch (error) {
         console.error('Error reporting incident:', error);
         statusEl.textContent = error.message || 'Failed to submit report.';
