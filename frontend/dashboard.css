@@ -4,7 +4,15 @@
    Yellow Command Center Theme
 ============================================================ */
 
+/* Plus Jakarta Sans is already the display face on the Tanod portal
+   (tanod-dashboard.html) - reusing it here for the brand wordmark and
+   sidebar headings ties the admin side of the app to the same
+   typographic identity instead of introducing a third font. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&display=swap');
+
 :root {
+
+    --font-display: 'Plus Jakarta Sans', var(--font-family);
 
     --bg-main: #cbd5e1;
     --bg-card: #ffffff;
@@ -18,10 +26,11 @@
     --text-secondary: #334155;
     --text-muted: #64748b;
 
-    /* Dark text for the sidebar's light orange background (see .sidebar
-       below). */
-    --sidebar-text: #334155;
-    --sidebar-text-muted: #64748b;
+    /* White text for legible contrast against the sidebar's orange gradient,
+       which runs dark enough at its lower-right corner (#d35400) that dark
+       navy text (the old #334155) fell below WCAG AA contrast there. */
+    --sidebar-text: #ffffff;
+    --sidebar-text-muted: rgba(255, 255, 255, 0.75);
 
     --accent-blue: #0ea5e9;
     --accent-dark: #0f172a;
@@ -89,7 +98,7 @@ body {
    SIDEBAR - CONSISTENT STYLES
 ============================================================ */
 .sidebar {
-    width: 260px;
+    width: 280px;
     background: linear-gradient(135deg, #f39c12, #d35400);
     color: var(--sidebar-text);
     border-right: 1px solid #d35400;
@@ -101,6 +110,18 @@ body {
     top: 0;
     overflow-y: auto;
     padding: 20px 16px;
+    animation: sidebarReveal 0.5s ease both;
+}
+
+@keyframes sidebarReveal {
+    from {
+        opacity: 0;
+        transform: translateX(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .sidebar-header {
@@ -113,16 +134,31 @@ body {
 }
 
 .brand-logo-container {
-    width: 48px;
-    height: 48px;
+    width: 58px;
+    height: 58px;
     flex-shrink: 0;
-    border-radius: 12px;
+    border-radius: 14px;
     overflow: hidden;
     background: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    box-shadow:
+        0 6px 16px rgba(15, 23, 42, 0.25),
+        0 0 0 4px rgba(255, 255, 255, 0.18);
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: logoPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+@keyframes logoPop {
+    from {
+        opacity: 0;
+        transform: scale(0.6);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .brand-logo-img {
@@ -132,16 +168,24 @@ body {
 }
 
 .brand-info h2 {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #0f172a;
-    line-height: 1.2;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.15;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+    margin: 0;
 }
 
 .brand-info p {
-    font-size: 0.7rem;
-    color: #64748b;
-    margin-top: 2px;
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-top: 3px;
+    margin-bottom: 0;
 }
 
 /* NOTE: this used to be a full second copy of .user-profile / .sidebar-nav
@@ -214,6 +258,8 @@ body {
     font-weight: 700;
 
     color: white;
+
+    margin: 0;
 }
 
 
@@ -223,6 +269,8 @@ body {
     color: #cbd5e1;
 
     margin-top: 6px;
+
+    margin-bottom: 0;
 
     line-height: 1.5;
 }
@@ -237,7 +285,7 @@ body {
 
     flex-direction: column;
 
-    gap: 8px;
+    gap: 10px;
 
     padding: 10px 14px;
 
@@ -252,9 +300,13 @@ body {
 
     color: var(--sidebar-text);
 
+    background: rgba(255, 255, 255, 0.1);
+
     font-size: 0.92rem;
 
     font-weight: 700;
+
+    line-height: 1.25;
 
     padding: 14px 18px;
 
@@ -266,6 +318,10 @@ body {
 
     gap: 14px;
 
+    opacity: 0;
+
+    animation: navItemReveal 0.4s ease forwards;
+
     transition:
         background-color 0.25s ease,
         color 0.25s ease,
@@ -276,6 +332,25 @@ body {
 
     cursor: pointer;
 }
+
+/* Opacity-only (no transform) so it doesn't fight the hover/:active
+   transform transitions once the reveal animation's forwards-fill
+   keeps "owning" the property after it finishes. */
+@keyframes navItemReveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.nav-item:nth-child(1) { animation-delay: 0.22s; }
+.nav-item:nth-child(2) { animation-delay: 0.26s; }
+.nav-item:nth-child(3) { animation-delay: 0.30s; }
+.nav-item:nth-child(4) { animation-delay: 0.34s; }
+.nav-item:nth-child(5) { animation-delay: 0.38s; }
+.nav-item:nth-child(6) { animation-delay: 0.42s; }
+.nav-item:nth-child(7) { animation-delay: 0.46s; }
+.nav-item:nth-child(8) { animation-delay: 0.50s; }
+.nav-item:nth-child(9) { animation-delay: 0.54s; }
+.nav-item:nth-child(10) { animation-delay: 0.58s; }
 
 
 .nav-icon {
@@ -297,7 +372,7 @@ body {
 
 
 .nav-item:hover {
-    background: rgba(15, 23, 42, 0.10);
+    background: rgba(15, 23, 42, 0.18);
 
     transform:
         translateX(5px);
@@ -439,6 +514,8 @@ body {
     font-weight: 800;
 
     color: var(--accent-dark);
+
+    margin: 0;
 }
 
 
@@ -448,6 +525,8 @@ body {
     color: var(--text-secondary);
 
     margin-top: 5px;
+
+    margin-bottom: 0;
 }
 
 
@@ -736,6 +815,8 @@ body {
     color: var(--text-secondary);
 
     margin-top: 9px;
+
+    margin-bottom: 0;
 
     line-height: 1.4;
 }
