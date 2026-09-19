@@ -139,12 +139,6 @@ function updateKPIs(data) {
     setText("kpi-peak", data.peak);
     setText("kpi-risk", data.risk);
     setText("kpi-risk-desc", `Level 3 high-risk indicators recorded: ${data.risk}.`);
-
-    const progress = document.getElementById("incidentProgress");
-    if (progress) {
-        const percentage = Math.min((data.incidents / 30) * 100, 100);
-        progress.style.width = `${percentage}%`;
-    }
 }
 
 /* ============================================================
@@ -188,8 +182,14 @@ function renderTable(rows) {
         if (row.status === "Monitoring") statusClass = "badge-monitoring";
 
         let dangerClass = "badge-danger-low";
-        if (row.danger_level?.includes('High') || row.danger_level?.includes('Level 3')) dangerClass = "badge-danger-high";
-        if (row.danger_level?.includes('Moderate') || row.danger_level?.includes('Level 2')) dangerClass = "badge-danger-mod";
+        let dangerShort = "Low";
+        if (row.danger_level?.includes('High') || row.danger_level?.includes('Level 3')) {
+            dangerClass = "badge-danger-high";
+            dangerShort = "High";
+        } else if (row.danger_level?.includes('Moderate') || row.danger_level?.includes('Level 2')) {
+            dangerClass = "badge-danger-mod";
+            dangerShort = "Moderate";
+        }
 
         const tr = document.createElement("tr");
         tr.style.animation = `tableRowIn 0.45s ease ${index * 0.08}s both`;
@@ -200,7 +200,7 @@ function renderTable(rows) {
             <td class="text-secondary">${formatDate(row.date)} ${formatTime(row.time)}</td>
             <td>${escapeHTML(row.location || row.street_name || 'N/A')}</td>
             <td><span class="badge ${statusClass}">${escapeHTML(row.status)}</span></td>
-            <td><span class="badge ${dangerClass}">${escapeHTML(row.danger_level)}</span></td>
+            <td><span class="badge ${dangerClass}" title="${escapeHTML(row.danger_level || '')}">${dangerShort}</span></td>
         `;
         tbody.appendChild(tr);
     });
@@ -287,7 +287,7 @@ function renderHotspots(hotspots) {
                 ${item.count} reported incident${item.count > 1 ? 's' : ''} in this area.
             </p>
             <div class="hotspot-tags">
-                <span class="tag ${item.tagClass}">${item.count} records</span>
+                <span class="tag ${item.tagClass}">${item.count} record${item.count > 1 ? 's' : ''}</span>
             </div>
         `;
         container.appendChild(div);
@@ -407,7 +407,7 @@ function renderCharts(data) {
                     pointBorderWidth: 2,
                     pointRadius: 5,
                     pointHoverRadius: 8,
-                    borderWidth: 3,
+                    borderWidth: 2,
                     tension: 0.4,
                     fill: true
                 }]
@@ -446,7 +446,7 @@ function renderCharts(data) {
                     pointBorderWidth: 2,
                     pointRadius: 4,
                     pointHoverRadius: 8,
-                    borderWidth: 3,
+                    borderWidth: 2,
                     tension: 0.45,
                     fill: true
                 }]

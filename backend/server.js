@@ -1820,11 +1820,11 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Dec
         const common = commonResult.length > 0 ? commonResult[0].incident_type : "N/A";
 
         const [areaResult] = await pool.query(`
-            SELECT CONCAT(latitude, ', ', longitude) as location, COUNT(*) as count 
-            FROM incidents 
+            SELECT COALESCE(street_name, CONCAT(latitude, ', ', longitude)) as location, COUNT(*) as count
+            FROM incidents
             WHERE TRIM(status) != 'Resolved'
-            GROUP BY latitude, longitude 
-            ORDER BY count DESC 
+            GROUP BY COALESCE(street_name, CONCAT(latitude, ', ', longitude))
+            ORDER BY count DESC
             LIMIT 1
         `);
         const area = areaResult.length > 0 ? areaResult[0].location : "N/A";
@@ -1881,11 +1881,17 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Administrator', 'De
             else low++;
         });
 
+        // Anchored to the most recent incident date rather than the
+        // server's real clock - a barangay system's "today" and its
+        // latest logged incident can easily drift apart (backfilled data,
+        // a quiet reporting day, a demo dataset), which would otherwise
+        // leave this widget silently empty despite having 7 days of data.
         const [trendResult] = await pool.query(`
-            SELECT DATE(date) as day_date, COUNT(*) as count 
-            FROM incidents 
-            WHERE TRIM(status) != 'Resolved' AND date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            GROUP BY DATE(date) 
+            SELECT DATE(date) as day_date, COUNT(*) as count
+            FROM incidents
+            WHERE TRIM(status) != 'Resolved'
+              AND date >= DATE_SUB((SELECT MAX(date) FROM incidents WHERE TRIM(status) != 'Resolved'), INTERVAL 6 DAY)
+            GROUP BY DATE(date)
             ORDER BY day_date ASC
         `);
 
