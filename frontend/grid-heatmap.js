@@ -9,6 +9,20 @@ let boundaryLayer;
 let allIncidentsData = [];
 let heatmapLayerGroup;
 
+// Density thresholds for a single grid cell (100m x 100m), based on the
+// raw number of incidents recorded in that cell. Calibrated to Barangay
+// 179's population (~48,600) and per-cell scale (roughly a city block) -
+// low enough to differentiate real hotspots as data accumulates, without
+// requiring an unrealistic concentration of citywide-scale crime in one cell.
+const DENSITY_MODERATE_MIN = 4;
+const DENSITY_HIGH_MIN = 10;
+
+function getDensityColor(count) {
+    if (count >= DENSITY_HIGH_MIN) return '#ef4444';
+    if (count >= DENSITY_MODERATE_MIN) return '#f59e0b';
+    return '#10b981';
+}
+
 /* ============================================================
    🔥 FIXED: Gumamit ng functions mula sa apiHelper.js
    (HINDI NA LOCAL STORAGE)
@@ -64,6 +78,7 @@ async function loadRealData() {
             });
         }
 
+        populateIncidentTypeOptions();
         populateHeatmapPeriodOptions();
         applyFilterAndRender();
 
@@ -72,6 +87,74 @@ async function loadRealData() {
         updateKPIs(0, 0, 0, 0);
         showErrorState();
     }
+}
+
+/* ============================================================
+   INCIDENT CATEGORY FILTER
+   (mirrors the optgroups on the Add Incident form - incident.html)
+============================================================ */
+
+const INCIDENT_CATEGORIES = {
+    "Violent Crimes": [
+        "Homicide", "Attempted Murder", "Kidnapping", "Child Abuse", "VAWC",
+        "Illegal Release of Fire Arms", "Attempted Arson", "Robbery", "Grave Threat",
+        "Act of Lasciviousness", "Physical Injury", "Threats", "Less Serious Physical Injuries",
+        "Falsification of Documents", "Slight Physical Injuries and Maltreatment", "Light Threats"
+    ],
+    "Property Crimes": [
+        "Arson", "Theft", "Fencing of Stolen Properties", "Qualified Trespass to Dwelling",
+        "Occupation of Real Property or Usurpation of", "Removal, Sale or Pledge of Mortgaged Property",
+        "Trespassing", "Altering Boundaries of Landmarks", "Vandalism"
+    ],
+    "Financial / Fraud Crimes": [
+        "Scam", "Swindling of Estafa", "Estafa", "Cybercrime Prevention Act 2012 (RA 10175)",
+        "Estafa/Debts", "Cyber Bullying"
+    ],
+    "Social / Public Order Crimes": [
+        "Voyeurism Act", "Alarms and Scandals", "Incriminating Innocent Persons",
+        "Threatening to Publish and offer to prevent", "Oral Defamation", "Harassment",
+        "Intriguing Against Honor", "Unlawful Use of Means of Publication and Unlaw",
+        "Prohibiting Publication of Acts Referred to in the"
+    ],
+    "Special / Child-Related": [
+        "BCPC", "Child Support"
+    ],
+    "Other Incidents": [
+        "Hit and Run", "Reckless Impudence Resulting to Damage to Property and Physical Injury",
+        "Reckless Impudence Resulting Physical Injury", "Noise Complaint", "Anti Electricity Pilferage",
+        "Reckless Impudence Resulting to Damage to Property", "Safe Special Act", "Bastos Law",
+        "Abandoning a Minor", "Abandonment of a Person in Danger", "Inducing a Minor to Abandon His/her Home",
+        "Animal Welfare Acts", "Suspicious Activity", "Traffic Obstruction", "Breach of Contract",
+        "Breach Contact", "Curfew Violation", "Abandon", "Missing", "Suicide"
+    ]
+};
+
+// Reverse lookup: incident_type -> category. Anything not listed above
+// (e.g. legacy/free-text data) falls back to "Other Incidents".
+const TYPE_TO_CATEGORY = {};
+Object.entries(INCIDENT_CATEGORIES).forEach(([category, types]) => {
+    types.forEach(type => { TYPE_TO_CATEGORY[type] = category; });
+});
+
+function getIncidentCategory(incidentType) {
+    return TYPE_TO_CATEGORY[incidentType] || "Other Incidents";
+}
+
+function populateIncidentTypeOptions() {
+    const typeSelect = document.getElementById('heatmapIncidentType');
+    if (!typeSelect) return;
+
+    const previousValue = typeSelect.value || 'all';
+
+    typeSelect.innerHTML = '<option value="all">All Categories</option>';
+    Object.keys(INCIDENT_CATEGORIES).forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        typeSelect.appendChild(option);
+    });
+
+    typeSelect.value = Object.keys(INCIDENT_CATEGORIES).includes(previousValue) ? previousValue : 'all';
 }
 
 /* ============================================================
@@ -113,13 +196,14 @@ function formatMonthLabel(yearMonth) {
 function populateHeatmapPeriodOptions() {
     const granularitySelect = document.getElementById('heatmapGranularity');
     const periodSelect = document.getElementById('heatmapPeriod');
+    const periodChip = document.getElementById('heatmapPeriodChip');
     if (!granularitySelect || !periodSelect) return;
 
     const granularity = granularitySelect.value;
     periodSelect.innerHTML = '';
 
     if (granularity === 'all') {
-        periodSelect.style.display = 'none';
+        if (periodChip) periodChip.style.display = 'none';
         return;
     }
 
@@ -140,7 +224,7 @@ function populateHeatmapPeriodOptions() {
 
     if (sortedKeys.length === 0) {
         periodSelect.innerHTML = '<option value="">No incidents found</option>';
-        periodSelect.style.display = '';
+        if (periodChip) periodChip.style.display = '';
         return;
     }
 
@@ -154,21 +238,26 @@ function populateHeatmapPeriodOptions() {
     });
 
     periodSelect.value = sortedKeys[0];
-    periodSelect.style.display = '';
+    if (periodChip) periodChip.style.display = '';
 }
 
 function applyFilterAndRender() {
     const granularity = document.getElementById('heatmapGranularity')?.value || 'all';
     const period = document.getElementById('heatmapPeriod')?.value || '';
+    const category = document.getElementById('heatmapIncidentType')?.value || 'all';
 
     let filtered = allIncidentsData;
 
     if (granularity === 'day') {
-        filtered = allIncidentsData.filter(item => item.date === period);
+        filtered = filtered.filter(item => item.date === period);
     } else if (granularity === 'week') {
-        filtered = allIncidentsData.filter(item => item.date && getMondayOfWeek(item.date) === period);
+        filtered = filtered.filter(item => item.date && getMondayOfWeek(item.date) === period);
     } else if (granularity === 'month') {
-        filtered = allIncidentsData.filter(item => item.date && item.date.substring(0, 7) === period);
+        filtered = filtered.filter(item => item.date && item.date.substring(0, 7) === period);
+    }
+
+    if (category !== 'all') {
+        filtered = filtered.filter(item => getIncidentCategory(item.incident_type) === category);
     }
 
     // A previously-selected circle's details no longer necessarily apply
@@ -260,18 +349,13 @@ function renderGrid(incidents) {
     cells.forEach(cell => {
         const count = cell.count;
         const cellIncidents = cell.incidents;
-        
+
         totalIncidents += count;
         if (count > 0) activeCells++;
         if (count > peakCount) peakCount = count;
-        if (count >= 5) highRiskCells++;
+        if (count >= DENSITY_HIGH_MIN) highRiskCells++;
 
-        let color = '#10b981';
-        if (count >= 5) {
-            color = '#ef4444';
-        } else if (count >= 3) {
-            color = '#f59e0b';
-        }
+        const color = getDensityColor(count);
 
         const baseRadius = 100;
         const radius = baseRadius + (count * 8);
@@ -460,6 +544,13 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const granularitySelect = document.getElementById('heatmapGranularity');
     const periodSelect = document.getElementById('heatmapPeriod');
+    const incidentTypeSelect = document.getElementById('heatmapIncidentType');
+
+    if (incidentTypeSelect) {
+        incidentTypeSelect.addEventListener('change', function() {
+            applyFilterAndRender();
+        });
+    }
 
     if (granularitySelect) {
         granularitySelect.addEventListener('change', function() {
