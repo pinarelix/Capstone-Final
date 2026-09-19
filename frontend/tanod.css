@@ -49,12 +49,12 @@
     align-items: center;
     gap: 12px;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 17px;
 }
 
 .tanod-brand i {
     color: var(--tanod-amber);
-    font-size: 20px;
+    font-size: 22px;
 }
 
 .tanod-brand-logo {
@@ -77,7 +77,7 @@
     padding: 12px 18px;
     border-radius: 10px;
     border: none;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
@@ -152,11 +152,11 @@
 
 .tanod-card-header i {
     color: var(--tanod-amber-dark);
-    font-size: 18px;
+    font-size: 20px;
 }
 
 .tanod-card-header h2 {
-    font-size: 16px;
+    font-size: 19px;
     margin: 0;
     color: var(--tanod-navy);
 }
@@ -183,7 +183,7 @@
 
 .tanod-label {
     display: block;
-    font-size: 11px;
+    font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--tanod-text-muted);
@@ -192,7 +192,7 @@
 
 .tanod-value {
     margin: 0;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: var(--tanod-navy);
 }
@@ -225,12 +225,12 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .tanod-list-item-sub {
     margin-top: 4px;
-    font-size: 13px;
+    font-size: 15px;
     color: var(--tanod-text-secondary);
 }
 
@@ -240,16 +240,16 @@
 
 .tanod-empty {
     color: var(--tanod-text-muted);
-    font-size: 14px;
+    font-size: 16px;
     text-align: center;
     padding: 12px 0;
     margin: 0;
 }
 
 .tanod-badge {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
-    padding: 3px 9px;
+    padding: 4px 11px;
     border-radius: 999px;
     background: var(--tanod-amber);
     color: #fff;
@@ -281,7 +281,7 @@
 }
 
 .tanod-form-group label {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--tanod-text-secondary);
 }
@@ -290,7 +290,7 @@
     width: 100%;
     box-sizing: border-box;
     padding: 12px;
-    font-size: 15px;
+    font-size: 17px;
     font-family: inherit;
     border: 1px solid var(--tanod-border);
     border-radius: 10px;
@@ -312,7 +312,7 @@ textarea.tanod-input {
 
 .tanod-form-status {
     margin: 0;
-    font-size: 13px;
+    font-size: 15px;
     min-height: 16px;
 }
 
