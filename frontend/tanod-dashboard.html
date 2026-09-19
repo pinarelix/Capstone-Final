@@ -27,17 +27,38 @@
         <!-- Profile -->
         <section class="tanod-card tanod-card-accent tanod-panel active" id="profileCard" data-panel="profile">
             <div class="tanod-card-header">
-                <img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="tanod-profile-logo" onerror="this.replaceWith(Object.assign(document.createElement('i'), {className: 'fa-solid fa-id-badge'}))">
+                <i class="fa-solid fa-id-badge"></i>
                 <h2>My Profile</h2>
             </div>
+
+            <div class="tanod-avatar-wrap">
+                <button type="button" class="tanod-avatar-btn" id="avatarBtn" aria-label="Change profile picture">
+                    <img id="profileAvatarImg" class="tanod-avatar-img" style="display: none;" alt="Profile picture">
+                    <span id="profileAvatarFallback" class="tanod-avatar-fallback">
+                        <i class="fa-solid fa-user"></i>
+                    </span>
+                    <span class="tanod-avatar-edit"><i class="fa-solid fa-camera"></i></span>
+                </button>
+                <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" hidden>
+                <p id="avatarStatus" class="tanod-form-status"></p>
+            </div>
+
             <div class="tanod-profile-grid">
                 <div>
                     <span class="tanod-label">Name</span>
                     <p id="profileName" class="tanod-value">—</p>
                 </div>
                 <div>
+                    <span class="tanod-label">Username</span>
+                    <p id="profileUsername" class="tanod-value">—</p>
+                </div>
+                <div>
                     <span class="tanod-label">Position</span>
                     <p id="profilePosition" class="tanod-value">—</p>
+                </div>
+                <div>
+                    <span class="tanod-label">Contact Number</span>
+                    <p id="profileContact" class="tanod-value">—</p>
                 </div>
             </div>
         </section>

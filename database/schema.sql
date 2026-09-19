@@ -373,6 +373,7 @@ CREATE TABLE `tanod_record` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
   `position` varchar(50) DEFAULT 'Tanod',
+  `profile_picture` varchar(255) DEFAULT NULL,
   `contact_no` varchar(20) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,

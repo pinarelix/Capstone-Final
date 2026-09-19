@@ -5,6 +5,8 @@ const dotenv = require('dotenv');
 const crypto = require('crypto');
 const Joi = require('joi');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const NodeCache = require('node-cache');
 const cartEngine = require('./cart-engine');
 const { BARANGAY_LOCATIONS } = require('./locationList');
@@ -32,6 +34,43 @@ const heatmapCache = new NodeCache({ stdTTL: 60 });
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
+
+// ============================================================
+// UPLOADS (tanod profile pictures)
+// Kept outside frontend/ (source assets) and out of git (see
+// .gitignore) — this is user-uploaded content, not part of the app.
+// ============================================================
+const AVATAR_DIR = path.join(__dirname, 'uploads', 'tanod-avatars');
+fs.mkdirSync(AVATAR_DIR, { recursive: true });
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+const avatarUpload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, AVATAR_DIR),
+        filename: (req, file, cb) => {
+            const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[file.mimetype] || '';
+            cb(null, `tanod-${req.tanodId}-${Date.now()}${ext}`);
+        }
+    }),
+    limits: { fileSize: 3 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        cb(allowed.includes(file.mimetype) ? null : new Error('Only JPEG, PNG, or WEBP images are allowed.'), allowed.includes(file.mimetype));
+    }
+});
+
+// Multer reports errors (file too big, wrong type) via a callback, not a
+// thrown exception an async route's try/catch would see — this adapts
+// it to the same clean-JSON-error style as the rest of the API instead
+// of falling through to Express's default HTML error page.
+function runMulterMiddleware(middleware) {
+    return (req, res, next) => {
+        middleware(req, res, (err) => {
+            if (err) return res.status(400).json({ error: err.message || 'Upload failed.' });
+            next();
+        });
+    };
+}
 
 // ============================================================
 // DATABASE CONNECTION
@@ -2211,7 +2250,7 @@ app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
 app.get('/api/tanod/dashboard/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
     try {
         const [tanods] = await pool.query(
-            'SELECT id, name, position, contact_no, username FROM tanod_record WHERE id = ?',
+            'SELECT id, name, position, contact_no, username, profile_picture, created_at FROM tanod_record WHERE id = ?',
             [req.tanodId]
         );
 
@@ -2223,6 +2262,38 @@ app.get('/api/tanod/dashboard/:tanodId', authenticateTanod, requireOwnTanodId, a
     } catch (error) {
         console.error('❌ Error fetching tanod dashboard:', error);
         res.status(500).json({ error: 'Failed to fetch dashboard' });
+    }
+});
+
+app.post('/api/tanod/profile-picture', authenticateTanod, runMulterMiddleware(avatarUpload.single('avatar')), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image file was uploaded.' });
+        }
+
+        const [[previous]] = await pool.query(
+            'SELECT profile_picture FROM tanod_record WHERE id = ?',
+            [req.tanodId]
+        );
+
+        const relativePath = `tanod-avatars/${req.file.filename}`;
+        await pool.query(
+            'UPDATE tanod_record SET profile_picture = ? WHERE id = ?',
+            [relativePath, req.tanodId]
+        );
+
+        // Best-effort cleanup of the old file - a failed unlink here (e.g.
+        // it's already gone) shouldn't fail the upload that just succeeded.
+        if (previous?.profile_picture) {
+            fs.unlink(path.join(__dirname, 'uploads', previous.profile_picture), () => {});
+        }
+
+        await logTanodAudit(req.tanodId, 'TANOD_UPDATE_PROFILE_PICTURE', 'tanod_record', req.tanodId, null, req);
+
+        res.json({ message: 'Profile picture updated.', profile_picture: relativePath });
+    } catch (error) {
+        console.error('❌ Error updating tanod profile picture:', error);
+        res.status(500).json({ error: 'Failed to update profile picture' });
     }
 });
 

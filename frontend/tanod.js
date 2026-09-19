@@ -148,7 +148,8 @@ function initTanodDashboardPage() {
 
     initTanodPanelNav();
     populateAllReportLocations();
-    renderProfile(tanod);
+    loadProfileDetails(tanod.id);
+    initAvatarUpload();
     loadSchedule(tanod.id);
     loadAreaIncidents(tanod.id);
     loadPatrolLogs(tanod.id);
@@ -185,9 +186,102 @@ function initTanodDashboardPage() {
     document.getElementById('patrolLogForm')?.addEventListener('submit', (e) => handlePatrolLogSubmit(e, tanod));
 }
 
+// The tanod object cached at login only carries id/name/position (see
+// /api/tanod/login's SELECT) - the Profile panel needs the fuller
+// record (username, contact number, picture), so it fetches that
+// separately rather than bloating what every login response returns.
+async function loadProfileDetails(tanodId) {
+    try {
+        const response = await tanodFetch(`/tanod/dashboard/${tanodId}`);
+        const data = await response.json();
+        renderProfile(data);
+    } catch (error) {
+        console.error('Error loading profile details:', error);
+    }
+}
+
 function renderProfile(tanod) {
     document.getElementById('profileName').textContent = tanod.name || '—';
+    document.getElementById('profileUsername').textContent = tanod.username ? `@${tanod.username}` : '—';
     document.getElementById('profilePosition').textContent = tanod.position || 'Tanod';
+    document.getElementById('profileContact').textContent = tanod.contact_no || '—';
+    renderAvatar(tanod.profile_picture);
+}
+
+function renderAvatar(profilePicture) {
+    const img = document.getElementById('profileAvatarImg');
+    const fallback = document.getElementById('profileAvatarFallback');
+    if (!img || !fallback) return;
+
+    if (profilePicture) {
+        img.src = `/uploads/${profilePicture}`;
+        img.style.display = 'block';
+        fallback.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        fallback.style.display = 'flex';
+    }
+}
+
+function initAvatarUpload() {
+    const avatarBtn = document.getElementById('avatarBtn');
+    const avatarInput = document.getElementById('avatarInput');
+    const avatarStatus = document.getElementById('avatarStatus');
+    if (!avatarBtn || !avatarInput) return;
+
+    avatarBtn.addEventListener('click', () => avatarInput.click());
+
+    avatarInput.addEventListener('change', async () => {
+        const file = avatarInput.files[0];
+        if (!file) return;
+
+        if (file.size > 3 * 1024 * 1024) {
+            avatarStatus.textContent = 'Image must be 3MB or smaller.';
+            avatarStatus.className = 'tanod-form-status tanod-status-error';
+            avatarInput.value = '';
+            return;
+        }
+
+        avatarStatus.textContent = 'Uploading...';
+        avatarStatus.className = 'tanod-form-status';
+
+        // Raw fetch, not tanodFetch - FormData needs the browser to set its
+        // own multipart Content-Type (with boundary), which tanodFetch's
+        // hardcoded 'application/json' header would break.
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        try {
+            const token = getTanodToken();
+            const response = await fetch(`${TANOD_API_URL}/tanod/profile-picture`, {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: formData
+            });
+
+            if (response.status === 401) {
+                clearTanodSession();
+                window.location.href = 'tanod-login.html';
+                return;
+            }
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to upload photo.');
+            }
+
+            renderAvatar(data.profile_picture);
+            avatarStatus.textContent = '✅ Profile picture updated.';
+            avatarStatus.className = 'tanod-form-status tanod-status-success';
+        } catch (error) {
+            console.error('Error uploading avatar:', error);
+            avatarStatus.textContent = error.message || 'Failed to upload photo.';
+            avatarStatus.className = 'tanod-form-status tanod-status-error';
+        } finally {
+            avatarInput.value = '';
+        }
+    });
 }
 
 // ============================================================

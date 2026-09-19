@@ -37,6 +37,7 @@ temp/
 # Project specific
 backend/.env
 backend/*.log
+backend/uploads/
 
 # Electron build output
 dist/
