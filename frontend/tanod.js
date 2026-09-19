@@ -5,7 +5,7 @@
    with an admin/captain session in the same browser.
 ============================================================ */
 
-const TANOD_API_URL = 'http://localhost:3000/api';
+const TANOD_API_URL = `${window.location.origin}/api`;
 
 function escapeHTML(value) {
     return String(value ?? '')
