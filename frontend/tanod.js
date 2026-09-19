@@ -55,6 +55,18 @@ async function tanodFetch(path, options = {}) {
     return response;
 }
 
+// Periodically re-runs fn(), skipping ticks while the tab is in the
+// background and refreshing immediately once it's visible again.
+function startTanodPolling(fn, intervalMs = 15000) {
+    setInterval(() => {
+        if (document.visibilityState === 'visible') fn();
+    }, intervalMs);
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') fn();
+    });
+}
+
 // ============================================================
 // TANOD LOGIN PAGE
 // ============================================================
@@ -153,6 +165,15 @@ function initTanodDashboardPage() {
     loadSchedule(tanod.id);
     loadAreaIncidents(tanod.id);
     loadPatrolLogs(tanod.id);
+    initIncidentDetailModal();
+
+    // Keeps "Recent Incidents in My Area" current with reports from
+    // other tanods/admin without needing to re-login - mirrors
+    // apiHelper.js's startLivePolling(), duplicated locally (see this
+    // file's header comment on why tanod.js doesn't just include
+    // apiHelper.js) rather than pulling in that whole unrelated file
+    // for one small helper.
+    startTanodPolling(() => loadAreaIncidents(tanod.id), 15000);
 
     // Report Incident form defaults
     const dateField = document.getElementById('reportDate');
@@ -376,25 +397,32 @@ async function loadSchedule(tanodId) {
     }
 }
 
+// Populated by loadAreaIncidents() and read by the click handler below -
+// avoids a second fetch just to know what was in the list item tapped.
+let currentAreaIncidents = [];
+
 async function loadAreaIncidents(tanodId) {
     const list = document.getElementById('areaIncidentsList');
     try {
         const response = await tanodFetch(`/tanod/incidents/${tanodId}`);
         const incidents = await response.json();
 
-        if (!Array.isArray(incidents) || incidents.length === 0) {
+        currentAreaIncidents = Array.isArray(incidents) ? incidents : [];
+
+        if (currentAreaIncidents.length === 0) {
             list.innerHTML = '<p class="tanod-empty">No recent incidents recorded in your area.</p>';
             return;
         }
 
-        list.innerHTML = incidents.map(inc => `
-            <div class="tanod-list-item">
+        list.innerHTML = currentAreaIncidents.map(inc => `
+            <div class="tanod-list-item tanod-list-item-clickable" data-incident-id="${inc.id}">
                 <div class="tanod-list-item-main">
                     <strong>${escapeHTML(inc.incident_type)}</strong>
                     <span class="tanod-badge tanod-badge-${(inc.status || '').toLowerCase()}">${escapeHTML(inc.status)}</span>
                 </div>
                 <div class="tanod-list-item-sub">
                     <i class="fa-regular fa-calendar"></i> ${escapeHTML(inc.date)} ${escapeHTML(inc.time)}
+                    ${inc.street_name ? ` &middot; <i class="fa-solid fa-location-dot"></i> ${escapeHTML(inc.street_name)}` : ''}
                 </div>
             </div>
         `).join('');
@@ -402,6 +430,62 @@ async function loadAreaIncidents(tanodId) {
         console.error('Error loading area incidents:', error);
         list.innerHTML = '<p class="tanod-empty">Failed to load incidents.</p>';
     }
+}
+
+function initIncidentDetailModal() {
+    const modal = document.getElementById('tanodIncidentModal');
+    const list = document.getElementById('areaIncidentsList');
+    if (!modal || !list) return;
+
+    // Delegated on the list container (not per-item) since the list is
+    // fully re-rendered on every load/poll - per-item listeners would
+    // just get thrown away and re-added on each refresh.
+    list.addEventListener('click', function (e) {
+        const item = e.target.closest('.tanod-list-item-clickable');
+        if (!item) return;
+        const id = parseInt(item.getAttribute('data-incident-id'), 10);
+        const incident = currentAreaIncidents.find(inc => inc.id === id);
+        if (incident) openIncidentDetailModal(incident);
+    });
+
+    document.getElementById('tanodIncidentModalClose')?.addEventListener('click', function () {
+        modal.classList.remove('active');
+    });
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) modal.classList.remove('active');
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') modal.classList.remove('active');
+    });
+}
+
+function openIncidentDetailModal(incident) {
+    const modal = document.getElementById('tanodIncidentModal');
+    if (!modal) return;
+
+    document.getElementById('incidentModalType').textContent = incident.incident_type || 'Incident';
+
+    const statusClass = (incident.status || '').toLowerCase();
+    document.getElementById('incidentModalBadges').innerHTML = `
+        <span class="tanod-badge tanod-badge-${statusClass}">${escapeHTML(incident.status || 'N/A')}</span>
+    `;
+
+    const rows = [
+        ['Location', incident.street_name],
+        ['Date & Time', incident.date && incident.time ? `${incident.date} ${incident.time}` : null],
+        ['Danger Level', incident.danger_level],
+        ['Description', incident.description],
+        ['Recommended Action', incident.recommended_action]
+    ].filter(([, value]) => value);
+
+    document.getElementById('incidentModalDetails').innerHTML = (rows.map(([label, value]) => `
+        <div class="tanod-modal-detail-row">
+            <span class="tanod-label">${escapeHTML(label)}</span>
+            <p class="tanod-value" style="font-size: 15px; font-weight: 500;">${escapeHTML(value)}</p>
+        </div>
+    `).join('')) || '<p class="tanod-empty">No additional details available.</p>';
+
+    modal.classList.add('active');
 }
 
 async function loadPatrolLogs(tanodId) {

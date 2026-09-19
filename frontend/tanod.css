@@ -508,6 +508,68 @@ textarea.tanod-input {
     flex: 1;
 }
 
+/* ---------- Incident detail modal ---------- */
+
+.tanod-modal-wide {
+    position: relative;
+    max-width: 420px;
+    text-align: left;
+}
+
+.tanod-modal-wide h2 {
+    text-align: center;
+}
+
+.tanod-modal-wide .tanod-modal-icon {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.tanod-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--tanod-bg);
+    color: var(--tanod-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.tanod-modal-badges {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.tanod-modal-detail-row {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--tanod-border);
+}
+
+.tanod-modal-detail-row:last-child {
+    border-bottom: none;
+}
+
+/* ---------- Clickable area-incident list items ---------- */
+
+.tanod-list-item-clickable {
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.tanod-list-item-clickable:active {
+    background: var(--tanod-border);
+}
+
 @media (max-width: 480px) {
     .tanod-profile-grid,
     .tanod-form-row {

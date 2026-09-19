@@ -2367,7 +2367,7 @@ app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, a
         }
 
         const [rows] = await pool.query(
-            `SELECT id, incident_type, date, time, status, danger_level, description
+            `SELECT id, incident_type, date, time, status, danger_level, description, street_name, recommended_action
              FROM incidents WHERE street_name IN (?) ORDER BY date DESC, time DESC LIMIT 20`,
             [locations.map(l => l.location)]
         );
