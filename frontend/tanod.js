@@ -161,9 +161,22 @@ function initTanodDashboardPage() {
     const logDateField = document.getElementById('logDate');
     if (logDateField) logDateField.value = now.toISOString().slice(0, 10);
 
+    const logoutModal = document.getElementById('tanodLogoutModal');
     document.getElementById('logoutBtn')?.addEventListener('click', function () {
+        logoutModal?.classList.add('active');
+    });
+    document.getElementById('tanodLogoutCancelBtn')?.addEventListener('click', function () {
+        logoutModal?.classList.remove('active');
+    });
+    document.getElementById('tanodLogoutConfirmBtn')?.addEventListener('click', function () {
         clearTanodSession();
         window.location.href = 'tanod-login.html';
+    });
+    logoutModal?.addEventListener('click', function (e) {
+        if (e.target === logoutModal) logoutModal.classList.remove('active');
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') logoutModal?.classList.remove('active');
     });
 
     document.getElementById('incidentReportForm')?.addEventListener('submit', (e) => handleIncidentReport(e, tanod));
