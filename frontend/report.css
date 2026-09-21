@@ -437,11 +437,10 @@ body {
 @media print {
     aside,
     header,
-    .grid-cols-1.md\:grid-cols-3,
-    select,
+    .filter-section,
+    .report-grid,
     button,
-    #patrolModal,
-    #metric-summary-container {
+    #patrolModal {
         display: none !important;
     }
 
@@ -459,16 +458,13 @@ body {
     .main-content {
         overflow: visible !important;
         background-color: white !important;
-    }
-
-    .p-8 {
         padding: 0 !important;
     }
 
-    .shadow-sm,
-    .border {
+    .report-table-card {
         border: none !important;
         box-shadow: none !important;
+        padding: 0 !important;
     }
 
     table {
@@ -481,14 +477,6 @@ body {
         border: 1px solid #cbd5e1 !important;
         padding: 8px !important;
         font-size: 11px !important;
-    }
-
-    .main-content .bg-white,
-    .main-content .bg-gray-50,
-    .main-content .bg-gray-100,
-    .main-content .bg-slate-50,
-    .main-content .bg-slate-100 {
-        background-color: white !important;
     }
 }
 

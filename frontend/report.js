@@ -157,6 +157,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         return 'badge-danger calculated';
     }
 
+    // Almost every incident's recommended_action is left at its default
+    // placeholder text regardless of severity (admins rarely customize it
+    // per-incident), so the report table/CSV showed the identical generic
+    // line next to a Level 3 incident and a Level 1 one. Falls back to a
+    // severity-derived recommendation - same wording patrol.js already
+    // uses for its own recommendations - whenever the field is empty or
+    // still just the default, but still honors a real custom value.
+    const DEFAULT_ACTION_TEXT = 'Scheduled patrol and risk monitoring';
+
+    function getRecommendedAction(item) {
+        const custom = (item.recommended_action || '').trim();
+        if (custom && custom !== DEFAULT_ACTION_TEXT) return custom;
+
+        const danger = item.danger_level || '';
+        if (danger.includes('Level 3') || danger.includes('High')) {
+            return 'PRIORITY: Deploy additional tanods, increase patrol frequency, and coordinate with barangay officials.';
+        } else if (danger.includes('Level 2') || danger.includes('Moderate')) {
+            return 'Deploy targeted patrols, conduct periodic spot checks, and monitor for escalation.';
+        } else if (danger.includes('Level 1') || danger.includes('Low')) {
+            return 'Maintain standard routine patrols and community visibility.';
+        }
+        return custom || DEFAULT_ACTION_TEXT;
+    }
+
     function updateReportView(monthKey, allData) {
         if (!monthKey || !allData) return;
 
@@ -194,7 +218,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <td>${escapeHTML(location)}</td>
                         <td><span class="${statusClass}">${escapeHTML(item.status || 'Open')}</span></td>
                         <td><span class="${dangerClass}">${escapeHTML(item.danger_level || 'Calculated by System')}</span></td>
-                        <td>${escapeHTML(item.recommended_action || 'Scheduled patrol and risk monitoring')}</td>
+                        <td>${escapeHTML(getRecommendedAction(item))}</td>
                     `;
                     tableBody.appendChild(tr);
                 });
@@ -379,7 +403,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 csvContent += [
                     item.id || '', item.incident_type || '', item.date || '', item.time || '',
                     location, item.address || '', item.status || '', item.danger_level || '',
-                    item.recommended_action || '', reporterName, reporterContact
+                    getRecommendedAction(item), reporterName, reporterContact
                 ].map(csvField).join(',') + '\n';
             });
 
