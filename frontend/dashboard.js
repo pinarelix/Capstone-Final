@@ -73,6 +73,18 @@ document.addEventListener("DOMContentLoaded", () => {
     setupRippleEffect();
 
     // ============================================================
+    // CRIME CATEGORY LEGEND TOGGLE
+    // ============================================================
+    const legendToggle = document.getElementById("crimeLegendToggle");
+    const legendPanel = document.getElementById("crimeLegendPanel");
+    if (legendToggle && legendPanel) {
+        legendToggle.addEventListener("click", () => {
+            legendPanel.classList.toggle("open");
+            legendToggle.classList.toggle("active");
+        });
+    }
+
+    // ============================================================
     // 🔥 STEP 5: Setup logout button
     // ============================================================
     setupLogoutButton();
