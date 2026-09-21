@@ -109,6 +109,7 @@ const incidentSchema = Joi.object({
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
     street_name: Joi.string().valid(...BARANGAY_LOCATIONS).allow('', null),
+    address: Joi.string().max(255).allow('', null),
     reporter_id: Joi.number().integer().positive().allow(null),
     status: Joi.string().valid('Open', 'Monitoring', 'Resolved').default('Open'),
     description: Joi.string().allow('', null),
@@ -1517,12 +1518,13 @@ app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'D
 
 app.post('/api/incidents', authenticate, requireRole(['Administrator']), validate(incidentSchema), async (req, res) => {
     try {
-        const { 
-            incident_type, date, time, latitude, longitude, street_name, reporter_id, 
-            status, description, recommended_action 
+        const {
+            incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
+            status, description, recommended_action
         } = req.body;
 
         const finalStreetName = street_name || null;
+        const finalAddress = address || null;
         const finalReporterId = (reporter_id && !isNaN(parseInt(reporter_id))) ? parseInt(reporter_id) : null;
 
         const timeOfDay = computeTimeOfDay(time);
@@ -1530,22 +1532,23 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
         const isWeekend = isDateWeekend(date);
 
         const [result] = await pool.query(`
-            INSERT INTO incidents 
-            (incident_type, date, time, latitude, longitude, street_name, reporter_id, 
-             status, danger_level, description, recommended_action, 
-             time_of_day, day_of_week, is_weekend) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO incidents
+            (incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
+             status, danger_level, description, recommended_action,
+             time_of_day, day_of_week, is_weekend)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-            incident_type, 
-            date, 
-            time, 
-            latitude, 
-            longitude, 
+            incident_type,
+            date,
+            time,
+            latitude,
+            longitude,
             finalStreetName,
-            finalReporterId, 
-            status || 'Open', 
+            finalAddress,
+            finalReporterId,
+            status || 'Open',
             'Calculated by System',
-            description || '', 
+            description || '',
             recommended_action || '',
             timeOfDay,
             dayOfWeek,
@@ -1582,15 +1585,16 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
 
 app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), validate(incidentSchema), async (req, res) => {
     try {
-        const { 
-            incident_type, date, time, latitude, longitude, street_name, reporter_id, 
-            status, description, recommended_action 
+        const {
+            incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
+            status, description, recommended_action
         } = req.body;
         const id = req.params.id;
 
         const [oldData] = await pool.query('SELECT * FROM incidents WHERE id = ?', [id]);
 
         const finalStreetName = street_name || null;
+        const finalAddress = address || null;
         const finalReporterId = (reporter_id && !isNaN(parseInt(reporter_id))) ? parseInt(reporter_id) : null;
 
         const timeOfDay = computeTimeOfDay(time);
@@ -1598,16 +1602,16 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), vali
         const isWeekend = isDateWeekend(date);
 
         const [result] = await pool.query(`
-            UPDATE incidents 
-            SET incident_type = ?, date = ?, time = ?, latitude = ?, longitude = ?, 
-                street_name = ?, reporter_id = ?, status = ?, 
-                danger_level = 'Calculated by System', 
+            UPDATE incidents
+            SET incident_type = ?, date = ?, time = ?, latitude = ?, longitude = ?,
+                street_name = ?, address = ?, reporter_id = ?, status = ?,
+                danger_level = 'Calculated by System',
                 description = ?, recommended_action = ?,
                 time_of_day = ?, day_of_week = ?, is_weekend = ?
             WHERE id = ?
         `, [
-            incident_type, date, time, latitude, longitude, 
-            finalStreetName, finalReporterId, status, 
+            incident_type, date, time, latitude, longitude,
+            finalStreetName, finalAddress, finalReporterId, status,
             description, recommended_action,
             timeOfDay, dayOfWeek, isWeekend, id
         ]);

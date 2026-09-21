@@ -144,6 +144,7 @@ CREATE TABLE `incidents` (
   `latitude` decimal(10,8) DEFAULT NULL,
   `longitude` decimal(11,8) DEFAULT NULL,
   `street_name` varchar(100) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
   `reporter_id` int DEFAULT NULL,
   `status` varchar(20) DEFAULT 'Open',
   `description` text,

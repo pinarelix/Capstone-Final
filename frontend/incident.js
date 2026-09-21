@@ -655,7 +655,8 @@ function setupForm() {
         const lat = document.getElementById('incidentLat').value;
         const lng = document.getElementById('incidentLng').value;
         const street = document.getElementById('incidentStreet').value;
-        const reporterIdRaw = document.getElementById('reportedBy').value; 
+        const address = document.getElementById('incidentAddress').value.trim();
+        const reporterIdRaw = document.getElementById('reportedBy').value;
         const status = document.getElementById('incidentStatus').value;
         const desc = document.getElementById('incidentDesc').value;
         const action = document.getElementById('recommendedAction').value;
@@ -702,7 +703,8 @@ function setupForm() {
                 latitude: latNum,      // ✅ lowercase
                 longitude: lngNum,     // ✅ lowercase
                 street_name: street,
-                reporter_id: repId, 
+                address: address,
+                reporter_id: repId,
                 status, 
                 description: desc, 
                 recommended_action: action
@@ -841,7 +843,8 @@ window.editIncident = async (id) => {
         document.getElementById('incidentLat').value = record.latitude || '';
         document.getElementById('incidentLng').value = record.longitude || '';
         document.getElementById('incidentStreet').value = record.street_name || '';
-        
+        document.getElementById('incidentAddress').value = record.address || '';
+
         if (record.latitude && record.longitude) {
             if (marker) mapPicker.removeLayer(marker);
             marker = L.marker([record.latitude, record.longitude]).addTo(mapPicker);

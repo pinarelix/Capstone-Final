@@ -451,6 +451,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="detail-value">${escapeHTML(incident.street_name || 'N/A')}</div>
                         </div>
                     </div>
+                    ${incident.address ? `
+                    <div class="incident-detail-card">
+                        <div class="incident-detail-icon"><i class="fa-solid fa-map-pin"></i></div>
+                        <div>
+                            <div class="detail-label">Address</div>
+                            <div class="detail-value">${escapeHTML(incident.address)}</div>
+                        </div>
+                    </div>` : ''}
                     <div class="incident-detail-card">
                         <div class="incident-detail-icon"><i class="fa-solid fa-calendar-day"></i></div>
                         <div>
