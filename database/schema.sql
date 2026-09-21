@@ -156,6 +156,7 @@ CREATE TABLE `incidents` (
   `day_of_week` varchar(15) DEFAULT NULL,
   `is_weekend` tinyint(1) DEFAULT '0',
   `reporter_tanod_id` int DEFAULT NULL,
+  `photo_path` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `reporter_id` (`reporter_id`),
   KEY `fk_incidents_reporter_tanod` (`reporter_tanod_id`),

@@ -60,6 +60,27 @@ const avatarUpload = multer({
     }
 });
 
+// ============================================================
+// UPLOADS (incident report photo evidence, tanod field reports)
+// ============================================================
+const INCIDENT_PHOTO_DIR = path.join(__dirname, 'uploads', 'incident-photos');
+fs.mkdirSync(INCIDENT_PHOTO_DIR, { recursive: true });
+
+const incidentPhotoUpload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, INCIDENT_PHOTO_DIR),
+        filename: (req, file, cb) => {
+            const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[file.mimetype] || '';
+            cb(null, `incident-${req.tanodId}-${Date.now()}${ext}`);
+        }
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        cb(allowed.includes(file.mimetype) ? null : new Error('Only JPEG, PNG, or WEBP images are allowed.'), allowed.includes(file.mimetype));
+    }
+});
+
 // Multer reports errors (file too big, wrong type) via a callback, not a
 // thrown exception an async route's try/catch would see — this adapts
 // it to the same clean-JSON-error style as the rest of the API instead
@@ -154,15 +175,18 @@ const tanodLoginSchema = Joi.object({
 // Tanod Incident Report Schema — any active tanod can report from any
 // barangay location (not just their own assigned patrol area); location
 // is still validated against BARANGAY_LOCATIONS so it can't be garbage/
-// free-text. Coordinates aren't taken from the client — the route
-// handler best-effort looks them up from a matching patrol schedule.
+// free-text. Coordinates are optional - if the reporting tanod's phone
+// supplies a GPS fix, the route handler uses that instead of falling
+// back to a generic pin for the location.
 const tanodIncidentSchema = Joi.object({
     incident_type: Joi.string().required(),
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
     address: Joi.string().max(255).allow('', null),
-    description: Joi.string().allow('', null)
+    description: Joi.string().allow('', null),
+    latitude: Joi.number().min(-90).max(90).allow(null),
+    longitude: Joi.number().min(-180).max(180).allow(null)
 });
 
 // Tanod Patrol Log Schema (tanod_id comes from the session, not the client)
@@ -2438,7 +2462,7 @@ app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, a
         }
 
         const [rows] = await pool.query(
-            `SELECT id, incident_type, date, time, status, danger_level, description, street_name, recommended_action
+            `SELECT id, incident_type, date, time, status, danger_level, description, street_name, recommended_action, photo_path
              FROM incidents WHERE street_name IN (?) ORDER BY date DESC, time DESC LIMIT 20`,
             [locations.map(l => l.location)]
         );
@@ -2457,7 +2481,7 @@ app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, a
 app.get('/api/tanod/my-reports/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
     try {
         const [rows] = await pool.query(
-            `SELECT id, incident_type, date, time, status, danger_level, description, street_name, recommended_action
+            `SELECT id, incident_type, date, time, status, danger_level, description, street_name, recommended_action, photo_path
              FROM incidents WHERE reporter_tanod_id = ? ORDER BY date DESC, time DESC LIMIT 20`,
             [req.tanodId]
         );
@@ -2469,11 +2493,15 @@ app.get('/api/tanod/my-reports/:tanodId', authenticateTanod, requireOwnTanodId, 
     }
 });
 
-app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema), async (req, res) => {
+app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentPhotoUpload.single('photo')), validate(tanodIncidentSchema), async (req, res) => {
     try {
-        const { incident_type, date, time, location, address, description } = req.body;
+        const { incident_type, date, time, location, address, description, latitude, longitude } = req.body;
 
-        const pin = await getAnyPinForLocation(location);
+        // Prefer the tanod's actual GPS fix (from their phone) over the
+        // generic pin for the location, when they provided one.
+        const hasGps = latitude != null && longitude != null;
+        const pin = hasGps ? { latitude, longitude } : await getAnyPinForLocation(location);
+        const photoPath = req.file ? req.file.filename : null;
 
         const timeOfDay = computeTimeOfDay(time);
         const dayOfWeek = getDayOfWeek(date);
@@ -2482,8 +2510,8 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
         const [result] = await pool.query(`
             INSERT INTO incidents
             (incident_type, date, time, latitude, longitude, street_name, address, reporter_tanod_id,
-             status, danger_level, description, time_of_day, day_of_week, is_weekend)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             status, danger_level, description, time_of_day, day_of_week, is_weekend, photo_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             incident_type,
             date,
@@ -2498,7 +2526,8 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
             description || '',
             timeOfDay,
             dayOfWeek,
-            isWeekend
+            isWeekend,
+            photoPath
         ]);
 
         await computeCartRiskFactors(result.insertId);

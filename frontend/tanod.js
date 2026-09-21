@@ -208,6 +208,67 @@ function initTanodDashboardPage() {
 
     document.getElementById('incidentReportForm')?.addEventListener('submit', (e) => handleIncidentReport(e, tanod));
     document.getElementById('patrolLogForm')?.addEventListener('submit', (e) => handlePatrolLogSubmit(e, tanod));
+
+    initOfflineBanner();
+    initGpsCapture();
+}
+
+// Holds the tanod's captured GPS fix for the report currently being
+// filled out - read by handleIncidentReport(), cleared after a
+// successful submit (or a fresh capture) so a stale fix from a previous
+// report never silently attaches to the next one.
+let capturedGpsCoords = null;
+
+function initGpsCapture() {
+    const btn = document.getElementById('captureGpsBtn');
+    const status = document.getElementById('gpsStatus');
+    if (!btn || !status) return;
+
+    btn.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            status.textContent = 'GPS is not supported on this device.';
+            status.className = 'tanod-form-status tanod-status-error';
+            return;
+        }
+
+        btn.disabled = true;
+        status.textContent = 'Getting your location...';
+        status.className = 'tanod-form-status';
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                capturedGpsCoords = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                status.textContent = `📍 Location attached (accurate to ~${Math.round(position.coords.accuracy)}m).`;
+                status.className = 'tanod-form-status tanod-status-success';
+                btn.disabled = false;
+            },
+            (error) => {
+                capturedGpsCoords = null;
+                status.textContent = error.code === error.PERMISSION_DENIED
+                    ? 'Location permission denied. The report will use the area\'s general location instead.'
+                    : 'Could not get your location. The report will use the area\'s general location instead.';
+                status.className = 'tanod-form-status tanod-status-error';
+                btn.disabled = false;
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    });
+}
+
+// A tanod is out in the field on mobile data, so losing signal mid-patrol
+// is a real scenario - surfaces it instead of silently failing form
+// submissions with no explanation.
+function initOfflineBanner() {
+    const banner = document.getElementById('tanodOfflineBanner');
+    if (!banner) return;
+
+    const update = () => banner.classList.toggle('active', !navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
 }
 
 // The tanod object cached at login only carries id/name/position (see
@@ -424,18 +485,28 @@ function renderScheduleList() {
         return;
     }
 
-    list.innerHTML = currentSchedules.map(s => {
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    // Today's patrol(s) first, so the one thing a tanod actually needs
+    // before heading out isn't buried under other days of the week.
+    const sortedSchedules = [...currentSchedules].sort((a, b) => {
+        if (a.day_of_week === today && b.day_of_week !== today) return -1;
+        if (b.day_of_week === today && a.day_of_week !== today) return 1;
+        return 0;
+    });
+
+    list.innerHTML = sortedSchedules.map(s => {
         const types = getIncidentTypesForArea(s.location);
         const total = types.reduce((sum, [, count]) => sum + count, 0);
         const typesSummary = types.length > 0
             ? `${total} incident${total > 1 ? 's' : ''}: ${types.map(([type, count]) => `${type} (${count})`).join(', ')}`
             : 'No recorded incidents in this area yet';
+        const isToday = s.day_of_week === today;
 
         return `
-            <div class="tanod-list-item">
+            <div class="tanod-list-item${isToday ? ' tanod-list-item-today' : ''}">
                 <div class="tanod-list-item-main">
                     <strong>${escapeHTML(s.location)}</strong>
-                    <span class="tanod-badge">${escapeHTML(s.day_of_week)}</span>
+                    <span class="tanod-badge${isToday ? ' tanod-badge-today' : ''}">${isToday ? 'Today' : escapeHTML(s.day_of_week)}</span>
                 </div>
                 <div class="tanod-list-item-sub">
                     <i class="fa-regular fa-clock"></i> ${escapeHTML(s.start_time)} – ${escapeHTML(s.end_time)}
@@ -572,6 +643,16 @@ function openIncidentDetailModal(incident) {
         <span class="tanod-badge tanod-badge-${statusClass}">${escapeHTML(incident.status || 'N/A')}</span>
     `;
 
+    const photoEl = document.getElementById('incidentModalPhoto');
+    if (photoEl) {
+        if (incident.photo_path) {
+            photoEl.src = `/uploads/incident-photos/${incident.photo_path}`;
+            photoEl.style.display = 'block';
+        } else {
+            photoEl.style.display = 'none';
+        }
+    }
+
     const rows = [
         ['Location', incident.street_name],
         ['Date & Time', incident.date && incident.time ? `${incident.date} ${incident.time}` : null],
@@ -605,7 +686,7 @@ async function loadPatrolLogs(tanodId) {
             <div class="tanod-list-item">
                 <div class="tanod-list-item-main">
                     <strong>${escapeHTML(log.patrol_date)}</strong>
-                    <span class="tanod-badge">${escapeHTML(log.status)}</span>
+                    <span class="tanod-badge tanod-badge-log-${(log.status || '').toLowerCase()}">${escapeHTML(log.status)}</span>
                 </div>
                 ${log.report ? `<div class="tanod-list-item-sub">${escapeHTML(log.report)}</div>` : ''}
             </div>
@@ -621,19 +702,41 @@ async function handleIncidentReport(e, tanod) {
     const statusEl = document.getElementById('reportStatus');
     const submitBtn = e.target.querySelector('button[type="submit"]');
 
-    const payload = {
-        incident_type: document.getElementById('reportType').value,
-        date: document.getElementById('reportDate').value,
-        time: document.getElementById('reportTime').value,
-        location: document.getElementById('reportLocation').value,
-        address: document.getElementById('reportAddress').value.trim(),
-        description: document.getElementById('reportDescription').value.trim()
-    };
+    const incident_type = document.getElementById('reportType').value;
+    const date = document.getElementById('reportDate').value;
+    const time = document.getElementById('reportTime').value;
+    const location = document.getElementById('reportLocation').value;
+    const photoFile = document.getElementById('reportPhoto')?.files[0];
 
-    if (!payload.incident_type || !payload.date || !payload.time || !payload.location) {
+    if (!incident_type || !date || !time || !location) {
         statusEl.textContent = 'Please fill in all required fields.';
         statusEl.className = 'tanod-form-status tanod-status-error';
         return;
+    }
+
+    if (photoFile && photoFile.size > 5 * 1024 * 1024) {
+        statusEl.textContent = 'Photo must be 5MB or smaller.';
+        statusEl.className = 'tanod-form-status tanod-status-error';
+        return;
+    }
+
+    // FormData, not JSON - the photo (when attached) has to travel as
+    // multipart/form-data, so every field rides along the same way for
+    // one consistent submit path rather than branching on whether a
+    // photo was picked.
+    const formData = new FormData();
+    formData.append('incident_type', incident_type);
+    formData.append('date', date);
+    formData.append('time', time);
+    formData.append('location', location);
+    formData.append('address', document.getElementById('reportAddress').value.trim());
+    formData.append('description', document.getElementById('reportDescription').value.trim());
+    if (capturedGpsCoords) {
+        formData.append('latitude', capturedGpsCoords.latitude);
+        formData.append('longitude', capturedGpsCoords.longitude);
+    }
+    if (photoFile) {
+        formData.append('photo', photoFile);
     }
 
     if (submitBtn) {
@@ -642,10 +745,22 @@ async function handleIncidentReport(e, tanod) {
     }
 
     try {
-        const response = await tanodFetch('/tanod/incident', {
+        // Raw fetch, not tanodFetch - FormData needs the browser to set its
+        // own multipart Content-Type (with boundary), same reasoning as
+        // the avatar upload above.
+        const token = getTanodToken();
+        const response = await fetch(`${TANOD_API_URL}/tanod/incident`, {
             method: 'POST',
-            body: JSON.stringify(payload)
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            body: formData
         });
+
+        if (response.status === 401) {
+            clearTanodSession();
+            window.location.href = 'tanod-login.html';
+            return;
+        }
+
         const data = await response.json();
 
         if (!response.ok) {
@@ -655,6 +770,13 @@ async function handleIncidentReport(e, tanod) {
         statusEl.textContent = '✅ Incident reported successfully.';
         statusEl.className = 'tanod-form-status tanod-status-success';
         e.target.reset();
+
+        capturedGpsCoords = null;
+        const gpsStatus = document.getElementById('gpsStatus');
+        if (gpsStatus) {
+            gpsStatus.textContent = '';
+            gpsStatus.className = 'tanod-form-status';
+        }
 
         const now = new Date();
         document.getElementById('reportDate').value = now.toISOString().slice(0, 10);

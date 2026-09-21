@@ -154,6 +154,28 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* ---------- Offline banner ---------- */
+
+.tanod-offline-banner {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--tanod-red);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    padding: 8px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 9;
+}
+
+.tanod-offline-banner.active {
+    display: flex;
+}
+
 /* ---------- Bottom nav ---------- */
 
 .tanod-bottom-nav {
@@ -374,6 +396,20 @@
 .tanod-badge-monitoring { background: var(--tanod-amber-dark); }
 .tanod-badge-resolved { background: var(--tanod-green); }
 
+.tanod-badge-log-completed { background: var(--tanod-green); }
+.tanod-badge-log-partial { background: var(--tanod-yellow); }
+.tanod-badge-log-failed { background: var(--tanod-red); }
+
+.tanod-list-item-today {
+    background: #fffbeb;
+    border-color: var(--tanod-amber);
+    border-width: 2px;
+}
+
+.tanod-badge-today {
+    background: var(--tanod-green);
+}
+
 /* ---------- Forms ---------- */
 
 .tanod-form {
@@ -546,6 +582,14 @@ textarea.tanod-input {
     justify-content: center;
     gap: 6px;
     flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.tanod-modal-photo {
+    width: 100%;
+    max-height: 240px;
+    object-fit: cover;
+    border-radius: 10px;
     margin-bottom: 16px;
 }
 

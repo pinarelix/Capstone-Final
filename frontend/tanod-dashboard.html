@@ -31,10 +31,14 @@
         </button>
     </header>
 
+    <div id="tanodOfflineBanner" class="tanod-offline-banner">
+        <i class="fa-solid fa-wifi"></i> You're offline — changes won't save until you're back online.
+    </div>
+
     <main class="tanod-main">
 
         <!-- Profile -->
-        <section class="tanod-card tanod-card-accent tanod-panel active" id="profileCard" data-panel="profile">
+        <section class="tanod-card tanod-card-accent tanod-panel" id="profileCard" data-panel="profile">
             <div class="tanod-card-header">
                 <i class="fa-solid fa-id-badge"></i>
                 <h2>My Profile</h2>
@@ -73,7 +77,7 @@
         </section>
 
         <!-- My Patrol Schedule -->
-        <section class="tanod-card tanod-panel" id="scheduleCard" data-panel="schedule">
+        <section class="tanod-card tanod-panel active" id="scheduleCard" data-panel="schedule">
             <div class="tanod-card-header">
                 <i class="fa-solid fa-calendar-days"></i>
                 <h2>My Patrol Schedule</h2>
@@ -194,6 +198,13 @@
                 </div>
 
                 <div class="tanod-form-group">
+                    <button type="button" id="captureGpsBtn" class="tanod-btn tanod-btn-secondary tanod-btn-block">
+                        <i class="fa-solid fa-location-crosshairs"></i> Attach My Current Location (GPS)
+                    </button>
+                    <p id="gpsStatus" class="tanod-form-status"></p>
+                </div>
+
+                <div class="tanod-form-group">
                     <label for="reportAddress">Address <span class="tanod-muted">(optional)</span></label>
                     <input type="text" id="reportAddress" class="tanod-input" placeholder="e.g. House No. 12, near the chapel" maxlength="255">
                 </div>
@@ -201,6 +212,12 @@
                 <div class="tanod-form-group">
                     <label for="reportDescription">Description</label>
                     <textarea id="reportDescription" class="tanod-input" rows="3" placeholder="Describe what happened..."></textarea>
+                </div>
+
+                <div class="tanod-form-group">
+                    <label for="reportPhoto">Photo Evidence <span class="tanod-muted">(optional)</span></label>
+                    <input type="file" id="reportPhoto" class="tanod-input" accept="image/jpeg,image/png,image/webp" capture="environment">
+                    <p id="reportPhotoPreview" class="tanod-form-status"></p>
                 </div>
 
                 <button type="submit" class="tanod-btn tanod-btn-primary tanod-btn-block">
@@ -275,11 +292,11 @@
     </main>
 
     <nav class="tanod-bottom-nav">
-        <button type="button" class="tanod-nav-btn active" data-panel="profile">
+        <button type="button" class="tanod-nav-btn" data-panel="profile">
             <i class="fa-solid fa-id-badge"></i>
             <span>Profile</span>
         </button>
-        <button type="button" class="tanod-nav-btn" data-panel="schedule">
+        <button type="button" class="tanod-nav-btn active" data-panel="schedule">
             <i class="fa-solid fa-calendar-days"></i>
             <span>Schedule</span>
         </button>
@@ -325,6 +342,7 @@
             </div>
             <h2 id="incidentModalType">Incident</h2>
             <div id="incidentModalBadges" class="tanod-modal-badges"></div>
+            <img id="incidentModalPhoto" class="tanod-modal-photo" style="display: none;" alt="Incident photo evidence">
             <div id="incidentModalDetails" class="tanod-modal-details"></div>
         </div>
     </div>

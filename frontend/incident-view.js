@@ -443,6 +443,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
+                ${incident.photo_path ? `<img class="incident-photo" src="/uploads/incident-photos/${escapeHTML(incident.photo_path)}" alt="Incident photo evidence">` : ''}
+
                 <div class="incident-detail-grid">
                     <div class="incident-detail-card">
                         <div class="incident-detail-icon"><i class="fa-solid fa-location-dot"></i></div>
