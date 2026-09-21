@@ -185,7 +185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const formattedDate = formatDate(item.date);
                     const formattedTime = formatTime(item.time);
                     
-                    const location = item.street_name || item.location || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
+                    const location = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
 
                     tr.innerHTML = `
                         <td class="font-bold">${item.id || 'N/A'}</td>
@@ -245,8 +245,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         const highRiskCount = monthData.filter(item => item.danger_level?.includes("Level 3") || item.danger_level?.includes("High")).length;
         const moderateRiskCount = monthData.filter(item => item.danger_level?.includes("Level 2") || item.danger_level?.includes("Moderate")).length;
 
-        const locations = [...new Set(monthData.map(item => item.street_name || item.location || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : null)).filter(Boolean))];
-        const hotspots = locations.length > 0 ? locations.join(', ') : 'General Coverage Area';
+        // Rank locations by incident count instead of just listing every
+        // distinct street that had any incident at all - previously this
+        // dumped every location from the whole month into "Priority
+        // Hotspots", which isn't a priority list, just the full list.
+        // Mirrors the same group-count-sort pattern dashboard.js's "Top
+        // Hotspot Areas" widget already uses.
+        const locationCounts = {};
+        monthData.forEach(item => {
+            const loc = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : null);
+            if (loc) locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+        });
+        const rankedLocations = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]);
+        const topLocations = rankedLocations.slice(0, 3);
+        const topLocationName = topLocations.length > 0 ? topLocations[0][0] : null;
+        const hotspots = topLocations.length > 0
+            ? topLocations.map(([loc, count]) => `${loc} (${count} incident${count > 1 ? 's' : ''})`).join(', ')
+            : 'General Coverage Area';
 
         let peakHour = "N/A";
         if (monthData.length > 0) {
@@ -270,14 +285,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (highRiskCount > 2) {
             summary = `High crime intensity detected. Heavy tanod deployment advised across ${hotspots}.`;
             directives = [
-                `Deploy stationary Tanod Outpost in ${locations[0] || 'Priority Zones'} between 7:00 PM and 11:00 PM.`,
+                `Deploy stationary Tanod Outpost in ${topLocationName || 'Priority Zones'} between 7:00 PM and 11:00 PM.`,
                 "Mobile motorcycle patrol every 30 minutes.",
                 "Mandatory coordination with Caloocan Police Station 12 for high-risk zones."
             ];
         } else if (moderateRiskCount > 2) {
             summary = `Moderate disturbance risk. Increase evening foot patrols around ${hotspots}.`;
             directives = [
-                `Deploy 4 Barangay Tanods at ${locations[0] || 'designated areas'} during closing hours (6 PM - 9 PM).`,
+                `Deploy 4 Barangay Tanods at ${topLocationName || 'designated areas'} during closing hours (6 PM - 9 PM).`,
                 "Regular patrol drive for traffic decongestion.",
                 "Maintain active presence to prevent late-night altercations."
             ];
@@ -353,17 +368,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             const csvField = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
-            let csvContent = "Incident ID,Type,Date,Time,Location,Status,Danger Level,Recommended Action,Reporter Name,Reporter Contact\n";
+            let csvContent = "Incident ID,Type,Date,Time,Location,Address,Status,Danger Level,Recommended Action,Reporter Name,Reporter Contact\n";
 
             filteredData.forEach(item => {
-                const location = item.street_name || item.location || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
+                const location = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
 
                 const reporterName = item.reporter_name || 'N/A';
                 const reporterContact = item.reporter_contact_no || 'N/A';
 
                 csvContent += [
                     item.id || '', item.incident_type || '', item.date || '', item.time || '',
-                    location, item.status || '', item.danger_level || '',
+                    location, item.address || '', item.status || '', item.danger_level || '',
                     item.recommended_action || '', reporterName, reporterContact
                 ].map(csvField).join(',') + '\n';
             });
