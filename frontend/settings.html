@@ -1317,7 +1317,19 @@ async function loadLoginHistory() {
                 document.getElementById('totalUsers').textContent = 'Error';
             }
 
-            document.getElementById('uptimeValue').textContent = '0h 0m';
+            try {
+                const statusResponse = await apiFetch('/system/status');
+                if (statusResponse.ok) {
+                    const { uptimeSeconds } = await statusResponse.json();
+                    const hours = Math.floor(uptimeSeconds / 3600);
+                    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+                    document.getElementById('uptimeValue').textContent = `${hours}h ${minutes}m`;
+                } else {
+                    document.getElementById('uptimeValue').textContent = 'Unknown';
+                }
+            } catch (e) {
+                document.getElementById('uptimeValue').textContent = 'Unknown';
+            }
             const now = new Date();
             document.getElementById('lastUpdated').textContent = now.toLocaleString();
 

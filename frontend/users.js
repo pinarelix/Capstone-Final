@@ -578,7 +578,7 @@ async function deleteUser(id) {
         return;
     }
 
-    showDeleteModal(`Are you sure you want to delete user "${user.name}"?`, id, 'user');
+    showDeleteModal(`Are you sure you want to deactivate user "${user.name}"?`, id, 'user');
 }
 
 window.confirmDeleteUser = async function(id) {
@@ -594,11 +594,11 @@ window.confirmDeleteUser = async function(id) {
         }
 
         await loadUsers();
-        showToast("User account deleted successfully.", "success");
+        showToast("User account deactivated successfully.", "success");
 
     } catch (error) {
         console.error('Error deleting user:', error);
-        showToast(error.message || 'Failed to delete user.', 'error');
+        showToast(error.message || 'Failed to deactivate user.', 'error');
     }
 };
 

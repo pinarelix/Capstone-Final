@@ -1024,6 +1024,22 @@ body {
     width: 100%;
 }
 
+/* Incident Types bar chart grows with the number of categories instead of
+   squeezing them into a fixed height - it scrolls internally once there
+   are too many bars to stay readable. */
+.chart-container--scroll {
+    height: 280px;
+    max-height: 420px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.chart-container--scroll .chart-inner {
+    position: relative;
+    width: 100%;
+    height: 280px;
+}
+
 
 /* ============================================================
    ANALYTICS MINI CARDS

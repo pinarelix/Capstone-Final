@@ -15,6 +15,7 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SERVER_START_TIME = Date.now();
 
 // Caches GET /api/heatmap/incidents' result — that query re-runs on
 // every risk-map load, but the underlying data only changes when an
@@ -217,6 +218,35 @@ function validate(schema) {
         next();
     };
 }
+
+// ============================================================
+// RATE LIMITING (auth endpoints only)
+// In-memory sliding window - this app runs as a single-process
+// Electron/LAN deployment with no shared store (Redis, etc.), so a
+// per-process Map is enough. Resets on server restart; that's fine for
+// a brute-force/enumeration guard.
+// ============================================================
+const rateLimitBuckets = new Map();
+
+function rateLimit({ windowMs, max }) {
+    return (req, res, next) => {
+        const key = `${req.ip}:${req.path}`;
+        const now = Date.now();
+        const attempts = (rateLimitBuckets.get(key) || []).filter(t => now - t < windowMs);
+
+        if (attempts.length >= max) {
+            const retryAfterSec = Math.ceil((windowMs - (now - attempts[0])) / 1000);
+            res.set('Retry-After', String(retryAfterSec));
+            return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
+        }
+
+        attempts.push(now);
+        rateLimitBuckets.set(key, attempts);
+        next();
+    };
+}
+
+const authRateLimit = rateLimit({ windowMs: 5 * 60 * 1000, max: 8 });
 
 // ============================================================
 // AUDIT LOGGING HELPER
@@ -825,6 +855,7 @@ app.get('/api/users', authenticate, requireRole(['Administrator']), async (req, 
                 u.id, u.name, u.username, u.role,
                 u.contact_no, u.is_active, u.last_login_at, u.created_at, u.updated_at
             FROM users u
+            WHERE u.is_active = 1
             ORDER BY u.id
         `);
         res.json(rows);
@@ -847,6 +878,7 @@ app.get('/api/users/search', authenticate, requireRole(['Administrator']), async
                     u.id, u.name, u.username, u.role,
                     u.contact_no, u.is_active, u.last_login_at
                 FROM users u
+                WHERE u.is_active = 1
                 ORDER BY u.id
             `);
             return res.json(rows);
@@ -858,9 +890,10 @@ app.get('/api/users/search', authenticate, requireRole(['Administrator']), async
                 u.id, u.name, u.username, u.role,
                 u.contact_no, u.is_active, u.last_login_at
             FROM users u
-            WHERE u.name LIKE ?
+            WHERE u.is_active = 1
+              AND (u.name LIKE ?
                OR u.username LIKE ?
-               OR u.role LIKE ?
+               OR u.role LIKE ?)
             ORDER BY u.id
         `, [searchTerm, searchTerm, searchTerm]);
 
@@ -982,12 +1015,16 @@ app.delete('/api/users/:id', authenticate, requireRole(['Administrator']), async
             );
         }
         
+        // Soft-delete only - a hard DELETE here would cascade and wipe this
+        // user's own audit_logs/login_history rows (ON DELETE CASCADE),
+        // erasing the accountability trail of what they did while active.
+        // Mirrors the tanod_record deactivation pattern.
         await pool.query(
-            'DELETE FROM users WHERE id = ?',
+            'UPDATE users SET is_active = 0 WHERE id = ?',
             [userId]
         );
-        
-        res.json({ message: 'User account deleted successfully.' });
+
+        res.json({ message: 'User account deactivated successfully.' });
         
     } catch (error) {
         console.error('❌ Error deleting user:', error);
@@ -1011,7 +1048,7 @@ app.get('/api/users-list', authenticate, requireRole(['Administrator', 'Decision
 // 🔥 AUTH - LOGIN (WITH LOGIN HISTORY)
 // ============================================================
 
-app.post('/api/auth/login', validate(loginSchema), async (req, res) => {
+app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, res) => {
     try {
         const { username, password } = req.body;
         const ip = req.ip || req.connection?.remoteAddress || 'unknown';
@@ -1164,7 +1201,7 @@ app.get('/api/login-history', authenticate, requireRole(['Administrator']), asyn
 // AUTH - FORGOT PASSWORD
 // ============================================================
 
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
     try {
         const { username } = req.body;
 
@@ -1207,7 +1244,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 // AUTH - RESET PASSWORD
 // ============================================================
 
-app.post('/api/auth/reset-password', async (req, res) => {
+app.post('/api/auth/reset-password', authRateLimit, async (req, res) => {
     try {
         const { reset_token, new_password } = req.body;
 
@@ -1842,12 +1879,19 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Dec
         );
         const activeDay = activeResult.length > 0 ? activeResult[0].count : 0;
 
+        // Compares against calendar-month date ranges rather than a bare
+        // MONTH(date) equality - the old MONTH(CURDATE()) - 1 check broke
+        // every January (evaluates to 0, matching nothing) and the old
+        // YEAR(date) = YEAR(CURDATE()) filter would have excluded last
+        // December anyway even if the month math were fixed.
         const [changeResult] = await pool.query(`
-            SELECT 
-                SUM(CASE WHEN MONTH(date) = MONTH(CURDATE()) THEN 1 ELSE 0 END) as current_month,
-                SUM(CASE WHEN MONTH(date) = MONTH(CURDATE()) - 1 THEN 1 ELSE 0 END) as prev_month
-            FROM incidents 
-            WHERE YEAR(date) = YEAR(CURDATE()) AND TRIM(status) != 'Resolved'
+            SELECT
+                SUM(CASE WHEN date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 ELSE 0 END) as current_month,
+                SUM(CASE WHEN date >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01')
+                          AND date < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 ELSE 0 END) as prev_month
+            FROM incidents
+            WHERE date >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01')
+              AND TRIM(status) != 'Resolved'
         `);
         const current = changeResult[0].current_month || 0;
         const prev = changeResult[0].prev_month || 0;
@@ -2086,6 +2130,13 @@ app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
         const { name, position, contact_no, username, pin_code, is_active } = req.body;
         const id = req.params.id;
 
+        // Resetting a Tanod's login PIN is a credential change, not a
+        // record edit - Decision-Maker keeps edit access to the rest of
+        // this form but can't touch the PIN.
+        if (pin_code && req.userRole !== 'Administrator') {
+            return res.status(403).json({ error: 'Only an Administrator can reset a Tanod\'s PIN.' });
+        }
+
         const [oldData] = await pool.query('SELECT * FROM tanod_record WHERE id = ?', [id]);
 
         if (oldData.length === 0) {
@@ -2105,7 +2156,11 @@ app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
         `, [
             name, position || 'Tanod', contact_no || null,
             username, pinHash,
-            is_active !== undefined ? is_active : 1, id
+            // is_active isn't part of this form's payload today, so it was
+            // never actually sent - but defaulting to 1 here meant every
+            // plain name/contact edit silently reactivated a deactivated
+            // tanod. Default to the existing value instead.
+            is_active !== undefined ? is_active : oldData[0].is_active, id
         ]);
 
         if (result.affectedRows === 0) {
@@ -2182,7 +2237,7 @@ app.delete('/api/tanods/:id', authenticate, requireRole(['Administrator']), asyn
 
 // ---------- TANOD SELF-SERVICE (login, dashboard, own schedule/incidents/logs) ----------
 
-app.post('/api/tanod/login', validate(tanodLoginSchema), async (req, res) => {
+app.post('/api/tanod/login', authRateLimit, validate(tanodLoginSchema), async (req, res) => {
     try {
         const { username, pin_code } = req.body;
         const ip = req.ip || req.connection?.remoteAddress || 'unknown';
@@ -3377,6 +3432,10 @@ app.get('/', (req, res) => {
 // ============================================================
 // START SERVER
 // ============================================================
+
+app.get('/api/system/status', authenticate, requireRole(['Administrator', 'Decision-Maker']), (req, res) => {
+    res.json({ uptimeSeconds: Math.floor((Date.now() - SERVER_START_TIME) / 1000) });
+});
 
 async function startServer() {
     await testConnection();

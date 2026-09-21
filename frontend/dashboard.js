@@ -333,6 +333,21 @@ function renderCharts(data) {
         const labels = data.types.map(item => item.incident_type);
         const values = data.types.map(item => item.count);
 
+        // Cycles through the palette so any number of incident types gets a
+        // distinct-looking color instead of running out after 6.
+        const TYPE_COLORS = [
+            "#0ea5e9", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6", "#06b6d4",
+            "#f43f5e", "#22c55e", "#a855f7", "#eab308", "#14b8a6", "#3b82f6",
+            "#ec4899", "#84cc16", "#f97316", "#6366f1", "#059669", "#d946ef",
+            "#0891b2", "#dc2626", "#65a30d"
+        ];
+        const barColors = labels.map((_, i) => TYPE_COLORS[i % TYPE_COLORS.length]);
+
+        const typesInner = document.getElementById("incidentTypesChartInner");
+        if (typesInner) {
+            typesInner.style.height = Math.max(280, labels.length * 28) + "px";
+        }
+
         incidentTypesChart = new Chart(typesCanvas, {
             type: "bar",
             data: {
@@ -340,7 +355,7 @@ function renderCharts(data) {
                 datasets: [{
                     label: "Incident Records",
                     data: values,
-                    backgroundColor: ["#0ea5e9", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6", "#06b6d4"],
+                    backgroundColor: barColors,
                     borderRadius: 8,
                     borderSkipped: false,
                     barThickness: 20
