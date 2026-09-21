@@ -21,8 +21,5 @@ const BARANGAY_LOCATIONS = [
     'Mayapis Street', 'Mulawin Street', 'Narra Street', 'Palosapis Street', 'Papaya Street',
     'Pili Street', 'Rimas Street', 'Riverside Street', 'Sampaguita Street', 'Sampaloc Street',
     'Santol Street', 'Saplungan Street', 'Sitao Street', 'Sta. Maria Street', 'Talisay Street',
-    'Taluto Street', 'Tibeg Street', 'Tindalo Street', 'Urdaneta Street',
-    // Broader areas/puroks (not individual streets) — legitimate patrol_schedules.location
-    // values that predate this list, per the original Tanod assigned-area dropdown.
-    'Purok 1-3', 'Purok 4-6', 'All Areas'
+    'Taluto Street', 'Tibeg Street', 'Tindalo Street', 'Urdaneta Street'
 ];

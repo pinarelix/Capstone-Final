@@ -1,8 +1,6 @@
 // Canonical list of valid incident/patrol locations for Barangay 179 —
 // the 74 streets already used by frontend/incident.html's "Select
-// Street" dropdown, plus the broader area/purok names patrol schedules
-// legitimately use instead of one exact street (a patrol can cover
-// "Purok 1-3" as a whole, not just a single named street).
+// Street" dropdown.
 //
 // Kept in sync by hand with frontend/locationList.js (same values) —
 // this codebase has no bundler/build step to share one file between
@@ -22,10 +20,7 @@ const BARANGAY_LOCATIONS = [
     'Mayapis Street', 'Mulawin Street', 'Narra Street', 'Palosapis Street', 'Papaya Street',
     'Pili Street', 'Rimas Street', 'Riverside Street', 'Sampaguita Street', 'Sampaloc Street',
     'Santol Street', 'Saplungan Street', 'Sitao Street', 'Sta. Maria Street', 'Talisay Street',
-    'Taluto Street', 'Tibeg Street', 'Tindalo Street', 'Urdaneta Street',
-    // Broader areas/puroks (not individual streets) — legitimate patrol_schedules.location
-    // values that predate this list, per the original Tanod assigned-area dropdown.
-    'Purok 1-3', 'Purok 4-6', 'All Areas'
+    'Taluto Street', 'Tibeg Street', 'Tindalo Street', 'Urdaneta Street'
 ];
 
 module.exports = { BARANGAY_LOCATIONS };
