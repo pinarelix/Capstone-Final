@@ -25,10 +25,7 @@ const BARANGAY_LOCATIONS = [
     'Taluto Street', 'Tibeg Street', 'Tindalo Street', 'Urdaneta Street',
     // Broader areas/puroks (not individual streets) — legitimate patrol_schedules.location
     // values that predate this list, per the original Tanod assigned-area dropdown.
-    'Purok 1-3', 'Purok 4-6', 'All Areas',
-    // Already in real use by existing patrol schedules but not otherwise on this list —
-    // included so editing those schedules doesn't get blocked by this new validation.
-    'Ananapia', 'Sulasok'
+    'Purok 1-3', 'Purok 4-6', 'All Areas'
 ];
 
 module.exports = { BARANGAY_LOCATIONS };
