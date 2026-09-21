@@ -48,12 +48,18 @@
     white-space: nowrap;
 }
 
-.role-admin {
+/* Scoped to .role-badge.role-admin (not just .role-admin alone) -
+   apiHelper.js's applyRoleBasedUI() also adds a bare "role-admin" /
+   "role-decision-maker" class straight onto <body> for CSS-based
+   sidebar visibility, and an unscoped selector here was matching that
+   too, painting the whole page background light blue/amber instead
+   of just this badge. */
+.role-badge.role-admin {
     background: #dbeafe;
     color: #1d4ed8;
 }
 
-.role-decision-maker {
+.role-badge.role-decision-maker {
     background: #fef3c7;
     color: #b45309;
 }
