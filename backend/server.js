@@ -160,6 +160,7 @@ const tanodIncidentSchema = Joi.object({
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
+    address: Joi.string().max(255).allow('', null),
     description: Joi.string().allow('', null)
 });
 
@@ -2415,7 +2416,7 @@ app.get('/api/tanod/my-reports/:tanodId', authenticateTanod, requireOwnTanodId, 
 
 app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema), async (req, res) => {
     try {
-        const { incident_type, date, time, location, description } = req.body;
+        const { incident_type, date, time, location, address, description } = req.body;
 
         const pin = await getAnyPinForLocation(location);
 
@@ -2425,9 +2426,9 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
 
         const [result] = await pool.query(`
             INSERT INTO incidents
-            (incident_type, date, time, latitude, longitude, street_name, reporter_tanod_id,
+            (incident_type, date, time, latitude, longitude, street_name, address, reporter_tanod_id,
              status, danger_level, description, time_of_day, day_of_week, is_weekend)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             incident_type,
             date,
@@ -2435,6 +2436,7 @@ app.post('/api/tanod/incident', authenticateTanod, validate(tanodIncidentSchema)
             pin.latitude,
             pin.longitude,
             location,
+            address || null,
             req.tanodId,
             'Open',
             'Calculated by System',

@@ -626,6 +626,7 @@ async function handleIncidentReport(e, tanod) {
         date: document.getElementById('reportDate').value,
         time: document.getElementById('reportTime').value,
         location: document.getElementById('reportLocation').value,
+        address: document.getElementById('reportAddress').value.trim(),
         description: document.getElementById('reportDescription').value.trim()
     };
 
