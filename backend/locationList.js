@@ -6,27 +6,25 @@
 // this codebase has no bundler/build step to share one file between
 // frontend and backend, and the list is short and rarely changes.
 const BARANGAY_LOCATIONS = [
-    'Acacia Street', 'Aguho Street', 'Alibangbang Street', 'Almasiga Street',
-    'Amparo Main Road', 'Amparo Subdivision Main Road', 'Amugis Street', 'Anahaw Street',
+    'Acacia Street', 'Aguho Street', 'Alibangbang Street', 'Amugis Street', 'Anahaw Street',
     'Anapla Street', 'Annunciation Street', 'Anonas Street', 'Antipolo Street', 'Anubing Street',
     'Ascencion Street', 'Assumption Street',
     'Bagtikan Street', 'Balimbing Street', 'Balite Street', 'Balubad Street', 'Banaba Street',
-    'Bangkal Street', 'Bayabas Street', 'Bigaa Street', 'Binayuyo Street', 'Bitao Street', 'Bulak Street',
-    'C. M. Hoskins Street', 'Carnation Street', 'Crispulo Street', 'Dahlia Extension', 'Dao Street', 'Dapdap Street',
-    'Duhat Street', 'Guagua Street', 'H. Dela Costa Avenue', 'Iloilo Street', 'Ipil Street', 'Jaro Street',
-    'Kakawate Street', 'Kalantas Street', 'Kalinga Street', 'Kamachile Street', 'Kamagong Street', 'Kamias Street',
-    'Kamuning Street', 'Kaong Street', 'Katmon Street', 'Katuray Street', 'Kawayan Street',
-    'Kaymito Street', 'Kupang Street', 'Lanite Street', 'Lanzones Street', 'Lawaan Street',
+    'Bangkal Street', 'Bayabas Street', 'Bigaa Street', 'Binayuyo Street', 'Bitao Street',
+    'C. M. Hoskins Street', 'Dao Street', 'Dapdap Street',
+    'Duhat Street', 'Guagua Street', 'H. Dela Costa Avenue', 'Iloilo Street', 'Jaro Street',
+    'Kalinga Street', 'Kamias Street', 'Kamuning Street', 'Kaong Street', 'Katmon Street',
+    'Kawayan Street', 'Kaymito Street', 'Kupang Street', 'Lawaan Street',
     'Lukban Street', 'Mabolo Street', 'Macabud Street', 'Malanting Street', 'Mandaue Street',
-    'Mangga Street', 'Maraluhat Street', 'Marang Street', 'Market Area', 'Mary the Queen Street',
-    'Mayapis Street', 'Mulawin Street', 'Narra Street', 'Nativity Street', 'Ormoc Street',
-    'Palosapis Street', 'Papaya Street', 'Pentecost Street', 'Pili Street',
-    'Resurrection Street', 'Rimas Street', 'Riverside Street', 'Roxas Street',
+    'Mangga Street', 'Maraluhat Street', 'Marang Street', 'Mary the Queen Street',
+    'Mulawin Street', 'Nativity Street', 'Ormoc Street',
+    'Pentecost Street', 'Pili Street',
+    'Resurrection Street', 'Rimas Street', 'Roxas Street',
     'Saint Andrew Street', 'Saint Bartholomew Street', 'Saint George Street', 'Saint Ignatius Street',
-    'Saint John Street', 'Saint Mark Street', 'Saint Matthew Street', 'Saint Peter Street',
-    'Sampaguita Street', 'Sampaloc Street', 'Santol Street', 'Saplungan Street', 'Sitao Street',
-    'Sta. Maria Street', 'Talisay Street', 'Taluto Street', 'Tibeg Street', 'Tindalo Street',
-    'Urdaneta Street', 'Wawa Street', 'Xavier Street', 'Zambales Street'
+    'Saint John Street', 'Saint Matthew Street', 'Saint Peter Street',
+    'Sampaloc Street', 'Santol Street', 'Saplungan Street',
+    'Tibeg Street', 'Tindalo Street',
+    'Wawa Street', 'Xavier Street', 'Zambales Street'
 ];
 
 module.exports = { BARANGAY_LOCATIONS };
