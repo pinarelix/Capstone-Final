@@ -464,15 +464,6 @@
 
                 </div>
 
-                <div class="crime-legend-panel" id="crimeLegendPanel">
-                    <p class="crime-legend-item"><strong>Violent Crimes</strong> — incidents involving physical harm, threats, or force against a person (e.g. homicide, physical injury, kidnapping, threats).</p>
-                    <p class="crime-legend-item"><strong>Property Crimes</strong> — incidents involving theft, damage, or illegal use of someone else's property (e.g. theft, robbery, vandalism, trespassing).</p>
-                    <p class="crime-legend-item"><strong>Financial / Fraud Crimes</strong> — deception or scams committed for money (e.g. estafa, swindling, cybercrime scams).</p>
-                    <p class="crime-legend-item"><strong>Social / Public Order Crimes</strong> — incidents that disturb peace or a person's honor/reputation (e.g. alarms and scandals, harassment, defamation).</p>
-                    <p class="crime-legend-item"><strong>Special / Child-Related</strong> — cases specifically involving the welfare or protection of minors (e.g. BCPC cases, child support).</p>
-                    <p class="crime-legend-item"><strong>Other Incidents</strong> — reports that don't fall under the categories above (e.g. missing person, noise complaint, traffic, animal welfare).</p>
-                </div>
-
                 <div class="chart-container chart-container--scroll" id="incidentTypesChartContainer">
                     <div class="chart-inner" id="incidentTypesChartInner">
                         <canvas id="incidentTypesChart"></canvas>
@@ -511,6 +502,46 @@
                     <canvas id="dangerLevelChart"></canvas>
                 </div>
 
+            </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             CRIME CATEGORY LEGEND (own box, toggled via the
+             "Legend" button on the Incident Types chart)
+        ====================================================== -->
+        <section class="card crime-legend-card" id="crimeLegendPanel">
+
+            <div class="chart-header">
+
+                <div>
+                    <span class="chart-kicker">
+                        ANALYTICS
+                    </span>
+
+                    <h2>
+                        Crime Category Guide
+                    </h2>
+
+                    <p>
+                        Simple meanings for the incident type groupings shown above.
+                    </p>
+                </div>
+
+                <div class="chart-icon bar-icon">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+
+            </div>
+
+            <div class="crime-legend-list">
+                <p class="crime-legend-item"><strong>Violent Crimes</strong> — incidents involving physical harm, threats, or force against a person (e.g. homicide, physical injury, kidnapping, threats).</p>
+                <p class="crime-legend-item"><strong>Property Crimes</strong> — incidents involving theft, damage, or illegal use of someone else's property (e.g. theft, robbery, vandalism, trespassing).</p>
+                <p class="crime-legend-item"><strong>Financial / Fraud Crimes</strong> — deception or scams committed for money (e.g. estafa, swindling, cybercrime scams).</p>
+                <p class="crime-legend-item"><strong>Social / Public Order Crimes</strong> — incidents that disturb peace or a person's honor/reputation (e.g. alarms and scandals, harassment, defamation).</p>
+                <p class="crime-legend-item"><strong>Special / Child-Related</strong> — cases specifically involving the welfare or protection of minors (e.g. BCPC cases, child support).</p>
+                <p class="crime-legend-item"><strong>Other Incidents</strong> — reports that don't fall under the categories above (e.g. missing person, noise complaint, traffic, animal welfare).</p>
             </div>
 
         </section>
