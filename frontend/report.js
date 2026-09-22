@@ -417,6 +417,35 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    // Records who printed or exported what, with which filters, in the
+    // audit trail - window.print() and the CSV Blob never touch the
+    // backend on their own, so without this call neither action would
+    // ever show up there. Fire-and-forget: a logging hiccup should never
+    // block the actual print/export the admin asked for.
+    function logReportAction(action) {
+        try {
+            apiFetch('/reports/log-export', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action,
+                    month: monthSelect?.value || null,
+                    filters: {
+                        dateFrom: filterDateFrom?.value || '',
+                        dateTo: filterDateTo?.value || '',
+                        timeFrom: filterTimeFrom?.value || '',
+                        timeTo: filterTimeTo?.value || '',
+                        status: filterStatus?.value || '',
+                        incidentType: filterType?.value || '',
+                        location: filterLocation?.value || ''
+                    },
+                    recordCount: applyFilters(monthSelect?.value, currentIncidentData).length
+                })
+            }).catch(err => console.error('Error logging report action:', err));
+        } catch (err) {
+            console.error('Error logging report action:', err);
+        }
+    }
+
     // =========================================================
     // EVENT LISTENERS
     // =========================================================
@@ -448,6 +477,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (printBtn) {
         printBtn.addEventListener("click", () => {
+            logReportAction('PRINT_REPORT');
             window.print();
         });
     }
@@ -485,6 +515,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 ].map(csvField).join(',') + '\n';
             });
 
+            logReportAction('EXPORT_CSV_REPORT');
+
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
@@ -516,6 +548,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (modalPrintBtn) {
         modalPrintBtn.addEventListener("click", () => {
+            logReportAction('PRINT_PATROL_REPORT');
             closePatrolModal();
             setTimeout(() => window.print(), 300);
         });

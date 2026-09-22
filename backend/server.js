@@ -171,6 +171,25 @@ const incidentSchema = Joi.object({
     priority: Joi.string().valid('Normal', 'Urgent').default('Normal')
 });
 
+// Report Export/Print Schema - the Reports page's Print/Export CSV
+// buttons never hit the backend at all today (window.print() and a
+// client-built Blob), so there's currently no audit trail of who
+// printed or exported what. This is the log-only endpoint for that.
+const reportExportSchema = Joi.object({
+    action: Joi.string().valid('PRINT_REPORT', 'EXPORT_CSV_REPORT', 'PRINT_PATROL_REPORT').required(),
+    month: Joi.string().pattern(/^\d{4}-\d{2}$/).allow('', null),
+    filters: Joi.object({
+        dateFrom: Joi.string().allow('', null),
+        dateTo: Joi.string().allow('', null),
+        timeFrom: Joi.string().allow('', null),
+        timeTo: Joi.string().allow('', null),
+        status: Joi.string().allow('', null),
+        incidentType: Joi.string().allow('', null),
+        location: Joi.string().allow('', null)
+    }).default({}),
+    recordCount: Joi.number().integer().min(0).allow(null)
+});
+
 // User Schema
 const userSchema = Joi.object({
     name: Joi.string().required(),
@@ -3303,6 +3322,21 @@ app.post('/api/cart/analyze', authenticate, requireRole(['Administrator', 'Decis
     } catch (error) {
         console.error('❌ Error running CART analysis:', error);
         res.status(500).json({ error: 'Failed to run CART analysis' });
+    }
+});
+
+// ============================================================
+// REPORTS - PRINT/EXPORT AUDIT LOGGING
+// ============================================================
+
+app.post('/api/reports/log-export', authenticate, validate(reportExportSchema), async (req, res) => {
+    try {
+        const { action, month, filters, recordCount } = req.body;
+        await logAudit(req.userId, action, 'reports', null, null, { month, filters, recordCount }, req);
+        res.json({ message: 'Logged.' });
+    } catch (error) {
+        console.error('❌ Error logging report export:', error);
+        res.status(500).json({ error: 'Failed to log report export' });
     }
 });
 

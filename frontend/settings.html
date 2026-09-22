@@ -413,6 +413,7 @@
         .audit-badge.update { background: #fef3c7; color: #d97706; }
         .audit-badge.delete { background: #fee2e2; color: #dc2626; }
         .audit-badge.view { background: #f1f5f9; color: #475569; }
+        .audit-badge.export { background: #ede9fe; color: #6d28d9; }
         .audit-badge.default { background: #e2e8f0; color: #475569; }
 
         /* Responsive */
@@ -885,6 +886,9 @@
                         <option value="TANOD_LOGIN">Tanod Login</option>
                         <option value="TANOD_CREATE_INCIDENT">Tanod Report Incident</option>
                         <option value="TANOD_CREATE_PATROL_LOG">Tanod Add Patrol Log</option>
+                        <option value="PRINT_REPORT">Print Report</option>
+                        <option value="EXPORT_CSV_REPORT">Export CSV Report</option>
+                        <option value="PRINT_PATROL_REPORT">Print Patrol Report</option>
                     </select>
 
                     <select id="auditFilterEntity">
@@ -1396,6 +1400,7 @@ async function loadLoginHistory() {
                 else if (action.includes('UPDATE')) badgeClass = 'update';
                 else if (action.includes('DELETE')) badgeClass = 'delete';
                 else if (action.includes('VIEW')) badgeClass = 'view';
+                else if (action.includes('PRINT') || action.includes('EXPORT')) badgeClass = 'export';
 
                 const userDisplay = (log.user_name || log.username || 'System') +
                     (log.actor_type === 'tanod' ? ' <span style="color:#d97706; font-size:0.68rem; font-weight:600;">(Tanod)</span>' : '');
