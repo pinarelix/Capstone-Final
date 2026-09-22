@@ -291,24 +291,52 @@
         }
 
         /* ============================================================
-           INCIDENT DETAIL MODAL - REDESIGN
+           INCIDENT DETAIL MODAL - CASE FILE REDESIGN
+           A dossier metaphor fits the subject (a barangay blotter
+           record): a case-number monospace tag, a tinted header that
+           reads as a folder tab, and a fact-sheet sidebar next to the
+           narrative - not a flat stack of identical cards.
         ============================================================ */
+        .modal-custom .modal-dialog.modal-lg {
+            max-width: 920px;
+        }
+
         .incident-hero {
+            position: relative;
+            overflow: hidden;
             display: flex;
             align-items: center;
-            gap: 16px;
-            padding: 18px 22px;
+            gap: 18px;
+            padding: 22px 26px;
             border-radius: 14px;
-            margin-bottom: 20px;
+            margin-bottom: 22px;
             border: 1px solid #e2e8f0;
+            border-left: 5px solid #94a3b8;
             background: #f8fafc;
         }
 
-        .incident-hero.danger-high { background: linear-gradient(135deg, #fef2f2, #ffffff); border-color: #fecaca; }
-        .incident-hero.danger-mod  { background: linear-gradient(135deg, #fffbeb, #ffffff); border-color: #fde68a; }
-        .incident-hero.danger-low  { background: linear-gradient(135deg, #f0fdf4, #ffffff); border-color: #bbf7d0; }
+        .incident-hero.danger-high { background: linear-gradient(135deg, #fef2f2, #ffffff); border-color: #fecaca; border-left-color: #dc2626; }
+        .incident-hero.danger-mod  { background: linear-gradient(135deg, #fffbeb, #ffffff); border-color: #fde68a; border-left-color: #b45309; }
+        .incident-hero.danger-low  { background: linear-gradient(135deg, #f0fdf4, #ffffff); border-color: #bbf7d0; border-left-color: #047857; }
+
+        /* Oversized, faint watermark of the incident's own icon - a quiet
+           signature touch that reads as a case-stamp rather than
+           decoration. The glyph is set by JS (getIncidentIcon), this
+           just positions and mutes whatever icon lands inside it. */
+        .incident-hero-watermark {
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 6.5rem;
+            opacity: 0.07;
+            pointer-events: none;
+            line-height: 1;
+        }
 
         .incident-hero-icon {
+            position: relative;
+            z-index: 1;
             width: 56px;
             height: 56px;
             border-radius: 14px;
@@ -324,21 +352,31 @@
         .incident-hero.danger-high .incident-hero-icon { background: #fee2e2; color: #dc2626; }
         .incident-hero.danger-mod  .incident-hero-icon { background: #fef3c7; color: #b45309; }
         .incident-hero.danger-low  .incident-hero-icon { background: #d1fae5; color: #047857; }
+        .incident-hero.danger-high { color: #dc2626; }
+        .incident-hero.danger-mod  { color: #b45309; }
+        .incident-hero.danger-low  { color: #047857; }
+
+        .incident-hero-main {
+            position: relative;
+            z-index: 1;
+            min-width: 0;
+        }
 
         .incident-hero-id {
-            font-size: 0.72rem;
-            color: #94a3b8;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            margin: 0 0 2px;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            margin: 0 0 3px;
         }
 
         .incident-hero-title {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             font-weight: 800;
             color: #0f172a;
             margin: 0;
+            line-height: 1.25;
         }
 
         .incident-hero-badges {
@@ -357,64 +395,102 @@
             border: 1px solid #e2e8f0;
         }
 
-        .incident-evidence-gallery {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .incident-evidence-gallery img,
-        .incident-evidence-gallery video {
-            width: 140px;
-            height: 140px;
-            object-fit: cover;
-            border-radius: 10px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .incident-detail-grid {
+        /* Body: a fact-sheet sidebar beside the narrative, not one long
+           stack - the two kinds of content (scannable facts vs. prose)
+           read better split apart. */
+        .incident-body-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
+            grid-template-columns: 240px 1fr;
+            gap: 24px;
+            align-items: start;
         }
 
-        .incident-detail-card {
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
-            padding: 12px 14px;
+        @media (max-width: 700px) {
+            .incident-body-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .incident-meta-panel {
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             background: #f8fafc;
+            overflow: hidden;
         }
 
-        .incident-detail-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 9px;
+        .meta-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 11px 14px;
+            border-bottom: 1px solid #edf1f7;
+        }
+
+        .meta-row:last-child { border-bottom: none; }
+
+        .meta-row-icon {
+            width: 26px;
+            height: 26px;
+            border-radius: 7px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             background: #e0e7ff;
             color: #4338ca;
-            font-size: 0.8rem;
+            font-size: 0.72rem;
+            margin-top: 1px;
         }
 
-        .incident-detail-card .detail-label { margin-bottom: 2px; }
-        .incident-detail-card .detail-value { margin-bottom: 0; font-size: 0.88rem; word-break: break-word; }
+        .meta-row .detail-label { margin-bottom: 1px; font-size: 0.68rem; }
+        .meta-row .detail-value { margin-bottom: 0; font-size: 0.85rem; word-break: break-word; }
+
+        /* Groups the two "who" facts side by side inside the sidebar,
+           visually distinct from the location/time facts around them. */
+        .incident-people-block {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            background: #eef2ff;
+        }
+
+        .incident-people-block .meta-row {
+            border-bottom: none;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .incident-people-block .meta-row:first-child {
+            border-right: 1px solid #e0e7ff;
+        }
+
+        .incident-people-block .meta-row-icon {
+            background: #c7d2fe;
+            color: #3730a3;
+        }
+
+        .incident-narrative {
+            min-width: 0;
+        }
 
         .incident-text-card {
-            padding: 16px;
+            position: relative;
+            padding: 16px 16px 16px 20px;
             border: 1px solid #e2e8f0;
-            border-radius: 12px;
+            border-left: 3px solid #cbd5e1;
+            border-radius: 10px;
             background: white;
             margin-bottom: 14px;
         }
 
         .incident-text-card:last-child { margin-bottom: 0; }
+
+        .incident-text-card.accent-description { border-left-color: #2563eb; }
+        .incident-text-card.accent-statement   { border-left-color: #7c3aed; }
+        .incident-text-card.accent-people      { border-left-color: #b45309; }
+        .incident-text-card.accent-resolution  { border-left-color: #059669; }
+        .incident-text-card.accent-evidence    { border-left-color: #475569; }
 
         .incident-text-card-header {
             display: flex;
@@ -434,6 +510,93 @@
             line-height: 1.6;
             white-space: pre-wrap;
         }
+
+        .incident-evidence-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .incident-evidence-thumb {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: transform 160ms var(--ease-out), box-shadow 160ms ease;
+        }
+
+        .incident-evidence-thumb img,
+        .incident-evidence-thumb video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .incident-evidence-thumb:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+            }
+        }
+
+        .incident-evidence-thumb.is-video::after {
+            content: "\f04b";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1rem;
+            background: rgba(15, 23, 42, 0.28);
+        }
+
+        /* Evidence lightbox */
+        .evidence-lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 1060;
+            background: rgba(9, 12, 20, 0.88);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+
+        .evidence-lightbox.active { display: flex; }
+
+        .evidence-lightbox img,
+        .evidence-lightbox video {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .evidence-lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 160ms ease;
+        }
+
+        .evidence-lightbox-close:hover { background: rgba(255,255,255,0.22); }
 
         /* Toast notification */
         .toast-container {
@@ -832,6 +995,16 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- =========================================================
+     EVIDENCE LIGHTBOX
+============================================================ -->
+<div class="evidence-lightbox" id="evidenceLightbox">
+    <button type="button" class="evidence-lightbox-close" id="evidenceLightboxClose" aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div id="evidenceLightboxContent"></div>
 </div>
 
 <!-- =========================================================
