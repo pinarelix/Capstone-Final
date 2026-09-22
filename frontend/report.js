@@ -50,6 +50,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     const exportCsvBtn = document.getElementById("exportCsvBtn");
     const viewPatrolBtn = document.getElementById("viewPatrolBtn");
 
+    // Refine-within-the-month filters - all optional, combined with the
+    // month filter (and each other) as AND conditions.
+    const filterDateFrom = document.getElementById("filterDateFrom");
+    const filterDateTo = document.getElementById("filterDateTo");
+    const filterTimeFrom = document.getElementById("filterTimeFrom");
+    const filterTimeTo = document.getElementById("filterTimeTo");
+    const filterStatus = document.getElementById("filterStatus");
+    const filterType = document.getElementById("filterType");
+    const filterLocation = document.getElementById("filterLocation");
+    const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+
     const patrolModal = document.getElementById("patrolModal");
     const closeModalBtn = document.getElementById("closeModalBtn");
     const modalCloseActionBtn = document.getElementById("modalCloseActionBtn");
@@ -77,6 +88,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             currentIncidentData = data;
 
             populateMonthDropdown(data);
+            populateLocationDropdown();
 
             const initialMonth = monthSelect.value;
             updateReportView(initialMonth, data);
@@ -133,6 +145,53 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    // BARANGAY_LOCATIONS comes from locationList.js.
+    function populateLocationDropdown() {
+        if (!filterLocation || typeof BARANGAY_LOCATIONS === 'undefined') return;
+        if (filterLocation.options.length > 1) return; // already populated
+
+        BARANGAY_LOCATIONS.forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc;
+            option.textContent = loc;
+            filterLocation.appendChild(option);
+        });
+    }
+
+    // Applies the month filter plus every optional refine-within-month
+    // filter (date range, time-of-day range, status, type, location) as
+    // AND conditions. Shared by the table, CSV export, and the Patrol
+    // Recommendation modal so all three always agree on what's "in view".
+    function applyFilters(monthKey, allData) {
+        if (!monthKey || !allData) return [];
+
+        const dateFrom = filterDateFrom?.value || '';
+        const dateTo = filterDateTo?.value || '';
+        const timeFrom = filterTimeFrom?.value || '';
+        const timeTo = filterTimeTo?.value || '';
+        const status = filterStatus?.value || '';
+        const type = filterType?.value || '';
+        const location = filterLocation?.value || '';
+
+        return allData.filter(item => {
+            if (!item.date || !item.date.startsWith(monthKey)) return false;
+            if (dateFrom && item.date < dateFrom) return false;
+            if (dateTo && item.date > dateTo) return false;
+
+            if ((timeFrom || timeTo) && item.time) {
+                const itemTime = item.time.substring(0, 5); // "HH:MM:SS" -> "HH:MM"
+                if (timeFrom && itemTime < timeFrom) return false;
+                if (timeTo && itemTime > timeTo) return false;
+            }
+
+            if (status && item.status !== status) return false;
+            if (type && item.incident_type !== type) return false;
+            if (location && item.street_name !== location) return false;
+
+            return true;
+        });
+    }
+
     function getStatusBadgeClass(status) {
         if (!status) return 'badge-status open';
         
@@ -184,10 +243,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function updateReportView(monthKey, allData) {
         if (!monthKey || !allData) return;
 
-        const filteredIncidents = allData.filter(item => {
-            if (!item.date) return false;
-            return item.date.startsWith(monthKey);
-        });
+        const filteredIncidents = applyFilters(monthKey, allData);
 
         if (monthBadge) {
             const [year, month] = monthKey.split('-');
@@ -198,7 +254,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (tableBody) {
             tableBody.innerHTML = "";
             if (filteredIncidents.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: #94a3b8;">No incident records found for this month.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: #94a3b8;">No incident records match the selected filters.</td></tr>`;
             } else {
                 filteredIncidents.forEach(item => {
                     const tr = document.createElement("tr");
@@ -265,7 +321,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const monthName = `${monthNames[parseInt(month) - 1]} ${year}`;
 
-        const monthData = currentIncidentData.filter(item => item.date?.startsWith(currentMonth));
+        // Reflects the same refine-within-month filters as the table/CSV -
+        // filtering to just "Theft" incidents, say, should mean the patrol
+        // guidance is about those Theft incidents too, not the whole month.
+        const monthData = applyFilters(currentMonth, currentIncidentData);
         const highRiskCount = monthData.filter(item => item.danger_level?.includes("Level 3") || item.danger_level?.includes("High")).length;
         const moderateRiskCount = monthData.filter(item => item.danger_level?.includes("Level 2") || item.danger_level?.includes("Moderate")).length;
 
@@ -368,6 +427,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    // Every refine-within-month filter re-renders the same table on
+    // change - no separate "Apply" step.
+    [filterDateFrom, filterDateTo, filterTimeFrom, filterTimeTo, filterStatus, filterType, filterLocation]
+        .filter(Boolean)
+        .forEach(field => {
+            field.addEventListener("change", () => {
+                updateReportView(monthSelect.value, currentIncidentData);
+            });
+        });
+
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener("click", () => {
+            [filterDateFrom, filterDateTo, filterTimeFrom, filterTimeTo, filterStatus, filterType, filterLocation]
+                .filter(Boolean)
+                .forEach(field => { field.value = ""; });
+            updateReportView(monthSelect.value, currentIncidentData);
+        });
+    }
+
     if (printBtn) {
         printBtn.addEventListener("click", () => {
             window.print();
@@ -383,10 +461,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
             
-            const filteredData = currentIncidentData.filter(item => item.date?.startsWith(currentMonth));
-            
+            const filteredData = applyFilters(currentMonth, currentIncidentData);
+
             if (filteredData.length === 0) {
-                alert("No data available to export for this month.");
+                alert("No data available to export for the selected filters.");
                 return;
             }
             
