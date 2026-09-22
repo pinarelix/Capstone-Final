@@ -258,14 +258,14 @@
             <div class="kpi-card animated-card">
 
                 <span class="kpi-label">
-                    Latest Active Day
+                    Latest Incident Today
                 </span>
 
                 <div class="kpi-value-wrapper">
 
                     <span
                         class="kpi-value counter"
-                        id="kpi-active-day"
+                        id="kpi-today-incidents"
                     >
                         0
                     </span>
@@ -273,7 +273,7 @@
                 </div>
 
                 <p class="kpi-desc">
-                    Incidents recorded on latest available date.
+                    Incidents recorded today.
                 </p>
 
             </div>
@@ -402,14 +402,14 @@
             <div class="kpi-card animated-card">
 
                 <span class="kpi-label">
-                    Predicted Risk
+                    Streets at Risk
                 </span>
 
                 <div class="kpi-value-wrapper">
 
                     <span
                         class="kpi-value counter"
-                        id="kpi-risk"
+                        id="kpi-risk-streets"
                     >
                         0
                     </span>
@@ -418,9 +418,9 @@
 
                 <p
                     class="kpi-desc"
-                    id="kpi-risk-desc"
+                    id="kpi-risk-streets-desc"
                 >
-                    Level 3 high-risk indicators recorded.
+                    Streets with at least one Level 3 (high-risk) incident.
                 </p>
 
             </div>
@@ -571,8 +571,14 @@
                         </p>
                     </div>
 
-                    <div class="chart-icon trend-icon">
-                        <i class="fa-solid fa-arrow-trend-up"></i>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <select id="trendTypeFilter" class="legend-toggle-btn" style="cursor:pointer; font-family: inherit;">
+                            <option value="">All Types</option>
+                        </select>
+
+                        <div class="chart-icon trend-icon">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                        </div>
                     </div>
 
                 </div>

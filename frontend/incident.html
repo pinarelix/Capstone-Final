@@ -207,11 +207,11 @@
                         <div class="form-row map-outer-row">
 
                             <div class="form-group flex-2 map-group">
-                                <label>Pick Location on Map</label>
+                                <label>Incident Location <span style="font-weight: 400; color: #64748b;">(set by Street Name below)</span></label>
                                 <div id="mapPicker" style="height: 280px; width: 100%; border-radius: 8px; border: 1px solid #94a3b8; z-index: 1; position: relative; cursor: pointer;"></div>
                                 <input type="hidden" id="incidentLat" required>
                                 <input type="hidden" id="incidentLng" required>
-                                <small id="locationPrompt" style="color: #64748b; margin-top: 4px;">Click on the map to mark the exact incident location.</small>
+                                <small id="locationPrompt" style="color: #64748b; margin-top: 4px;">Select a street above to set the incident location.</small>
                             </div>
 
                             <div class="form-group flex-1 right-side-fields">
@@ -319,7 +319,22 @@
                                 <input type="text" id="incidentAddress" class="form-control" placeholder="e.g. House No. 12, near the chapel" maxlength="255">
                             </div>
                             <div class="form-group">
-                                <!-- Empty spacer -->
+                                <label>Blotter Number <span style="font-weight: 400; color: #64748b;">(optional)</span></label>
+                                <input type="text" id="incidentBlotter" class="form-control" placeholder="e.g. BLOTTER-2026-0143" maxlength="50">
+                            </div>
+                        </div>
+
+                        <!-- ==========================================================
+                             ROW 3b: Reported By (Person) & Persons Involved
+                        ========================================================== -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Reported By <span style="font-weight: 400; color: #64748b;">(person/citizen, optional)</span></label>
+                                <input type="text" id="incidentReportedByName" class="form-control" placeholder="e.g. Juan Dela Cruz, resident" maxlength="150">
+                            </div>
+                            <div class="form-group">
+                                <label>Person(s) Involved <span style="font-weight: 400; color: #64748b;">(optional)</span></label>
+                                <input type="text" id="incidentPersonsInvolved" class="form-control" placeholder="e.g. Suspect: ..., Victim: ..., Witness: ...">
                             </div>
                         </div>
 
@@ -332,10 +347,27 @@
                         </div>
 
                         <!-- ==========================================================
+                             ROW 4b: Statement
+                        ========================================================== -->
+                        <div class="form-group">
+                            <label>Statement <span style="font-weight: 400; color: #64748b;">(optional)</span></label>
+                            <textarea id="incidentStatement" class="form-control textarea" placeholder="Direct account/statement from the reporter or witness." rows="2"></textarea>
+                        </div>
+
+                        <!-- ==========================================================
+                             ROW 4c: Evidence
+                        ========================================================== -->
+                        <div class="form-group">
+                            <label>Evidence <span style="font-weight: 400; color: #64748b;">(image or video, optional, up to 5 files)</span></label>
+                            <input type="file" id="incidentEvidenceInput" class="form-control" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple>
+                            <div id="evidencePreviewList" class="evidence-list" style="margin-top: 10px;"></div>
+                        </div>
+
+                        <!-- ==========================================================
                              ROW 5: Recommended Action
                         ========================================================== -->
                         <div class="form-group">
-                            <label>Recommended Action</label>
+                            <label>Resolution / Recommended Solution</label>
                             <textarea id="recommendedAction" class="form-control textarea" placeholder="Action required by patrol or admin" rows="2">Scheduled patrol and risk monitoring</textarea>
                         </div>
 
@@ -469,6 +501,7 @@
                                 <th>TYPE</th>
                                 <th>DATE / TIME</th>
                                 <th>LOCATION</th>
+                                <th>REPORTED BY</th>
                                 <th>STATUS</th>
                                 <th>DANGER LEVEL</th>
                                 <th>RECOMMENDED ACTION</th>
@@ -783,7 +816,7 @@
                 margin-bottom: 16px;
             ">
                 <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">
-                    <i class="fa-solid fa-location-dot"></i> Pick Location on Map
+                    <i class="fa-solid fa-location-dot"></i> Incident Location
                 </h3>
                 <button id="closeMapModal" style="
                     background: none;
@@ -819,7 +852,7 @@
                 color: #94a3b8;
                 text-align: center;
             ">
-                Click on the map to mark the exact incident location.
+                Location is set by the Street Name field - this map is a preview.
             </p>
 
             <!-- Close Button -->

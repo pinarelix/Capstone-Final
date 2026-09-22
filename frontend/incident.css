@@ -87,6 +87,75 @@
     margin-top: 20px;
 }
 
+.evidence-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.evidence-item {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    background: #f1f5f9;
+}
+
+.evidence-item img,
+.evidence-item video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.evidence-remove-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(15, 23, 42, 0.75);
+    color: #fff;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.evidence-remove-btn:hover {
+    background: #dc2626;
+}
+
+.evidence-item-pending {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    color: #64748b;
+    font-size: 0.65rem;
+    text-align: center;
+}
+
+.evidence-item-pending i {
+    font-size: 1.4rem;
+    color: #94a3b8;
+}
+
+.evidence-pending-name {
+    word-break: break-all;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
 .control-fields {
     display: flex;
     flex-direction: column;

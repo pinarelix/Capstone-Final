@@ -12,6 +12,11 @@ let dangerLevelChart = null;
 let crimeTrendChart = null;
 let peakHoursChart = null;
 
+// Raw per-day, per-type trend rows from the last /dashboard/charts load -
+// kept around so switching the trend dropdown re-renders instantly from
+// data already on hand instead of re-fetching.
+let trendRawRows = [];
+
 /* ============================================================
    🔥 FIXED: Gumamit ng functions mula sa apiHelper.js
    (HINDI NA LOCAL STORAGE)
@@ -145,7 +150,7 @@ function updateKPIs(data) {
 
     setText("kpi-incidents", data.incidents);
     setText("kpi-incidents-desc", `Total recorded incidents in database.`);
-    setText("kpi-active-day", data.activeDay);
+    setText("kpi-today-incidents", data.todayIncidents);
 
     const changeEl = document.getElementById("kpi-change");
     if (changeEl) {
@@ -158,8 +163,8 @@ function updateKPIs(data) {
     setText("kpi-common", data.common);
     setText("kpi-area", data.area);
     setText("kpi-peak", data.peak);
-    setText("kpi-risk", data.risk);
-    setText("kpi-risk-desc", `Level 3 high-risk indicators recorded: ${data.risk}.`);
+    setText("kpi-risk-streets", data.riskStreets);
+    setText("kpi-risk-streets-desc", `Streets with at least one Level 3 (high-risk) incident: ${data.riskStreets}.`);
 }
 
 /* ============================================================
@@ -421,44 +426,27 @@ function renderCharts(data) {
         });
     }
 
-    // 3. CRIME TREND (Line Chart - Last 7 Days)
-    const trendCanvas = document.getElementById("crimeTrendChart");
-    if (trendCanvas) {
-        if (crimeTrendChart) crimeTrendChart.destroy();
+    // 3. CRIME TREND (Line Chart - Last 7 Days, filterable by type)
+    trendRawRows = data.trend;
 
-        const labels = data.trend.map(item => formatDate(item.day_date));
-        const values = data.trend.map(item => item.count);
+    const trendFilter = document.getElementById("trendTypeFilter");
+    if (trendFilter) {
+        const previousValue = trendFilter.value;
+        const types = [...new Set(data.trend.map(r => r.incident_type))].sort();
+        trendFilter.innerHTML = '<option value="">All Types</option>' +
+            types.map(t => `<option value="${t}">${t}</option>`).join('');
+        if (types.includes(previousValue)) trendFilter.value = previousValue;
 
-        crimeTrendChart = new Chart(trendCanvas, {
-            type: "line",
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: "Incident Activity",
-                    data: values,
-                    borderColor: "#0ea5e9",
-                    backgroundColor: "rgba(14,165,233,0.12)",
-                    pointBackgroundColor: "#0ea5e9",
-                    pointBorderColor: "#ffffff",
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 8,
-                    borderWidth: 2,
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { color: "#0f172a" } },
-                    y: { beginAtZero: true, grid: { color: "#cbd5e1" }, ticks: { color: "#0f172a", stepSize: 1 } }
-                }
-            }
-        });
+        // Only wire the listener once - renderCharts() (and therefore this
+        // block) re-runs on every poll, and stacking a new listener each
+        // time would fire renderTrendChart() multiple times per change.
+        if (!trendFilter.dataset.wired) {
+            trendFilter.addEventListener("change", () => renderTrendChart(trendFilter.value));
+            trendFilter.dataset.wired = "true";
+        }
     }
+
+    renderTrendChart(trendFilter ? trendFilter.value : "");
 
     // 4. PEAK HOURS (Area Chart)
     const peakCanvas = document.getElementById("peakHoursChart");
@@ -498,6 +486,57 @@ function renderCharts(data) {
             }
         });
     }
+}
+
+// Renders the Crime Trend line chart from trendRawRows, either summed
+// across all incident types ("" / All Types) or filtered to one.
+function renderTrendChart(selectedType) {
+    const trendCanvas = document.getElementById("crimeTrendChart");
+    if (!trendCanvas) return;
+    if (crimeTrendChart) crimeTrendChart.destroy();
+
+    const rows = selectedType
+        ? trendRawRows.filter(r => r.incident_type === selectedType)
+        : trendRawRows;
+
+    // Sums duplicate-day rows together (multiple types per day, when
+    // showing "All Types") while keeping days in date order.
+    const byDay = new Map();
+    rows.forEach(r => byDay.set(r.day_date, (byDay.get(r.day_date) || 0) + r.count));
+    const sortedDays = [...byDay.keys()].sort();
+
+    const labels = sortedDays.map(d => formatDate(d));
+    const values = sortedDays.map(d => byDay.get(d));
+
+    crimeTrendChart = new Chart(trendCanvas, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: selectedType || "Incident Activity",
+                data: values,
+                borderColor: "#0ea5e9",
+                backgroundColor: "rgba(14,165,233,0.12)",
+                pointBackgroundColor: "#0ea5e9",
+                pointBorderColor: "#ffffff",
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 8,
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: "#0f172a" } },
+                y: { beginAtZero: true, grid: { color: "#cbd5e1" }, ticks: { color: "#0f172a", stepSize: 1 } }
+            }
+        }
+    });
 }
 
 /* ============================================================

@@ -17,6 +17,23 @@ let modalMap = null;
 let modalMarker = null;
 let isMapModalOpen = false;
 
+// Street -> {latitude, longitude} for every barangay street, fetched
+// once. The map used to require a manual click to set coordinates,
+// duplicating the Street Name dropdown right below it (every street
+// already has a fixed pin here) - now the street selection alone
+// drives the marker, and the map is a preview, not an input.
+let locationCoordsMap = new Map();
+
+async function loadLocationCoordinates() {
+    try {
+        const response = await apiFetch('/location-coordinates');
+        const rows = await response.json();
+        locationCoordsMap = new Map(rows.map(r => [r.location, r]));
+    } catch (error) {
+        console.error('Error loading location coordinates:', error);
+    }
+}
+
 /* ============================================================
    🔥 FIXED: Gumamit ng functions mula sa apiHelper.js
    (HINDI NA LOCAL STORAGE)
@@ -42,7 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
     applyRoleBasedUI(); // mula sa apiHelper.js
 
     initMapPicker();
+    loadLocationCoordinates();
     loadReporters();
+    setupStreetLocationSync();
     
     // ✅ Force load incidents with delay
     setTimeout(() => {
@@ -67,18 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // BARANGAY_CENTER / BARANGAY_BOUNDARY_COORDS / createBarangayMap come
 // from mapHelper.js, shared with grid-heatmap.js.
 
-// Real point-in-polygon check against the actual (concave) barangay
-// boundary shape via turf.js - a bounding-box check previously accepted
-// clicks that fell inside the boundary's rectangular extent but outside
-// the true outline (i.e. inside the blurred/masked-out area).
-const barangayBoundaryPolygon = turf.polygon([
-    [...BARANGAY_BOUNDARY_COORDS.map(coord => [coord[1], coord[0]]), [BARANGAY_BOUNDARY_COORDS[0][1], BARANGAY_BOUNDARY_COORDS[0][0]]]
-]);
-
-function isPointInsideBarangay(lat, lng) {
-    return turf.booleanPointInPolygon(turf.point([lng, lat]), barangayBoundaryPolygon);
-}
-
 function initMapPicker() {
     const container = document.getElementById('mapPicker');
     if (container) {
@@ -93,38 +100,59 @@ function initMapPicker() {
     });
     mapPicker = created.map;
 
-    mapPicker.on('click', function(e) {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-        
-        if (!isPointInsideBarangay(lat, lng)) {
-            document.getElementById('locationPrompt').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please click inside the barangay boundary!';
+    setupMapExpand();
+}
+
+function makeMarkerIcon() {
+    return L.divIcon({
+        className: 'custom-marker',
+        html: '<div style="background: #dc2626; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+    });
+}
+
+// Selecting a street already has a fixed pin (see locationCoordsMap) -
+// this is now the only way the location fields and map marker get set.
+function setupStreetLocationSync() {
+    const streetSelect = document.getElementById('incidentStreet');
+    if (!streetSelect) return;
+
+    streetSelect.addEventListener('change', () => {
+        const street = streetSelect.value;
+        const prompt = document.getElementById('locationPrompt');
+        if (!street) {
+            document.getElementById('incidentLat').value = '';
+            document.getElementById('incidentLng').value = '';
+            if (marker) { mapPicker.removeLayer(marker); marker = null; }
+            if (prompt) prompt.textContent = 'Select a street above to set the incident location.';
             return;
         }
 
+        const pin = locationCoordsMap.get(street);
+        if (!pin || pin.latitude == null || pin.longitude == null) {
+            document.getElementById('incidentLat').value = '';
+            document.getElementById('incidentLng').value = '';
+            if (marker) { mapPicker.removeLayer(marker); marker = null; }
+            if (prompt) prompt.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> No pinned coordinates for this street yet.';
+            return;
+        }
+
+        const lat = parseFloat(pin.latitude);
+        const lng = parseFloat(pin.longitude);
         document.getElementById('incidentLat').value = lat;
         document.getElementById('incidentLng').value = lng;
 
-        if (marker) {
-            mapPicker.removeLayer(marker);
-        }
-        
-        const customIcon = L.divIcon({
-            className: 'custom-marker',
-            html: '<div style="background: #dc2626; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
-        });
+        if (marker) mapPicker.removeLayer(marker);
+        marker = L.marker([lat, lng], { icon: makeMarkerIcon() }).addTo(mapPicker);
+        mapPicker.setView([lat, lng], 16);
 
-        marker = L.marker([lat, lng], { icon: customIcon }).addTo(mapPicker);
-        document.getElementById('locationPrompt').innerHTML = '<i class="fa-solid fa-location-dot"></i> Location Selected!';
-        
+        if (prompt) prompt.innerHTML = `<i class="fa-solid fa-location-dot"></i> Showing: ${street}`;
+
         if (isMapModalOpen && modalMap) {
             updateModalMarker(lat, lng);
         }
     });
-
-    setupMapExpand();
 }
 
 /* ============================================================
@@ -146,35 +174,8 @@ function createModalMap() {
     });
     modalMap = created.map;
 
-    modalMap.on('click', function(e) {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-        
-        if (!isPointInsideBarangay(lat, lng)) {
-            alert('Please click inside the barangay boundary!');
-            return;
-        }
-
-        document.getElementById('incidentLat').value = lat;
-        document.getElementById('incidentLng').value = lng;
-        document.getElementById('locationPrompt').innerHTML = '<i class="fa-solid fa-location-dot"></i> Location Selected!';
-
-        if (marker) {
-            mapPicker.removeLayer(marker);
-        }
-        
-        const customIcon = L.divIcon({
-            className: 'custom-marker',
-            html: '<div style="background: #dc2626; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
-        });
-
-        marker = L.marker([lat, lng], { icon: customIcon }).addTo(mapPicker);
-        mapPicker.setView([lat, lng], 16);
-        
-        updateModalMarker(lat, lng);
-    });
+    // View-only, like the small preview map - the street dropdown is the
+    // only thing that sets the location now (see setupStreetLocationSync).
 
     const lat = document.getElementById('incidentLat').value;
     const lng = document.getElementById('incidentLng').value;
@@ -406,7 +407,7 @@ async function loadIncidents() {
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 24px; color: #ef4444;">
+                    <td colspan="9" style="text-align: center; padding: 24px; color: #ef4444;">
                         <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
                         Failed to load incidents.
                         <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">${error.message}</p>
@@ -582,7 +583,7 @@ function renderTable(dataToRender) {
     if (dataToRender.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" style="text-align: center; padding: 30px; color: #94a3b8;">
+                <td colspan="9" style="text-align: center; padding: 30px; color: #94a3b8;">
                     <i class="fa-regular fa-circle" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
                     No incident records found.
                 </td>
@@ -612,12 +613,15 @@ function renderTable(dataToRender) {
             <button class="btn-action-delete admin-action" onclick="requestDeleteIncident(${item.id})">Delete</button>
         ` : `<span style="color: #94a3b8; font-size: 0.7rem;">View Only</span>`;
         
+        const reportedByDisplay = item.reported_by_name || item.reporter_name || 'N/A';
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="font-bold">${item.id}</td>
             <td>${escapeHTML(item.incident_type || 'N/A')}</td>
             <td class="text-secondary">${formattedDate} ${formattedTime}</td>
             <td>${escapeHTML(locationDisplay)}</td>
+            <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
             <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
             <td><span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span></td>
             <td class="text-secondary" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(item.recommended_action || '')}">${escapeHTML(item.recommended_action || 'N/A')}</td>
@@ -660,27 +664,36 @@ function setupForm() {
         const status = document.getElementById('incidentStatus').value;
         const desc = document.getElementById('incidentDesc').value;
         const action = document.getElementById('recommendedAction').value;
+        const blotter = document.getElementById('incidentBlotter').value.trim();
+        const reportedByName = document.getElementById('incidentReportedByName').value.trim();
+        const personsInvolved = document.getElementById('incidentPersonsInvolved').value.trim();
+        const statement = document.getElementById('incidentStatement').value.trim();
 
-        if (!type || !date || !time || !lat || !lng || !street) {
+        if (!type || !date || !time || !street) {
             showErrorModal('Validation Error', 'Please fill in all required fields including street name.');
+            return;
+        }
+
+        if (!lat || !lng) {
+            showErrorModal('Missing Coordinates', 'This street has no pinned coordinates yet. Pin it on the Barangay Risk Map first, or choose a different street.');
             return;
         }
 
         const latNum = parseFloat(lat);
         const lngNum = parseFloat(lng);
-        
+
         const MIN_LAT = 14.73;
         const MAX_LAT = 14.77;
         const MIN_LNG = 121.06;
         const MAX_LNG = 121.09;
-        
+
         if (isNaN(latNum) || isNaN(lngNum)) {
-            showErrorModal('Invalid Coordinates', 'Please click on the map to select a valid location.');
+            showErrorModal('Invalid Coordinates', 'Please select a street to set the incident location.');
             return;
         }
-        
+
         if (latNum < MIN_LAT || latNum > MAX_LAT || lngNum < MIN_LNG || lngNum > MAX_LNG) {
-            showErrorModal('Invalid Coordinates', `Latitude must be between ${MIN_LAT} and ${MAX_LAT}\nLongitude must be between ${MIN_LNG} and ${MAX_LNG}\n\nPlease click on the map again.`);
+            showErrorModal('Invalid Coordinates', `Latitude must be between ${MIN_LAT} and ${MAX_LAT}\nLongitude must be between ${MIN_LNG} and ${MAX_LNG}\n\nThis street's pinned coordinates look wrong - check the Barangay Risk Map.`);
             return;
         }
 
@@ -705,9 +718,13 @@ function setupForm() {
                 street_name: street,
                 address: address,
                 reporter_id: repId,
-                status, 
-                description: desc, 
-                recommended_action: action
+                status,
+                description: desc,
+                recommended_action: action,
+                blotter_number: blotter,
+                reported_by_name: reportedByName,
+                persons_involved: personsInvolved,
+                statement: statement
             };
 
             console.log('📤 Sending payload:', payload);
@@ -724,6 +741,13 @@ function setupForm() {
                     if (errorData.error) errorMsg = errorData.error;
                 } catch (e) {}
                 throw new Error(errorMsg);
+            }
+
+            const savedIncidentId = incidentId || (await response.json()).id;
+
+            const evidenceInput = document.getElementById('incidentEvidenceInput');
+            if (evidenceInput && evidenceInput.files.length > 0) {
+                await uploadEvidenceFiles(savedIncidentId, evidenceInput.files);
             }
 
             clearForm();
@@ -747,7 +771,93 @@ function setupForm() {
             showErrorModal('Error', 'Failed to save incident: ' + error.message);
         }
     });
+
+    const evidenceInput = document.getElementById('incidentEvidenceInput');
+    evidenceInput?.addEventListener('change', () => {
+        renderEvidencePreview(Array.from(evidenceInput.files).map(f => ({
+            isNewFile: true,
+            name: f.name,
+            isVideo: f.type.startsWith('video/')
+        })), currentExistingEvidence, document.getElementById('editIndex').value);
+    });
 }
+
+/* ============================================================
+   EVIDENCE (images/videos attached to an incident)
+============================================================ */
+
+// Raw fetch, not apiFetch - FormData needs the browser to set its own
+// multipart Content-Type (with boundary), same reasoning as the tanod
+// portal's photo/avatar uploads.
+async function uploadEvidenceFiles(incidentId, fileList) {
+    const formData = new FormData();
+    Array.from(fileList).forEach(file => formData.append('evidence', file));
+
+    const token = getSessionToken();
+    const response = await fetch(`${API_URL}/incidents/${incidentId}/evidence`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: formData
+    });
+
+    if (!response.ok) {
+        let errorMsg = 'Failed to upload evidence';
+        try {
+            const errorData = await response.json();
+            if (errorData.error) errorMsg = errorData.error;
+        } catch (e) {}
+        throw new Error(errorMsg);
+    }
+
+    return (await response.json()).evidence;
+}
+
+async function deleteEvidenceFile(incidentId, evidenceId) {
+    const response = await apiFetch(`/incidents/${incidentId}/evidence/${evidenceId}`, { method: 'DELETE' });
+    if (!response.ok) {
+        showErrorModal('Error', 'Failed to remove evidence file.');
+        return;
+    }
+    currentExistingEvidence = currentExistingEvidence.filter(ev => ev.id !== evidenceId);
+    document.querySelector(`.evidence-item[data-evidence-id="${evidenceId}"]`)?.remove();
+}
+
+// Tracks the evidence already saved for whichever incident is currently
+// loaded in the form, so picking new files (which re-renders the whole
+// preview list) doesn't wipe out those already-uploaded thumbnails.
+let currentExistingEvidence = [];
+
+// Renders both already-uploaded evidence (existingEvidence, with a
+// working delete button) and newly-picked files still waiting to be
+// uploaded on save (pendingFiles, name/type preview only).
+function renderEvidencePreview(pendingFiles, existingEvidence, incidentId) {
+    currentExistingEvidence = existingEvidence;
+
+    const container = document.getElementById('evidencePreviewList');
+    if (!container) return;
+
+    const existingHtml = existingEvidence.map(ev => `
+        <div class="evidence-item" data-evidence-id="${ev.id}">
+            ${ev.file_type === 'video'
+                ? `<video src="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" controls></video>`
+                : `<img src="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" alt="Evidence">`}
+            <button type="button" class="evidence-remove-btn" onclick="deleteEvidenceFile(${incidentId}, ${ev.id})" title="Remove">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    `).join('');
+
+    const pendingHtml = pendingFiles.map(f => `
+        <div class="evidence-item evidence-item-pending" title="Will be uploaded when you save">
+            <i class="fa-solid ${f.isVideo ? 'fa-file-video' : 'fa-file-image'}"></i>
+            <span class="evidence-pending-name">${escapeHTML(f.name)}</span>
+        </div>
+    `).join('');
+
+    container.innerHTML = existingHtml + pendingHtml;
+}
+
+window.deleteEvidenceFile = deleteEvidenceFile;
 
 /* ============================================================
    CLEAR FORM
@@ -763,8 +873,12 @@ function clearForm() {
     document.getElementById('incidentStreet').value = '';
     document.getElementById('incidentLat').value = '';
     document.getElementById('incidentLng').value = '';
-    document.getElementById('locationPrompt').textContent = "Click on the map to mark the exact incident location.";
-    
+    document.getElementById('locationPrompt').textContent = "Select a street above to set the incident location.";
+
+    const evidencePreview = document.getElementById('evidencePreviewList');
+    if (evidencePreview) evidencePreview.innerHTML = '';
+    currentExistingEvidence = [];
+
     if (marker) {
         mapPicker.removeLayer(marker);
         marker = null;
@@ -847,18 +961,36 @@ window.editIncident = async (id) => {
 
         if (record.latitude && record.longitude) {
             if (marker) mapPicker.removeLayer(marker);
-            marker = L.marker([record.latitude, record.longitude]).addTo(mapPicker);
+            marker = L.marker([record.latitude, record.longitude], { icon: makeMarkerIcon() }).addTo(mapPicker);
             mapPicker.setView([record.latitude, record.longitude], 16);
+            const prompt = document.getElementById('locationPrompt');
+            if (prompt) prompt.innerHTML = `<i class="fa-solid fa-location-dot"></i> Showing: ${record.street_name || 'saved location'}`;
         }
 
         document.getElementById('reportedBy').value = record.reporter_id || '';
         document.getElementById('incidentStatus').value = record.status || 'Open';
         document.getElementById('incidentDesc').value = record.description || '';
         document.getElementById('recommendedAction').value = record.recommended_action || '';
+        document.getElementById('incidentBlotter').value = record.blotter_number || '';
+        document.getElementById('incidentReportedByName').value = record.reported_by_name || '';
+        document.getElementById('incidentPersonsInvolved').value = record.persons_involved || '';
+        document.getElementById('incidentStatement').value = record.statement || '';
 
         document.getElementById('formTitle').textContent = `Edit Incident (#${record.id})`;
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;
-        
+
+        // Evidence isn't in the list payload (only the single-incident
+        // detail route joins it) - fetch it separately for the preview.
+        try {
+            const detailResponse = await apiFetch(`/incidents/${id}`);
+            if (detailResponse.ok) {
+                const detail = await detailResponse.json();
+                renderEvidencePreview([], detail.evidence || [], id);
+            }
+        } catch (evidenceError) {
+            console.error('Error loading evidence for edit:', evidenceError);
+        }
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
         console.error('Error loading incident for edit:', error);

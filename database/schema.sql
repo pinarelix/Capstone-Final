@@ -157,6 +157,10 @@ CREATE TABLE `incidents` (
   `is_weekend` tinyint(1) DEFAULT '0',
   `reporter_tanod_id` int DEFAULT NULL,
   `photo_path` varchar(255) DEFAULT NULL,
+  `blotter_number` varchar(50) DEFAULT NULL,
+  `reported_by_name` varchar(150) DEFAULT NULL,
+  `statement` text,
+  `persons_involved` text,
   PRIMARY KEY (`id`),
   KEY `reporter_id` (`reporter_id`),
   KEY `fk_incidents_reporter_tanod` (`reporter_tanod_id`),
@@ -166,6 +170,30 @@ CREATE TABLE `incidents` (
   CONSTRAINT `fk_incidents_reporter_tanod` FOREIGN KEY (`reporter_tanod_id`) REFERENCES `tanod_record` (`id`),
   CONSTRAINT `incidents_ibfk_1` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=103 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `incident_evidence`
+--
+-- Multiple evidence files (images or videos) per incident - a separate
+-- table rather than a single column since an incident can have more
+-- than one piece of evidence attached.
+--
+
+DROP TABLE IF EXISTS `incident_evidence`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `incident_evidence` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `incident_id` int NOT NULL,
+  `file_path` varchar(255) NOT NULL,
+  `file_type` enum('image','video') NOT NULL,
+  `original_filename` varchar(255) DEFAULT NULL,
+  `uploaded_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_incident_id` (`incident_id`),
+  CONSTRAINT `incident_evidence_ibfk_1` FOREIGN KEY (`incident_id`) REFERENCES `incidents` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

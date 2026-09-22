@@ -81,6 +81,34 @@ const incidentPhotoUpload = multer({
     }
 });
 
+// ============================================================
+// UPLOADS (incident evidence - admin-attached images/videos)
+// ============================================================
+const INCIDENT_EVIDENCE_DIR = path.join(__dirname, 'uploads', 'incident-evidence');
+fs.mkdirSync(INCIDENT_EVIDENCE_DIR, { recursive: true });
+
+const EVIDENCE_MIME_EXT = {
+    'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp',
+    'video/mp4': '.mp4', 'video/webm': '.webm', 'video/quicktime': '.mov'
+};
+
+const evidenceUpload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, INCIDENT_EVIDENCE_DIR),
+        filename: (req, file, cb) => {
+            const ext = EVIDENCE_MIME_EXT[file.mimetype] || '';
+            cb(null, `evidence-${req.params.id}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+        }
+    }),
+    // Videos need more headroom than a photo - 25MB keeps a short mobile
+    // clip usable without letting uploads balloon unreasonably.
+    limits: { fileSize: 25 * 1024 * 1024, files: 5 },
+    fileFilter: (req, file, cb) => {
+        const allowed = Object.keys(EVIDENCE_MIME_EXT);
+        cb(allowed.includes(file.mimetype) ? null : new Error('Only JPEG, PNG, WEBP images or MP4, WEBM, MOV videos are allowed.'), allowed.includes(file.mimetype));
+    }
+});
+
 // Multer reports errors (file too big, wrong type) via a callback, not a
 // thrown exception an async route's try/catch would see — this adapts
 // it to the same clean-JSON-error style as the rest of the API instead
@@ -135,7 +163,11 @@ const incidentSchema = Joi.object({
     reporter_id: Joi.number().integer().positive().allow(null),
     status: Joi.string().valid('Open', 'Monitoring', 'Resolved').default('Open'),
     description: Joi.string().allow('', null),
-    recommended_action: Joi.string().allow('', null)
+    recommended_action: Joi.string().allow('', null),
+    blotter_number: Joi.string().max(50).allow('', null),
+    reported_by_name: Joi.string().max(150).allow('', null),
+    statement: Joi.string().allow('', null),
+    persons_involved: Joi.string().allow('', null)
 });
 
 // User Schema
@@ -1541,7 +1573,12 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
             return res.status(404).json({ error: 'Incident not found' });
         }
 
-        res.json(rows[0]);
+        const [evidence] = await pool.query(
+            'SELECT id, file_path, file_type, original_filename, uploaded_at FROM incident_evidence WHERE incident_id = ? ORDER BY uploaded_at ASC',
+            [req.params.id]
+        );
+
+        res.json({ ...rows[0], evidence });
 
     } catch (error) {
         console.error('❌ Error fetching incident:', error);
@@ -1582,7 +1619,8 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
     try {
         const {
             incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
-            status, description, recommended_action
+            status, description, recommended_action,
+            blotter_number, reported_by_name, statement, persons_involved
         } = req.body;
 
         const finalStreetName = street_name || null;
@@ -1597,8 +1635,9 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
             INSERT INTO incidents
             (incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
              status, danger_level, description, recommended_action,
-             time_of_day, day_of_week, is_weekend)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             time_of_day, day_of_week, is_weekend,
+             blotter_number, reported_by_name, statement, persons_involved)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             incident_type,
             date,
@@ -1614,7 +1653,11 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
             recommended_action || '',
             timeOfDay,
             dayOfWeek,
-            isWeekend
+            isWeekend,
+            blotter_number || null,
+            reported_by_name || null,
+            statement || null,
+            persons_involved || null
         ]);
 
         await computeCartRiskFactors(result.insertId);
@@ -1649,7 +1692,8 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), vali
     try {
         const {
             incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
-            status, description, recommended_action
+            status, description, recommended_action,
+            blotter_number, reported_by_name, statement, persons_involved
         } = req.body;
         const id = req.params.id;
 
@@ -1669,13 +1713,16 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), vali
                 street_name = ?, address = ?, reporter_id = ?, status = ?,
                 danger_level = 'Calculated by System',
                 description = ?, recommended_action = ?,
-                time_of_day = ?, day_of_week = ?, is_weekend = ?
+                time_of_day = ?, day_of_week = ?, is_weekend = ?,
+                blotter_number = ?, reported_by_name = ?, statement = ?, persons_involved = ?
             WHERE id = ?
         `, [
             incident_type, date, time, latitude, longitude,
             finalStreetName, finalAddress, finalReporterId, status,
             description, recommended_action,
-            timeOfDay, dayOfWeek, isWeekend, id
+            timeOfDay, dayOfWeek, isWeekend,
+            blotter_number || null, reported_by_name || null, statement || null, persons_involved || null,
+            id
         ]);
 
         if (result.affectedRows === 0) {
@@ -1713,13 +1760,23 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Administrator']), a
         const userId = req.userId;
 
         const [oldData] = await pool.query('SELECT * FROM incidents WHERE id = ?', [id]);
+        const [evidenceRows] = await pool.query('SELECT file_path FROM incident_evidence WHERE incident_id = ?', [id]);
 
         await pool.query('DELETE FROM cart_risk_factors WHERE incident_id = ?', [id]);
+        // incident_evidence rows cascade-delete with the incident (FK ON
+        // DELETE CASCADE) - the files on disk don't, so remove those here.
         const [result] = await pool.query('DELETE FROM incidents WHERE id = ?', [id]);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Incident not found' });
         }
+
+        evidenceRows.forEach(row => {
+            const filePath = path.join(INCIDENT_EVIDENCE_DIR, row.file_path);
+            fs.unlink(filePath, (err) => {
+                if (err && err.code !== 'ENOENT') console.error('❌ Error removing evidence file:', err);
+            });
+        });
 
         heatmapCache.del('incidents');
 
@@ -1739,6 +1796,77 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Administrator']), a
     } catch (error) {
         console.error('❌ Error deleting incident:', error);
         res.status(500).json({ error: 'Failed to delete incident' });
+    }
+});
+
+// ============================================================
+// INCIDENT EVIDENCE (images/videos attached to an incident record)
+// ============================================================
+
+app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Administrator']), runMulterMiddleware(evidenceUpload.array('evidence', 5)), async (req, res) => {
+    try {
+        const id = req.params.id;
+
+        const [incidentRows] = await pool.query('SELECT id FROM incidents WHERE id = ?', [id]);
+        if (incidentRows.length === 0) {
+            return res.status(404).json({ error: 'Incident not found' });
+        }
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'No evidence files uploaded.' });
+        }
+
+        const inserted = [];
+        for (const file of req.files) {
+            const fileType = file.mimetype.startsWith('video/') ? 'video' : 'image';
+            const [result] = await pool.query(
+                `INSERT INTO incident_evidence (incident_id, file_path, file_type, original_filename)
+                 VALUES (?, ?, ?, ?)`,
+                [id, file.filename, fileType, file.originalname]
+            );
+            inserted.push({ id: result.insertId, incident_id: Number(id), file_path: file.filename, file_type: fileType, original_filename: file.originalname });
+        }
+
+        const userId = req.userId;
+        if (userId) {
+            await logAudit(userId, 'ADD_INCIDENT_EVIDENCE', 'incidents', id, null, { files: inserted.map(f => f.file_path) }, req);
+        }
+
+        res.status(201).json({ message: 'Evidence uploaded successfully.', evidence: inserted });
+    } catch (error) {
+        console.error('❌ Error uploading incident evidence:', error);
+        res.status(500).json({ error: 'Failed to upload evidence' });
+    }
+});
+
+app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(['Administrator']), async (req, res) => {
+    try {
+        const { id, evidenceId } = req.params;
+
+        const [rows] = await pool.query(
+            'SELECT * FROM incident_evidence WHERE id = ? AND incident_id = ?',
+            [evidenceId, id]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Evidence file not found' });
+        }
+
+        await pool.query('DELETE FROM incident_evidence WHERE id = ?', [evidenceId]);
+
+        const filePath = path.join(INCIDENT_EVIDENCE_DIR, rows[0].file_path);
+        fs.unlink(filePath, (err) => {
+            if (err && err.code !== 'ENOENT') console.error('❌ Error removing evidence file:', err);
+        });
+
+        const userId = req.userId;
+        if (userId) {
+            await logAudit(userId, 'DELETE_INCIDENT_EVIDENCE', 'incidents', id, rows[0], null, req);
+        }
+
+        res.json({ message: 'Evidence removed successfully.' });
+    } catch (error) {
+        console.error('❌ Error deleting incident evidence:', error);
+        res.status(500).json({ error: 'Failed to delete evidence' });
     }
 });
 
@@ -1898,10 +2026,13 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Dec
         const [totalResult] = await pool.query("SELECT COUNT(*) as total FROM incidents WHERE TRIM(status) != 'Resolved'");
         const totalIncidents = totalResult[0].total;
 
-        const [activeResult] = await pool.query(
-            'SELECT DATE(date) as active_day, COUNT(*) as count FROM incidents WHERE TRIM(status) != "Resolved" GROUP BY DATE(date) ORDER BY active_day DESC LIMIT 1'
+        // Incidents actually logged today, not just "whatever date last had
+        // activity" - the old query could silently show a stale prior date's
+        // count under a label that said "latest active day".
+        const [todayResult] = await pool.query(
+            'SELECT COUNT(*) as count FROM incidents WHERE TRIM(status) != "Resolved" AND DATE(date) = CURDATE()'
         );
-        const activeDay = activeResult.length > 0 ? activeResult[0].count : 0;
+        const todayIncidents = todayResult[0].count;
 
         // Compares against calendar-month date ranges rather than a bare
         // MONTH(date) equality - the old MONTH(CURDATE()) - 1 check broke
@@ -1957,20 +2088,24 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Dec
         const peakHour = peakResult.length > 0 ? peakResult[0].hour : 0;
         const peak = `${String(peakHour).padStart(2, '0')}:00 - ${String((peakHour + 2) % 24).padStart(2, '0')}:00`;
 
-        const [riskResult] = await pool.query(
-            "SELECT COUNT(*) as risk FROM incidents WHERE danger_level LIKE '%Level 3%' AND TRIM(status) != 'Resolved'"
+        // Distinct streets carrying at least one Level 3 (high-risk)
+        // incident, not a raw incident count - tells patrol planning how
+        // many different locations need attention, not how many reports
+        // piled up at the same one.
+        const [riskStreetsResult] = await pool.query(
+            "SELECT COUNT(DISTINCT street_name) as riskStreets FROM incidents WHERE danger_level LIKE '%Level 3%' AND TRIM(status) != 'Resolved' AND street_name IS NOT NULL"
         );
-        const risk = riskResult[0].risk;
+        const riskStreets = riskStreetsResult[0].riskStreets;
 
         res.json({
             incidents: totalIncidents,
-            activeDay: activeDay,
+            todayIncidents: todayIncidents,
             change: change,
             zones: zones,
             common: common,
             area: area,
             peak: peak,
-            risk: risk
+            riskStreets: riskStreets
         });
 
     } catch (error) {
@@ -2003,12 +2138,16 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Administrator', 'De
         // latest logged incident can easily drift apart (backfilled data,
         // a quiet reporting day, a demo dataset), which would otherwise
         // leave this widget silently empty despite having 7 days of data.
+        // Broken out per incident_type (not just a daily total) so the
+        // dashboard can plot the trend for one crime type at a time -
+        // the frontend aggregates these rows into the "All Types" total
+        // itself instead of a second query.
         const [trendResult] = await pool.query(`
-            SELECT DATE(date) as day_date, COUNT(*) as count
+            SELECT DATE(date) as day_date, incident_type, COUNT(*) as count
             FROM incidents
             WHERE TRIM(status) != 'Resolved'
               AND date >= DATE_SUB((SELECT MAX(date) FROM incidents WHERE TRIM(status) != 'Resolved'), INTERVAL 6 DAY)
-            GROUP BY DATE(date)
+            GROUP BY DATE(date), incident_type
             ORDER BY day_date ASC
         `);
 

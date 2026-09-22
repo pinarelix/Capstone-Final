@@ -295,8 +295,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Get reporter name - FIXED: gumamit ng reporter_name mula sa JOIN
-            const reporterName = incident.reporter_name || 'N/A';
+            // Prefers the free-text "who actually reported it" field over
+            // the system staff/tanod attribution, same as Incident Records.
+            const reporterName = incident.reported_by_name || incident.reporter_name || 'N/A';
             
             // Get location - FIXED: gumamit ng street_name
             const location = incident.street_name || 'N/A';
@@ -461,6 +462,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="detail-value">${escapeHTML(incident.address)}</div>
                         </div>
                     </div>` : ''}
+                    ${incident.blotter_number ? `
+                    <div class="incident-detail-card">
+                        <div class="incident-detail-icon"><i class="fa-solid fa-book"></i></div>
+                        <div>
+                            <div class="detail-label">Blotter Number</div>
+                            <div class="detail-value">${escapeHTML(incident.blotter_number)}</div>
+                        </div>
+                    </div>` : ''}
                     <div class="incident-detail-card">
                         <div class="incident-detail-icon"><i class="fa-solid fa-calendar-day"></i></div>
                         <div>
@@ -469,12 +478,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                     <div class="incident-detail-card">
-                        <div class="incident-detail-icon"><i class="fa-solid fa-user"></i></div>
+                        <div class="incident-detail-icon"><i class="fa-solid fa-user-shield"></i></div>
                         <div>
-                            <div class="detail-label">Reported By</div>
+                            <div class="detail-label">Logged By (Staff/Tanod)</div>
                             <div class="detail-value">${escapeHTML(incident.reporter_name || 'N/A')}</div>
                         </div>
                     </div>
+                    ${incident.reported_by_name ? `
+                    <div class="incident-detail-card">
+                        <div class="incident-detail-icon"><i class="fa-solid fa-user"></i></div>
+                        <div>
+                            <div class="detail-label">Reported By (Person)</div>
+                            <div class="detail-value">${escapeHTML(incident.reported_by_name)}</div>
+                        </div>
+                    </div>` : ''}
                     <div class="incident-detail-card">
                         <div class="incident-detail-icon"><i class="fa-solid fa-map-pin"></i></div>
                         <div>
@@ -495,10 +512,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="incident-text-card-header"><i class="fa-solid fa-align-left"></i> Description</div>
                     <div class="incident-text-card-body">${escapeHTML(incident.description || 'No description provided.')}</div>
                 </div>
+                ${incident.statement ? `
                 <div class="incident-text-card">
-                    <div class="incident-text-card-header"><i class="fa-solid fa-shield-halved"></i> Recommended Action</div>
+                    <div class="incident-text-card-header"><i class="fa-solid fa-quote-left"></i> Statement</div>
+                    <div class="incident-text-card-body">${escapeHTML(incident.statement)}</div>
+                </div>` : ''}
+                ${incident.persons_involved ? `
+                <div class="incident-text-card">
+                    <div class="incident-text-card-header"><i class="fa-solid fa-people-group"></i> Person(s) Involved</div>
+                    <div class="incident-text-card-body">${escapeHTML(incident.persons_involved)}</div>
+                </div>` : ''}
+                <div class="incident-text-card">
+                    <div class="incident-text-card-header"><i class="fa-solid fa-shield-halved"></i> Resolution / Recommended Solution</div>
                     <div class="incident-text-card-body">${escapeHTML(incident.recommended_action || 'No action recommended.')}</div>
                 </div>
+                ${incident.evidence && incident.evidence.length > 0 ? `
+                <div class="incident-text-card">
+                    <div class="incident-text-card-header"><i class="fa-solid fa-file-image"></i> Evidence</div>
+                    <div class="incident-evidence-gallery">
+                        ${incident.evidence.map(ev => ev.file_type === 'video'
+                            ? `<video src="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" controls></video>`
+                            : `<a href="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" target="_blank" rel="noopener"><img src="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" alt="Incident evidence"></a>`
+                        ).join('')}
+                    </div>
+                </div>` : ''}
             `;
         })
         .catch(error => {
