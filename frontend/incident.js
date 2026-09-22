@@ -668,6 +668,7 @@ function setupForm() {
         const reportedByName = document.getElementById('incidentReportedByName').value.trim();
         const personsInvolved = document.getElementById('incidentPersonsInvolved').value.trim();
         const statement = document.getElementById('incidentStatement').value.trim();
+        const priority = document.getElementById('incidentPriority').value;
 
         if (!type || !date || !time || !street) {
             showErrorModal('Validation Error', 'Please fill in all required fields including street name.');
@@ -724,7 +725,8 @@ function setupForm() {
                 blotter_number: blotter,
                 reported_by_name: reportedByName,
                 persons_involved: personsInvolved,
-                statement: statement
+                statement: statement,
+                priority: priority
             };
 
             console.log('📤 Sending payload:', payload);
@@ -975,6 +977,7 @@ window.editIncident = async (id) => {
         document.getElementById('incidentReportedByName').value = record.reported_by_name || '';
         document.getElementById('incidentPersonsInvolved').value = record.persons_involved || '';
         document.getElementById('incidentStatement').value = record.statement || '';
+        document.getElementById('incidentPriority').value = record.priority || 'Normal';
 
         document.getElementById('formTitle').textContent = `Edit Incident (#${record.id})`;
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;

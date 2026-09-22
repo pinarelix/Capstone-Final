@@ -167,7 +167,8 @@ const incidentSchema = Joi.object({
     blotter_number: Joi.string().max(50).allow('', null),
     reported_by_name: Joi.string().max(150).allow('', null),
     statement: Joi.string().allow('', null),
-    persons_involved: Joi.string().allow('', null)
+    persons_involved: Joi.string().allow('', null),
+    priority: Joi.string().valid('Normal', 'Urgent').default('Normal')
 });
 
 // User Schema
@@ -1620,7 +1621,7 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
         const {
             incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
             status, description, recommended_action,
-            blotter_number, reported_by_name, statement, persons_involved
+            blotter_number, reported_by_name, statement, persons_involved, priority
         } = req.body;
 
         const finalStreetName = street_name || null;
@@ -1636,8 +1637,8 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
             (incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
              status, danger_level, description, recommended_action,
              time_of_day, day_of_week, is_weekend,
-             blotter_number, reported_by_name, statement, persons_involved)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             blotter_number, reported_by_name, statement, persons_involved, priority)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             incident_type,
             date,
@@ -1657,7 +1658,8 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
             blotter_number || null,
             reported_by_name || null,
             statement || null,
-            persons_involved || null
+            persons_involved || null,
+            priority || 'Normal'
         ]);
 
         await computeCartRiskFactors(result.insertId);
@@ -1693,7 +1695,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), vali
         const {
             incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
             status, description, recommended_action,
-            blotter_number, reported_by_name, statement, persons_involved
+            blotter_number, reported_by_name, statement, persons_involved, priority
         } = req.body;
         const id = req.params.id;
 
@@ -1714,7 +1716,8 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), vali
                 danger_level = 'Calculated by System',
                 description = ?, recommended_action = ?,
                 time_of_day = ?, day_of_week = ?, is_weekend = ?,
-                blotter_number = ?, reported_by_name = ?, statement = ?, persons_involved = ?
+                blotter_number = ?, reported_by_name = ?, statement = ?, persons_involved = ?,
+                priority = ?
             WHERE id = ?
         `, [
             incident_type, date, time, latitude, longitude,
@@ -1722,6 +1725,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), vali
             description, recommended_action,
             timeOfDay, dayOfWeek, isWeekend,
             blotter_number || null, reported_by_name || null, statement || null, persons_involved || null,
+            priority || 'Normal',
             id
         ]);
 

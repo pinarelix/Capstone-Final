@@ -482,6 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="incident-hero-badges">
                             <span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span>
                             <span class="badge ${modalDangerClass}">${escapeHTML(incident.danger_level || 'Not assessed')}</span>
+                            ${incident.priority === 'Urgent' ? `<span class="badge badge-priority-urgent"><i class="fa-solid fa-bolt"></i> Urgent</span>` : ''}
                         </div>
                     </div>
                 </div>

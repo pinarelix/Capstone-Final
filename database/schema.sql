@@ -161,6 +161,7 @@ CREATE TABLE `incidents` (
   `reported_by_name` varchar(150) DEFAULT NULL,
   `statement` text,
   `persons_involved` text,
+  `priority` varchar(20) DEFAULT 'Normal',
   PRIMARY KEY (`id`),
   KEY `reporter_id` (`reporter_id`),
   KEY `fk_incidents_reporter_tanod` (`reporter_tanod_id`),
