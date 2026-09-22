@@ -17,6 +17,94 @@ let peakHoursChart = null;
 // data already on hand instead of re-fetching.
 let trendRawRows = [];
 
+// Same 6 groupings as the Crime Category Guide legend and the CART
+// engine's severity tiers (cart-engine.js) - kept here too since the
+// trend filter groups by category, not by the 60+ individual types.
+const CRIME_CATEGORIES = [
+    'Violent Crimes',
+    'Property Crimes',
+    'Financial / Fraud Crimes',
+    'Social / Public Order Crimes',
+    'Special / Child-Related',
+    'Other Incidents'
+];
+
+const INCIDENT_TYPE_CATEGORY = {
+    'Homicide': 'Violent Crimes',
+    'Attempted Murder': 'Violent Crimes',
+    'Kidnapping': 'Violent Crimes',
+    'Child Abuse': 'Violent Crimes',
+    'VAWC': 'Violent Crimes',
+    'Illegal Release of Fire Arms': 'Violent Crimes',
+    'Attempted Arson': 'Violent Crimes',
+    'Robbery': 'Violent Crimes',
+    'Grave Threat': 'Violent Crimes',
+    'Act of Lasciviousness': 'Violent Crimes',
+    'Physical Injury': 'Violent Crimes',
+    'Threats': 'Violent Crimes',
+    'Less Serious Physical Injuries': 'Violent Crimes',
+    'Falsification of Documents': 'Violent Crimes',
+    'Slight Physical Injuries and Maltreatment': 'Violent Crimes',
+    'Light Threats': 'Violent Crimes',
+
+    'Arson': 'Property Crimes',
+    'Theft': 'Property Crimes',
+    'Fencing of Stolen Properties': 'Property Crimes',
+    'Qualified Trespass to Dwelling': 'Property Crimes',
+    'Occupation of Real Property or Usurpation of': 'Property Crimes',
+    'Removal, Sale or Pledge of Mortgaged Property': 'Property Crimes',
+    'Trespassing': 'Property Crimes',
+    'Altering Boundaries of Landmarks': 'Property Crimes',
+    'Vandalism': 'Property Crimes',
+
+    'Scam': 'Financial / Fraud Crimes',
+    'Swindling of Estafa': 'Financial / Fraud Crimes',
+    'Estafa': 'Financial / Fraud Crimes',
+    'Cybercrime Prevention Act 2012 (RA 10175)': 'Financial / Fraud Crimes',
+    'Estafa/Debts': 'Financial / Fraud Crimes',
+    'Cyber Bullying': 'Financial / Fraud Crimes',
+
+    'Voyeurism Act': 'Social / Public Order Crimes',
+    'Alarms and Scandals': 'Social / Public Order Crimes',
+    'Incriminating Innocent Persons': 'Social / Public Order Crimes',
+    'Threatening to Publish and offer to prevent': 'Social / Public Order Crimes',
+    'Oral Defamation': 'Social / Public Order Crimes',
+    'Harassment': 'Social / Public Order Crimes',
+    'Intriguing Against Honor': 'Social / Public Order Crimes',
+    'Unlawful Use of Means of Publication and Unlaw': 'Social / Public Order Crimes',
+    'Prohibiting Publication of Acts Referred to in the': 'Social / Public Order Crimes',
+
+    'BCPC': 'Special / Child-Related',
+    'Child Support': 'Special / Child-Related',
+
+    'Hit and Run': 'Other Incidents',
+    'Reckless Impudence Resulting to Damage to Property and Physical Injury': 'Other Incidents',
+    'Reckless Impudence Resulting Physical Injury': 'Other Incidents',
+    'Noise Complaint': 'Other Incidents',
+    'Anti Electricity Pilferage': 'Other Incidents',
+    'Reckless Impudence Resulting to Damage to Property': 'Other Incidents',
+    'Safe Special Act': 'Other Incidents',
+    'Bastos Law': 'Other Incidents',
+    'Abandoning a Minor': 'Other Incidents',
+    'Abandonment of a Person in Danger': 'Other Incidents',
+    'Inducing a Minor to Abandon His/her Home': 'Other Incidents',
+    'Animal Welfare Acts': 'Other Incidents',
+    'Suspicious Activity': 'Other Incidents',
+    'Traffic Obstruction': 'Other Incidents',
+    'Breach of Contract': 'Other Incidents',
+    'Breach Contact': 'Other Incidents',
+    'Curfew Violation': 'Other Incidents',
+    'Abandon': 'Other Incidents',
+    'Missing': 'Other Incidents',
+    'Suicide': 'Other Incidents'
+};
+
+// Anything not in the map above (a new/unlisted incident_type) falls
+// back to "Other Incidents" rather than disappearing from every filter.
+function getCrimeCategory(incidentType) {
+    return INCIDENT_TYPE_CATEGORY[incidentType] || 'Other Incidents';
+}
+
 /* ============================================================
    🔥 FIXED: Gumamit ng functions mula sa apiHelper.js
    (HINDI NA LOCAL STORAGE)
@@ -426,21 +514,16 @@ function renderCharts(data) {
         });
     }
 
-    // 3. CRIME TREND (Line Chart - Last 7 Days, filterable by type)
+    // 3. CRIME TREND (Line Chart - Last 7 Days, filterable by crime category)
     trendRawRows = data.trend;
 
     const trendFilter = document.getElementById("trendTypeFilter");
     if (trendFilter) {
-        const previousValue = trendFilter.value;
-        const types = [...new Set(data.trend.map(r => r.incident_type))].sort();
-        trendFilter.innerHTML = '<option value="">All Types</option>' +
-            types.map(t => `<option value="${t}">${t}</option>`).join('');
-        if (types.includes(previousValue)) trendFilter.value = previousValue;
-
-        // Only wire the listener once - renderCharts() (and therefore this
-        // block) re-runs on every poll, and stacking a new listener each
-        // time would fire renderTrendChart() multiple times per change.
+        // Fixed set of 6 categories - only needs populating once, unlike
+        // the old per-incident-type list which depended on the data.
         if (!trendFilter.dataset.wired) {
+            trendFilter.innerHTML = '<option value="">All Types</option>' +
+                CRIME_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
             trendFilter.addEventListener("change", () => renderTrendChart(trendFilter.value));
             trendFilter.dataset.wired = "true";
         }
@@ -490,13 +573,13 @@ function renderCharts(data) {
 
 // Renders the Crime Trend line chart from trendRawRows, either summed
 // across all incident types ("" / All Types) or filtered to one.
-function renderTrendChart(selectedType) {
+function renderTrendChart(selectedCategory) {
     const trendCanvas = document.getElementById("crimeTrendChart");
     if (!trendCanvas) return;
     if (crimeTrendChart) crimeTrendChart.destroy();
 
-    const rows = selectedType
-        ? trendRawRows.filter(r => r.incident_type === selectedType)
+    const rows = selectedCategory
+        ? trendRawRows.filter(r => getCrimeCategory(r.incident_type) === selectedCategory)
         : trendRawRows;
 
     // Sums duplicate-day rows together (multiple types per day, when
@@ -513,7 +596,7 @@ function renderTrendChart(selectedType) {
         data: {
             labels: labels,
             datasets: [{
-                label: selectedType || "Incident Activity",
+                label: selectedCategory || "Incident Activity",
                 data: values,
                 borderColor: "#0ea5e9",
                 backgroundColor: "rgba(14,165,233,0.12)",
