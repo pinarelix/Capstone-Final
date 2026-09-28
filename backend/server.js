@@ -34,6 +34,18 @@ const heatmapCache = new NodeCache({ stdTTL: 60 });
 // left to do.
 
 app.use(express.json());
+
+// Stops the browser from guessing a file's type from its content instead
+// of trusting the server's Content-Type - relevant because upload
+// fileFilters below only check the client-supplied (spoofable) mimetype,
+// not the actual file bytes, so a mislabeled upload could otherwise be
+// sniffed and rendered as HTML/script instead of the image/video it's
+// served as.
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    next();
+});
+
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 // ============================================================

@@ -486,7 +486,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
             
-            const csvField = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+            // CSV/formula injection guard (OWASP): a cell that starts with
+            // =, +, -, @, tab, or CR gets opened as a live formula by
+            // Excel/Sheets - prefixing it with a bare apostrophe forces
+            // those apps to treat it as plain text instead. Address is
+            // free-typed by an admin, so this isn't just a theoretical
+            // input source.
+            const csvField = (value) => {
+                let str = String(value ?? '');
+                if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
+                return `"${str.replace(/"/g, '""')}"`;
+            };
 
             let csvContent = "Incident ID,Type,Date,Time,Location,Address,Status,Danger Level,Recommended Action,Reporter Name,Reporter Contact\n";
 
