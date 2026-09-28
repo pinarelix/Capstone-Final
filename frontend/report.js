@@ -54,8 +54,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     // month filter (and each other) as AND conditions.
     const filterDateFrom = document.getElementById("filterDateFrom");
     const filterDateTo = document.getElementById("filterDateTo");
-    const filterTimeFrom = document.getElementById("filterTimeFrom");
-    const filterTimeTo = document.getElementById("filterTimeTo");
     const filterStatus = document.getElementById("filterStatus");
     const filterType = document.getElementById("filterType");
     const filterLocation = document.getElementById("filterLocation");
@@ -159,16 +157,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Applies the month filter plus every optional refine-within-month
-    // filter (date range, time-of-day range, status, type, location) as
-    // AND conditions. Shared by the table, CSV export, and the Patrol
-    // Recommendation modal so all three always agree on what's "in view".
+    // filter (date range, status, type, location) as AND conditions.
+    // Shared by the table, CSV export, and the Patrol Recommendation
+    // modal so all three always agree on what's "in view".
     function applyFilters(monthKey, allData) {
         if (!monthKey || !allData) return [];
 
         const dateFrom = filterDateFrom?.value || '';
         const dateTo = filterDateTo?.value || '';
-        const timeFrom = filterTimeFrom?.value || '';
-        const timeTo = filterTimeTo?.value || '';
         const status = filterStatus?.value || '';
         const type = filterType?.value || '';
         const location = filterLocation?.value || '';
@@ -177,12 +173,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (!item.date || !item.date.startsWith(monthKey)) return false;
             if (dateFrom && item.date < dateFrom) return false;
             if (dateTo && item.date > dateTo) return false;
-
-            if ((timeFrom || timeTo) && item.time) {
-                const itemTime = item.time.substring(0, 5); // "HH:MM:SS" -> "HH:MM"
-                if (timeFrom && itemTime < timeFrom) return false;
-                if (timeTo && itemTime > timeTo) return false;
-            }
 
             if (status && item.status !== status) return false;
             if (type && item.incident_type !== type) return false;
@@ -432,8 +422,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     filters: {
                         dateFrom: filterDateFrom?.value || '',
                         dateTo: filterDateTo?.value || '',
-                        timeFrom: filterTimeFrom?.value || '',
-                        timeTo: filterTimeTo?.value || '',
                         status: filterStatus?.value || '',
                         incidentType: filterType?.value || '',
                         location: filterLocation?.value || ''
@@ -458,7 +446,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Every refine-within-month filter re-renders the same table on
     // change - no separate "Apply" step.
-    [filterDateFrom, filterDateTo, filterTimeFrom, filterTimeTo, filterStatus, filterType, filterLocation]
+    [filterDateFrom, filterDateTo, filterStatus, filterType, filterLocation]
         .filter(Boolean)
         .forEach(field => {
             field.addEventListener("change", () => {
@@ -468,7 +456,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (clearFiltersBtn) {
         clearFiltersBtn.addEventListener("click", () => {
-            [filterDateFrom, filterDateTo, filterTimeFrom, filterTimeTo, filterStatus, filterType, filterLocation]
+            [filterDateFrom, filterDateTo, filterStatus, filterType, filterLocation]
                 .filter(Boolean)
                 .forEach(field => { field.value = ""; });
             updateReportView(monthSelect.value, currentIncidentData);

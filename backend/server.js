@@ -181,8 +181,6 @@ const reportExportSchema = Joi.object({
     filters: Joi.object({
         dateFrom: Joi.string().allow('', null),
         dateTo: Joi.string().allow('', null),
-        timeFrom: Joi.string().allow('', null),
-        timeTo: Joi.string().allow('', null),
         status: Joi.string().allow('', null),
         incidentType: Joi.string().allow('', null),
         location: Joi.string().allow('', null)
