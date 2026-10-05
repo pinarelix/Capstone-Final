@@ -711,7 +711,7 @@ function isDateWeekend(dateStr) {
 // 0 so the street can surface as high-risk again. The underlying CART
 // score itself is untouched - this is a display-time offset the
 // frontend subtracts (see GET /api/patrol/area-decay).
-const PATROL_COMPLETION_DECAY = 2;
+const PATROL_COMPLETION_DECAY = 3.5;
 
 async function decayAreaRisk(location) {
     if (!location) return;
