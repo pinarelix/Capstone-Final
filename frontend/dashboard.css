@@ -716,10 +716,6 @@ body {
     flex-direction: column;
 
     min-height: 145px;
-
-    transition:
-        transform 0.3s ease,
-        box-shadow 0.3s ease;
 }
 
 
@@ -759,15 +755,6 @@ body {
         background-position: 200% 50%;
     }
 
-}
-
-
-.kpi-card:hover {
-    transform:
-        translateY(-5px);
-
-    box-shadow:
-        var(--shadow-lg);
 }
 
 
