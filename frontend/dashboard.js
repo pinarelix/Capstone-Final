@@ -471,12 +471,14 @@ function renderCharts(data) {
         const values = data.types.map(item => item.count);
 
         // Cycles through the palette so any number of incident types gets a
-        // distinct-looking color instead of running out after 6.
+        // distinct-looking color instead of running out after 6. Every
+        // entry is the same Tailwind "600" shade weight, in hue order -
+        // same trick professional BI palettes use so the set reads as
+        // one cohesive family instead of a grab-bag of random brights.
         const TYPE_COLORS = [
-            "#0ea5e9", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6", "#06b6d4",
-            "#f43f5e", "#22c55e", "#a855f7", "#eab308", "#14b8a6", "#3b82f6",
-            "#ec4899", "#84cc16", "#f97316", "#6366f1", "#059669", "#d946ef",
-            "#0891b2", "#dc2626", "#65a30d"
+            "#dc2626", "#ea580c", "#d97706", "#ca8a04", "#65a30d", "#16a34a",
+            "#059669", "#0d9488", "#0891b2", "#0284c7", "#2563eb", "#4f46e5",
+            "#7c3aed", "#9333ea", "#c026d3", "#db2777", "#e11d48"
         ];
         const barColors = labels.map((_, i) => TYPE_COLORS[i % TYPE_COLORS.length]);
 
