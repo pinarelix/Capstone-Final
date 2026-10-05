@@ -1,7 +1,7 @@
 /* ============================================================
    BARANGAY 179 CRIME BI DASHBOARD
    DASHBOARD.CSS
-   Yellow Command Center Theme
+   Dark Navy Command Center Theme
 ============================================================ */
 
 /* Plus Jakarta Sans is already the display face on the Tanod portal
@@ -18,7 +18,7 @@
     --bg-card: #ffffff;
     --border-card: #94a3b8;
 
-    --sidebar-bg: #f59e0b;
+    --sidebar-bg: #0f172a;
     --sidebar-card-bg: #075985;
     --sidebar-border: #0c4a6e;
 
@@ -26,9 +26,9 @@
     --text-secondary: #334155;
     --text-muted: #64748b;
 
-    /* White text for legible contrast against the sidebar's orange gradient,
-       which runs dark enough at its lower-right corner (#d35400) that dark
-       navy text (the old #334155) fell below WCAG AA contrast there. */
+    /* White text for legible contrast against the sidebar's dark navy
+       gradient - comfortably above WCAG AA at every point of it, unlike
+       the old orange gradient this replaced. */
     --sidebar-text: #ffffff;
     --sidebar-text-muted: rgba(255, 255, 255, 0.75);
 
@@ -99,9 +99,9 @@ body {
 ============================================================ */
 .sidebar {
     width: 280px;
-    background: linear-gradient(135deg, #f39c12, #d35400);
+    background: linear-gradient(135deg, #1e293b, #0f172a);
     color: var(--sidebar-text);
-    border-right: 1px solid #d35400;
+    border-right: 1px solid #0f172a;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -372,7 +372,10 @@ body {
 
 
 .nav-item:hover {
-    background: rgba(15, 23, 42, 0.18);
+    /* A darkening overlay (the old rgba(15, 23, 42, ...)) doesn't read
+       against a background that's already that same dark navy - a
+       light-tinted overlay is what actually shows up here. */
+    background: rgba(255, 255, 255, 0.08);
 
     transform:
         translateX(5px);
@@ -386,9 +389,8 @@ body {
 }
 
 
-/* Blue - orange's complement on the color wheel - so it stands out
-   clearly against the sidebar's orange gradient. A deep, dark blue
-   rather than the lighter --accent-blue for a bolder highlight. */
+/* A saturated blue accent card, standing out clearly against the
+   sidebar's dark navy gradient. */
 .nav-item.active {
     background: var(--sidebar-card-bg);
 
@@ -659,17 +661,18 @@ body {
 }
 
 
-/* Logout only - same gradient as the sidebar/login button, not shared
-   with the other .btn-primary buttons (Save, Submit, etc.). */
+/* Logout only - same gradient as the sidebar, not shared with the
+   other .btn-primary buttons (Save, Submit, etc.). Hover reuses the
+   sidebar's own active-nav-item blue for a consistent accent. */
 #logoutBtn {
-    background: linear-gradient(135deg, #f39c12, #d35400);
+    background: linear-gradient(135deg, #1e293b, #0f172a);
 }
 
 #logoutBtn:hover {
-    background: linear-gradient(135deg, #d35400, #a84300);
+    background: linear-gradient(135deg, #075985, #0c4a6e);
 
     box-shadow:
-        0 5px 15px rgba(211, 84, 0, 0.35);
+        0 5px 15px rgba(7, 89, 133, 0.35);
 }
 
 

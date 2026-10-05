@@ -55,6 +55,46 @@ async function tanodFetch(path, options = {}) {
     return response;
 }
 
+// Mirrors apiHelper.js's ensureFileToken()/buildUploadUrl() - /uploads
+// requires a short-lived signed ?ftoken=... on every request (see
+// server.js), and <img>/<video> tags can't send an Authorization
+// header, so the avatar and any incident photo shown in this portal
+// need their src built through buildTanodUploadUrl() instead of a raw
+// "/uploads/..." string. Duplicated here rather than shared with
+// apiHelper.js for the same reason tanodFetch is its own thing (see
+// file header) - this file never includes apiHelper.js.
+let _cachedTanodFileToken = null;
+let _cachedTanodFileTokenExpiresAt = 0;
+let _tanodFileTokenRefreshStarted = false;
+
+async function _fetchTanodFileToken() {
+    try {
+        const response = await tanodFetch('/uploads/file-token');
+        if (response.ok) {
+            const data = await response.json();
+            _cachedTanodFileToken = data.token;
+            _cachedTanodFileTokenExpiresAt = Date.now() + data.expiresIn;
+        }
+    } catch (error) {
+        console.error('Error fetching file token:', error);
+    }
+}
+
+async function ensureTanodFileToken() {
+    if (!_tanodFileTokenRefreshStarted) {
+        _tanodFileTokenRefreshStarted = true;
+        setInterval(_fetchTanodFileToken, 45000);
+    }
+    if (!_cachedTanodFileToken || Date.now() > _cachedTanodFileTokenExpiresAt - 10000) {
+        await _fetchTanodFileToken();
+    }
+    return _cachedTanodFileToken;
+}
+
+function buildTanodUploadUrl(relativePath) {
+    return _cachedTanodFileToken ? `/uploads/${relativePath}?ftoken=${_cachedTanodFileToken}` : `/uploads/${relativePath}`;
+}
+
 // Periodically re-runs fn(), skipping ticks while the tab is in the
 // background and refreshing immediately once it's visible again.
 function startTanodPolling(fn, intervalMs = 15000) {
@@ -148,7 +188,7 @@ function initTanodLoginPage() {
 // TANOD DASHBOARD PAGE
 // ============================================================
 
-function initTanodDashboardPage() {
+async function initTanodDashboardPage() {
     const profileCard = document.getElementById('profileCard');
     if (!profileCard) return;
 
@@ -160,6 +200,12 @@ function initTanodDashboardPage() {
 
     initTanodPanelNav();
     populateAllReportLocations();
+
+    // Awaited before the first render that needs it (the profile
+    // avatar) - a page that renders sooner would show a broken image
+    // until the next refresh.
+    await ensureTanodFileToken();
+
     loadProfileDetails(tanod.id);
     initAvatarUpload();
     loadSchedule(tanod.id);
@@ -299,7 +345,7 @@ function renderAvatar(profilePicture) {
     if (!img || !fallback) return;
 
     if (profilePicture) {
-        img.src = `/uploads/${profilePicture}`;
+        img.src = buildTanodUploadUrl(profilePicture);
         img.style.display = 'block';
         fallback.style.display = 'none';
     } else {
@@ -646,7 +692,7 @@ function openIncidentDetailModal(incident) {
     const photoEl = document.getElementById('incidentModalPhoto');
     if (photoEl) {
         if (incident.photo_path) {
-            photoEl.src = `/uploads/incident-photos/${incident.photo_path}`;
+            photoEl.src = buildTanodUploadUrl(`incident-photos/${incident.photo_path}`);
             photoEl.style.display = 'block';
         } else {
             photoEl.style.display = 'none';

@@ -46,7 +46,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log(`✅ Access granted for ${user.role}: ${user.name || user.username}`);
-    
+
+    // Fire-and-forget head start - viewIncident() (below) still awaits
+    // this itself before rendering any photo/evidence, this just means
+    // it's often already cached by then.
+    ensureFileToken();
+
     // =========================================================
     // 2. DISPLAY USER INFO
     // =========================================================
@@ -370,8 +375,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!lightbox || !content) return;
 
         content.innerHTML = type === 'video'
-            ? `<video src="/uploads/incident-evidence/${file}" controls autoplay></video>`
-            : `<img src="/uploads/incident-evidence/${file}" alt="Incident evidence">`;
+            ? `<video src="${buildUploadUrl(`incident-evidence/${file}`)}" controls autoplay></video>`
+            : `<img src="${buildUploadUrl(`incident-evidence/${file}`)}" alt="Incident evidence">`;
 
         lightbox.classList.add('active');
     }
@@ -402,13 +407,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const modal = new bootstrap.Modal(document.getElementById('viewIncidentModal'));
         modal.show();
-        
-        fetch(`${API_URL}/incidents/${id}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        })
-        .then(response => {
+
+        // Runs alongside the incident fetch (not after it) - the photo/
+        // evidence <img>/<video> tags built below need a fresh file
+        // token, but there's no reason to pay for that fetch serially.
+        Promise.all([
+            fetch(`${API_URL}/incidents/${id}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            }),
+            ensureFileToken()
+        ])
+        .then(([response]) => {
             if (response.status === 401) {
                 sessionStorage.clear();
                 localStorage.removeItem('user');
@@ -548,7 +559,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
 
                     <div class="incident-narrative">
-                        ${incident.photo_path ? `<img class="incident-photo" src="/uploads/incident-photos/${escapeHTML(incident.photo_path)}" alt="Incident photo evidence">` : ''}
+                        ${incident.photo_path ? `<img class="incident-photo" src="${buildUploadUrl(`incident-photos/${escapeHTML(incident.photo_path)}`)}" alt="Incident photo evidence">` : ''}
 
                         <div class="incident-text-card accent-description">
                             <div class="incident-text-card-header"><i class="fa-solid fa-align-left"></i> Description</div>
@@ -575,8 +586,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${incident.evidence.map(ev => `
                                 <div class="incident-evidence-thumb${ev.file_type === 'video' ? ' is-video' : ''}" data-file="${escapeHTML(ev.file_path)}" data-type="${ev.file_type}">
                                     ${ev.file_type === 'video'
-                                        ? `<video src="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" muted></video>`
-                                        : `<img src="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" alt="Incident evidence">`}
+                                        ? `<video src="${buildUploadUrl(`incident-evidence/${escapeHTML(ev.file_path)}`)}" muted></video>`
+                                        : `<img src="${buildUploadUrl(`incident-evidence/${escapeHTML(ev.file_path)}`)}" alt="Incident evidence">`}
                                 </div>`).join('')}
                             </div>
                         </div>` : ''}

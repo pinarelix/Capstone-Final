@@ -58,6 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     applyRoleBasedUI(); // mula sa apiHelper.js
 
+    // Fire-and-forget here - the list table itself has no images, only
+    // the evidence gallery (shown when editing an incident) needs the
+    // token, and editIncident() awaits it fresh before rendering.
+    ensureFileToken();
+
     initMapPicker();
     loadLocationCoordinates();
     loadReporters();
@@ -841,8 +846,8 @@ function renderEvidencePreview(pendingFiles, existingEvidence, incidentId) {
     const existingHtml = existingEvidence.map(ev => `
         <div class="evidence-item" data-evidence-id="${ev.id}">
             ${ev.file_type === 'video'
-                ? `<video src="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" controls></video>`
-                : `<img src="/uploads/incident-evidence/${escapeHTML(ev.file_path)}" alt="Evidence">`}
+                ? `<video src="${buildUploadUrl(`incident-evidence/${escapeHTML(ev.file_path)}`)}" controls></video>`
+                : `<img src="${buildUploadUrl(`incident-evidence/${escapeHTML(ev.file_path)}`)}" alt="Evidence">`}
             <button type="button" class="evidence-remove-btn" onclick="deleteEvidenceFile(${incidentId}, ${ev.id})" title="Remove">
                 <i class="fa-solid fa-xmark"></i>
             </button>
@@ -985,6 +990,7 @@ window.editIncident = async (id) => {
         // Evidence isn't in the list payload (only the single-incident
         // detail route joins it) - fetch it separately for the preview.
         try {
+            await ensureFileToken();
             const detailResponse = await apiFetch(`/incidents/${id}`);
             if (detailResponse.ok) {
                 const detail = await detailResponse.json();

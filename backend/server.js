@@ -55,7 +55,18 @@ app.use(express.static(path.join(__dirname, '..', 'frontend')));
 // ============================================================
 const AVATAR_DIR = path.join(__dirname, 'uploads', 'tanod-avatars');
 fs.mkdirSync(AVATAR_DIR, { recursive: true });
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Gated by a short-lived file token (?ftoken=...) instead of being a
+// bare, unauthenticated static mount - see FILE ACCESS TOKENS below for
+// why. verifyFileToken/FILE_TOKEN_SECRET are defined further down but
+// this only runs per-request, by which point the whole module (and
+// those const declarations) has already finished loading.
+app.use('/uploads', (req, res, next) => {
+    if (!verifyFileToken(req.query.ftoken)) {
+        return res.status(401).json({ error: 'Unauthorized: missing or expired file token' });
+    }
+    next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 const avatarUpload = multer({
     storage: multer.diskStorage({
@@ -556,6 +567,84 @@ function requireOwnTanodId(req, res, next) {
     }
     next();
 }
+
+// Accepts either a staff session or a tanod session - used only for
+// issuing file-access tokens (see below), where both kinds of logged-in
+// user legitimately need to view uploaded photos/videos. Doesn't touch
+// last_activity/idle-timeout bookkeeping (that stays authenticate()'s
+// and authenticateTanod()'s job on the routes that actually matter for
+// session lifetime) - this just answers "is this Authorization header
+// currently valid for someone."
+async function authenticateStaffOrTanod(req, res, next) {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Unauthorized: No session token provided' });
+        }
+        const token = authHeader.split(' ')[1];
+
+        const [staffSessions] = await pool.query(
+            `SELECT user_id FROM user_sessions WHERE session_token = ? AND is_active = 1 AND logout_time IS NULL`,
+            [token]
+        );
+        if (staffSessions.length > 0) {
+            req.userId = staffSessions[0].user_id;
+            return next();
+        }
+
+        const [tanodSessions] = await pool.query(
+            `SELECT tanod_sessions.tanod_id FROM tanod_sessions
+             JOIN tanod_record ON tanod_sessions.tanod_id = tanod_record.id
+             WHERE tanod_sessions.session_token = ? AND tanod_sessions.is_active = 1
+               AND tanod_sessions.logout_time IS NULL AND tanod_record.is_active = 1`,
+            [token]
+        );
+        if (tanodSessions.length > 0) {
+            req.tanodId = tanodSessions[0].tanod_id;
+            return next();
+        }
+
+        return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
+    } catch (error) {
+        console.error('❌ Authentication error (staff-or-tanod):', error);
+        return res.status(500).json({ error: 'Server error during authentication' });
+    }
+}
+
+// ============================================================
+// FILE ACCESS TOKENS (gate /uploads - see below)
+// Uploaded evidence/photos used to be served by a bare express.static
+// mount with no auth check at all - anyone with (or guessing) a URL
+// could view them, logged in or not. Short-lived (60s) signed tokens
+// close that without requiring every <img>/<video> tag to somehow send
+// an Authorization header, which they can't. The secret is generated
+// fresh at process start and kept in memory only - tokens expire in
+// 60s anyway, so there's nothing worth persisting across restarts.
+// ============================================================
+const FILE_TOKEN_SECRET = crypto.randomBytes(32).toString('hex');
+const FILE_TOKEN_TTL_MS = 60 * 1000;
+
+function issueFileToken() {
+    const expiry = Date.now() + FILE_TOKEN_TTL_MS;
+    const sig = crypto.createHmac('sha256', FILE_TOKEN_SECRET).update(String(expiry)).digest('hex');
+    return `${expiry}.${sig}`;
+}
+
+function verifyFileToken(token) {
+    if (!token || typeof token !== 'string') return false;
+    const [expiryStr, sig] = token.split('.');
+    const expiry = parseInt(expiryStr, 10);
+    if (!expiry || !sig || Date.now() > expiry) return false;
+
+    const expectedSig = crypto.createHmac('sha256', FILE_TOKEN_SECRET).update(String(expiry)).digest('hex');
+    const sigBuf = Buffer.from(sig);
+    const expectedBuf = Buffer.from(expectedSig);
+    return sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf);
+}
+
+app.get('/api/uploads/file-token', authenticateStaffOrTanod, (req, res) => {
+    res.json({ token: issueFileToken(), expiresIn: FILE_TOKEN_TTL_MS });
+});
 
 // ============================================================
 // HELPER FUNCTIONS FOR AUTO-COMPUTE

@@ -24,6 +24,54 @@ function escapeHTML(value) {
 }
 
 // ============================================================
+// 1c. FILE ACCESS TOKEN (for /uploads/... image & video src URLs)
+// /uploads is no longer a bare unauthenticated static mount - it
+// requires a short-lived (60s) signed ?ftoken=... on every request.
+// <img>/<video> tags can't send an Authorization header, so this
+// fetches that token once and every page that renders an uploaded
+// photo/video builds its src through buildUploadUrl() instead of a
+// raw "/uploads/..." string.
+// ============================================================
+
+let _cachedFileToken = null;
+let _cachedFileTokenExpiresAt = 0;
+let _fileTokenRefreshStarted = false;
+
+async function _fetchFileToken() {
+    try {
+        const response = await apiFetch('/uploads/file-token');
+        if (response.ok) {
+            const data = await response.json();
+            _cachedFileToken = data.token;
+            _cachedFileTokenExpiresAt = Date.now() + data.expiresIn;
+        }
+    } catch (error) {
+        console.error('Error fetching file token:', error);
+    }
+}
+
+// Call once, awaited, before the first render that needs buildUploadUrl()
+// - a page that renders sooner would show broken images until the next
+// refresh. Safe to call again anywhere; it only re-fetches when the
+// cached token is missing or close to expiry.
+async function ensureFileToken() {
+    if (!_fileTokenRefreshStarted) {
+        _fileTokenRefreshStarted = true;
+        // Refreshed well before the 60s server-side expiry so a request
+        // that's mid-flight when the token turns over doesn't 401.
+        setInterval(_fetchFileToken, 45000);
+    }
+    if (!_cachedFileToken || Date.now() > _cachedFileTokenExpiresAt - 10000) {
+        await _fetchFileToken();
+    }
+    return _cachedFileToken;
+}
+
+function buildUploadUrl(relativePath) {
+    return _cachedFileToken ? `/uploads/${relativePath}?ftoken=${_cachedFileToken}` : `/uploads/${relativePath}`;
+}
+
+// ============================================================
 // 2. SESSION TOKEN MANAGEMENT
 // ============================================================
 
