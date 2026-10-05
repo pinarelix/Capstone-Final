@@ -706,6 +706,15 @@ body {
         repeat(4, 1fr);
 
     background: var(--bg-card);
+
+    border:
+        1px solid var(--border-card);
+
+    border-radius: var(--radius-lg);
+
+    box-shadow: var(--shadow-sm);
+
+    overflow: hidden;
 }
 
 
@@ -803,30 +812,13 @@ body {
    CHART GRID
 ============================================================ */
 
-/* One bordered surface per row instead of two separately boxed
-   cards - the two chart panels divide it with a vertical line
-   instead of each carrying their own border/shadow. */
 .charts-grid {
     display: grid;
-
-    /* See .kpi-grid - a flex item's automatic min-height becomes 0
-       once it's not overflow:visible, which would crush this row
-       inside .main-content's column flexbox. */
-    flex-shrink: 0;
 
     grid-template-columns:
         1fr 1fr;
 
-    background: var(--bg-card);
-
-    border:
-        1px solid var(--border-card);
-
-    border-radius: var(--radius-lg);
-
-    box-shadow: var(--shadow-sm);
-
-    overflow: hidden;
+    gap: 24px;
 }
 
 
@@ -855,29 +847,27 @@ body {
 .chart-card {
     min-height: 370px;
 
-    background: transparent;
-
-    border: none;
-
-    border-radius: 0;
-
-    box-shadow: none;
-
-    border-right:
-        1px solid var(--sidebar-border);
+    transition:
+        transform 0.35s ease,
+        box-shadow 0.35s ease;
 
     animation:
         chartCardFloat 6s ease-in-out infinite;
-}
-
-.chart-card:last-child {
-    border-right: none;
 }
 
 
 .chart-card:nth-child(even) {
     animation-delay:
         1.5s;
+}
+
+
+.chart-card:hover {
+    transform:
+        translateY(-5px);
+
+    box-shadow:
+        var(--shadow-lg);
 }
 
 
@@ -1209,45 +1199,18 @@ body {
    DATA GRID
 ============================================================ */
 
-/* Same single-surface-with-divider treatment as .charts-grid. */
 .data-grid {
     display: grid;
-
-    flex-shrink: 0;
 
     grid-template-columns:
         1.15fr 0.85fr;
 
-    background: var(--bg-card);
-
-    border:
-        1px solid var(--border-card);
-
-    border-radius: var(--radius-lg);
-
-    box-shadow: var(--shadow-sm);
-
-    overflow: hidden;
+    gap: 24px;
 }
 
 
 .data-card {
     min-width: 0;
-
-    background: transparent;
-
-    border: none;
-
-    border-radius: 0;
-
-    box-shadow: none;
-
-    border-right:
-        1px solid var(--sidebar-border);
-}
-
-.data-card:last-child {
-    border-right: none;
 }
 
 
