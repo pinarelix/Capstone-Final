@@ -34,6 +34,7 @@ window.logoutUser = function() {
 let allIncidents = [];
 let allRiskFactors = []; // 🔥 NEW: CART risk factors
 let allTanods = [];
+let allTeams = [];
 let allSchedules = [];
 let allLogs = [];
 // Per-street risk decay from completed patrols - {location: decay_amount},
@@ -274,7 +275,16 @@ async function loadAllData() {
             console.warn('⚠️ Failed to load tanods:', tanodResponse.status);
             allTanods = [];
         }
-        
+
+        // Load tanod teams (for the Schedules tab's "Assign by Team" picker)
+        const teamResponse = await window.apiFetch('/tanod-teams');
+        if (teamResponse.ok) {
+            allTeams = await teamResponse.json();
+        } else {
+            console.warn('⚠️ Failed to load tanod teams:', teamResponse.status);
+            allTeams = [];
+        }
+
         // Load schedules
         const scheduleResponse = await window.apiFetch('/patrol-schedules');
         if (scheduleResponse.ok) {
@@ -308,6 +318,7 @@ async function loadAllData() {
         
         populateScheduleDropdown();
         populateTanodDropdown();
+        populateTeamSelect();
         renderTanodChecklist();
 
         updateCounts();
@@ -1000,6 +1011,14 @@ async function confirmDelete(endpoint, id, successMsg, errorMsg) {
 
 function setupScheduleForm() {
     setupFormSubmit('scheduleForm', saveSchedule);
+
+    const teamSelect = document.getElementById('scheduleTeamSelect');
+    if (teamSelect) {
+        teamSelect.addEventListener('change', () => {
+            applyTeamToChecklist(teamSelect.value);
+            teamSelect.value = '';
+        });
+    }
 }
 
 async function saveSchedule() {
@@ -1405,6 +1424,35 @@ function populateTanodDropdown() {
         option.value = tanod.id;
         option.textContent = tanod.name;
         select.appendChild(option);
+    });
+}
+
+// Populates the "Assign by Team" dropdown above the tanod checklist -
+// choosing a team checks all of its members' boxes in one click instead
+// of finding each one individually. Managed from User & Tanod
+// Management's Tanod List tab (frontend/users.js).
+function populateTeamSelect() {
+    const select = document.getElementById('scheduleTeamSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">— Select a team to auto-check its members —</option>' +
+        allTeams.map(team => `<option value="${team.id}">${escapeHTML(team.name)} (${team.member_count})</option>`).join('');
+}
+
+// Checks (doesn't uncheck) every tanod belonging to the selected team,
+// leaving the admin free to add/remove individuals afterward rather
+// than forcing the checklist to exactly match the team roster.
+function applyTeamToChecklist(teamId) {
+    if (!teamId) return;
+
+    const memberIds = new Set(
+        allTanods.filter(t => String(t.team_id) === String(teamId)).map(t => String(t.id))
+    );
+
+    document.querySelectorAll('#scheduleTanodsChecklist input[type="checkbox"]').forEach(checkbox => {
+        if (memberIds.has(checkbox.value)) {
+            checkbox.checked = true;
+        }
     });
 }
 

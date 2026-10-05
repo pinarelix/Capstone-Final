@@ -191,6 +191,29 @@ async function testConnection() {
         ALTER TABLE users
         MODIFY COLUMN role ENUM('Administrator', 'Decision-Maker', 'Desk Officer') NOT NULL
     `);
+
+    // Tanod teams: lets a schedule be assigned to a whole team at once
+    // instead of checking each tanod individually. No FK constraint on
+    // tanod_record.team_id by design - team deletion clears it manually
+    // (see DELETE /api/tanod-teams/:id) rather than relying on a DB-level
+    // ON DELETE SET NULL, since re-adding a named FK constraint isn't
+    // idempotent the way CREATE TABLE IF NOT EXISTS is.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS tanod_teams (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    try {
+        // "ADD COLUMN IF NOT EXISTS" isn't accepted by this MySQL
+        // version's parser, so idempotency is done the manual way:
+        // attempt the add, swallow only the "column already exists"
+        // error on every startup after the first.
+        await pool.query(`ALTER TABLE tanod_record ADD COLUMN team_id INT DEFAULT NULL`);
+    } catch (err) {
+        if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
 }
 
 // ============================================================
@@ -259,7 +282,8 @@ const tanodSchema = Joi.object({
     // unchanged; POST enforces "must set a PIN on create" in the route
     // handler itself, since Joi can't make a field conditionally required
     // by HTTP method alone.
-    pin_code: Joi.string().pattern(/^\d{4}$/).allow('', null)
+    pin_code: Joi.string().pattern(/^\d{4}$/).allow('', null),
+    team_id: Joi.number().integer().positive().allow(null, '')
 });
 
 // Tanod Login Schema
@@ -2355,7 +2379,83 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Administrator', 'De
 // TANOD & PATROL API ROUTES
 // ============================================================
 
-const TANOD_PUBLIC_COLUMNS = 'id, name, position, contact_no, username, is_active, created_at, updated_at, user_id';
+// ---------- TANOD TEAMS ----------
+// Lets Patrol Decision Support assign a whole team of tanods to a
+// schedule at once instead of checking each one individually.
+
+const tanodTeamSchema = Joi.object({
+    name: Joi.string().min(2).max(100).required()
+});
+
+app.get('/api/tanod-teams', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+            SELECT tanod_teams.id, tanod_teams.name, tanod_teams.created_at,
+                COUNT(tanod_record.id) AS member_count
+            FROM tanod_teams
+            LEFT JOIN tanod_record ON tanod_record.team_id = tanod_teams.id AND tanod_record.is_active = 1
+            GROUP BY tanod_teams.id, tanod_teams.name, tanod_teams.created_at
+            ORDER BY tanod_teams.name
+        `);
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching tanod teams:', error);
+        res.status(500).json({ error: 'Failed to fetch tanod teams' });
+    }
+});
+
+app.post('/api/tanod-teams', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodTeamSchema), async (req, res) => {
+    try {
+        const { name } = req.body;
+        const [result] = await pool.query('INSERT INTO tanod_teams (name) VALUES (?)', [name]);
+        res.status(201).json({ message: 'Team added successfully', team: { id: result.insertId, name } });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'A team with that name already exists.' });
+        }
+        console.error('❌ Error adding tanod team:', error);
+        res.status(500).json({ error: 'Failed to add team' });
+    }
+});
+
+app.put('/api/tanod-teams/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodTeamSchema), async (req, res) => {
+    try {
+        const { name } = req.body;
+        const [result] = await pool.query('UPDATE tanod_teams SET name = ? WHERE id = ?', [name, req.params.id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Team not found' });
+        }
+        res.json({ message: 'Team updated successfully' });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'A team with that name already exists.' });
+        }
+        console.error('❌ Error updating tanod team:', error);
+        res.status(500).json({ error: 'Failed to update team' });
+    }
+});
+
+app.delete('/api/tanod-teams/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
+    try {
+        const id = req.params.id;
+        // No FK/ON DELETE SET NULL on tanod_record.team_id (see
+        // testConnection) - clear it manually first so members don't keep
+        // a dangling reference to a team that no longer exists.
+        await pool.query('UPDATE tanod_record SET team_id = NULL WHERE team_id = ?', [id]);
+        const [result] = await pool.query('DELETE FROM tanod_teams WHERE id = ?', [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Team not found' });
+        }
+        res.json({ message: 'Team deleted successfully' });
+    } catch (error) {
+        console.error('❌ Error deleting tanod team:', error);
+        res.status(500).json({ error: 'Failed to delete team' });
+    }
+});
+
+// ---------- TANODS ----------
+
+const TANOD_PUBLIC_COLUMNS = 'tanod_record.id, tanod_record.name, tanod_record.position, tanod_record.contact_no, tanod_record.username, tanod_record.is_active, tanod_record.created_at, tanod_record.updated_at, tanod_record.user_id, tanod_record.team_id';
 
 // Correlated EXISTS check (not a JOIN) so a tanod with more than one
 // active schedule doesn't come back as duplicate rows. Powers the
@@ -2371,9 +2471,11 @@ const HAS_ACTIVE_SCHEDULE_SQL = `
 app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT ${TANOD_PUBLIC_COLUMNS}, ${HAS_ACTIVE_SCHEDULE_SQL} FROM tanod_record
-            WHERE is_active = 1
-            ORDER BY name
+            SELECT ${TANOD_PUBLIC_COLUMNS}, tanod_teams.name AS team_name, ${HAS_ACTIVE_SCHEDULE_SQL}
+            FROM tanod_record
+            LEFT JOIN tanod_teams ON tanod_record.team_id = tanod_teams.id
+            WHERE tanod_record.is_active = 1
+            ORDER BY tanod_record.name
         `);
         res.json(rows);
     } catch (error) {
@@ -2385,8 +2487,10 @@ app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Mak
 app.get('/api/tanods/all', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT ${TANOD_PUBLIC_COLUMNS}, ${HAS_ACTIVE_SCHEDULE_SQL} FROM tanod_record
-            ORDER BY is_active DESC, name
+            SELECT ${TANOD_PUBLIC_COLUMNS}, tanod_teams.name AS team_name, ${HAS_ACTIVE_SCHEDULE_SQL}
+            FROM tanod_record
+            LEFT JOIN tanod_teams ON tanod_record.team_id = tanod_teams.id
+            ORDER BY tanod_record.is_active DESC, tanod_record.name
         `);
         res.json(rows);
     } catch (error) {
@@ -2415,7 +2519,7 @@ app.get('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
 
 app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodSchema), async (req, res) => {
     try {
-        const { name, position, contact_no, username, pin_code } = req.body;
+        const { name, position, contact_no, username, pin_code, team_id } = req.body;
 
         if (!pin_code) {
             return res.status(400).json({ error: 'A 4-digit PIN is required when adding a tanod.' });
@@ -2425,14 +2529,15 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
 
         const [result] = await pool.query(`
             INSERT INTO tanod_record
-            (name, position, contact_no, username, pin_code_hash)
-            VALUES (?, ?, ?, ?, ?)
+            (name, position, contact_no, username, pin_code_hash, team_id)
+            VALUES (?, ?, ?, ?, ?, ?)
         `, [
             name,
             position || 'Tanod',
             contact_no || null,
             username,
-            pinHash
+            pinHash,
+            team_id || null
         ]);
 
         const [newTanod] = await pool.query(
@@ -2469,7 +2574,7 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
 
 app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodSchema), async (req, res) => {
     try {
-        const { name, position, contact_no, username, pin_code, is_active } = req.body;
+        const { name, position, contact_no, username, pin_code, is_active, team_id } = req.body;
         const id = req.params.id;
 
         // Resetting a Tanod's login PIN is a credential change, not a
@@ -2493,7 +2598,7 @@ app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
         const [result] = await pool.query(`
             UPDATE tanod_record
             SET name = ?, position = ?, contact_no = ?,
-                username = ?, pin_code_hash = ?, is_active = ?
+                username = ?, pin_code_hash = ?, is_active = ?, team_id = ?
             WHERE id = ?
         `, [
             name, position || 'Tanod', contact_no || null,
@@ -2502,7 +2607,8 @@ app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
             // never actually sent - but defaulting to 1 here meant every
             // plain name/contact edit silently reactivated a deactivated
             // tanod. Default to the existing value instead.
-            is_active !== undefined ? is_active : oldData[0].is_active, id
+            is_active !== undefined ? is_active : oldData[0].is_active,
+            team_id || null, id
         ]);
 
         if (result.affectedRows === 0) {

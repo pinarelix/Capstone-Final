@@ -455,11 +455,28 @@ CREATE TABLE `tanod_record` (
   `user_id` int DEFAULT NULL,
   `username` varchar(50) NOT NULL,
   `pin_code_hash` varchar(255) DEFAULT NULL,
+  `team_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tanod_username` (`username`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `tanod_record_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `tanod_teams`
+--
+
+DROP TABLE IF EXISTS `tanod_teams`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tanod_teams` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

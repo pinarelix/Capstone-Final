@@ -9,6 +9,7 @@
 // Global user data
 let users = [];
 let allTanods = [];
+let allTeams = [];
 
 /* ============================================================
    🔥 FIXED: Gumamit ng functions mula sa apiHelper.js
@@ -52,8 +53,10 @@ document.addEventListener("DOMContentLoaded", function () {
     
     loadUsers();
     loadTanods();
+    loadTeams();
     setupForm();
     setupTanodForm();
+    setupTeamManagement();
     setupTabs();
     setupSearch();
     setupNavigation();
@@ -229,7 +232,7 @@ function renderTanods(tanods) {
     if (tanods.length === 0) {
         tbody.innerHTML = `
             <tr class="empty-row">
-                <td colspan="5">
+                <td colspan="6">
                     <div class="empty-content">
                         <i class="fa-solid fa-users-slash"></i>
                         <span>No tanod records found.</span>
@@ -255,6 +258,7 @@ function renderTanods(tanods) {
                     ${positionBadge.icon} ${escapeHTML(positionBadge.text)}
                 </span>
             </td>
+            <td style="color: #475569;">${tanod.team_name ? escapeHTML(tanod.team_name) : '<span style="color:#94a3b8;">No Team</span>'}</td>
             <td style="color: #475569;">${escapeHTML(tanod.contact_no || 'N/A')}</td>
             <td style="color: #475569;">${escapeHTML(tanod.username || 'N/A')}</td>
             <td>
@@ -313,6 +317,108 @@ function setupTanodForm() {
         addTanod();
     });
 }
+
+/* ============================================================
+   TANOD TEAMS - lets a schedule assign a whole team at once
+   (see frontend/patrol.js) instead of checking tanods one by one.
+============================================================ */
+
+async function loadTeams() {
+    try {
+        const response = await apiFetch('/tanod-teams');
+        if (!response.ok) throw new Error('Failed to fetch teams');
+
+        allTeams = await response.json();
+        populateTeamDropdown();
+        renderTeamChips();
+    } catch (error) {
+        console.error('Error loading tanod teams:', error);
+        allTeams = [];
+    }
+}
+
+function populateTeamDropdown() {
+    const select = document.getElementById('tanodTeam');
+    if (!select) return;
+
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">No Team</option>' +
+        allTeams.map(team => `<option value="${team.id}">${escapeHTML(team.name)}</option>`).join('');
+    select.value = currentValue;
+}
+
+function renderTeamChips() {
+    const list = document.getElementById('teamChipList');
+    if (!list) return;
+
+    if (allTeams.length === 0) {
+        list.innerHTML = '<span style="font-size: 0.78rem; color: #94a3b8;">No teams yet - add one above.</span>';
+        return;
+    }
+
+    list.innerHTML = allTeams.map(team => `
+        <span style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #e0e7ff; color: #4338ca; border-radius: 16px; font-size: 0.78rem; font-weight: 600;">
+            ${escapeHTML(team.name)} (${team.member_count})
+            <button type="button" onclick="deleteTeam(${team.id}, '${escapeHTML(team.name).replace(/'/g, "\\'")}')" style="background: none; border: none; color: #4338ca; cursor: pointer; padding: 0; display: flex; align-items: center;" title="Delete team">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </span>
+    `).join('');
+}
+
+function setupTeamManagement() {
+    const manageBtn = document.getElementById('manageTeamsBtn');
+    const panel = document.getElementById('teamManagePanel');
+    const addBtn = document.getElementById('addTeamBtn');
+    const nameInput = document.getElementById('newTeamName');
+
+    if (manageBtn && panel) {
+        manageBtn.addEventListener('click', () => {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+
+    if (addBtn && nameInput) {
+        addBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            if (!name) {
+                showToast('Please enter a team name.', 'error');
+                return;
+            }
+            try {
+                const response = await apiFetch('/tanod-teams', {
+                    method: 'POST',
+                    body: JSON.stringify({ name })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.error || 'Failed to add team');
+
+                nameInput.value = '';
+                await loadTeams();
+                showToast('Team added successfully.', 'success');
+            } catch (error) {
+                showToast(error.message || 'Failed to add team.', 'error');
+            }
+        });
+    }
+}
+
+window.deleteTeam = async function(id, name) {
+    if (!confirm(`Delete "${name}"? Tanods on this team will become unassigned, not deleted.`)) return;
+
+    try {
+        const response = await apiFetch(`/tanod-teams/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || 'Failed to delete team');
+        }
+        await loadTeams();
+        await loadTanods();
+        showToast('Team deleted successfully.', 'success');
+    } catch (error) {
+        showToast(error.message || 'Failed to delete team.', 'error');
+    }
+};
 
 /* ============================================================
    ADD USER
@@ -385,6 +491,8 @@ async function addTanod() {
     const contact_no = document.getElementById('tanodContact').value.trim();
     const username = document.getElementById('tanodUsername').value.trim();
     const pin_code = document.getElementById('tanodPin').value.trim();
+    const teamSelect = document.getElementById('tanodTeam').value;
+    const team_id = teamSelect ? parseInt(teamSelect, 10) : null;
 
     if (!name || !username) {
         showToast('Please enter tanod name and username.', 'error');
@@ -415,7 +523,8 @@ async function addTanod() {
                 position,
                 contact_no,
                 username,
-                pin_code
+                pin_code,
+                team_id
             })
         });
 
@@ -452,6 +561,7 @@ window.editTanod = async function(id) {
         document.getElementById('tanodName').value = tanod.name;
         document.getElementById('tanodPosition').value = tanod.position || 'Tanod';
         document.getElementById('tanodContact').value = tanod.contact_no || '';
+        document.getElementById('tanodTeam').value = tanod.team_id || '';
         document.getElementById('tanodUsername').value = tanod.username || '';
         document.getElementById('tanodPin').value = '';
         document.getElementById('tanodPinHint').style.display = 'block';
