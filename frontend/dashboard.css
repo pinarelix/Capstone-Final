@@ -1,7 +1,7 @@
 /* ============================================================
    BARANGAY 179 CRIME BI DASHBOARD
    DASHBOARD.CSS
-   Dark Navy Command Center Theme
+   Light Minimal Theme
 ============================================================ */
 
 /* A serif display face for the brand title only (sidebar + login hero)
@@ -19,19 +19,21 @@
     --bg-card: #ffffff;
     --border-card: #94a3b8;
 
-    --sidebar-bg: #0f172a;
-    --sidebar-card-bg: #075985;
-    --sidebar-border: #0c4a6e;
+    --sidebar-bg: #ffffff;
+    --sidebar-card-bg: #f8fafc;
+    --sidebar-border: #e2e8f0;
+    /* Thin left-edge indicator bar on the active nav item - the only
+       accent color the sidebar carries now that it's a light surface. */
+    --sidebar-active-accent: #0ea5e9;
 
     --text-primary: #0f172a;
     --text-secondary: #334155;
     --text-muted: #64748b;
 
-    /* White text for legible contrast against the sidebar's dark navy
-       gradient - comfortably above WCAG AA at every point of it, unlike
-       the old orange gradient this replaced. */
-    --sidebar-text: #ffffff;
-    --sidebar-text-muted: rgba(255, 255, 255, 0.75);
+    /* Dark navy text on the now-light (white) sidebar - previously
+       white text for contrast against a dark/orange sidebar background. */
+    --sidebar-text: #0f172a;
+    --sidebar-text-muted: #64748b;
 
     --accent-blue: #0ea5e9;
     --accent-dark: #0f172a;
@@ -100,9 +102,9 @@ body {
 ============================================================ */
 .sidebar {
     width: 280px;
-    background: linear-gradient(135deg, #1e293b, #0f172a);
+    background: var(--sidebar-bg);
     color: var(--sidebar-text);
-    border-right: 1px solid #0f172a;
+    border-right: 1px solid var(--sidebar-border);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -131,7 +133,7 @@ body {
     gap: 14px;
     margin-bottom: 24px;
     padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+    border-bottom: 1px solid var(--sidebar-border);
 }
 
 .brand-logo-container {
@@ -141,10 +143,8 @@ body {
     border-radius: 14px;
     overflow: hidden;
     background: #ffffff;
-    border: 2px solid rgba(255, 255, 255, 0.7);
-    box-shadow:
-        0 6px 16px rgba(15, 23, 42, 0.25),
-        0 0 0 4px rgba(255, 255, 255, 0.18);
+    border: 1px solid var(--sidebar-border);
+    box-shadow: var(--shadow-sm);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -172,17 +172,16 @@ body {
     font-family: var(--font-display);
     font-size: 1.15rem;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-primary);
     line-height: 1.15;
     letter-spacing: 0.2px;
-    text-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
     margin: 0;
 }
 
 .brand-info p {
     font-size: 0.66rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.6px;
     margin-top: 3px;
@@ -247,9 +246,6 @@ body {
 
     border:
         1px solid var(--sidebar-border);
-
-    box-shadow:
-        inset 0 1px rgba(255,255,255,0.08);
 }
 
 
@@ -258,7 +254,7 @@ body {
 
     font-weight: 700;
 
-    color: white;
+    color: var(--text-primary);
 
     margin: 0;
 }
@@ -267,7 +263,7 @@ body {
 .profile-info p {
     font-size: 0.73rem;
 
-    color: #cbd5e1;
+    color: var(--text-muted);
 
     margin-top: 6px;
 
@@ -299,9 +295,9 @@ body {
 
     text-decoration: none;
 
-    color: var(--sidebar-text);
+    color: var(--sidebar-text-muted);
 
-    background: rgba(255, 255, 255, 0.1);
+    background: transparent;
 
     font-size: 0.92rem;
 
@@ -373,10 +369,9 @@ body {
 
 
 .nav-item:hover {
-    /* A darkening overlay (the old rgba(15, 23, 42, ...)) doesn't read
-       against a background that's already that same dark navy - a
-       light-tinted overlay is what actually shows up here. */
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--sidebar-card-bg);
+
+    color: var(--text-primary);
 
     transform:
         translateX(5px);
@@ -390,20 +385,36 @@ body {
 }
 
 
-/* A saturated blue accent card, standing out clearly against the
-   sidebar's dark navy gradient. */
+/* No fill on the active item - just bold text plus a thin colored
+   indicator bar on the leading edge, the way a light/minimal sidebar
+   marks the current page instead of a solid accent pill. */
 .nav-item.active {
-    background: var(--sidebar-card-bg);
+    background: transparent;
 
-    color: white;
+    color: var(--text-primary);
+}
 
-    box-shadow:
-        0 6px 16px rgba(7, 89, 133, 0.45);
+.nav-item.active::before {
+    content: '';
+
+    position: absolute;
+
+    left: 0;
+
+    top: 10px;
+
+    bottom: 10px;
+
+    width: 3px;
+
+    border-radius: 3px;
+
+    background: var(--sidebar-active-accent);
 }
 
 
 .nav-item.active .nav-icon {
-    color: white;
+    color: var(--sidebar-active-accent);
 }
 
 
@@ -662,18 +673,25 @@ body {
 }
 
 
-/* Logout only - same gradient as the sidebar, not shared with the
-   other .btn-primary buttons (Save, Submit, etc.). Hover reuses the
-   sidebar's own active-nav-item blue for a consistent accent. */
+/* Logout only - a plain bordered/ghost treatment to match the light
+   sidebar, not shared with the other .btn-primary buttons (Save,
+   Submit, etc.) which keep the solid dark fill. */
 #logoutBtn {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
+    background: transparent;
+
+    color: #dc2626;
+
+    border: 1px solid var(--sidebar-border);
+
+    box-shadow: none;
 }
 
 #logoutBtn:hover {
-    background: linear-gradient(135deg, #075985, #0c4a6e);
+    background: #fef2f2;
 
-    box-shadow:
-        0 5px 15px rgba(7, 89, 133, 0.35);
+    border-color: #fecaca;
+
+    box-shadow: none;
 }
 
 
@@ -681,13 +699,31 @@ body {
    KPI GRID
 ============================================================ */
 
+/* The grid itself is the single bordered/shadowed surface now - the
+   8 cards inside it are plain, divided by thin interior lines instead
+   of each carrying its own border/shadow (a continuous "stat row"
+   look instead of a tile grid). */
 .kpi-grid {
     display: grid;
+
+    /* .main-content is a column flexbox, and a flex item's automatic
+       min-height becomes 0 once it's not overflow:visible - without
+       this the grid gets crushed down to just its border width. */
+    flex-shrink: 0;
 
     grid-template-columns:
         repeat(4, 1fr);
 
-    gap: 18px;
+    background: var(--bg-card);
+
+    border:
+        1px solid var(--border-card);
+
+    border-radius: var(--radius-lg);
+
+    box-shadow: var(--shadow-sm);
+
+    overflow: hidden;
 }
 
 
@@ -698,24 +734,31 @@ body {
 .kpi-card {
     position: relative;
 
-    overflow: hidden;
+    background: transparent;
 
-    background: var(--bg-card);
+    border-right:
+        1px solid var(--sidebar-border);
 
-    border:
-        1px solid var(--border-card);
-
-    border-radius: var(--radius-lg);
+    border-bottom:
+        1px solid var(--sidebar-border);
 
     padding: 20px;
-
-    box-shadow: var(--shadow-sm);
 
     display: flex;
 
     flex-direction: column;
 
     min-height: 145px;
+}
+
+.kpi-card:nth-child(4n) {
+    border-right: none;
+}
+
+/* Last row of the (always 4-column) grid - works whether a page has
+   4 cards (one row) or 8 (two rows), since it counts from the end. */
+.kpi-card:nth-last-child(-n+4) {
+    border-bottom: none;
 }
 
 
