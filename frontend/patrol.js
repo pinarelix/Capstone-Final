@@ -36,6 +36,9 @@ let allRiskFactors = []; // 🔥 NEW: CART risk factors
 let allTanods = [];
 let allSchedules = [];
 let allLogs = [];
+// Per-street risk decay from completed patrols - {location: decay_amount},
+// subtracted from that street's CART risk score in recommendations.
+let allAreaDecay = {};
 let scheduleMapPicker;
 let scheduleMarker;
 
@@ -259,8 +262,9 @@ async function loadAllData() {
         }
         
         // 🔥 IMPROVED: Load CART risk factors with better error handling
+        await loadAreaDecay();
         await loadCartDataOnly();
-        
+
         // Load tanods
         const tanodResponse = await window.apiFetch('/tanods');
         if (tanodResponse.ok) {
@@ -364,6 +368,7 @@ async function refreshRecommendationsOnly() {
             const incData = await incResponse.json();
             allIncidents = incData.incidents || [];
         }
+        await loadAreaDecay();
         await loadCartDataOnly();
     } catch (error) {
         console.error('❌ Error refreshing recommendations:', error);
@@ -404,6 +409,27 @@ async function loadCartDataOnly() {
         }
         allRiskFactors = [];
         // Don't show error for missing CART data - just use empty array
+    }
+}
+
+// Loads each street's accumulated patrol-completion decay (see
+// backend decayAreaRisk/resetAreaRisk) so recommendations can subtract
+// it from the live CART score instead of showing the raw figure.
+async function loadAreaDecay() {
+    try {
+        const response = await window.apiFetch('/patrol/area-decay');
+        if (!response.ok) {
+            allAreaDecay = {};
+            return;
+        }
+        const rows = await response.json();
+        allAreaDecay = {};
+        rows.forEach(row => {
+            allAreaDecay[row.location] = parseFloat(row.decay_amount) || 0;
+        });
+    } catch (error) {
+        console.error('❌ Error loading area risk decay:', error);
+        allAreaDecay = {};
     }
 }
 
@@ -456,7 +482,7 @@ function populateMonthDropdown(incidents) {
 // 7. 🔥 NEW: CART-BASED PATROL RECOMMENDATIONS
 // ============================================================
 
-function getCartBasedPatrolRecommendations(incidents, riskFactors, month) {
+function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDecay = {}) {
     console.log('🔍 Generating CART-based recommendations for:', month);
     console.log('📊 Incidents available:', incidents.length);
     console.log('📊 Risk factors available:', riskFactors.length);
@@ -578,8 +604,17 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month) {
             }
         });
         data.dominantLevel = dominantLevel;
+
+        // Patrol completions at this street shave decay off its score
+        // (see loadAreaDecay); a new incident here resets it to 0 on the
+        // backend, so this is always relative to the current live risk.
+        const decay = areaDecay[location] || 0;
+        if (decay > 0) {
+            data.maxRisk = Math.max(0, data.maxRisk - decay);
+            data.avgRisk = Math.max(0, data.avgRisk - decay);
+        }
     });
-    
+
     // 5. Sort locations by CART risk score (highest first)
     const sortedLocations = Object.entries(locationData)
         .filter(([_, data]) => data.count > 0)
@@ -699,9 +734,10 @@ function updateDashboardWithCartData(selectedMonth) {
     
     // Get CART-based recommendations
     const recommendations = getCartBasedPatrolRecommendations(
-        allIncidents, 
-        allRiskFactors, 
-        selectedMonth
+        allIncidents,
+        allRiskFactors,
+        selectedMonth,
+        allAreaDecay
     );
     
     // Update metrics

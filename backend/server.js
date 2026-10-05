@@ -168,6 +168,19 @@ async function testConnection() {
     console.log('✅ Database connected successfully!');
     console.log(`📁 Using database: ${process.env.DB_NAME || 'brgydata'}`);
     connection.release();
+
+    // Per-street risk decay (Patrol Decision Support): each completed
+    // patrol schedule shaves a bit off that street's recommended risk
+    // score, and a new incident there wipes the decay so the street can
+    // surface as high-risk again. Created here (not just in schema.sql)
+    // so the feature works without a manual migration step.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS area_risk_decay (
+            location VARCHAR(100) PRIMARY KEY,
+            decay_amount DECIMAL(5,2) NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    `);
 }
 
 // ============================================================
@@ -687,6 +700,35 @@ function isDateWeekend(dateStr) {
     } catch (e) {
         return false;
     }
+}
+
+// ============================================================
+// AREA RISK DECAY (Patrol Decision Support)
+// ============================================================
+// Per-street decay applied on top of CART's live-computed risk score:
+// each completed patrol there shaves PATROL_COMPLETION_DECAY off the
+// street's recommended risk, and a new incident there wipes it back to
+// 0 so the street can surface as high-risk again. The underlying CART
+// score itself is untouched - this is a display-time offset the
+// frontend subtracts (see GET /api/patrol/area-decay).
+const PATROL_COMPLETION_DECAY = 2;
+
+async function decayAreaRisk(location) {
+    if (!location) return;
+    await pool.query(`
+        INSERT INTO area_risk_decay (location, decay_amount)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE decay_amount = decay_amount + VALUES(decay_amount)
+    `, [location, PATROL_COMPLETION_DECAY]);
+}
+
+async function resetAreaRisk(location) {
+    if (!location) return;
+    await pool.query(`
+        INSERT INTO area_risk_decay (location, decay_amount)
+        VALUES (?, 0)
+        ON DUPLICATE KEY UPDATE decay_amount = 0
+    `, [location]);
 }
 
 // ============================================================
@@ -1783,6 +1825,11 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator']), validat
         await computeCartRiskFactors(result.insertId);
         heatmapCache.del('incidents');
 
+        // A new incident here means this street is active again - clear
+        // any patrol decay so it isn't still suppressed below its real
+        // (freshly recomputed) CART risk score.
+        await resetAreaRisk(finalStreetName);
+
         const userId = req.userId;
 
         if (userId) {
@@ -2793,6 +2840,7 @@ app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentP
 
         await computeCartRiskFactors(result.insertId);
         heatmapCache.del('incidents');
+        await resetAreaRisk(location);
 
         await logTanodAudit(req.tanodId, 'TANOD_CREATE_INCIDENT', 'incidents', result.insertId,
             { incident_type, location, date, time }, req);
@@ -2842,6 +2890,21 @@ app.post('/api/tanod/patrol-log', authenticateTanod, validate(tanodLogSchema), a
     } catch (error) {
         console.error('❌ Error adding tanod patrol log:', error);
         res.status(500).json({ error: 'Failed to add patrol log' });
+    }
+});
+
+// Per-street risk decay accumulated from completed patrols (see
+// decayAreaRisk/resetAreaRisk) - the frontend subtracts this from each
+// street's live CART risk score when building patrol recommendations.
+app.get('/api/patrol/area-decay', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT location, decay_amount FROM area_risk_decay WHERE decay_amount > 0'
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching area risk decay:', error);
+        res.status(500).json({ error: 'Failed to fetch area risk decay' });
     }
 });
 
@@ -2981,6 +3044,12 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator',
         }
 
         await syncScheduleTanods(id, tanod_ids);
+
+        // Only the Active/Cancelled -> Completed transition counts - not
+        // every re-save of a schedule that was already Completed.
+        if (status === 'Completed' && oldData[0].status !== 'Completed') {
+            await decayAreaRisk(location);
+        }
 
         const [updatedSchedule] = await pool.query(
             'SELECT * FROM patrol_schedules WHERE id = ?',
