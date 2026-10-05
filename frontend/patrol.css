@@ -479,6 +479,17 @@
     gap: 14px;
 }
 
+/* Add Patrol Schedule / Add Patrol Log: each field (or field-pair row)
+   is a standalone direct child here, not wrapped in a .form-row like
+   incident.html's form - so without this, labels sit flush against
+   whatever field came before them. */
+#scheduleForm > .form-group,
+#scheduleForm > .form-grid-2,
+#logForm > .form-group,
+#logForm > .form-grid-2 {
+    margin-bottom: 18px;
+}
+
 .form-control {
     width: 100%;
     padding: 10px 14px;
