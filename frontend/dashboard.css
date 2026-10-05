@@ -233,6 +233,8 @@ body {
 ============================================================ */
 
 .user-profile {
+    order: 2;
+
     padding: 20px;
 }
 
@@ -281,6 +283,13 @@ body {
     display: flex;
 
     flex-direction: column;
+
+    /* Fills the remaining height below the header so the profile
+       card (order: 2, pushed after it) lands at the bottom of the
+       sidebar instead of right under the header. */
+    order: 1;
+
+    flex: 1;
 
     gap: 10px;
 
