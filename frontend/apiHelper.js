@@ -292,6 +292,15 @@ function isDecisionMaker() {
     return user && user.role === 'Decision-Maker';
 }
 
+/**
+ * Check if user is Desk Officer
+ * @returns {boolean}
+ */
+function isDeskOfficer() {
+    const user = getCurrentUser();
+    return user && user.role === 'Desk Officer';
+}
+
 // ============================================================
 // 🔥 NEW: APPLY ROLE-BASED UI
 // ============================================================
@@ -315,13 +324,21 @@ function applyRoleBasedUI() {
     if (user.role === 'Decision-Maker' || user.role === 'Captain') {
         document.body.classList.add('role-decision-maker');
         console.log('🔒 Decision-Maker/Captain mode enabled');
+    } else if (user.role === 'Desk Officer') {
+        document.body.classList.add('role-desk-officer');
+        console.log('🗂️ Desk Officer mode enabled');
     } else if (user.role === 'Administrator') {
         document.body.classList.add('role-admin');
         console.log('👑 Admin mode enabled');
     }
-    
-    // Hide admin-only elements for non-admin users
-    if (user.role === 'Decision-Maker' || user.role === 'Captain') {
+
+    // Hide admin-only elements for non-admin users. Desk Officer gets the
+    // same baseline as Decision-Maker; patrol.css then re-shows the one
+    // thing Desk Officer can do that Decision-Maker's UI doesn't expose -
+    // editing (not deleting) a patrol schedule - via a body.role-desk-officer
+    // override, since the backend already allows both roles to PUT a
+    // schedule and only the Edit button's visibility was ever Admin-only.
+    if (user.role === 'Decision-Maker' || user.role === 'Captain' || user.role === 'Desk Officer') {
         document.querySelectorAll('.admin-only').forEach(el => {
             el.style.display = 'none';
         });
@@ -350,6 +367,8 @@ function applyRoleBasedUI() {
             roleDisplay = '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
         } else if (user.role === 'Captain') {
             roleDisplay = '<i class="fa-solid fa-chart-column"></i> Captain — View & Analytics Access';
+        } else if (user.role === 'Desk Officer') {
+            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Patrol Scheduling Access';
         }
         roleEl.innerHTML = roleDisplay;
     }
@@ -528,6 +547,7 @@ window.isLoggedIn = isLoggedIn;
 window.isAdmin = isAdmin;
 window.isCaptain = isCaptain;
 window.isDecisionMaker = isDecisionMaker;
+window.isDeskOfficer = isDeskOfficer;
 window.applyRoleBasedUI = applyRoleBasedUI; // 🔥 NEW
 window.IncidentsAPI = IncidentsAPI;
 window.UsersAPI = UsersAPI;

@@ -79,6 +79,11 @@
     color: #b45309;
 }
 
+.role-badge.role-desk-officer {
+    background: #f3e8ff;
+    color: #7c3aed;
+}
+
 .role-field-user {
     background: #d1fae5;
     color: #047857;
@@ -332,6 +337,11 @@
 .role-icon.decision {
     background-color: #fef3c7;
     color: #b45309;
+}
+
+.role-icon.desk-officer {
+    background-color: #f3e8ff;
+    color: #7c3aed;
 }
 
 .role-content h3 {

@@ -660,20 +660,34 @@ textarea.form-control {
 /* ============================================================
    ROLE-BASED VISIBILITY
 ============================================================ */
-body.role-decision-maker .admin-only {
+body.role-decision-maker .admin-only,
+body.role-desk-officer .admin-only {
     display: none !important;
 }
 
-body.role-decision-maker .admin-action {
+body.role-decision-maker .admin-action,
+body.role-desk-officer .admin-action {
     display: none !important;
 }
 
-body.role-decision-maker .admin-section {
+body.role-decision-maker .admin-section,
+body.role-desk-officer .admin-section {
     display: none !important;
 }
 
-body.role-decision-maker .admin-badge {
+body.role-decision-maker .admin-badge,
+body.role-desk-officer .admin-badge {
     display: none !important;
+}
+
+/* Desk Officer can edit (not delete) a patrol schedule - the backend
+   already allows Decision-Maker to PUT a schedule too, only the button
+   was ever hidden; re-showing it here is scoped to Desk Officer only
+   so Decision-Maker's existing read-only schedule view is unchanged.
+   Scoped to the Schedules table specifically - Desk Officer manages
+   assignments, not patrol log entries. */
+body.role-desk-officer #scheduleTableBody .btn-action-edit {
+    display: inline-block !important;
 }
 
 /* ============================================================

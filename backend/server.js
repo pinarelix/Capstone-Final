@@ -181,6 +181,16 @@ async function testConnection() {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
     `);
+
+    // Adds the 'Desk Officer' staff role (manages patrol schedules,
+    // same view access as Decision-Maker) to the users.role ENUM.
+    // Re-running this with the same value list is a no-op in MySQL, so
+    // it's safe to apply on every startup rather than needing a manual
+    // migration step.
+    await pool.query(`
+        ALTER TABLE users
+        MODIFY COLUMN role ENUM('Administrator', 'Decision-Maker', 'Desk Officer') NOT NULL
+    `);
 }
 
 // ============================================================
@@ -229,7 +239,7 @@ const userSchema = Joi.object({
     name: Joi.string().required(),
     username: Joi.string().min(3).required(),
     password: Joi.string().min(6).required(),
-    role: Joi.string().valid('Administrator', 'Decision-Maker').required(),
+    role: Joi.string().valid('Administrator', 'Decision-Maker', 'Desk Officer').required(),
     contact_no: Joi.string().allow('', null)
 });
 
@@ -1249,7 +1259,7 @@ app.delete('/api/users/:id', authenticate, requireRole(['Administrator']), async
     }
 });
 
-app.get('/api/users-list', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/users-list', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT id, name FROM users WHERE is_active = 1 ORDER BY name'
@@ -1551,7 +1561,7 @@ app.post('/api/auth/logout', async (req, res) => {
 // ✅ FIXED: INCIDENT MANAGEMENT API ROUTES
 // ============================================================
 
-app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const { page = 1, limit = 25, search = '', type = '', danger = '', date = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -1747,7 +1757,7 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
     }
 });
 
-app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const cached = heatmapCache.get('incidents');
         if (cached) {
@@ -2043,7 +2053,7 @@ app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(
 // 🆕 CART PATROL INTEGRATION - Get CART data for patrol
 // ============================================================
 
-app.get('/api/patrol/cart-summary', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/patrol/cart-summary', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const { month } = req.query;
         
@@ -2190,7 +2200,7 @@ app.get('/api/patrol/cart-summary', authenticate, requireRole(['Administrator', 
 // DASHBOARD STATISTICS API ROUTE
 // ============================================================
 
-app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [totalResult] = await pool.query("SELECT COUNT(*) as total FROM incidents WHERE TRIM(status) != 'Resolved'");
         const totalIncidents = totalResult[0].total;
@@ -2283,7 +2293,7 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Dec
     }
 });
 
-app.get('/api/dashboard/charts', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/dashboard/charts', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [typesResult] = await pool.query(`
             SELECT incident_type, COUNT(*) as count 
@@ -2358,7 +2368,7 @@ const HAS_ACTIVE_SCHEDULE_SQL = `
     ) as has_active_schedule
 `;
 
-app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT ${TANOD_PUBLIC_COLUMNS}, ${HAS_ACTIVE_SCHEDULE_SQL} FROM tanod_record
@@ -2372,7 +2382,7 @@ app.get('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Mak
     }
 });
 
-app.get('/api/tanods/all', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/tanods/all', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT ${TANOD_PUBLIC_COLUMNS}, ${HAS_ACTIVE_SCHEDULE_SQL} FROM tanod_record
@@ -2385,7 +2395,7 @@ app.get('/api/tanods/all', authenticate, requireRole(['Administrator', 'Decision
     }
 });
 
-app.get('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record WHERE id = ?`,
@@ -2403,7 +2413,7 @@ app.get('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
     }
 });
 
-app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(tanodSchema), async (req, res) => {
+app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodSchema), async (req, res) => {
     try {
         const { name, position, contact_no, username, pin_code } = req.body;
 
@@ -2457,7 +2467,7 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
     }
 });
 
-app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(tanodSchema), async (req, res) => {
+app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodSchema), async (req, res) => {
     try {
         const { name, position, contact_no, username, pin_code, is_active } = req.body;
         const id = req.params.id;
@@ -2896,7 +2906,7 @@ app.post('/api/tanod/patrol-log', authenticateTanod, validate(tanodLogSchema), a
 // Per-street risk decay accumulated from completed patrols (see
 // decayAreaRisk/resetAreaRisk) - the frontend subtracts this from each
 // street's live CART risk score when building patrol recommendations.
-app.get('/api/patrol/area-decay', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/patrol/area-decay', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT location, decay_amount FROM area_risk_decay WHERE decay_amount > 0'
@@ -2910,7 +2920,7 @@ app.get('/api/patrol/area-decay', authenticate, requireRole(['Administrator', 'D
 
 // ---------- PATROL SCHEDULES ----------
 
-app.get('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT * FROM patrol_schedules 
@@ -2924,7 +2934,7 @@ app.get('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'De
     }
 });
 
-app.get('/api/patrol-schedules/all', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/patrol-schedules/all', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT * FROM patrol_schedules 
@@ -2937,7 +2947,7 @@ app.get('/api/patrol-schedules/all', authenticate, requireRole(['Administrator',
     }
 });
 
-app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT * FROM patrol_schedules WHERE id = ?',
@@ -2974,7 +2984,7 @@ async function syncScheduleTanods(scheduleId, tanodIds) {
     await pool.query('UPDATE patrol_schedules SET assigned_tanods = ? WHERE id = ?', [tanodIds.length, scheduleId]);
 }
 
-app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(scheduleSchema), async (req, res) => {
+app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(scheduleSchema), async (req, res) => {
     try {
         const { location, start_time, end_time, day_of_week, tanod_ids, latitude, longitude, reason } = req.body;
 
@@ -3018,7 +3028,7 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'D
     }
 });
 
-app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(scheduleSchema), async (req, res) => {
+app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(scheduleSchema), async (req, res) => {
     try {
         const { location, start_time, end_time, day_of_week, tanod_ids, latitude, longitude, reason, status } = req.body;
         const id = req.params.id;
@@ -3120,7 +3130,7 @@ app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Administrato
 
 // ---------- PATROL LOGS ----------
 
-app.get('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT 
@@ -3141,7 +3151,7 @@ app.get('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decisio
     }
 });
 
-app.get('/api/patrol-logs/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/patrol-logs/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM patrol_logs WHERE id = ?', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Patrol log not found' });
@@ -3152,7 +3162,7 @@ app.get('/api/patrol-logs/:id', authenticate, requireRole(['Administrator', 'Dec
     }
 });
 
-app.post('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(logSchema), async (req, res) => {
+app.post('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(logSchema), async (req, res) => {
     try {
         const { schedule_id, tanod_id, report, status, patrol_date } = req.body;
         
@@ -3198,7 +3208,7 @@ app.post('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decisi
     }
 });
 
-app.put('/api/patrol-logs/:id', authenticate, requireRole(['Administrator', 'Decision-Maker']), validate(logSchema), async (req, res) => {
+app.put('/api/patrol-logs/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(logSchema), async (req, res) => {
     try {
         const { schedule_id, tanod_id, report, status, patrol_date } = req.body;
         const id = req.params.id;
@@ -3283,7 +3293,7 @@ app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Administrator']),
 // CART ANALYTICS API ROUTES
 // ============================================================
 
-app.get('/api/cart/risk-factors', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/cart/risk-factors', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT
@@ -3313,7 +3323,7 @@ app.get('/api/cart/risk-factors', authenticate, requireRole(['Administrator', 'D
     }
 });
 
-app.get('/api/cart/summary', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/cart/summary', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [summary] = await pool.query(`
             SELECT 
@@ -3333,7 +3343,7 @@ app.get('/api/cart/summary', authenticate, requireRole(['Administrator', 'Decisi
     }
 });
 
-app.get('/api/cart/decision-rules', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/cart/decision-rules', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT * FROM cart_decision_rules 
@@ -3347,7 +3357,7 @@ app.get('/api/cart/decision-rules', authenticate, requireRole(['Administrator', 
     }
 });
 
-app.get('/api/cart/analysis-logs', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/cart/analysis-logs', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT * FROM cart_analysis_log 
@@ -3368,7 +3378,7 @@ app.get('/api/cart/analysis-logs', authenticate, requireRole(['Administrator', '
 // field values plus real location/frequency stats for the chosen
 // street - but never writes to incidents or cart_risk_factors.
 // ============================================================
-app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const { incident_type, time, day, location, repeated, history, frequency } = req.body;
 
@@ -3426,7 +3436,7 @@ app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decis
     }
 });
 
-app.post('/api/cart/analyze', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.post('/api/cart/analyze', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const startTime = Date.now();
         const triggered_by = req.userId;
@@ -3735,7 +3745,7 @@ const locationCoordinateSchema = Joi.object({
     longitude: Joi.number().min(-180).max(180).required()
 });
 
-app.get('/api/location-coordinates', authenticate, requireRole(['Administrator', 'Decision-Maker']), async (req, res) => {
+app.get('/api/location-coordinates', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT location, latitude, longitude FROM location_coordinates');
         const byLocation = new Map(rows.map(r => [r.location, r]));
@@ -3807,7 +3817,7 @@ app.get('/', (req, res) => {
 // START SERVER
 // ============================================================
 
-app.get('/api/system/status', authenticate, requireRole(['Administrator', 'Decision-Maker']), (req, res) => {
+app.get('/api/system/status', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), (req, res) => {
     res.json({ uptimeSeconds: Math.floor((Date.now() - SERVER_START_TIME) / 1000) });
 });
 

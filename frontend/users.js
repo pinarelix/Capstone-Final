@@ -41,9 +41,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     if (roleEl) {
-        const roleDisplay = user?.role === 'Administrator'
-            ? '<i class="fa-solid fa-crown"></i> Administrator — Full System Access'
-            : '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
+        let roleDisplay = '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
+        if (user?.role === 'Administrator') {
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Administrator — Full System Access';
+        } else if (user?.role === 'Desk Officer') {
+            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Patrol Scheduling Access';
+        }
         roleEl.innerHTML = roleDisplay || 'User';
     }
     
@@ -526,6 +529,8 @@ function renderUsers(filteredUsers = users) {
             roleClass = 'role-badge role-admin';
         } else if (users.role === 'Decision-Maker') {
             roleClass = 'role-badge role-decision-maker';
+        } else if (users.role === 'Desk Officer') {
+            roleClass = 'role-badge role-desk-officer';
         }
 
         row.innerHTML = `
@@ -741,6 +746,7 @@ function getRoleClass(role) {
     switch (role) {
         case "Administrator": return "admin";
         case "Decision-Maker": return "decision-maker";
+        case "Desk Officer": return "desk-officer";
         default: return "field-user";
     }
 }
@@ -749,6 +755,7 @@ function getRoleIcon(role) {
     switch (role) {
         case "Administrator": return '<i class="fa-solid fa-user-shield"></i>';
         case "Decision-Maker": return '<i class="fa-solid fa-user-tie"></i>';
+        case "Desk Officer": return '<i class="fa-solid fa-headset"></i>';
         default: return '<i class="fa-solid fa-user"></i>';
     }
 }

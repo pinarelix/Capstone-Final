@@ -1752,18 +1752,21 @@ body {
     display: flex !important;
 }
 
-/* 🔥 For Decision-Maker, hide admin-only elements */
-body.role-decision-maker .admin-only {
+/* 🔥 For Decision-Maker (and Desk Officer), hide admin-only elements */
+body.role-decision-maker .admin-only,
+body.role-desk-officer .admin-only {
     display: none !important;
 }
 
-/* 🔥 For Decision-Maker, hide admin-action buttons */
-body.role-decision-maker .admin-action {
+/* 🔥 For Decision-Maker (and Desk Officer), hide admin-action buttons */
+body.role-decision-maker .admin-action,
+body.role-desk-officer .admin-action {
     display: none !important;
 }
 
-/* 🔥 For Decision-Maker, hide admin sections */
-body.role-decision-maker .admin-section {
+/* 🔥 For Decision-Maker (and Desk Officer), hide admin sections */
+body.role-decision-maker .admin-section,
+body.role-desk-officer .admin-section {
     display: none !important;
 }
 

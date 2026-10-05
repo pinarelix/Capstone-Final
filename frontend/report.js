@@ -37,9 +37,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     if (roleEl) {
-        const roleDisplay = user?.role === 'Administrator'
-            ? '<i class="fa-solid fa-crown"></i> Administrator — Full System Access'
-            : '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
+        let roleDisplay = '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
+        if (user?.role === 'Administrator') {
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Administrator — Full System Access';
+        } else if (user?.role === 'Desk Officer') {
+            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Patrol Scheduling Access';
+        }
         roleEl.innerHTML = roleDisplay || 'User';
     }
     

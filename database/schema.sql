@@ -522,7 +522,7 @@ CREATE TABLE `users` (
   `name` varchar(100) NOT NULL,
   `username` varchar(50) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `role` enum('Administrator','Decision-Maker') NOT NULL,
+  `role` enum('Administrator','Decision-Maker','Desk Officer') NOT NULL,
   `contact_no` varchar(20) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
   `last_login_at` timestamp NULL DEFAULT NULL,
