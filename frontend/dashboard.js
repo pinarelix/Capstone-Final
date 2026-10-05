@@ -29,6 +29,38 @@ const CRIME_CATEGORIES = [
     'Other Incidents'
 ];
 
+// Chart.js defaults - matches the dashboard's own font/color system
+// instead of Chart.js's own system-font fallback, and gives every
+// chart the same rounded, padded tooltip instead of the library's
+// bare default box.
+if (typeof Chart !== "undefined") {
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = "#64748b";
+    Chart.defaults.plugins.tooltip.backgroundColor = "#0f172a";
+    Chart.defaults.plugins.tooltip.titleColor = "#ffffff";
+    Chart.defaults.plugins.tooltip.bodyColor = "#e2e8f0";
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.titleFont = { weight: "700", size: 12.5 };
+    Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+    Chart.defaults.plugins.tooltip.displayColors = true;
+    Chart.defaults.plugins.tooltip.boxPadding = 6;
+}
+
+// Canvas gradient fill for the line/area charts - a flat rgba fill
+// reads flat under a title bar this clean; a vertical fade into
+// transparency gives the area actual depth. Uses .chart-container's
+// own CSS height (280px) rather than canvas.height, which can still
+// hold a stale or device-pixel-scaled value at this point - a chart
+// is always destroyed and rebuilt here, never resized in place.
+function areaGradient(canvas, colorHex) {
+    const ctx = canvas.getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, colorHex + "55");
+    gradient.addColorStop(1, colorHex + "02");
+    return gradient;
+}
+
 const INCIDENT_TYPE_CATEGORY = {
     'Homicide': 'Violent Crimes',
     'Attempted Murder': 'Violent Crimes',
@@ -472,7 +504,7 @@ function renderCharts(data) {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { beginAtZero: true, grid: { display: false }, ticks: { color: "#0f172a", stepSize: 1 } },
+                    x: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { color: "#0f172a", stepSize: 1 } },
                     y: { grid: { display: false }, ticks: { color: "#0f172a", font: { weight: "600" } } }
                 }
             }
@@ -483,6 +515,8 @@ function renderCharts(data) {
     const dangerCanvas = document.getElementById("dangerLevelChart");
     if (dangerCanvas) {
         if (dangerLevelChart) dangerLevelChart.destroy();
+
+        const dangerTotal = data.danger.high + data.danger.moderate + data.danger.low;
 
         dangerLevelChart = new Chart(dangerCanvas, {
             type: "doughnut",
@@ -495,22 +529,45 @@ function renderCharts(data) {
                 datasets: [{
                     data: [data.danger.high, data.danger.moderate, data.danger.low],
                     backgroundColor: ["#ef4444", "#f59e0b", "#10b981"],
-                    borderColor: "#e2e8f0",
-                    borderWidth: 4,
-                    hoverOffset: 15
+                    borderColor: "#ffffff",
+                    borderWidth: 3,
+                    borderRadius: 6,
+                    spacing: 2,
+                    hoverOffset: 10
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: "66%",
+                cutout: "72%",
                 plugins: {
                     legend: {
                         position: "bottom",
                         labels: { usePointStyle: true, pointStyle: "circle", padding: 15, font: { size: 11, weight: "600" } }
                     }
                 }
-            }
+            },
+            // Prints the record total in the doughnut's own empty center,
+            // the one piece of context a ring chart can't show on its own.
+            plugins: [{
+                id: "doughnutCenterText",
+                afterDraw(chart) {
+                    const { ctx, chartArea: { left, right, top, bottom } } = chart;
+                    const centerX = (left + right) / 2;
+                    const centerY = (top + bottom) / 2;
+
+                    ctx.save();
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillStyle = "#0f172a";
+                    ctx.font = "800 1.6rem Inter, sans-serif";
+                    ctx.fillText(dangerTotal, centerX, centerY - 10);
+                    ctx.fillStyle = "#94a3b8";
+                    ctx.font = "700 0.65rem Inter, sans-serif";
+                    ctx.fillText("TOTAL RECORDS", centerX, centerY + 14);
+                    ctx.restore();
+                }
+            }]
         });
     }
 
@@ -547,13 +604,14 @@ function renderCharts(data) {
                     label: "Incident Activity",
                     data: values,
                     borderColor: "#f59e0b",
-                    backgroundColor: "rgba(245,158,11,0.25)",
+                    backgroundColor: areaGradient(peakCanvas, "#f59e0b"),
                     pointBackgroundColor: "#f59e0b",
                     pointBorderColor: "#ffffff",
                     pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 8,
-                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 7,
+                    pointHoverBorderWidth: 3,
+                    borderWidth: 2.5,
                     tension: 0.45,
                     fill: true
                 }]
@@ -561,10 +619,11 @@ function renderCharts(data) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
                 plugins: { legend: { display: false } },
                 scales: {
                     x: { grid: { display: false }, ticks: { color: "#0f172a", maxRotation: 45, minRotation: 45 } },
-                    y: { beginAtZero: true, grid: { color: "#cbd5e1" }, ticks: { color: "#0f172a", stepSize: 1 } }
+                    y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { color: "#0f172a", stepSize: 1 } }
                 }
             }
         });
@@ -599,13 +658,14 @@ function renderTrendChart(selectedCategory) {
                 label: selectedCategory || "Incident Activity",
                 data: values,
                 borderColor: "#0ea5e9",
-                backgroundColor: "rgba(14,165,233,0.12)",
+                backgroundColor: areaGradient(trendCanvas, "#0ea5e9"),
                 pointBackgroundColor: "#0ea5e9",
                 pointBorderColor: "#ffffff",
                 pointBorderWidth: 2,
-                pointRadius: 5,
-                pointHoverRadius: 8,
-                borderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 7,
+                pointHoverBorderWidth: 3,
+                borderWidth: 2.5,
                 tension: 0.4,
                 fill: true
             }]
@@ -613,10 +673,11 @@ function renderTrendChart(selectedCategory) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
             plugins: { legend: { display: false } },
             scales: {
                 x: { grid: { display: false }, ticks: { color: "#0f172a" } },
-                y: { beginAtZero: true, grid: { color: "#cbd5e1" }, ticks: { color: "#0f172a", stepSize: 1 } }
+                y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { color: "#0f172a", stepSize: 1 } }
             }
         }
     });
