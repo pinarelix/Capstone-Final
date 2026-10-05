@@ -29,25 +29,37 @@ const CRIME_CATEGORIES = [
     'Other Incidents'
 ];
 
-// Shared ApexCharts options every chart on this page starts from -
-// same font/color system as the rest of the dashboard, and one place
-// to tune the look instead of repeating it per chart.
-const APEX_BASE = {
-    chart: {
-        fontFamily: "'Inter', sans-serif",
-        toolbar: { show: false },
-        foreColor: "#64748b",
-        animations: { easing: "easeinout", speed: 500 }
-    },
-    tooltip: {
-        theme: "dark",
-        style: { fontFamily: "'Inter', sans-serif", fontSize: "12px" }
-    },
-    grid: {
-        borderColor: "#f1f5f9",
-        strokeDashArray: 0
-    }
-};
+// Chart.js defaults - matches the dashboard's own font/color system
+// instead of Chart.js's own system-font fallback, and gives every
+// chart the same rounded, padded tooltip instead of the library's
+// bare default box.
+if (typeof Chart !== "undefined") {
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = "#64748b";
+    Chart.defaults.plugins.tooltip.backgroundColor = "#0f172a";
+    Chart.defaults.plugins.tooltip.titleColor = "#ffffff";
+    Chart.defaults.plugins.tooltip.bodyColor = "#e2e8f0";
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.titleFont = { weight: "700", size: 12.5 };
+    Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+    Chart.defaults.plugins.tooltip.displayColors = true;
+    Chart.defaults.plugins.tooltip.boxPadding = 6;
+}
+
+// Canvas gradient fill for the line/area charts - a flat rgba fill
+// reads flat under a title bar this clean; a vertical fade into
+// transparency gives the area actual depth. Uses .chart-container's
+// own CSS height (280px) rather than canvas.height, which can still
+// hold a stale or device-pixel-scaled value at this point - a chart
+// is always destroyed and rebuilt here, never resized in place.
+function areaGradient(canvas, colorHex) {
+    const ctx = canvas.getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, colorHex + "55");
+    gradient.addColorStop(1, colorHex + "02");
+    return gradient;
+}
 
 const INCIDENT_TYPE_CATEGORY = {
     'Homicide': 'Violent Crimes',
@@ -449,40 +461,12 @@ async function loadCharts() {
    RENDER CHARTS
 ============================================================ */
 
-// Builds the shared area-chart options for the Crime Trend and Peak
-// Hours charts - identical shape, different color/data/label-rotation.
-function buildAreaOptions(categories, values, color, xRotate) {
-    return {
-        ...APEX_BASE,
-        chart: { ...APEX_BASE.chart, type: "area", height: 280 },
-        series: [{ name: "Incident Activity", data: values }],
-        colors: [color],
-        xaxis: {
-            categories: categories,
-            labels: { style: { colors: "#0f172a" }, rotate: xRotate }
-        },
-        yaxis: {
-            min: 0,
-            labels: { style: { colors: "#0f172a" } }
-        },
-        stroke: { curve: "smooth", width: 2.5 },
-        fill: {
-            type: "gradient",
-            gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.02, stops: [0, 95, 100] }
-        },
-        markers: { size: 4, strokeWidth: 2, strokeColors: "#ffffff", hover: { size: 7 } },
-        grid: { ...APEX_BASE.grid, xaxis: { lines: { show: false } }, yaxis: { lines: { show: true } } },
-        dataLabels: { enabled: false },
-        legend: { show: false }
-    };
-}
-
 function renderCharts(data) {
-    // 1. INCIDENT TYPES (Horizontal Bar)
-    const typesEl = document.getElementById("incidentTypesChart");
-    if (typesEl) {
+    // 1. INCIDENT TYPES (Bar Chart)
+    const typesCanvas = document.getElementById("incidentTypesChart");
+    if (typesCanvas) {
         if (incidentTypesChart) incidentTypesChart.destroy();
-
+        
         const labels = data.types.map(item => item.incident_type);
         const values = data.types.map(item => item.count);
 
@@ -496,86 +480,98 @@ function renderCharts(data) {
         ];
         const barColors = labels.map((_, i) => TYPE_COLORS[i % TYPE_COLORS.length]);
 
-        const chartHeight = Math.max(280, labels.length * 34);
         const typesInner = document.getElementById("incidentTypesChartInner");
         if (typesInner) {
-            typesInner.style.height = chartHeight + "px";
+            typesInner.style.height = Math.max(280, labels.length * 28) + "px";
         }
 
-        incidentTypesChart = new ApexCharts(typesEl, {
-            ...APEX_BASE,
-            chart: { ...APEX_BASE.chart, type: "bar", height: chartHeight },
-            series: [{ name: "Incident Records", data: values }],
-            colors: barColors,
-            xaxis: {
-                categories: labels,
-                labels: { style: { colors: "#0f172a" } }
+        incidentTypesChart = new Chart(typesCanvas, {
+            type: "bar",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Incident Records",
+                    data: values,
+                    backgroundColor: barColors,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    barThickness: 20
+                }]
             },
-            yaxis: {
-                labels: { style: { colors: "#0f172a", fontWeight: 600 } }
-            },
-            plotOptions: {
-                bar: {
-                    horizontal: true,
-                    distributed: true,
-                    borderRadius: 6,
-                    borderRadiusApplication: "end",
-                    barHeight: "65%"
-                }
-            },
-            grid: { ...APEX_BASE.grid, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
-            dataLabels: { enabled: false },
-            legend: { show: false }
-        });
-        incidentTypesChart.render();
-    }
-
-    // 2. DANGER LEVEL (Donut, with ApexCharts' own center total/hover
-    // breakdown instead of a hand-drawn canvas overlay)
-    const dangerEl = document.getElementById("dangerLevelChart");
-    if (dangerEl) {
-        if (dangerLevelChart) dangerLevelChart.destroy();
-
-        dangerLevelChart = new ApexCharts(dangerEl, {
-            ...APEX_BASE,
-            chart: { ...APEX_BASE.chart, type: "donut", height: 280 },
-            series: [data.danger.high, data.danger.moderate, data.danger.low],
-            labels: ["High Risk", "Moderate Risk", "Low Risk"],
-            colors: ["#ef4444", "#f59e0b", "#10b981"],
-            stroke: { width: 3, colors: ["#ffffff"] },
-            dataLabels: { enabled: false },
-            legend: {
-                position: "bottom",
-                fontSize: "11px",
-                fontWeight: 600,
-                markers: { size: 5 },
-                itemMargin: { horizontal: 8 },
-                formatter: (name, opts) => `${name} — ${opts.w.globals.series[opts.seriesIndex]}`
-            },
-            plotOptions: {
-                pie: {
-                    donut: {
-                        size: "72%",
-                        labels: {
-                            show: true,
-                            name: { fontSize: "0.7rem", fontWeight: 700, color: "#94a3b8", offsetY: 24 },
-                            value: { fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", offsetY: -8 },
-                            total: {
-                                show: true,
-                                label: "TOTAL RECORDS",
-                                fontSize: "0.65rem",
-                                fontWeight: 700,
-                                color: "#94a3b8"
-                            }
-                        }
-                    }
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { color: "#0f172a", stepSize: 1 } },
+                    y: { grid: { display: false }, ticks: { color: "#0f172a", font: { weight: "600" } } }
                 }
             }
         });
-        dangerLevelChart.render();
     }
 
-    // 3. CRIME TREND (Area - Last 7 Days, filterable by crime category)
+    // 2. DANGER LEVEL (Doughnut Chart)
+    const dangerCanvas = document.getElementById("dangerLevelChart");
+    if (dangerCanvas) {
+        if (dangerLevelChart) dangerLevelChart.destroy();
+
+        const dangerTotal = data.danger.high + data.danger.moderate + data.danger.low;
+
+        dangerLevelChart = new Chart(dangerCanvas, {
+            type: "doughnut",
+            data: {
+                labels: [
+                    `High Risk — ${data.danger.high}`,
+                    `Moderate Risk — ${data.danger.moderate}`,
+                    `Low Risk — ${data.danger.low}`
+                ],
+                datasets: [{
+                    data: [data.danger.high, data.danger.moderate, data.danger.low],
+                    backgroundColor: ["#ef4444", "#f59e0b", "#10b981"],
+                    borderColor: "#ffffff",
+                    borderWidth: 3,
+                    borderRadius: 6,
+                    spacing: 2,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "72%",
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: { usePointStyle: true, pointStyle: "circle", padding: 15, font: { size: 11, weight: "600" } }
+                    }
+                }
+            },
+            // Prints the record total in the doughnut's own empty center,
+            // the one piece of context a ring chart can't show on its own.
+            plugins: [{
+                id: "doughnutCenterText",
+                afterDraw(chart) {
+                    const { ctx, chartArea: { left, right, top, bottom } } = chart;
+                    const centerX = (left + right) / 2;
+                    const centerY = (top + bottom) / 2;
+
+                    ctx.save();
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillStyle = "#0f172a";
+                    ctx.font = "800 1.6rem Inter, sans-serif";
+                    ctx.fillText(dangerTotal, centerX, centerY - 10);
+                    ctx.fillStyle = "#94a3b8";
+                    ctx.font = "700 0.65rem Inter, sans-serif";
+                    ctx.fillText("TOTAL RECORDS", centerX, centerY + 14);
+                    ctx.restore();
+                }
+            }]
+        });
+    }
+
+    // 3. CRIME TREND (Line Chart - Last 7 Days, filterable by crime category)
     trendRawRows = data.trend;
 
     const trendFilter = document.getElementById("trendTypeFilter");
@@ -592,24 +588,53 @@ function renderCharts(data) {
 
     renderTrendChart(trendFilter ? trendFilter.value : "");
 
-    // 4. PEAK HOURS (Area)
-    const peakEl = document.getElementById("peakHoursChart");
-    if (peakEl) {
+    // 4. PEAK HOURS (Area Chart)
+    const peakCanvas = document.getElementById("peakHoursChart");
+    if (peakCanvas) {
         if (peakHoursChart) peakHoursChart.destroy();
 
         const labels = data.hourly.map(item => formatHour(item.hour));
         const values = data.hourly.map(item => item.count);
 
-        peakHoursChart = new ApexCharts(peakEl, buildAreaOptions(labels, values, "#f59e0b", -45));
-        peakHoursChart.render();
+        peakHoursChart = new Chart(peakCanvas, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Incident Activity",
+                    data: values,
+                    borderColor: "#f59e0b",
+                    backgroundColor: areaGradient(peakCanvas, "#f59e0b"),
+                    pointBackgroundColor: "#f59e0b",
+                    pointBorderColor: "#ffffff",
+                    pointBorderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 7,
+                    pointHoverBorderWidth: 3,
+                    borderWidth: 2.5,
+                    tension: 0.45,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: "#0f172a", maxRotation: 45, minRotation: 45 } },
+                    y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { color: "#0f172a", stepSize: 1 } }
+                }
+            }
+        });
     }
 }
 
-// Renders the Crime Trend area chart from trendRawRows, either summed
+// Renders the Crime Trend line chart from trendRawRows, either summed
 // across all incident types ("" / All Types) or filtered to one.
 function renderTrendChart(selectedCategory) {
-    const trendEl = document.getElementById("crimeTrendChart");
-    if (!trendEl) return;
+    const trendCanvas = document.getElementById("crimeTrendChart");
+    if (!trendCanvas) return;
     if (crimeTrendChart) crimeTrendChart.destroy();
 
     const rows = selectedCategory
@@ -625,8 +650,37 @@ function renderTrendChart(selectedCategory) {
     const labels = sortedDays.map(d => formatDate(d));
     const values = sortedDays.map(d => byDay.get(d));
 
-    crimeTrendChart = new ApexCharts(trendEl, buildAreaOptions(labels, values, "#0ea5e9", 0));
-    crimeTrendChart.render();
+    crimeTrendChart = new Chart(trendCanvas, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: selectedCategory || "Incident Activity",
+                data: values,
+                borderColor: "#0ea5e9",
+                backgroundColor: areaGradient(trendCanvas, "#0ea5e9"),
+                pointBackgroundColor: "#0ea5e9",
+                pointBorderColor: "#ffffff",
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 7,
+                pointHoverBorderWidth: 3,
+                borderWidth: 2.5,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: "#0f172a" } },
+                y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { color: "#0f172a", stepSize: 1 } }
+            }
+        }
+    });
 }
 
 /* ============================================================

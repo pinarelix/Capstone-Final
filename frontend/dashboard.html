@@ -15,8 +15,8 @@
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-    <!-- ApexCharts -->
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <!-- Dashboard CSS -->
     <link rel="stylesheet" href="dashboard.css">
@@ -466,7 +466,7 @@
 
                 <div class="chart-container chart-container--scroll" id="incidentTypesChartContainer">
                     <div class="chart-inner" id="incidentTypesChartInner">
-                        <div id="incidentTypesChart"></div>
+                        <canvas id="incidentTypesChart"></canvas>
                     </div>
                 </div>
 
@@ -499,7 +499,7 @@
                 </div>
 
                 <div class="chart-container">
-                    <div id="dangerLevelChart"></div>
+                    <canvas id="dangerLevelChart"></canvas>
                 </div>
 
             </div>
@@ -584,7 +584,7 @@
                 </div>
 
                 <div class="chart-container">
-                    <div id="crimeTrendChart"></div>
+                    <canvas id="crimeTrendChart"></canvas>
                 </div>
 
             </div>
@@ -616,7 +616,7 @@
                 </div>
 
                 <div class="chart-container">
-                    <div id="peakHoursChart"></div>
+                    <canvas id="peakHoursChart"></canvas>
                 </div>
 
             </div>
