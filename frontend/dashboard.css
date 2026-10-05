@@ -4,15 +4,16 @@
    Dark Navy Command Center Theme
 ============================================================ */
 
-/* Plus Jakarta Sans is already the display face on the Tanod portal
-   (tanod-dashboard.html) - reusing it here for the brand wordmark and
-   sidebar headings ties the admin side of the app to the same
-   typographic identity instead of introducing a third font. */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&display=swap');
+/* A serif display face for the brand title only (sidebar + login hero)
+   reads as institutional/official - paired with Inter staying as the
+   body/UI font everywhere else for data-dense screens, this is the
+   classic "formal letterhead heading + clean modern body" pairing
+   rather than one sans-serif family doing both jobs. */
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@700;800&display=swap');
 
 :root {
 
-    --font-display: 'Plus Jakarta Sans', var(--font-family);
+    --font-display: 'Source Serif 4', serif;
 
     --bg-main: #ffffff;
     --bg-card: #ffffff;
