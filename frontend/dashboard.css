@@ -19,8 +19,8 @@
     --bg-card: #ffffff;
     --border-card: #94a3b8;
 
-    --sidebar-bg: #ffffff;
-    --sidebar-card-bg: #f8fafc;
+    --sidebar-bg: #f1f5f9;
+    --sidebar-card-bg: #ffffff;
     --sidebar-border: #e2e8f0;
     /* Thin left-edge indicator bar on the active nav item - the only
        accent color the sidebar carries now that it's a light surface. */
