@@ -190,7 +190,7 @@ document.addEventListener("DOMContentLoaded", () => {
         loadIncidentsTable();
         loadHotspots();
         loadCharts();
-    }, 15000);
+    }, 30000);
 
     // ============================================================
     // 🔥 STEP 4: Sidebar ripple effect
