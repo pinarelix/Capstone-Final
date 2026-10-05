@@ -487,16 +487,7 @@ body {
 
     align-items: center;
 
-    background: var(--bg-card);
-
-    border:
-        1px solid var(--border-card);
-
-    padding: 20px 24px;
-
-    border-radius: var(--radius-lg);
-
-    box-shadow: var(--shadow-sm);
+    padding: 20px 0 24px;
 
     animation:
         headerAppear 0.7s ease;
