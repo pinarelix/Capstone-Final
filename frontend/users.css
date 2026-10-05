@@ -19,14 +19,29 @@
     white-space: nowrap;
 }
 
-.position-head {
+.position-dispatcher {
+    background: #f3e8ff;
+    color: #7c3aed;
+}
+
+.position-desk-officer {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.position-team-leader {
     background: #dbeafe;
     color: #1d4ed8;
 }
 
-.position-deputy {
+.position-assistant-leader {
     background: #fef3c7;
     color: #b45309;
+}
+
+.position-head-exo {
+    background: #e0e7ff;
+    color: #4338ca;
 }
 
 .position-tanod {

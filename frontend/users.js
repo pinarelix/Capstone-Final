@@ -183,28 +183,34 @@ async function loadTanods() {
    GET POSITION BADGE CLASS & ICON
 ============================================================ */
 
+// Exact-match table for the 6 fixed ranks in the Position dropdown -
+// previously a keyword guess (pos.includes('head')/'deputy'/etc.) since
+// Position used to be free text; now it's a closed dropdown so every
+// value is known up front and can get its own badge instead of being
+// bucketed into a generic one.
+const POSITION_BADGES = {
+    'Dispatcher': { class: 'position-dispatcher', icon: '<i class="fa-solid fa-tower-broadcast"></i>' },
+    'Desk Officer': { class: 'position-desk-officer', icon: '<i class="fa-solid fa-clipboard-list"></i>' },
+    'Team Leader': { class: 'position-team-leader', icon: '<i class="fa-solid fa-star"></i>' },
+    'Assistant Team Leader': { class: 'position-assistant-leader', icon: '<i class="fa-solid fa-shield-halved"></i>' },
+    'Head Tanod / EXO': { class: 'position-head-exo', icon: '<i class="fa-solid fa-crown"></i>' },
+    'Tanod': { class: 'position-tanod', icon: '<i class="fa-solid fa-user-shield"></i>' }
+};
+
 function getPositionBadge(position) {
-    const pos = (position || 'Tanod').toLowerCase();
-    
-    if (pos.includes('head') || pos.includes('chief') || pos.includes('leader')) {
-        return {
-            class: 'position-badge position-head',
-            icon: '<i class="fa-solid fa-crown"></i>',
-            text: position || 'Head Tanod'
-        };
-    } else if (pos.includes('deputy') || pos.includes('assistant') || pos.includes('vice')) {
-        return {
-            class: 'position-badge position-deputy',
-            icon: '<i class="fa-solid fa-shield-halved"></i>',
-            text: position || 'Deputy Tanod'
-        };
-    } else {
-        return {
-            class: 'position-badge position-tanod',
-            icon: '<i class="fa-solid fa-user-shield"></i>',
-            text: position || 'Tanod'
-        };
+    const match = POSITION_BADGES[position];
+    if (match) {
+        return { class: `position-badge ${match.class}`, icon: match.icon, text: position };
     }
+
+    // Legacy records saved before this rank list existed (e.g. the old
+    // free-text "Deputy Tanod") - keep them readable instead of showing
+    // an unstyled badge until the record is next edited and resaved.
+    return {
+        class: 'position-badge position-tanod',
+        icon: '<i class="fa-solid fa-user-shield"></i>',
+        text: position || 'Tanod'
+    };
 }
 
 /* ============================================================
