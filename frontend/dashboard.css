@@ -727,17 +727,19 @@ body {
    it after .sidebar-nav (order:1) and .user-profile (order:2)
    regardless of its position in the markup. */
 #logoutBtn {
-    background: transparent;
+    background: #dc2626;
 
-    color: #dc2626;
+    color: #ffffff;
 
-    border: 1px solid var(--sidebar-border);
+    border: none;
 
-    box-shadow: none;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
 
-    width: 42px;
+    font-size: 1.1rem;
 
-    height: 42px;
+    width: 52px;
+
+    height: 52px;
 
     padding: 0;
 
@@ -752,14 +754,16 @@ body {
     order: 3;
 
     flex-shrink: 0;
+
+    transition: all 0.2s ease;
 }
 
 #logoutBtn:hover {
-    background: #fef2f2;
+    background: #b91c1c;
 
-    border-color: #fecaca;
+    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.45);
 
-    box-shadow: none;
+    transform: translateY(-2px);
 }
 
 
