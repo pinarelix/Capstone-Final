@@ -580,10 +580,14 @@
         </header>
 
         <!-- =========================================================
-             TABS: System Settings / Location Coordinates / Audit Trail
+             TABS: System Details / System Settings / Location
+             Coordinates / Audit Trail
         ========================================================== -->
         <div class="tab-navigation">
-            <button class="tab-btn active" data-tab="system-settings">
+            <button class="tab-btn active" data-tab="system-details">
+                <i class="fa-solid fa-id-card"></i> System Details
+            </button>
+            <button class="tab-btn" data-tab="system-settings">
                 <i class="fa-solid fa-sliders"></i> System Settings
             </button>
             <button class="tab-btn" data-tab="location-coordinates">
@@ -597,7 +601,7 @@
         <!-- =========================================================
              TAB 1: SYSTEM SETTINGS
         ========================================================== -->
-        <div id="tab-system-settings" class="tab-content active">
+        <div id="tab-system-settings" class="tab-content">
         <section class="settings-grid">
             <!-- =========================================================
                  🆕 CARD 7: SYSTEM SETTINGS (FULL WIDTH)
@@ -802,8 +806,12 @@
         </section>
         </div>
 
-        <!-- SETTINGS GRID -->
-        <section class="settings-grid" style="margin-top: 24px;">
+        <!-- =========================================================
+             TAB 4: SYSTEM DETAILS (profile, password, login history,
+             barangay info, system status, about)
+        ========================================================== -->
+        <div id="tab-system-details" class="tab-content active">
+        <section class="settings-grid">
 
             <!-- CARD 1: CURRENT USER PROFILE -->
             <div class="settings-card">
@@ -1016,6 +1024,7 @@
             </div>
 
         </section>
+        </div>
 
     </main>
 
