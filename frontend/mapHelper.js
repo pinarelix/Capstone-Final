@@ -53,6 +53,12 @@ function createBarangayMap(container, mapOptions = {}) {
         maxBoundsViscosity: 1.0
     });
 
+    // Lighter/cleaner alternatives (CartoDB Positron, Esri Light Gray
+    // Canvas) were tried here, but CartoDB's free raster tiles now
+    // require an API key, and Esri's light-gray layer has too little
+    // Philippine street-level data to be usable at barangay scale
+    // (comes out nearly blank). Standard OSM tiles remain the only
+    // free, key-less option with real local street detail.
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'

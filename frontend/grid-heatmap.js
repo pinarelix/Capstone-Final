@@ -9,42 +9,89 @@ let boundaryLayer;
 let allIncidentsData = [];
 let heatmapLayerGroup;
 
-// Tracks the circle/glow pairs for Level 3 (high-risk) and Level 2
-// (moderate-risk) cells, so only those slowly pulse (moderate slower
-// than high) - rebuilt on every renderGrid() call. The map uses
-// preferCanvas:true, so these are painted on a shared <canvas> with no
-// per-shape DOM node; CSS animations can't touch them, so the pulse is
-// driven here via setStyle() instead.
-let highRiskCircles = [];
-let moderateRiskCircles = [];
-let riskPulseStarted = false;
+// Drives every cell animation: a quick grow-in when a circle first
+// appears, a slow opacity pulse for Level 2/3 cells (moderate slower
+// than high), and an expanding "radar ping" ring that repeats on top
+// of Level 3 cells only. Rebuilt on every renderGrid() call. The map
+// uses preferCanvas:true, so circles are painted on a shared <canvas>
+// with no per-shape DOM node - CSS animations/transitions can't touch
+// them, so all of this is driven here via setRadius()/setStyle().
+let animatedCircles = [];
+let mapAnimationStarted = false;
 
+const ENTRANCE_DURATION_MS = 420;
 const HIGH_RISK_PULSE_PERIOD_MS = 1200;
 const MODERATE_RISK_PULSE_PERIOD_MS = 3000;
+const PING_DURATION_MS = 1400;
+const PING_MAX_SCALE = 2.6;
 
-function startRiskPulse() {
-    if (riskPulseStarted) return;
-    riskPulseStarted = true;
+function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+}
+
+function startMapAnimationLoop() {
+    if (mapAnimationStarted) return;
+    mapAnimationStarted = true;
 
     setInterval(() => {
+        if (animatedCircles.length === 0) return;
         const now = Date.now();
 
-        if (highRiskCircles.length > 0) {
-            const phase = (Math.sin((now / HIGH_RISK_PULSE_PERIOD_MS) * 2 * Math.PI) + 1) / 2;
-            highRiskCircles.forEach(({ circle, glow }) => {
-                circle.setStyle({ fillOpacity: 0.45 + phase * 0.35 });
-                glow.setStyle({ fillOpacity: 0.06 + phase * 0.24 });
-            });
-        }
+        animatedCircles.forEach(entry => {
+            const entranceT = Math.min(1, (now - entry.createdAt) / ENTRANCE_DURATION_MS);
+            const eased = easeOutCubic(entranceT);
 
-        if (moderateRiskCircles.length > 0) {
-            const phase = (Math.sin((now / MODERATE_RISK_PULSE_PERIOD_MS) * 2 * Math.PI) + 1) / 2;
-            moderateRiskCircles.forEach(({ circle, glow }) => {
-                circle.setStyle({ fillOpacity: 0.5 + phase * 0.2 });
-                glow.setStyle({ fillOpacity: 0.05 + phase * 0.15 });
-            });
-        }
-    }, 120);
+            let fillOpacity = entry.baseFillOpacity;
+            let glowOpacity = entry.baseGlowOpacity;
+
+            if (entry.tier === 'high') {
+                const phase = (Math.sin((now / HIGH_RISK_PULSE_PERIOD_MS) * 2 * Math.PI) + 1) / 2;
+                fillOpacity = 0.45 + phase * 0.35;
+                glowOpacity = 0.06 + phase * 0.24;
+            } else if (entry.tier === 'moderate') {
+                const phase = (Math.sin((now / MODERATE_RISK_PULSE_PERIOD_MS) * 2 * Math.PI) + 1) / 2;
+                fillOpacity = 0.5 + phase * 0.2;
+                glowOpacity = 0.05 + phase * 0.15;
+            }
+
+            entry.circle.setRadius(entry.targetRadius * eased);
+            entry.circle.setStyle({ fillOpacity: fillOpacity * eased });
+
+            entry.glow.setRadius(entry.targetGlowRadius * eased);
+            entry.glow.setStyle({ fillOpacity: glowOpacity * eased });
+
+            // Radar ping: only once the entrance has finished, so a
+            // ring never spawns mid grow-in.
+            if (entry.tier === 'high' && entranceT >= 1) {
+                if (now - entry.lastPingSpawn >= HIGH_RISK_PULSE_PERIOD_MS) {
+                    entry.lastPingSpawn = now;
+                    entry.pingRings.push({
+                        ring: L.circle([entry.lat, entry.lng], {
+                            radius: entry.targetRadius,
+                            color: 'transparent',
+                            fillColor: entry.color,
+                            fillOpacity: 0.45,
+                            interactive: false,
+                            className: 'heatmap-ping'
+                        }).addTo(heatmapLayerGroup),
+                        createdAt: now
+                    });
+                }
+
+                entry.pingRings = entry.pingRings.filter(p => {
+                    const pingT = (now - p.createdAt) / PING_DURATION_MS;
+                    if (pingT >= 1) {
+                        heatmapLayerGroup.removeLayer(p.ring);
+                        return false;
+                    }
+                    const pingEased = easeOutCubic(pingT);
+                    p.ring.setRadius(entry.targetRadius + (entry.targetRadius * (PING_MAX_SCALE - 1)) * pingEased);
+                    p.ring.setStyle({ fillOpacity: 0.45 * (1 - pingT) });
+                    return true;
+                });
+            }
+        });
+    }, 50);
 }
 
 // Density thresholds for a single grid cell (100m x 100m), based on the
@@ -334,8 +381,7 @@ function renderGrid(incidents) {
     console.log("🔄 Rendering grid with glowing circles...");
 
     heatmapLayerGroup.clearLayers();
-    highRiskCircles = [];
-    moderateRiskCircles = [];
+    animatedCircles = [];
 
     let totalIncidents = 0;
     let activeCells = 0;
@@ -398,32 +444,41 @@ function renderGrid(incidents) {
         const color = getDensityColor(count);
 
         const baseRadius = 100;
-        const radius = baseRadius + (count * 8);
+        const targetRadius = baseRadius + (count * 8);
+        const targetGlowRadius = targetRadius * 1.8;
+        const tier = count >= DENSITY_HIGH_MIN ? 'high' : count >= DENSITY_MODERATE_MIN ? 'moderate' : 'none';
 
+        // Circles start collapsed/invisible and grow in via the
+        // animation loop below (see ENTRANCE_DURATION_MS), instead of
+        // just popping onto the map at full size.
         const circle = L.circle([cell.lat, cell.lng], {
-            radius: radius,
+            radius: 1,
             color: color,
             weight: 2,
             fillColor: color,
-            fillOpacity: 0.7,
+            fillOpacity: 0,
             interactive: true,
             className: 'heatmap-circle'
         }).addTo(heatmapLayerGroup);
 
         const glow = L.circle([cell.lat, cell.lng], {
-            radius: radius * 1.8,
+            radius: 1,
             color: 'transparent',
             fillColor: color,
-            fillOpacity: 0.08,
+            fillOpacity: 0,
             interactive: false,
             className: 'heatmap-glow'
         }).addTo(heatmapLayerGroup);
 
-        if (count >= DENSITY_HIGH_MIN) {
-            highRiskCircles.push({ circle, glow });
-        } else if (count >= DENSITY_MODERATE_MIN) {
-            moderateRiskCircles.push({ circle, glow });
-        }
+        const now = Date.now();
+        animatedCircles.push({
+            circle, glow, tier, color,
+            lat: cell.lat, lng: cell.lng,
+            targetRadius, targetGlowRadius,
+            baseFillOpacity: 0.7, baseGlowOpacity: 0.08,
+            createdAt: now, lastPingSpawn: now,
+            pingRings: []
+        });
 
         circle.bindTooltip(`${count} incident${count > 1 ? 's' : ''}`, {
             permanent: false,
@@ -452,7 +507,7 @@ function renderGrid(incidents) {
     console.log(`📊 KPI: Total=${totalIncidents}, Cells=${activeCells}, Peak=${peakCount}, HighRisk=${highRiskCells}`);
     console.log("✅ Rendering Complete!");
 
-    startRiskPulse();
+    startMapAnimationLoop();
 }
 
 function showIncidentDetails(incidents, lat, lng) {

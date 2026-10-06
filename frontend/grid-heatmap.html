@@ -65,61 +65,92 @@
         /* ============================================================
            LEGEND
         ============================================================ */
-        .grid-legend { 
-            position: absolute; 
-            right: 14px; 
-            bottom: 14px; 
-            z-index: 800; 
-            width: 160px; 
-            padding: 12px; 
-            background: rgba(255,255,255,0.96); 
-            border: 1px solid #cbd5e1; 
-            border-radius: 9px; 
-            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18); 
+        .grid-legend {
+            position: absolute;
+            right: 14px;
+            bottom: 14px;
+            z-index: 800;
+            width: 172px;
+            padding: 14px 16px;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(203, 213, 225, 0.8);
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+            transition: box-shadow 0.25s ease, transform 0.25s ease;
         }
-        
-        .grid-legend strong { 
-            display: block; 
-            margin-bottom: 7px; 
-            color: #0f172a; 
-            font-size: 0.68rem; 
-            letter-spacing: 0.3px; 
+
+        .grid-legend:hover {
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22);
+            transform: translateY(-2px);
         }
-        
-        .legend-row { 
-            display: flex; 
-            align-items: center; 
-            gap: 7px; 
-            margin-top: 6px; 
-            color: #334155; 
-            font-size: 0.66rem; 
+
+        .grid-legend strong {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 9px;
+            color: #0f172a;
+            font-size: 0.68rem;
+            letter-spacing: 0.4px;
         }
-        
-        .legend-square { 
-            width: 16px; 
-            height: 16px; 
-            border-radius: 50%; 
-            flex-shrink: 0; 
+
+        .grid-legend strong::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ef4444, #f59e0b);
+            flex-shrink: 0;
         }
-        
-        .legend-square.high { 
-            background: #ef4444; 
+
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 7px;
+            color: #334155;
+            font-size: 0.66rem;
+        }
+
+        .legend-square {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-square.high {
+            background: #ef4444;
             box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+            animation: legendPulseHigh 1.2s ease-in-out infinite;
         }
-        
-        .legend-square.moderate { 
-            background: #f59e0b; 
+
+        .legend-square.moderate {
+            background: #f59e0b;
             box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+            animation: legendPulseModerate 3s ease-in-out infinite;
         }
-        
-        .legend-square.low { 
-            background: #10b981; 
+
+        .legend-square.low {
+            background: #10b981;
             box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
         }
-        
-        .legend-square.no-data { 
-            background: #e2e8f0; 
-            border: 1px solid #cbd5e1; 
+
+        .legend-square.no-data {
+            background: #e2e8f0;
+            border: 1px solid #cbd5e1;
+        }
+
+        @keyframes legendPulseHigh {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.55; transform: scale(0.85); }
+        }
+
+        @keyframes legendPulseModerate {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         /* ============================================================
