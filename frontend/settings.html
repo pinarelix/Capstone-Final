@@ -513,7 +513,6 @@
             </div>
         </div>
 
-        <button class="btn btn-primary" id="logoutBtn" title="Logout"><i class="fa-solid fa-power-off"></i></button>
 
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item">
@@ -567,11 +566,6 @@
             <div class="header-titles">
                 <h1>System Settings</h1>
                 <p>Manage system configuration, security, and audit logs.</p>
-            </div>
-            <div class="header-actions">
-                <button type="button" class="btn btn-secondary" id="homeBtn">
-                    <i class="fa-solid fa-house"></i> Home
-                </button>
             </div>
         </header>
 
@@ -1116,14 +1110,7 @@
 
 <script>
     // =========================================================
-    // HOME BUTTON
-    // =========================================================
-    document.getElementById('homeBtn').addEventListener('click', function() {
-        window.location.href = 'dashboard.html';
-    });
-
-    // =========================================================
-    // TABS: System Settings / Location Coordinates / Audit Trail
+    // TABS: System Settings / Audit Trail
     // =========================================================
     function setupTabs() {
         const tabBtns = document.querySelectorAll('.tab-btn');

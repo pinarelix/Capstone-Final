@@ -219,7 +219,6 @@
             </div>
         </div>
 
-        <button class="btn btn-primary" id="logoutBtn" title="Logout"><i class="fa-solid fa-power-off"></i></button>
 
         <nav class="sidebar-nav">
             <a href="dashboard.html" class="nav-item">
@@ -275,11 +274,6 @@
             <div class="header-titles">
                 <h1>User & Tanod Management</h1>
                 <p>Administrator-only module for managing system users and barangay tanods.</p>
-            </div>
-            <div class="header-actions">
-                <button type="button" class="btn btn-secondary" id="homeBtn">
-                    <i class="fa-solid fa-house"></i> Home
-                </button>
             </div>
         </header>
 
@@ -678,11 +672,6 @@
 
 <script src="users.js"></script>
 <script>
-    // Home button functionality
-    document.getElementById('homeBtn').addEventListener('click', function() {
-        window.location.href = 'dashboard.html';
-    });
-
     // Password toggle functionality
     document.getElementById('passwordToggle').addEventListener('click', function() {
         const passwordInput = document.getElementById('password');
