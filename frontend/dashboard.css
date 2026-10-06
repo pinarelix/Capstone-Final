@@ -1825,6 +1825,13 @@ body.role-desk-officer a[href="incident.html"].nav-item {
     display: flex !important;
 }
 
+/* The raw incident list (View) is too dense/technical for the
+   Decision-Maker (the barangay Captain) - the Dashboard and Reports
+   pages already surface what they need in plainer language. */
+body.role-decision-maker a[href="incident-view.html"].nav-item {
+    display: none !important;
+}
+
 /* 🔥 For Decision-Maker (and Desk Officer), hide admin-action buttons */
 body.role-decision-maker .admin-action,
 body.role-desk-officer .admin-action {
