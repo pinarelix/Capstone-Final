@@ -71,3 +71,34 @@ See `backend/cart-engine.js`, `this.scores`, for the exact lookup tables (incide
 time of day, day of week, location-history buckets, frequency buckets). Each factor's raw
 score (0–100) is multiplied by its weight above, and the five weighted scores are summed
 into the final 0–100 total.
+
+## Patrol-completion decay
+
+Separately from the scoring model above, each street carries a decay offset
+(`area_risk_decay` table) that's *subtracted* from its live CART score for display and
+recommendation purposes — the underlying score itself is never modified. Completing a
+patrol scheduled for that street reduces the offset by `PATROL_COMPLETION_DECAY = 3.5`
+(a fixed percentage point, `backend/server.js`); a new incident at that street resets the
+offset to 0, since a fresh incident means whatever the patrols accomplished no longer
+reflects the street's current risk.
+
+**Where 3.5 comes from:** this is a calibrated heuristic, not a value derived from
+Barangay 179's historical incident data — there isn't yet enough accumulated history to
+fit a decay rate statistically (the same reasoning as "why rule-based, not a trained
+model" above). It was chosen against the model's own 0–100 scale so that the pace of
+decay matches realistic field practice:
+
+| Starting score | Patrols needed to drop one tier at 3.5%/patrol | Rough duration |
+|---|---|---|
+| 70 (just into Level 3) | ~1 patrol | same day |
+| 85 (solidly Level 3) | ~5 patrols | about a week |
+| 100 (maximum risk) | ~10 patrols | about two weeks |
+
+A single patrol visibly nudges a borderline street, but a street that's a well-established
+hotspot takes sustained, repeated coverage — on the order of a week or two of regular
+patrols — before it's reclassified down a risk tier. That matches how visible, consistent
+presence actually earns down perceived risk in the field, rather than letting one patrol
+swing a hotspot's classification immediately (too fast to be credible) or requiring months
+of patrols to move at all (too slow to be useful as a decision-support signal). The value
+is a constant in code rather than a Settings-page field, the same way the weights above
+are code-configurable but not yet exposed in the UI.
