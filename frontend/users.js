@@ -659,7 +659,7 @@ function renderUsers(filteredUsers = users) {
             </td>
             <td class="email-cell" id="emailCell-${users.id}">
                 <span class="email-display" style="color: #475569;">${escapeHTML(users.email || '—')}</span>
-                <button type="button" class="btn-edit-email" title="Edit email" onclick="startEditEmail(${users.id}, '${escapeHTML(users.email || '').replace(/'/g, "\\'")}')" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px 4px; margin-left: 6px;">
+                <button type="button" class="btn-icon-circle btn-edit-email" title="Edit email" onclick="startEditEmail(${users.id}, '${escapeHTML(users.email || '').replace(/'/g, "\\'")}')">
                     <i class="fa-solid fa-pen"></i>
                 </button>
             </td>
@@ -697,12 +697,12 @@ function startEditEmail(userId, currentEmail) {
     if (!cell) return;
 
     cell.innerHTML = `
-        <input type="email" id="emailInput-${userId}" value="${escapeHTML(currentEmail)}" placeholder="name@gmail.com"
-            style="width: 160px; padding: 4px 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.85rem;">
-        <button type="button" onclick="saveEmail(${userId})" title="Save" style="background: none; border: none; color: #059669; cursor: pointer; padding: 2px 4px;">
+        <input type="email" id="emailInput-${userId}" class="email-input" value="${escapeHTML(currentEmail)}" placeholder="name@gmail.com"
+            onkeydown="if(event.key==='Enter'){saveEmail(${userId});} else if(event.key==='Escape'){renderUsers();}">
+        <button type="button" class="btn-icon-circle btn-save-email" onclick="saveEmail(${userId})" title="Save">
             <i class="fa-solid fa-check"></i>
         </button>
-        <button type="button" onclick="renderUsers()" title="Cancel" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 2px 4px;">
+        <button type="button" class="btn-icon-circle btn-cancel-email" onclick="renderUsers()" title="Cancel">
             <i class="fa-solid fa-xmark"></i>
         </button>
     `;

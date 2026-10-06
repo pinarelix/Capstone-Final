@@ -133,6 +133,74 @@
     transform: translateY(-1px);
 }
 
+/* ============================================================
+   EMAIL CELL (Users table) - small circular icon buttons instead
+   of bare, unstyled <i> icons floating next to the text.
+============================================================ */
+.email-cell {
+    white-space: nowrap;
+}
+
+.btn-icon-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+    margin-left: 6px;
+}
+
+.btn-edit-email {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.btn-edit-email:hover {
+    background: #bfdbfe;
+    transform: scale(1.08);
+}
+
+.btn-save-email {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.btn-save-email:hover {
+    background: #a7f3d0;
+    transform: scale(1.08);
+}
+
+.btn-cancel-email {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.btn-cancel-email:hover {
+    background: #fecaca;
+    transform: scale(1.08);
+}
+
+.email-input {
+    width: 170px;
+    padding: 6px 10px;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.email-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
 .btn-delete {
     display: inline-flex;
     align-items: center;
