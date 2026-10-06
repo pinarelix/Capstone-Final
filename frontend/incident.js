@@ -642,8 +642,8 @@ function renderTable(dataToRender) {
         const locationDisplay = item.street_name || `${item.latitude || 'N/A'}, ${item.longitude || 'N/A'}`;
         
         const actionButtons = isAdminUser ? `
-            <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})">Edit</button>
-            <button class="btn-action-delete admin-action" onclick="requestDeleteIncident(${item.id})">Delete</button>
+            <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Edit</button>
+            <button class="btn-action-delete admin-action" onclick="requestDeleteIncident(${item.id})"><i class="fa-solid fa-trash"></i> Delete</button>
         ` : `<span style="color: #94a3b8; font-size: 0.7rem;">View Only</span>`;
         
         const reportedByDisplay = item.reported_by_name || item.reporter_name || 'N/A';

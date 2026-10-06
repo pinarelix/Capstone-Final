@@ -179,6 +179,9 @@
 
 /* Action Buttons inside Table */
 .btn-action-edit, .btn-action-delete {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 5px 12px;
     border-radius: 6px;
     font-size: 0.725rem;
@@ -196,6 +199,7 @@
 
 .btn-action-edit:hover {
     background-color: #cbd5e1;
+    transform: translateY(-1px);
 }
 
 .btn-action-delete {
@@ -205,6 +209,7 @@
 
 .btn-action-delete:hover {
     background-color: #fecaca;
+    transform: translateY(-1px);
 }
 
 /* Responsive Adjustments */
