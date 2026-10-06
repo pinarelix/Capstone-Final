@@ -20,6 +20,17 @@
 
     <!-- Dashboard CSS -->
     <link rel="stylesheet" href="dashboard.css">
+
+    <style>
+        /* Administrator logs out from Settings instead (see
+           settings.html) - hidden here so it doesn't show on both for
+           that role. This is page-scoped (not in the shared
+           dashboard.css) since Settings' own logout button must stay
+           visible for Administrator there. */
+        body.role-admin #logoutBtn {
+            display: none !important;
+        }
+    </style>
 </head>
 
 <body>
@@ -125,6 +136,13 @@
                 <p id="userRoleDisplay">Administrator — Full Access</p>
             </div>
         </div>
+
+        <!-- Admin logs out from Settings instead (see settings.html) -
+             Settings is admin-only, so Decision-Maker/Desk Officer
+             (who can't reach that page) still need this here, or they'd
+             have no way to log out at all. Hidden for Administrator via
+             dashboard.css so it doesn't show twice for that role. -->
+        <button class="btn btn-primary" id="logoutBtn" title="Logout"><i class="fa-solid fa-power-off"></i></button>
 
         <nav class="sidebar-nav">
             <!-- Dashboard - visible to all -->
