@@ -720,9 +720,12 @@ body {
 }
 
 
-/* Logout only - a plain bordered/ghost treatment to match the light
-   sidebar, not shared with the other .btn-primary buttons (Save,
-   Submit, etc.) which keep the solid dark fill. */
+/* Logout now lives at the bottom of the sidebar (below the profile
+   card) instead of the header, so it needs full-width sidebar sizing
+   on top of its plain bordered/ghost treatment - not shared with the
+   other .btn-primary buttons (Save, Submit, etc.) which keep the
+   solid dark fill. order:3 places it after .sidebar-nav (order:1) and
+   .user-profile (order:2) regardless of its position in the markup. */
 #logoutBtn {
     background: transparent;
 
@@ -731,6 +734,14 @@ body {
     border: 1px solid var(--sidebar-border);
 
     box-shadow: none;
+
+    width: 100%;
+
+    justify-content: center;
+
+    order: 3;
+
+    flex-shrink: 0;
 }
 
 #logoutBtn:hover {
