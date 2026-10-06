@@ -596,6 +596,16 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             wireEvidenceLightbox(modalBody);
+
+            // Jumps straight to the Incident Records edit popup for this
+            // record instead of making the admin close this read-only view
+            // and hunt the row down again in the table.
+            const updateBtn = document.getElementById('viewIncidentUpdateBtn');
+            if (updateBtn) {
+                updateBtn.onclick = () => {
+                    window.location.href = `incident.html?edit=${incident.id}`;
+                };
+            }
         })
         .catch(error => {
             console.error('❌ Error loading incident details:', error);

@@ -91,6 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Keeps this list current with incidents reported from the field
     // (e.g. a tanod's phone) without the admin needing to re-login.
     startLivePolling(loadIncidents, 15000);
+
+    // Deep link from the View page's "Update" button (incident.html?edit=123) -
+    // opens straight into the edit popup for that record. editIncident()
+    // fetches the record itself if it isn't on the currently loaded table
+    // page, so this doesn't need to wait for loadIncidents().
+    const editId = new URLSearchParams(window.location.search).get('edit');
+    if (editId && isAdmin()) {
+        editIncident(parseInt(editId, 10));
+        history.replaceState({}, '', window.location.pathname);
+    }
 });
 
 /* ============================================================
@@ -1038,7 +1048,14 @@ window.editIncident = async (id) => {
     }
 
     try {
-        const record = incidents.find(item => item.id === id);
+        let record = incidents.find(item => item.id === id);
+        if (!record) {
+            // Not on the currently loaded table page (e.g. opened via a
+            // ?edit= deep link from the View page) - fetch it directly
+            // instead of failing just because it isn't in memory yet.
+            const response = await apiFetch(`/incidents/${id}`);
+            if (response.ok) record = await response.json();
+        }
         if (!record) {
             showErrorModal('Error', 'Record not found!');
             return;
