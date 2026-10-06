@@ -3346,7 +3346,7 @@ app.post('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decisi
     }
 });
 
-app.put('/api/patrol-logs/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(logSchema), async (req, res) => {
+app.put('/api/patrol-logs/:id', authenticate, requireRole(['Administrator']), validate(logSchema), async (req, res) => {
     try {
         const { schedule_id, tanod_id, report, status, patrol_date } = req.body;
         const id = req.params.id;

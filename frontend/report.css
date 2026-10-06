@@ -259,29 +259,6 @@ body {
     transform: translateY(-1px);
 }
 
-/* LOGOUT BUTTON */
-#logoutBtn,
-.logout-btn,
-.main-content .logout-btn {
-    background-color: #0f172a !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 8px !important;
-    padding: 10px 16px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-#logoutBtn:hover,
-.logout-btn:hover,
-.main-content .logout-btn:hover {
-    background-color: #1e293b !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
-}
-
 /* ACTION BUTTON CARDS */
 .main-content .report-action-card,
 .main-content .action-card {
