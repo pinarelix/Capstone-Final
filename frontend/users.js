@@ -195,7 +195,7 @@ async function loadTanods() {
 // value is known up front and can get its own badge instead of being
 // bucketed into a generic one.
 const POSITION_BADGES = {
-    'Dispatcher': { class: 'position-dispatcher', icon: '<i class="fa-solid fa-tower-broadcast"></i>' },
+    'Dispatcher': { class: 'position-dispatcher', icon: '<i class="fa-solid fa-walkie-talkie"></i>' },
     'Desk Officer': { class: 'position-desk-officer', icon: '<i class="fa-solid fa-clipboard-list"></i>' },
     'Team Leader': { class: 'position-team-leader', icon: '<i class="fa-solid fa-star"></i>' },
     'Assistant Team Leader': { class: 'position-assistant-leader', icon: '<i class="fa-solid fa-shield-halved"></i>' },
