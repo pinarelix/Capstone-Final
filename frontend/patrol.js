@@ -935,6 +935,7 @@ function applyRecommendationToScheduleForm(idx) {
     document.getElementById('editScheduleId').value = '';
     document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
+    document.getElementById('scheduleFormCard')?.classList.remove('edit-modal-mode');
 
     const locationSelect = document.getElementById('scheduleLocation');
     if ([...locationSelect.options].some(opt => opt.value === rec.area)) {
@@ -1019,6 +1020,18 @@ function setupScheduleForm() {
             teamSelect.value = '';
         });
     }
+
+    const closeBtn = document.getElementById('closeScheduleModalBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closeScheduleModal);
+
+    const modalHost = document.getElementById('scheduleFormCard');
+    if (modalHost) {
+        modalHost.addEventListener('click', function (e) {
+            if (e.target === this && this.classList.contains('edit-modal-mode')) {
+                closeScheduleModal();
+            }
+        });
+    }
 }
 
 async function saveSchedule() {
@@ -1061,11 +1074,7 @@ async function saveSchedule() {
 
         if (!response.ok) throw new Error('Failed to save schedule');
 
-        document.getElementById('scheduleForm').reset();
-        document.getElementById('editScheduleId').value = '';
-        document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
-        document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
-        resetScheduleMapPicker();
+        resetScheduleFormState();
 
         await loadAllData();
         showToast('Schedule saved successfully!', 'success');
@@ -1073,6 +1082,36 @@ async function saveSchedule() {
         console.error('Error saving schedule:', error);
         showToast('Failed to save schedule.', 'error');
     }
+}
+
+// Resets the Add/Edit Patrol Schedule form back to its "Add" state and,
+// if it was popped up as a modal to edit an existing schedule, closes
+// that modal too - shared by a successful save, the close (X) button,
+// and a backdrop click.
+function resetScheduleFormState() {
+    document.getElementById('scheduleForm').reset();
+    document.getElementById('editScheduleId').value = '';
+    document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
+    document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
+    resetScheduleMapPicker();
+    document.getElementById('scheduleFormCard')?.classList.remove('edit-modal-mode');
+}
+
+// Pops the Add/Edit Patrol Schedule form card up as a centered modal
+// over the Schedules table - used only when editing an existing
+// schedule (see editSchedule()). Creating a new one leaves the form in
+// its normal in-page position.
+function openScheduleModal() {
+    const card = document.getElementById('scheduleFormCard');
+    if (!card) return;
+    card.classList.add('edit-modal-mode');
+    if (scheduleMapPicker) {
+        setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
+    }
+}
+
+function closeScheduleModal() {
+    resetScheduleFormState();
 }
 
 // Shared client-side paginator for a table body: renders one page's
@@ -1175,7 +1214,7 @@ function renderSchedules(schedules) {
                 <td>${renderIncidentTypeBadges(schedule.location)}</td>
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
-                    <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})">Edit</button>
+                    <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})"><i class="fa-solid fa-pen"></i> Update</button>
                     <button type="button" class="btn-action-delete admin-action" onclick="requestDeleteSchedule(${schedule.id})">Delete</button>
                 </td>
             </tr>
@@ -1215,7 +1254,7 @@ window.editSchedule = async function(id) {
         document.getElementById('scheduleFormTitle').textContent = 'Edit Patrol Schedule';
         document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update Schedule';
 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        openScheduleModal();
     } catch (error) {
         console.error('Error fetching schedule:', error);
         showToast('Failed to load schedule details.', 'error');

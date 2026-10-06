@@ -198,12 +198,18 @@
 
                 <!-- Add Schedule Form -->
                 <div class="patrol-form-card" id="scheduleFormCard">
+                    <div class="schedule-form-inner">
                     <div class="form-header">
                         <div>
                             <h3 id="scheduleFormTitle"><i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule</h3>
                             <p>Create a new patrol schedule for tanod deployment.</p>
                         </div>
-                        <span class="badge-subtle admin-badge">Admin Only</span>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span class="badge-subtle admin-badge">Admin Only</span>
+                            <button type="button" id="closeScheduleModalBtn" title="Close">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <form id="scheduleForm">
@@ -280,6 +286,7 @@
                             <i class="fa-solid fa-save"></i> Save Schedule
                         </button>
                     </form>
+                    </div>
                 </div>
 
                 <!-- Schedules Table -->
