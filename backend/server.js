@@ -1843,7 +1843,7 @@ app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'D
     }
 });
 
-app.post('/api/incidents', authenticate, requireRole(['Administrator']), validate(incidentSchema), async (req, res) => {
+app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Officer']), validate(incidentSchema), async (req, res) => {
     try {
         const {
             incident_type, date, time, latitude, longitude, street_name, address, reporter_id,

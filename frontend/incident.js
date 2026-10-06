@@ -58,6 +58,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     applyRoleBasedUI(); // mula sa apiHelper.js
 
+    if (isDeskOfficer()) {
+        const badge = document.getElementById('formAccessBadge');
+        if (badge) badge.textContent = 'Desk Officer Access';
+
+        const note = document.getElementById('formAccessNote');
+        if (note) note.textContent = 'Desk Officers can add new incident records but cannot edit or delete existing ones. Decision-Makers and Field Users have view-only access to their allowed modules.';
+    }
+
     // Fire-and-forget here - the list table itself has no images, only
     // the evidence gallery (shown when editing an incident) needs the
     // token, and editIncident() awaits it fresh before rendering.
@@ -681,8 +689,12 @@ function setupForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        if (!isAdmin()) { // mula sa apiHelper.js
-            showErrorModal('Access Denied', 'Only administrators can add or edit incidents.');
+        // Desk Officer can add new incidents but not edit existing ones -
+        // editIncident() below has its own admin-only gate that blocks
+        // entry into edit mode, so this form only ever runs in create
+        // mode for them.
+        if (!isAdmin() && !isDeskOfficer()) {
+            showErrorModal('Access Denied', 'Only administrators and desk officers can add incidents.');
             return;
         }
 
