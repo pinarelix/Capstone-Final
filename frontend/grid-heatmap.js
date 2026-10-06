@@ -19,8 +19,8 @@ let highRiskCircles = [];
 let moderateRiskCircles = [];
 let riskPulseStarted = false;
 
-const HIGH_RISK_PULSE_PERIOD_MS = 2400;
-const MODERATE_RISK_PULSE_PERIOD_MS = 6000;
+const HIGH_RISK_PULSE_PERIOD_MS = 1200;
+const MODERATE_RISK_PULSE_PERIOD_MS = 3000;
 
 function startRiskPulse() {
     if (riskPulseStarted) return;
