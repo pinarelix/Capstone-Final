@@ -182,9 +182,9 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 12px;
-    border-radius: 6px;
-    font-size: 0.725rem;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
     border: none;
@@ -192,13 +192,13 @@
 }
 
 .btn-action-edit {
-    background-color: #e2e8f0;
-    color: var(--accent-dark);
+    background-color: #dbeafe;
+    color: #1d4ed8;
     margin-right: 6px;
 }
 
 .btn-action-edit:hover {
-    background-color: #cbd5e1;
+    background-color: #bfdbfe;
     transform: translateY(-1px);
 }
 
