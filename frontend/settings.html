@@ -22,6 +22,61 @@
 
     <style>
         /* ============================================================
+           TABS (System Settings / Location Coordinates / Audit Trail)
+        ============================================================ */
+        .tab-navigation {
+            display: flex;
+            gap: 4px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #94a3b8;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(15, 23, 42, 0.05);
+            color: #0f172a;
+        }
+
+        .tab-btn.active {
+            background: #0f172a;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================================
            SETTINGS PAGE STYLES
         ============================================================ */
         .settings-grid {
@@ -737,6 +792,28 @@
                 </div>
             </div>
 
+        </section>
+
+        <!-- =========================================================
+             TABS: System Settings / Location Coordinates / Audit Trail
+        ========================================================== -->
+        <div class="tab-navigation" style="margin-top: 24px;">
+            <button class="tab-btn active" data-tab="system-settings">
+                <i class="fa-solid fa-sliders"></i> System Settings
+            </button>
+            <button class="tab-btn" data-tab="location-coordinates">
+                <i class="fa-solid fa-map-pin"></i> Location Coordinates
+            </button>
+            <button class="tab-btn" data-tab="audit-trail">
+                <i class="fa-solid fa-list-check"></i> Audit Trail
+            </button>
+        </div>
+
+        <!-- =========================================================
+             TAB 1: SYSTEM SETTINGS
+        ========================================================== -->
+        <div id="tab-system-settings" class="tab-content active">
+        <section class="settings-grid">
             <!-- =========================================================
                  🆕 CARD 7: SYSTEM SETTINGS (FULL WIDTH)
             ========================================================== -->
@@ -805,7 +882,14 @@
                     </div>
                 </div>
             </div>
+        </section>
+        </div>
 
+        <!-- =========================================================
+             TAB 2: LOCATION COORDINATES
+        ========================================================== -->
+        <div id="tab-location-coordinates" class="tab-content">
+        <section class="settings-grid">
             <!-- =========================================================
                  🆕 CARD 8: LOCATION COORDINATES (FULL WIDTH)
             ========================================================== -->
@@ -842,13 +926,14 @@
                     </div>
                 </div>
             </div>
-
         </section>
+        </div>
 
         <!-- =========================================================
-             AUDIT LOG SECTION (FULL WIDTH)
+             TAB 3: AUDIT TRAIL
         ========================================================== -->
-        <section class="settings-grid" style="margin-top: 24px;">
+        <div id="tab-audit-trail" class="tab-content">
+        <section class="settings-grid">
             <div class="settings-card full-width">
                 <div class="card-header">
                     <div class="icon blue">
@@ -930,6 +1015,7 @@
                 </div>
             </div>
         </section>
+        </div>
 
     </main>
 
@@ -1036,6 +1122,33 @@
     document.getElementById('homeBtn').addEventListener('click', function() {
         window.location.href = 'dashboard.html';
     });
+
+    // =========================================================
+    // TABS: System Settings / Location Coordinates / Audit Trail
+    // =========================================================
+    function setupTabs() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                this.classList.add('active');
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(`tab-${tabId}`).classList.add('active');
+
+                // The Location Coordinates map initializes on page load
+                // while its tab is still hidden (display:none reports a
+                // 0-size container to Leaflet) - force a recalculation
+                // now that switching here has made it visible.
+                if (tabId === 'location-coordinates' && typeof locCoordMap !== 'undefined' && locCoordMap) {
+                    setTimeout(() => locCoordMap.invalidateSize(), 50);
+                }
+            });
+        });
+    }
 
     // =========================================================
     // CHANGE PASSWORD
@@ -1814,6 +1927,7 @@ async function loadLoginHistory() {
             applyRoleBasedUI();
         }
 
+        setupTabs();
         loadSystemStatus();
         loadCurrentUser();
         loadLoginHistory();
