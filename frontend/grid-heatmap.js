@@ -9,25 +9,41 @@ let boundaryLayer;
 let allIncidentsData = [];
 let heatmapLayerGroup;
 
-// Tracks the circle/glow pairs for Level 3 (high-risk) cells only, so
-// just those slowly pulse - rebuilt on every renderGrid() call. The map
-// uses preferCanvas:true, so these are painted on a shared <canvas>
-// with no per-shape DOM node; CSS animations can't touch them, so the
-// pulse is driven here via setStyle() instead.
+// Tracks the circle/glow pairs for Level 3 (high-risk) and Level 2
+// (moderate-risk) cells, so only those slowly pulse (moderate slower
+// than high) - rebuilt on every renderGrid() call. The map uses
+// preferCanvas:true, so these are painted on a shared <canvas> with no
+// per-shape DOM node; CSS animations can't touch them, so the pulse is
+// driven here via setStyle() instead.
 let highRiskCircles = [];
-let highRiskPulseStarted = false;
+let moderateRiskCircles = [];
+let riskPulseStarted = false;
 
-function startHighRiskPulse() {
-    if (highRiskPulseStarted) return;
-    highRiskPulseStarted = true;
+const HIGH_RISK_PULSE_PERIOD_MS = 2400;
+const MODERATE_RISK_PULSE_PERIOD_MS = 6000;
+
+function startRiskPulse() {
+    if (riskPulseStarted) return;
+    riskPulseStarted = true;
 
     setInterval(() => {
-        if (highRiskCircles.length === 0) return;
-        const phase = (Math.sin(Date.now() / 1200) + 1) / 2; // 0..1, ~2.4s cycle
-        highRiskCircles.forEach(({ circle, glow }) => {
-            circle.setStyle({ fillOpacity: 0.45 + phase * 0.35 });
-            glow.setStyle({ fillOpacity: 0.06 + phase * 0.24 });
-        });
+        const now = Date.now();
+
+        if (highRiskCircles.length > 0) {
+            const phase = (Math.sin((now / HIGH_RISK_PULSE_PERIOD_MS) * 2 * Math.PI) + 1) / 2;
+            highRiskCircles.forEach(({ circle, glow }) => {
+                circle.setStyle({ fillOpacity: 0.45 + phase * 0.35 });
+                glow.setStyle({ fillOpacity: 0.06 + phase * 0.24 });
+            });
+        }
+
+        if (moderateRiskCircles.length > 0) {
+            const phase = (Math.sin((now / MODERATE_RISK_PULSE_PERIOD_MS) * 2 * Math.PI) + 1) / 2;
+            moderateRiskCircles.forEach(({ circle, glow }) => {
+                circle.setStyle({ fillOpacity: 0.5 + phase * 0.2 });
+                glow.setStyle({ fillOpacity: 0.05 + phase * 0.15 });
+            });
+        }
     }, 120);
 }
 
@@ -319,6 +335,7 @@ function renderGrid(incidents) {
 
     heatmapLayerGroup.clearLayers();
     highRiskCircles = [];
+    moderateRiskCircles = [];
 
     let totalIncidents = 0;
     let activeCells = 0;
@@ -404,6 +421,8 @@ function renderGrid(incidents) {
 
         if (count >= DENSITY_HIGH_MIN) {
             highRiskCircles.push({ circle, glow });
+        } else if (count >= DENSITY_MODERATE_MIN) {
+            moderateRiskCircles.push({ circle, glow });
         }
 
         circle.bindTooltip(`${count} incident${count > 1 ? 's' : ''}`, {
@@ -433,7 +452,7 @@ function renderGrid(incidents) {
     console.log(`📊 KPI: Total=${totalIncidents}, Cells=${activeCells}, Peak=${peakCount}, HighRisk=${highRiskCells}`);
     console.log("✅ Rendering Complete!");
 
-    startHighRiskPulse();
+    startRiskPulse();
 }
 
 function showIncidentDetails(incidents, lat, lng) {
