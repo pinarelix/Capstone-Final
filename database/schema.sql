@@ -543,6 +543,7 @@ CREATE TABLE `users` (
   `password_hash` varchar(255) NOT NULL,
   `role` enum('Administrator','Decision-Maker','Desk Officer') NOT NULL,
   `contact_no` varchar(20) DEFAULT NULL,
+  `email` varchar(150) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
   `last_login_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,

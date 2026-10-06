@@ -144,7 +144,7 @@ function showLoadingState() {
     if (tableBody) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; padding: 40px;">
+                <td colspan="6" style="text-align: center; padding: 40px;">
                     <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px;"></i>
                     <div style="margin-top: 10px;">Loading users...</div>
                 </td>
@@ -429,11 +429,13 @@ async function addUser() {
     const usernameInput = document.getElementById("username");
     const passwordInput = document.getElementById("password");
     const roleInput = document.getElementById("role");
+    const emailInput = document.getElementById("userEmail");
 
     const name = nameInput.value.trim();
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
     const role = roleInput.value;
+    const email = emailInput ? emailInput.value.trim() : '';
 
     if (!name || !username || !password || !role) {
         showToast("Please complete all required fields.", "error");
@@ -455,12 +457,13 @@ async function addUser() {
     try {
         const response = await apiFetch('/users', {
             method: 'POST',
-            body: JSON.stringify({ 
-                name, 
-                username, 
-                password, 
+            body: JSON.stringify({
+                name,
+                username,
+                password,
                 role,
-                contact_no: ''
+                contact_no: '',
+                email
             })
         });
 
@@ -618,7 +621,7 @@ function renderUsers(filteredUsers = users) {
     if (filteredUsers.length === 0) {
         tableBody.innerHTML = `
             <tr class="empty-row">
-                <td colspan="5">
+                <td colspan="6">
                     <div class="empty-content">
                         <i class="fa-solid fa-users-slash"></i>
                         <span>No users found.</span>
@@ -654,6 +657,12 @@ function renderUsers(filteredUsers = users) {
                     ${escapeHTML(roleDisplay)}
                 </span>
             </td>
+            <td class="email-cell" id="emailCell-${users.id}">
+                <span class="email-display" style="color: #475569;">${escapeHTML(users.email || '—')}</span>
+                <button type="button" class="btn-edit-email" title="Edit email" onclick="startEditEmail(${users.id}, '${escapeHTML(users.email || '').replace(/'/g, "\\'")}')" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px 4px; margin-left: 6px;">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+            </td>
             <td>
                 <div class="password-cell">
                     <span class="password-text" title="Passwords are not retrievable">
@@ -674,6 +683,61 @@ function renderUsers(filteredUsers = users) {
 
     setupDeleteButtons();
 }
+
+/* ============================================================
+   INLINE EDIT: USER EMAIL
+   Scoped to just this one field since there's no general "edit user"
+   endpoint yet - needed so an Administrator can set an email on
+   existing accounts (the Add User form only covers new ones), which
+   the forgot-password flow uses to actually send a reset code.
+============================================================ */
+
+function startEditEmail(userId, currentEmail) {
+    const cell = document.getElementById(`emailCell-${userId}`);
+    if (!cell) return;
+
+    cell.innerHTML = `
+        <input type="email" id="emailInput-${userId}" value="${escapeHTML(currentEmail)}" placeholder="name@gmail.com"
+            style="width: 160px; padding: 4px 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 0.85rem;">
+        <button type="button" onclick="saveEmail(${userId})" title="Save" style="background: none; border: none; color: #059669; cursor: pointer; padding: 2px 4px;">
+            <i class="fa-solid fa-check"></i>
+        </button>
+        <button type="button" onclick="renderUsers()" title="Cancel" style="background: none; border: none; color: #dc2626; cursor: pointer; padding: 2px 4px;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    `;
+
+    const input = document.getElementById(`emailInput-${userId}`);
+    if (input) input.focus();
+}
+
+async function saveEmail(userId) {
+    const input = document.getElementById(`emailInput-${userId}`);
+    if (!input) return;
+
+    const email = input.value.trim();
+
+    try {
+        const response = await apiFetch(`/users/${userId}/email`, {
+            method: 'PUT',
+            body: JSON.stringify({ email })
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to update email');
+
+        const user = users.find(u => u.id === userId);
+        if (user) user.email = email;
+
+        renderUsers();
+        showToast('Email updated.', 'success');
+    } catch (error) {
+        console.error('Error updating email:', error);
+        showToast(error.message || 'Failed to update email.', 'error');
+    }
+}
+window.startEditEmail = startEditEmail;
+window.saveEmail = saveEmail;
 
 function updateAccountCount() {
     const accountCount = document.getElementById("accountCount");

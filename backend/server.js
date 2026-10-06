@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const NodeCache = require('node-cache');
+const nodemailer = require('nodemailer');
 const cartEngine = require('./cart-engine');
 const { BARANGAY_LOCATIONS } = require('./locationList');
 
@@ -192,6 +193,17 @@ async function testConnection() {
         MODIFY COLUMN role ENUM('Administrator', 'Decision-Maker', 'Desk Officer') NOT NULL
     `);
 
+    try {
+        // Needed so the forgot-password flow can actually email a reset
+        // link (see sendPasswordResetEmail) instead of only logging the
+        // token to the Audit Trail. "ADD COLUMN IF NOT EXISTS" isn't
+        // valid syntax on this MySQL version, so idempotency is done
+        // the same manual way as team_id above.
+        await pool.query(`ALTER TABLE users ADD COLUMN email VARCHAR(150) DEFAULT NULL`);
+    } catch (err) {
+        if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+
     // Tanod teams: lets a schedule be assigned to a whole team at once
     // instead of checking each tanod individually.
     await pool.query(`
@@ -290,7 +302,12 @@ const userSchema = Joi.object({
     username: Joi.string().min(3).required(),
     password: Joi.string().min(6).required(),
     role: Joi.string().valid('Administrator', 'Decision-Maker', 'Desk Officer').required(),
-    contact_no: Joi.string().allow('', null)
+    contact_no: Joi.string().allow('', null),
+    email: Joi.string().email({ tlds: false }).allow('', null)
+});
+
+const userEmailSchema = Joi.object({
+    email: Joi.string().email({ tlds: false }).allow('', null)
 });
 
 // Login Schema
@@ -427,6 +444,55 @@ function rateLimit({ windowMs, max }) {
 }
 
 const authRateLimit = rateLimit({ windowMs: 5 * 60 * 1000, max: 8 });
+
+// ============================================================
+// PASSWORD RESET EMAIL (optional - Gmail SMTP)
+// Only wired up if EMAIL_USER/EMAIL_APP_PASSWORD are set in .env (a
+// Gmail App Password, not the account's normal login password - needs
+// 2-Step Verification enabled on that Gmail account first). Without
+// them, mailTransporter stays null and forgot-password falls back to
+// its existing behavior: the token is still recorded in the Audit
+// Trail for an Administrator to relay manually, so the feature never
+// hard-fails just because email isn't configured yet.
+// ============================================================
+
+let mailTransporter = null;
+if (process.env.EMAIL_USER && process.env.EMAIL_APP_PASSWORD) {
+    mailTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_APP_PASSWORD
+        }
+    });
+    console.log('📧 Password reset emails: enabled (Gmail)');
+} else {
+    console.log('📧 Password reset emails: not configured - falling back to Audit Trail only');
+}
+
+async function sendPasswordResetEmail(toEmail, name, resetToken) {
+    if (!mailTransporter) return false;
+
+    try {
+        await mailTransporter.sendMail({
+            from: `"Barangay 179 Crime BI" <${process.env.EMAIL_USER}>`,
+            to: toEmail,
+            subject: 'Password Reset Code - Barangay 179 Crime BI',
+            html: `
+                <p>Hi ${name},</p>
+                <p>We received a request to reset your password for the Barangay 179 Crime BI system.</p>
+                <p>Your reset code is:</p>
+                <p style="font-size: 20px; font-weight: bold; letter-spacing: 1px;">${resetToken}</p>
+                <p>Enter this code on the password reset screen. It expires in 30 minutes.</p>
+                <p>If you didn't request this, you can safely ignore this email.</p>
+            `
+        });
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to send password reset email:', error.message);
+        return false;
+    }
+}
 
 // ============================================================
 // AUDIT LOGGING HELPER
@@ -1140,7 +1206,7 @@ app.get('/api/users', authenticate, requireRole(['Administrator']), async (req, 
         const [rows] = await pool.query(`
             SELECT
                 u.id, u.name, u.username, u.role,
-                u.contact_no, u.is_active, u.last_login_at, u.created_at, u.updated_at
+                u.contact_no, u.email, u.is_active, u.last_login_at, u.created_at, u.updated_at
             FROM users u
             WHERE u.is_active = 1
             ORDER BY u.id
@@ -1163,7 +1229,7 @@ app.get('/api/users/search', authenticate, requireRole(['Administrator']), async
             const [rows] = await pool.query(`
                 SELECT
                     u.id, u.name, u.username, u.role,
-                    u.contact_no, u.is_active, u.last_login_at
+                    u.contact_no, u.email, u.is_active, u.last_login_at
                 FROM users u
                 WHERE u.is_active = 1
                 ORDER BY u.id
@@ -1175,7 +1241,7 @@ app.get('/api/users/search', authenticate, requireRole(['Administrator']), async
         const [rows] = await pool.query(`
             SELECT
                 u.id, u.name, u.username, u.role,
-                u.contact_no, u.is_active, u.last_login_at
+                u.contact_no, u.email, u.is_active, u.last_login_at
             FROM users u
             WHERE u.is_active = 1
               AND (u.name LIKE ?
@@ -1197,7 +1263,7 @@ app.get('/api/users/:id', authenticate, requireRole(['Administrator']), async (r
         const [rows] = await pool.query(`
             SELECT
                 u.id, u.name, u.username, u.role,
-                u.contact_no, u.is_active, u.last_login_at, u.created_at, u.updated_at
+                u.contact_no, u.email, u.is_active, u.last_login_at, u.created_at, u.updated_at
             FROM users u
             WHERE u.id = ?
         `, [req.params.id]);
@@ -1215,32 +1281,32 @@ app.get('/api/users/:id', authenticate, requireRole(['Administrator']), async (r
 
 app.post('/api/users', authenticate, requireRole(['Administrator']), validate(userSchema), async (req, res) => {
     try {
-        const { name, username, password, role, contact_no } = req.body;
-        
+        const { name, username, password, role, contact_no, email } = req.body;
+
         const [existing] = await pool.query(
             'SELECT id FROM users WHERE username = ?',
             [username]
         );
-        
+
         if (existing.length > 0) {
-            return res.status(400).json({ 
-                error: 'Username already exists.' 
+            return res.status(400).json({
+                error: 'Username already exists.'
             });
         }
-        
+
         const saltRounds = 10;
         const password_hash = await bcrypt.hash(password, saltRounds);
-        
+
         const [result] = await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, contact_no)
-             VALUES (?, ?, ?, ?, ?)`,
-            [name, username, password_hash, role, contact_no || null]
+            `INSERT INTO users (name, username, password_hash, role, contact_no, email)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [name, username, password_hash, role, contact_no || null, email || null]
         );
-        
+
         const [newUser] = await pool.query(`
             SELECT
                 u.id, u.name, u.username, u.role,
-                u.contact_no, u.is_active, u.created_at, u.updated_at
+                u.contact_no, u.email, u.is_active, u.created_at, u.updated_at
             FROM users u
             WHERE u.id = ?
         `, [result.insertId]);
@@ -1267,6 +1333,31 @@ app.post('/api/users', authenticate, requireRole(['Administrator']), validate(us
     } catch (error) {
         console.error('❌ Error creating user:', error);
         res.status(500).json({ error: 'Failed to create user' });
+    }
+});
+
+// There's no general PUT /api/users/:id (editing an existing staff
+// account isn't a feature yet) - this is intentionally scoped to just
+// the one field needed for password-reset emails to work on accounts
+// that predate the email column.
+app.put('/api/users/:id/email', authenticate, requireRole(['Administrator']), validate(userEmailSchema), async (req, res) => {
+    try {
+        const { email } = req.body;
+        const [result] = await pool.query(
+            'UPDATE users SET email = ? WHERE id = ?',
+            [email || null, req.params.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        await logAudit(req.userId, 'UPDATE_USER_EMAIL', 'users', req.params.id, null, { email }, req);
+
+        res.json({ message: 'Email updated successfully.' });
+    } catch (error) {
+        console.error('❌ Error updating user email:', error);
+        res.status(500).json({ error: 'Failed to update email' });
     }
 });
 
@@ -1493,7 +1584,7 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         const { username } = req.body;
 
         const [users] = await pool.query(
-            'SELECT id, username, name FROM users WHERE username = ?',
+            'SELECT id, username, name, email FROM users WHERE username = ?',
             [username]
         );
 
@@ -1513,14 +1604,14 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         console.log(`🔑 Password Reset Token for ${username}: ${resetToken}`);
         console.log(`⏰ Expires at: ${expiresAt.toLocaleString()}`);
 
-        // There's no email/SMS provider wired up, so the admin's only
-        // way to retrieve this token was previously the server's
-        // console log (not practical outside local dev). Logging it
-        // here too means an Administrator can read it from the
-        // existing Audit Trail UI instead of needing server/terminal
-        // access.
+        // Tries email first (if configured and this user has one on
+        // file); either way the token also goes to the Audit Trail as a
+        // fallback an Administrator can relay manually - see
+        // sendPasswordResetEmail's comment for why email can be absent.
+        const emailSent = user.email ? await sendPasswordResetEmail(user.email, user.name, resetToken) : false;
+
         await logAudit(user.id, 'PASSWORD_RESET_REQUESTED', 'users', user.id, null,
-            { username: user.username, reset_token: resetToken, expires_at: expiresAt }, req);
+            { username: user.username, reset_token: resetToken, expires_at: expiresAt, emailed_to: emailSent ? user.email : null }, req);
 
         res.json({
             message: 'If the username exists, a reset link has been sent.'
