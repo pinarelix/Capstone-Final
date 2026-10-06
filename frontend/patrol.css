@@ -690,6 +690,18 @@ body.role-desk-officer #scheduleTableBody .btn-action-edit {
     display: inline-block !important;
 }
 
+/* The barangay Captain (Decision-Maker) is here to review and decide,
+   not to personally fill out deployment forms - hide the Add Schedule
+   / Add Log forms (and the recommendation-prefill shortcuts that only
+   matter alongside them) so his Schedules/Patrol Logs tabs are just
+   the read-only tables. Desk Officer still needs these, so this is
+   scoped to role-decision-maker only, not the shared admin-section rule. */
+body.role-decision-maker #scheduleSuggestionsSection,
+body.role-decision-maker #scheduleFormCard,
+body.role-decision-maker #logFormCard {
+    display: none !important;
+}
+
 /* ============================================================
    EMPTY STATE
 ============================================================ */
