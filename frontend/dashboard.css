@@ -1818,6 +1818,13 @@ body.role-desk-officer .admin-only {
     display: none !important;
 }
 
+/* Desk Officer can add incidents (see incident.js), so they need a way
+   to reach that page - re-show just this one admin-only sidebar link,
+   unlike Decision-Maker who stays fully view-only everywhere. */
+body.role-desk-officer a[href="incident.html"].nav-item {
+    display: flex !important;
+}
+
 /* 🔥 For Decision-Maker (and Desk Officer), hide admin-action buttons */
 body.role-decision-maker .admin-action,
 body.role-desk-officer .admin-action {
