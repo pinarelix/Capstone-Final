@@ -167,7 +167,10 @@
             background: white;
         }
 
-        .settings-form .btn-save {
+        .btn-save {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             padding: 10px 24px;
             border: none;
             border-radius: 8px;
@@ -178,10 +181,34 @@
             transition: all 0.2s ease;
         }
 
-        .settings-form .btn-save:hover {
+        .btn-save:hover {
             background: #1e293b;
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+        }
+
+        /* Audit Trail "View" details button - the blue pill style used
+           for the same kind of action elsewhere (Incident Records,
+           Patrol Logs), but this page only loads dashboard.css, not
+           those pages' own stylesheets where .btn-action-edit lives. */
+        .btn-action-edit {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            background: #dbeafe;
+            color: #1d4ed8;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action-edit:hover {
+            background: #bfdbfe;
+            transform: translateY(-1px);
         }
 
         /* Status Items */
