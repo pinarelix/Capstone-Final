@@ -740,6 +740,7 @@
                         <option value="">All Actions</option>
                         <option value="LOGIN">Login</option>
                         <option value="LOGOUT">Logout</option>
+                        <option value="PASSWORD_RESET_REQUESTED">Password Reset Requested</option>
                         <option value="CREATE_INCIDENT">Create Incident</option>
                         <option value="UPDATE_INCIDENT">Update Incident</option>
                         <option value="DELETE_INCIDENT">Delete Incident</option>
@@ -792,11 +793,12 @@
                                 <th>Action</th>
                                 <th>Entity</th>
                                 <th>IP Address</th>
+                                <th>Details</th>
                             </tr>
                         </thead>
                         <tbody id="auditLogBody">
                             <tr>
-                                <td colspan="5" style="text-align: center; padding: 24px; color: #94a3b8;">
+                                <td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
                                     <i class="fa-solid fa-spinner fa-spin"></i> Loading audit logs...
                                 </td>
                             </tr>
@@ -1098,6 +1100,50 @@
                 transition: all 0.2s ease;
             ">
                 Yes, Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     AUDIT LOG DETAILS MODAL
+============================================================ -->
+<div id="auditDetailsModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+" onclick="if (event.target === this) this.style.display = 'none';">
+    <div style="
+        background: white;
+        max-width: 560px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        border-radius: 16px;
+        padding: 28px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <h2 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 16px;">
+            <i class="fa-solid fa-circle-info"></i> Audit Log Details
+        </h2>
+        <div id="auditDetailsBody"></div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+            <button onclick="document.getElementById('auditDetailsModal').style.display = 'none';" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #0f172a;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+            ">
+                Close
             </button>
         </div>
     </div>
@@ -1472,6 +1518,29 @@ async function loadLoginHistory() {
     // =========================================================
     // AUDIT LOGS
     // =========================================================
+    let auditLogDataById = {};
+
+    function viewAuditLogDetails(id) {
+        const entry = auditLogDataById[id];
+        if (!entry) return;
+
+        const modal = document.getElementById('auditDetailsModal');
+        const body = document.getElementById('auditDetailsBody');
+        if (!modal || !body) return;
+
+        let html = '';
+        if (entry.old_data) {
+            html += `<strong style="display:block; margin-bottom:6px; color:#64748b; font-size:0.75rem;">BEFORE</strong><pre style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; font-size:0.78rem; white-space:pre-wrap; word-break:break-word; margin-bottom:16px;">${escapeHTML(JSON.stringify(entry.old_data, null, 2))}</pre>`;
+        }
+        if (entry.new_data) {
+            html += `<strong style="display:block; margin-bottom:6px; color:#64748b; font-size:0.75rem;">AFTER</strong><pre style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; font-size:0.78rem; white-space:pre-wrap; word-break:break-word;">${escapeHTML(JSON.stringify(entry.new_data, null, 2))}</pre>`;
+        }
+
+        body.innerHTML = html || '<p style="color:#94a3b8;">No details recorded.</p>';
+        modal.style.display = 'flex';
+    }
+    window.viewAuditLogDetails = viewAuditLogDetails;
+
     async function loadAuditLogs() {
         const tbody = document.getElementById('auditLogBody');
         const countEl = document.getElementById('auditLogCount');
@@ -1497,7 +1566,7 @@ async function loadLoginHistory() {
             if (logs.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 24px; color: #94a3b8;">
+                        <td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
                             No audit logs found.
                         </td>
                     </tr>
@@ -1528,6 +1597,9 @@ async function loadLoginHistory() {
                 const userDisplay = (log.user_name || log.username || 'System') +
                     (log.actor_type === 'tanod' ? ' <span style="color:#d97706; font-size:0.68rem; font-weight:600;">(Tanod)</span>' : '');
 
+                auditLogDataById[log.id] = { old_data: log.old_data, new_data: log.new_data };
+                const hasDetails = log.old_data || log.new_data;
+
                 return `
                     <tr>
                         <td style="white-space: nowrap; font-size: 0.75rem;">${formattedDate}</td>
@@ -1535,6 +1607,7 @@ async function loadLoginHistory() {
                         <td><span class="audit-badge ${badgeClass}">${log.action || 'N/A'}</span></td>
                         <td style="font-size: 0.75rem;">${log.entity_type || 'N/A'} #${log.entity_id || 'N/A'}</td>
                         <td style="font-size: 0.7rem; color: #94a3b8;">${log.ip_address || 'N/A'}</td>
+                        <td>${hasDetails ? `<button type="button" class="btn-action-edit" onclick="viewAuditLogDetails(${log.id})"><i class="fa-solid fa-eye"></i> View</button>` : '<span style="color:#cbd5e1; font-size:0.7rem;">&mdash;</span>'}</td>
                     </tr>
                 `;
             }).join('');
@@ -1543,7 +1616,7 @@ async function loadLoginHistory() {
             console.error('Error loading audit logs:', error);
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 24px; color: #ef4444;">
+                    <td colspan="6" style="text-align: center; padding: 24px; color: #ef4444;">
                         Failed to load audit logs.
                     </td>
                 </tr>

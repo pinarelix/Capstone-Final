@@ -459,7 +459,9 @@ CREATE TABLE `tanod_record` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tanod_username` (`username`),
   KEY `user_id` (`user_id`),
-  CONSTRAINT `tanod_record_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+  KEY `team_id` (`team_id`),
+  CONSTRAINT `tanod_record_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tanod_record_team` FOREIGN KEY (`team_id`) REFERENCES `tanod_teams` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

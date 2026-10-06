@@ -193,11 +193,7 @@ async function testConnection() {
     `);
 
     // Tanod teams: lets a schedule be assigned to a whole team at once
-    // instead of checking each tanod individually. No FK constraint on
-    // tanod_record.team_id by design - team deletion clears it manually
-    // (see DELETE /api/tanod-teams/:id) rather than relying on a DB-level
-    // ON DELETE SET NULL, since re-adding a named FK constraint isn't
-    // idempotent the way CREATE TABLE IF NOT EXISTS is.
+    // instead of checking each tanod individually.
     await pool.query(`
         CREATE TABLE IF NOT EXISTS tanod_teams (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -213,6 +209,33 @@ async function testConnection() {
         await pool.query(`ALTER TABLE tanod_record ADD COLUMN team_id INT DEFAULT NULL`);
     } catch (err) {
         if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+
+    // Null out any team_id that no longer points at a real team before
+    // adding the FK below - a constraint add fails outright if existing
+    // data already violates it.
+    await pool.query(`
+        UPDATE tanod_record
+        LEFT JOIN tanod_teams ON tanod_record.team_id = tanod_teams.id
+        SET tanod_record.team_id = NULL
+        WHERE tanod_record.team_id IS NOT NULL AND tanod_teams.id IS NULL
+    `);
+
+    try {
+        // A named constraint so repeat runs can detect "already added"
+        // the same way the column add above does, instead of an
+        // unnamed FK piling up a fresh duplicate on every restart.
+        // Previously this was deliberately left DB-unenforced and
+        // cleaned up manually in DELETE /api/tanod-teams/:id - this
+        // keeps that same ON DELETE SET NULL behavior but makes the
+        // database itself guarantee it too.
+        await pool.query(`
+            ALTER TABLE tanod_record
+            ADD CONSTRAINT fk_tanod_record_team
+            FOREIGN KEY (team_id) REFERENCES tanod_teams(id) ON DELETE SET NULL
+        `);
+    } catch (err) {
+        if (err.code !== 'ER_FK_DUP_NAME' && err.errno !== 1826) throw err;
     }
 }
 
@@ -274,6 +297,15 @@ const userSchema = Joi.object({
 const loginSchema = Joi.object({
     username: Joi.string().required(),
     password: Joi.string().required()
+});
+
+const forgotPasswordSchema = Joi.object({
+    username: Joi.string().required()
+});
+
+const resetPasswordSchema = Joi.object({
+    reset_token: Joi.string().required(),
+    new_password: Joi.string().min(6).required()
 });
 
 // Tanod Schema
@@ -1456,13 +1488,9 @@ app.get('/api/login-history', authenticate, requireRole(['Administrator']), asyn
 // AUTH - FORGOT PASSWORD
 // ============================================================
 
-app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
+app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSchema), async (req, res) => {
     try {
         const { username } = req.body;
-
-        if (!username) {
-            return res.status(400).json({ error: 'Username is required' });
-        }
 
         const [users] = await pool.query(
             'SELECT id, username, name FROM users WHERE username = ?',
@@ -1485,6 +1513,15 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
         console.log(`🔑 Password Reset Token for ${username}: ${resetToken}`);
         console.log(`⏰ Expires at: ${expiresAt.toLocaleString()}`);
 
+        // There's no email/SMS provider wired up, so the admin's only
+        // way to retrieve this token was previously the server's
+        // console log (not practical outside local dev). Logging it
+        // here too means an Administrator can read it from the
+        // existing Audit Trail UI instead of needing server/terminal
+        // access.
+        await logAudit(user.id, 'PASSWORD_RESET_REQUESTED', 'users', user.id, null,
+            { username: user.username, reset_token: resetToken, expires_at: expiresAt }, req);
+
         res.json({
             message: 'If the username exists, a reset link has been sent.'
         });
@@ -1499,17 +1536,9 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
 // AUTH - RESET PASSWORD
 // ============================================================
 
-app.post('/api/auth/reset-password', authRateLimit, async (req, res) => {
+app.post('/api/auth/reset-password', authRateLimit, validate(resetPasswordSchema), async (req, res) => {
     try {
         const { reset_token, new_password } = req.body;
-
-        if (!reset_token || !new_password) {
-            return res.status(400).json({ error: 'Reset token and new password are required' });
-        }
-
-        if (new_password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
-        }
 
         const [resetRecords] = await pool.query(`
             SELECT user_id FROM password_resets 
@@ -2442,10 +2471,9 @@ app.put('/api/tanod-teams/:id', authenticate, requireRole(['Administrator', 'Dec
 app.delete('/api/tanod-teams/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const id = req.params.id;
-        // No FK/ON DELETE SET NULL on tanod_record.team_id (see
-        // testConnection) - clear it manually first so members don't keep
-        // a dangling reference to a team that no longer exists.
-        await pool.query('UPDATE tanod_record SET team_id = NULL WHERE team_id = ?', [id]);
+        // fk_tanod_record_team (see testConnection) has ON DELETE SET
+        // NULL, so members' team_id clears automatically - no manual
+        // cleanup needed here.
         const [result] = await pool.query('DELETE FROM tanod_teams WHERE id = ?', [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Team not found' });
@@ -3645,14 +3673,14 @@ app.get('/api/audit-logs', authenticate, requireRole(['Administrator']), async (
             SELECT * FROM (
                 SELECT
                     al.id, al.action, al.entity_type, al.entity_id,
-                    al.ip_address, al.created_at,
+                    al.ip_address, al.created_at, al.old_data, al.new_data,
                     u.name as user_name, u.username, 'staff' as actor_type
                 FROM audit_logs al
                 LEFT JOIN users u ON al.user_id = u.id
                 UNION ALL
                 SELECT
                     tal.id, tal.action, tal.entity_type, tal.entity_id,
-                    tal.ip_address, tal.created_at,
+                    tal.ip_address, tal.created_at, NULL as old_data, tal.new_data,
                     tr.name as user_name, tr.username, 'tanod' as actor_type
                 FROM tanod_audit_logs tal
                 LEFT JOIN tanod_record tr ON tal.tanod_id = tr.id
@@ -3929,6 +3957,25 @@ app.get('/', (req, res) => {
 
 app.get('/api/system/status', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), (req, res) => {
     res.json({ uptimeSeconds: Math.floor((Date.now() - SERVER_START_TIME) / 1000) });
+});
+
+// ============================================================
+// 404 + GLOBAL ERROR HANDLER
+// Must be registered after every route. Without these, a request to
+// an unknown path falls through to Express's default 404 HTML page,
+// and an uncaught error (e.g. a malformed JSON body, which
+// express.json() rejects before any route handler even runs) falls
+// through to Express's default error page - both render a full stack
+// trace to the client, which is an information leak.
+// ============================================================
+
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found' });
+});
+
+app.use((err, req, res, next) => {
+    console.error('❌ Unhandled error:', err);
+    res.status(err.status || err.statusCode || 500).json({ error: 'Server error' });
 });
 
 async function startServer() {
