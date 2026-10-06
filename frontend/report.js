@@ -62,6 +62,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     const filterLocation = document.getElementById("filterLocation");
     const clearFiltersBtn = document.getElementById("clearFiltersBtn");
 
+    // Patrol Logs tab
+    const patrolLogTableBody = document.getElementById("patrolLogTableBody");
+    const patrolLogCount = document.getElementById("patrolLogCount");
+    const printPatrolLogBtn = document.getElementById("printPatrolLogBtn");
+    const exportPatrolLogCsvBtn = document.getElementById("exportPatrolLogCsvBtn");
+    const filterPatrolDateFrom = document.getElementById("filterPatrolDateFrom");
+    const filterPatrolDateTo = document.getElementById("filterPatrolDateTo");
+    const filterPatrolStatus = document.getElementById("filterPatrolStatus");
+    const filterPatrolTanod = document.getElementById("filterPatrolTanod");
+    const filterPatrolLocation = document.getElementById("filterPatrolLocation");
+    const clearPatrolFiltersBtn = document.getElementById("clearPatrolFiltersBtn");
+
     const patrolModal = document.getElementById("patrolModal");
     const closeModalBtn = document.getElementById("closeModalBtn");
     const modalCloseActionBtn = document.getElementById("modalCloseActionBtn");
@@ -74,6 +86,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const modalGoToPatrolPage = document.getElementById("modalGoToPatrolPage");
 
     let currentIncidentData = [];
+    let currentPatrolLogData = [];
 
     async function loadIncidents() {
         try {
@@ -156,6 +169,156 @@ document.addEventListener("DOMContentLoaded", async () => {
             option.value = loc;
             option.textContent = loc;
             filterLocation.appendChild(option);
+        });
+    }
+
+    // =========================================================
+    // PATROL LOGS TAB
+    // =========================================================
+
+    async function loadPatrolLogs() {
+        try {
+            // No pagination/limit support on this endpoint (unlike
+            // /incidents) - it already returns every row.
+            const response = await apiFetch('/patrol-logs');
+            if (!response.ok) throw new Error('Failed to load patrol logs');
+
+            currentPatrolLogData = await response.json();
+            populatePatrolFilterDropdowns(currentPatrolLogData);
+            updatePatrolLogView();
+        } catch (error) {
+            console.error('Error loading patrol logs:', error);
+            if (patrolLogTableBody) {
+                patrolLogTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #ef4444;">Error loading patrol logs from server.</td></tr>`;
+            }
+        }
+    }
+
+    // Tanod/location options aren't a fixed list the way BARANGAY_LOCATIONS
+    // is for incidents - derived from whichever tanods/locations actually
+    // have a logged patrol, so an empty dropdown never shows a name with
+    // zero matching records.
+    function populatePatrolFilterDropdowns(data) {
+        if (filterPatrolTanod && filterPatrolTanod.options.length <= 1) {
+            const tanods = [...new Set(data.map(d => d.tanod_name).filter(Boolean))].sort();
+            tanods.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                filterPatrolTanod.appendChild(option);
+            });
+        }
+
+        if (filterPatrolLocation && filterPatrolLocation.options.length <= 1) {
+            const locations = [...new Set(data.map(d => d.schedule_location).filter(Boolean))].sort();
+            locations.forEach(loc => {
+                const option = document.createElement('option');
+                option.value = loc;
+                option.textContent = loc;
+                filterPatrolLocation.appendChild(option);
+            });
+        }
+    }
+
+    function applyPatrolLogFilters(allData) {
+        if (!allData) return [];
+
+        const dateFrom = filterPatrolDateFrom?.value || '';
+        const dateTo = filterPatrolDateTo?.value || '';
+        const status = filterPatrolStatus?.value || '';
+        const tanod = filterPatrolTanod?.value || '';
+        const location = filterPatrolLocation?.value || '';
+
+        return allData.filter(item => {
+            if (dateFrom && item.patrol_date < dateFrom) return false;
+            if (dateTo && item.patrol_date > dateTo) return false;
+            if (status && item.status !== status) return false;
+            if (tanod && item.tanod_name !== tanod) return false;
+            if (location && item.schedule_location !== location) return false;
+            return true;
+        });
+    }
+
+    function getPatrolStatusBadgeClass(status) {
+        if (!status) return 'badge-status completed';
+        const statusLower = status.toLowerCase();
+        if (statusLower === 'completed') return 'badge-status completed';
+        if (statusLower === 'partial') return 'badge-status partial';
+        if (statusLower === 'failed') return 'badge-status failed';
+        return 'badge-status completed';
+    }
+
+    function updatePatrolLogView() {
+        const filtered = applyPatrolLogFilters(currentPatrolLogData);
+
+        if (patrolLogCount) {
+            patrolLogCount.textContent = `${filtered.length} record${filtered.length !== 1 ? 's' : ''}`;
+        }
+
+        if (!patrolLogTableBody) return;
+
+        patrolLogTableBody.innerHTML = "";
+        if (filtered.length === 0) {
+            patrolLogTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">No patrol log records match the selected filters.</td></tr>`;
+            return;
+        }
+
+        filtered.forEach(item => {
+            const tr = document.createElement("tr");
+            const statusClass = getPatrolStatusBadgeClass(item.status);
+
+            tr.innerHTML = `
+                <td class="font-bold">${item.id || 'N/A'}</td>
+                <td>${escapeHTML(item.tanod_name || 'N/A')}</td>
+                <td>${escapeHTML(item.schedule_location || 'N/A')}</td>
+                <td>${formatDate(item.patrol_date)}</td>
+                <td><span class="${statusClass}">${escapeHTML(item.status || 'Completed')}</span></td>
+                <td>${escapeHTML(item.report || 'No report notes.')}</td>
+            `;
+            patrolLogTableBody.appendChild(tr);
+        });
+    }
+
+    // Same fire-and-forget audit pattern as logReportAction() below, kept
+    // separate since the two tabs log different filter shapes/record
+    // counts - conflating them would mislabel what was actually printed.
+    function logPatrolReportAction(action) {
+        try {
+            apiFetch('/reports/log-export', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action,
+                    filters: {
+                        dateFrom: filterPatrolDateFrom?.value || '',
+                        dateTo: filterPatrolDateTo?.value || '',
+                        status: filterPatrolStatus?.value || '',
+                        tanod: filterPatrolTanod?.value || '',
+                        location: filterPatrolLocation?.value || ''
+                    },
+                    recordCount: applyPatrolLogFilters(currentPatrolLogData).length
+                })
+            }).catch(err => console.error('Error logging patrol report action:', err));
+        } catch (err) {
+            console.error('Error logging patrol report action:', err);
+        }
+    }
+
+    // =========================================================
+    // TABS
+    // =========================================================
+    function setupTabs() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                this.classList.add('active');
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(`tab-${tabId}`).classList.add('active');
+            });
         });
     }
 
@@ -466,6 +629,70 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    // Patrol Logs tab filters - every change re-renders, same as the
+    // Incident Reports tab above.
+    [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolTanod, filterPatrolLocation]
+        .filter(Boolean)
+        .forEach(field => {
+            field.addEventListener("change", updatePatrolLogView);
+        });
+
+    if (clearPatrolFiltersBtn) {
+        clearPatrolFiltersBtn.addEventListener("click", () => {
+            [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolTanod, filterPatrolLocation]
+                .filter(Boolean)
+                .forEach(field => { field.value = ""; });
+            updatePatrolLogView();
+        });
+    }
+
+    if (printPatrolLogBtn) {
+        printPatrolLogBtn.addEventListener("click", () => {
+            logPatrolReportAction('PRINT_PATROL_LOGS_REPORT');
+            window.print();
+        });
+    }
+
+    if (exportPatrolLogCsvBtn) {
+        exportPatrolLogCsvBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const filteredData = applyPatrolLogFilters(currentPatrolLogData);
+
+            if (filteredData.length === 0) {
+                alert("No patrol log data available to export for the selected filters.");
+                return;
+            }
+
+            const csvField = (value) => {
+                let str = String(value ?? '');
+                if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
+                return `"${str.replace(/"/g, '""')}"`;
+            };
+
+            let csvContent = "Log ID,Tanod,Location,Patrol Date,Status,Report\n";
+
+            filteredData.forEach(item => {
+                csvContent += [
+                    item.id || '', item.tanod_name || '', item.schedule_location || '',
+                    item.patrol_date || '', item.status || '', item.report || ''
+                ].map(csvField).join(',') + '\n';
+            });
+
+            logPatrolReportAction('EXPORT_CSV_PATROL_LOGS');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            const today = new Date().toISOString().slice(0, 10);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Barangay179_Patrol_Logs_${today}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        });
+    }
+
     if (printBtn) {
         printBtn.addEventListener("click", () => {
             logReportAction('PRINT_REPORT');
@@ -565,11 +792,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    setupTabs();
+
     await loadIncidents();
+    await loadPatrolLogs();
 
     // Keeps the report current with incidents reported from the field
     // (e.g. a tanod's phone) without needing to re-login.
     startLivePolling(loadIncidents, 15000);
+    startLivePolling(loadPatrolLogs, 15000);
 });
 
 console.log('✅ report.js loaded successfully');

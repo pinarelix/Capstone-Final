@@ -245,14 +245,18 @@ const incidentSchema = Joi.object({
 // client-built Blob), so there's currently no audit trail of who
 // printed or exported what. This is the log-only endpoint for that.
 const reportExportSchema = Joi.object({
-    action: Joi.string().valid('PRINT_REPORT', 'EXPORT_CSV_REPORT', 'PRINT_PATROL_REPORT').required(),
+    action: Joi.string().valid(
+        'PRINT_REPORT', 'EXPORT_CSV_REPORT', 'PRINT_PATROL_REPORT',
+        'PRINT_PATROL_LOGS_REPORT', 'EXPORT_CSV_PATROL_LOGS'
+    ).required(),
     month: Joi.string().pattern(/^\d{4}-\d{2}$/).allow('', null),
     filters: Joi.object({
         dateFrom: Joi.string().allow('', null),
         dateTo: Joi.string().allow('', null),
         status: Joi.string().allow('', null),
         incidentType: Joi.string().allow('', null),
-        location: Joi.string().allow('', null)
+        location: Joi.string().allow('', null),
+        tanod: Joi.string().allow('', null)
     }).default({}),
     recordCount: Joi.number().integer().min(0).allow(null)
 });

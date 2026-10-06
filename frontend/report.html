@@ -25,6 +25,61 @@
 
     <style>
         /* ============================================================
+           TABS (Incident Reports / Patrol Logs)
+        ============================================================ */
+        .tab-navigation {
+            display: flex;
+            gap: 4px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #94a3b8;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(15, 23, 42, 0.05);
+            color: #0f172a;
+        }
+
+        .tab-btn.active {
+            background: #0f172a;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================================
            BEAUTIFUL REPORT DESIGN
         ============================================================ */
         .report-action-card {
@@ -351,6 +406,54 @@
             margin-right: 6px;
         }
 
+        /* Patrol log status (Completed/Partial/Failed) - distinct from
+           incident status (Open/Monitoring/Resolved) above, same
+           .badge-status base class and dot-prefix styling. */
+        .badge-status.completed {
+            background: #d1fae5;
+            color: #059669;
+        }
+
+        .badge-status.completed::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #059669;
+            margin-right: 6px;
+        }
+
+        .badge-status.partial {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .badge-status.partial::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #d97706;
+            margin-right: 6px;
+        }
+
+        .badge-status.failed {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .badge-status.failed::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #dc2626;
+            margin-right: 6px;
+        }
+
         /* ============================================================
            DANGER LEVEL BADGES - COLOR CODED
         ============================================================ */
@@ -509,6 +612,23 @@
                 </button>
             </div>
         </header>
+
+        <!-- =========================================================
+             TABS: Incident Reports / Patrol Logs
+        ========================================================== -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="incident-reports">
+                <i class="fa-solid fa-file-lines"></i> Incident Reports
+            </button>
+            <button class="tab-btn" data-tab="patrol-logs">
+                <i class="fa-solid fa-shield-halved"></i> Patrol Logs
+            </button>
+        </div>
+
+        <!-- =========================================================
+             TAB 1: INCIDENT REPORTS
+        ========================================================== -->
+        <div id="tab-incident-reports" class="tab-content active">
 
         <!-- FILTER SECTION -->
         <div class="filter-section" style="flex-direction: column; align-items: stretch;">
@@ -715,6 +835,122 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        </div>
+
+        <!-- =========================================================
+             TAB 2: PATROL LOGS
+        ========================================================== -->
+        <div id="tab-patrol-logs" class="tab-content">
+
+            <!-- FILTER SECTION -->
+            <div class="filter-section" style="flex-direction: column; align-items: stretch;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h2><i class="fa-solid fa-shield-halved" style="color: #2563eb; margin-right: 8px;"></i> Patrol Log Filters</h2>
+                        <p>Filter patrol log entries by date, status, tanod, or location.</p>
+                    </div>
+                </div>
+
+                <div class="report-filters-divider">
+                    <span><i class="fa-solid fa-filter" style="color: #64748b; margin-right: 6px;"></i>Refine patrol log records</span>
+                    <button type="button" id="clearPatrolFiltersBtn" class="report-filters-clear">Clear filters</button>
+                </div>
+
+                <div class="report-filters-grid">
+                    <div class="report-filter-field">
+                        <label for="filterPatrolDateFrom">Date From</label>
+                        <input type="date" id="filterPatrolDateFrom">
+                    </div>
+                    <div class="report-filter-field">
+                        <label for="filterPatrolDateTo">Date To</label>
+                        <input type="date" id="filterPatrolDateTo">
+                    </div>
+                    <div class="report-filter-field">
+                        <label for="filterPatrolStatus">Status</label>
+                        <select id="filterPatrolStatus">
+                            <option value="">All Status</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Partial">Partial</option>
+                            <option value="Failed">Failed</option>
+                        </select>
+                    </div>
+                    <div class="report-filter-field">
+                        <label for="filterPatrolTanod">Tanod</label>
+                        <select id="filterPatrolTanod">
+                            <option value="">All Tanods</option>
+                        </select>
+                    </div>
+                    <div class="report-filter-field">
+                        <label for="filterPatrolLocation">Location</label>
+                        <select id="filterPatrolLocation">
+                            <option value="">All Locations</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTION CARDS -->
+            <div class="report-grid">
+                <div class="report-action-card">
+                    <div class="icon-wrapper blue">
+                        <i class="fa-solid fa-print"></i>
+                    </div>
+                    <h3>Printable Patrol Log Summary</h3>
+                    <p>Formal report listing patrol log entries with tanod, location, date, status, and report notes.</p>
+                    <button id="printPatrolLogBtn" class="btn-report primary">
+                        <i class="fa-solid fa-print"></i> Print / Export PDF
+                    </button>
+                </div>
+
+                <div class="report-action-card">
+                    <div class="icon-wrapper green">
+                        <i class="fa-solid fa-file-csv"></i>
+                    </div>
+                    <h3>Export CSV</h3>
+                    <p>Download the filtered patrol log records in spreadsheet-ready CSV format.</p>
+                    <button id="exportPatrolLogCsvBtn" class="btn-report success">
+                        <i class="fa-solid fa-file-csv"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- PATROL LOG TABLE -->
+            <div class="report-table-card">
+                <div class="card-header">
+                    <div>
+                        <span style="font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">PATROL ACTIVITY</span>
+                        <h2>Barangay 179 Patrol Log Report</h2>
+                    </div>
+                    <span class="badge" id="patrolLogCount">0 records</span>
+                </div>
+
+                <div class="report-meta">
+                    <p><strong>System Name:</strong> Barangay 179 Crime Intelligence and Patrol Decision Support System</p>
+                    <p><strong>Coverage Area:</strong> Barangay 179, Amparo, Caloocan City</p>
+                    <p><strong>Report Type:</strong> Patrol Log Activity Report</p>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>LOG ID</th>
+                                <th>TANOD</th>
+                                <th>LOCATION</th>
+                                <th>PATROL DATE</th>
+                                <th>STATUS</th>
+                                <th>REPORT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patrolLogTableBody">
+                            <!-- Dynamic rows populated via report.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
 
     </main>
