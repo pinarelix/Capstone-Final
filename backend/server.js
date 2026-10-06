@@ -1695,7 +1695,7 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         const userRole = users[0].role;
         console.log(`👤 User role: ${userRole}`);
 
-        if (!['Captain', 'Administrator', 'Decision-Maker'].includes(userRole)) {
+        if (!['Captain', 'Administrator', 'Decision-Maker', 'Desk Officer'].includes(userRole)) {
             return res.status(403).json({ error: 'Access denied. View-only for Captain and above.' });
         }
 
@@ -1781,7 +1781,7 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
 
         const userRole = users[0].role;
 
-        if (!['Captain', 'Administrator', 'Decision-Maker'].includes(userRole)) {
+        if (!['Captain', 'Administrator', 'Decision-Maker', 'Desk Officer'].includes(userRole)) {
             return res.status(403).json({ error: 'Access denied. View-only for Captain and above.' });
         }
 

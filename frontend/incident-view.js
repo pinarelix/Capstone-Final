@@ -36,8 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Check role - allow Captain, Administrator, Decision-Maker
-    const allowedRoles = ['Captain', 'Administrator', 'Decision-Maker'];
+    // Check role - allow Captain, Administrator, Decision-Maker, Desk Officer
+    const allowedRoles = ['Captain', 'Administrator', 'Decision-Maker', 'Desk Officer'];
     if (!allowedRoles.includes(user.role)) {
         console.log(`❌ Access denied. User role: ${user.role}`);
         alert('Access denied. This page is for Captain and above.');
