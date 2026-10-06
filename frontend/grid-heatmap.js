@@ -9,6 +9,28 @@ let boundaryLayer;
 let allIncidentsData = [];
 let heatmapLayerGroup;
 
+// Tracks the circle/glow pairs for Level 3 (high-risk) cells only, so
+// just those slowly pulse - rebuilt on every renderGrid() call. The map
+// uses preferCanvas:true, so these are painted on a shared <canvas>
+// with no per-shape DOM node; CSS animations can't touch them, so the
+// pulse is driven here via setStyle() instead.
+let highRiskCircles = [];
+let highRiskPulseStarted = false;
+
+function startHighRiskPulse() {
+    if (highRiskPulseStarted) return;
+    highRiskPulseStarted = true;
+
+    setInterval(() => {
+        if (highRiskCircles.length === 0) return;
+        const phase = (Math.sin(Date.now() / 1200) + 1) / 2; // 0..1, ~2.4s cycle
+        highRiskCircles.forEach(({ circle, glow }) => {
+            circle.setStyle({ fillOpacity: 0.45 + phase * 0.35 });
+            glow.setStyle({ fillOpacity: 0.06 + phase * 0.24 });
+        });
+    }, 120);
+}
+
 // Density thresholds for a single grid cell (100m x 100m), based on the
 // raw number of incidents recorded in that cell. Calibrated to Barangay
 // 179's population (~48,600) and per-cell scale (roughly a city block) -
@@ -296,6 +318,7 @@ function renderGrid(incidents) {
     console.log("🔄 Rendering grid with glowing circles...");
 
     heatmapLayerGroup.clearLayers();
+    highRiskCircles = [];
 
     let totalIncidents = 0;
     let activeCells = 0;
@@ -379,6 +402,10 @@ function renderGrid(incidents) {
             className: 'heatmap-glow'
         }).addTo(heatmapLayerGroup);
 
+        if (count >= DENSITY_HIGH_MIN) {
+            highRiskCircles.push({ circle, glow });
+        }
+
         circle.bindTooltip(`${count} incident${count > 1 ? 's' : ''}`, {
             permanent: false,
             direction: 'center',
@@ -405,6 +432,8 @@ function renderGrid(incidents) {
     updateKPIs(totalIncidents, activeCells, peakCount, highRiskCells);
     console.log(`📊 KPI: Total=${totalIncidents}, Cells=${activeCells}, Peak=${peakCount}, HighRisk=${highRiskCells}`);
     console.log("✅ Rendering Complete!");
+
+    startHighRiskPulse();
 }
 
 function showIncidentDetails(incidents, lat, lng) {
