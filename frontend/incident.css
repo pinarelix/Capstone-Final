@@ -291,3 +291,64 @@
     border-color: var(--accent-blue, #0ea5e9);
     color: #fff;
 }
+
+/* ============================================================
+   EDIT INCIDENT - POPUP MODE
+   Clicking "Update" on a record pops the New Incident tab's own form
+   up as a modal instead of switching tabs to it (see editIncident() /
+   closeEditModal() in incident.js) - the Incident Records tab stays
+   the active one underneath. No DOM nodes move; this class just
+   re-renders the same #tab-new-incident element as a centered overlay
+   instead of its normal full-width tab layout.
+============================================================ */
+#tab-new-incident.edit-modal-mode {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+}
+
+#tab-new-incident.edit-modal-mode .form-card {
+    max-width: 960px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: editModalPop 0.25s ease;
+    margin: auto 0;
+}
+
+#closeEditModalBtn {
+    display: none;
+}
+
+#tab-new-incident.edit-modal-mode #closeEditModalBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #475569;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+#tab-new-incident.edit-modal-mode #closeEditModalBtn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+@keyframes editModalPop {
+    0% { transform: scale(0.95) translateY(10px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+}

@@ -179,7 +179,12 @@
 
                     <div class="card-title-bar" style="margin-bottom: 16px;">
                         <h2 id="formTitle">Add New Incident</h2>
-                        <span class="badge-subtle" id="formAccessBadge">Administrator Access</span>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span class="badge-subtle" id="formAccessBadge">Administrator Access</span>
+                            <button type="button" id="closeEditModalBtn" title="Close">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <form id="incidentForm">

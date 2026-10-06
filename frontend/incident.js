@@ -127,6 +127,12 @@ function setupTabs() {
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', function () {
+            // A stray edit-modal-mode class (shouldn't normally happen -
+            // clearForm() always removes it - but cheap to guard here too)
+            // would otherwise fight the normal tab layout via its
+            // position:fixed !important rules.
+            document.getElementById('tab-new-incident')?.classList.remove('edit-modal-mode');
+
             tabBtns.forEach(b => b.classList.remove('active'));
             tabContents.forEach(c => c.classList.remove('active'));
 
@@ -142,6 +148,43 @@ function setupTabs() {
             }
         });
     });
+
+    const closeBtn = document.getElementById('closeEditModalBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closeEditModal);
+
+    const modalHost = document.getElementById('tab-new-incident');
+    if (modalHost) {
+        modalHost.addEventListener('click', function (e) {
+            if (e.target === this && this.classList.contains('edit-modal-mode')) {
+                closeEditModal();
+            }
+        });
+    }
+}
+
+/* ============================================================
+   EDIT INCIDENT - POPUP MODE
+   "Update" on a record pops the New Incident tab's own form up as a
+   modal (see incident.css #tab-new-incident.edit-modal-mode) instead
+   of switching to that tab - no DOM nodes move, this just toggles how
+   the same element renders, so the map picker/form stay the exact
+   same instances either way.
+============================================================ */
+
+function openEditModal() {
+    const host = document.getElementById('tab-new-incident');
+    if (!host) return;
+    host.classList.add('edit-modal-mode');
+
+    // Modal width differs from the tab's normal width, and the map
+    // was sized for whichever context it was last visible in.
+    if (mapPicker) {
+        setTimeout(() => mapPicker.invalidateSize(), 50);
+    }
+}
+
+function closeEditModal() {
+    clearForm();
 }
 
 function makeMarkerIcon() {
@@ -650,7 +693,7 @@ function renderTable(dataToRender) {
         const locationDisplay = item.street_name || `${item.latitude || 'N/A'}, ${item.longitude || 'N/A'}`;
         
         const actionButtons = isAdminUser ? `
-            <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Edit</button>
+            <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Update</button>
             <button class="btn-action-delete admin-action" onclick="requestDeleteIncident(${item.id})"><i class="fa-solid fa-trash"></i> Delete</button>
         ` : `<span style="color: #94a3b8; font-size: 0.7rem;">View Only</span>`;
         
@@ -911,6 +954,10 @@ window.deleteEvidenceFile = deleteEvidenceFile;
 ============================================================ */
 
 function clearForm() {
+    // Closes the edit popup too, if it was open - a no-op otherwise
+    // since removing an absent class does nothing.
+    document.getElementById('tab-new-incident')?.classList.remove('edit-modal-mode');
+
     const form = document.getElementById('incidentForm');
     if (form) form.reset();
     document.getElementById('editIndex').value = '';
@@ -997,12 +1044,10 @@ window.editIncident = async (id) => {
             return;
         }
 
-        // Form now lives under its own tab - switch to it so the admin
-        // actually sees the record populate instead of nothing happening.
-        const newIncidentTabBtn = document.querySelector('[data-tab="new-incident"]');
-        if (newIncidentTabBtn && !newIncidentTabBtn.classList.contains('active')) {
-            newIncidentTabBtn.click();
-        }
+        // Pop the form up as a modal over whichever tab is currently
+        // showing, instead of switching to the New Incident tab - the
+        // Incident Records tab stays active underneath.
+        openEditModal();
 
         document.getElementById('editIndex').value = record.id;
         document.getElementById('incidentType').value = record.incident_type || '';
