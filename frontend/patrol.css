@@ -702,6 +702,16 @@ body.role-decision-maker #logFormCard {
     display: none !important;
 }
 
+/* The raw "CART Score"/"Peak" numbers don't mean anything to a
+   non-technical Captain - the priority badge and danger-level text
+   already visible on each recommendation card say the same thing in
+   plain language, so hide the score/jargon layer for him only. */
+body.role-decision-maker #cartScoreMetricCard,
+body.role-decision-maker #cartEnhancedBadge,
+body.role-decision-maker .cart-risk-badge {
+    display: none !important;
+}
+
 /* ============================================================
    EMPTY STATE
 ============================================================ */
