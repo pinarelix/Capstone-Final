@@ -1318,8 +1318,8 @@ function renderLogs(logs) {
                 <td><span class="badge ${statusClass}">${log.status || 'Completed'}</span></td>
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(log.report || '')}">${escapeHTML(log.report || 'N/A')}</td>
                 <td>
-                    <button type="button" class="btn-action-edit admin-action" onclick="editLog(${log.id})">Edit</button>
-                    <button type="button" class="btn-action-delete admin-action" onclick="requestDeleteLog(${log.id})">Delete</button>
+                    <button type="button" class="btn-action-edit admin-action" onclick="editLog(${log.id})"><i class="fa-solid fa-pen"></i> Edit</button>
+                    <button type="button" class="btn-action-delete admin-action" onclick="requestDeleteLog(${log.id})"><i class="fa-solid fa-trash"></i> Delete</button>
                 </td>
             </tr>
         `;
