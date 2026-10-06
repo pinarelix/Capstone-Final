@@ -55,6 +55,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     setupNavigationButtons();
+    setupTabs();
     loadRealCartData();
     loadAnalysisHistory();
 
@@ -474,13 +475,29 @@ function loadAnalysisHistory() {
 }
 
 function setupNavigationButtons() {
-    const homeBtn = document.getElementById("homeBtn");     
+    const homeBtn = document.getElementById("homeBtn");
     if (homeBtn) {
         homeBtn.addEventListener("click", function (e) {
             e.preventDefault();
             window.location.href = "dashboard.html";
         });
     }
+}
+
+function setupTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', function () {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+
+            this.classList.add('active');
+            const tabId = this.getAttribute('data-tab');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+        });
+    });
 }
 
 console.log('✅ cart.js loaded successfully');

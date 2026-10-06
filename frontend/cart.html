@@ -11,6 +11,63 @@
 
     <!-- Font Awesome (standard icons, replacing emoji) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        /* ============================================================
+           TABS (Decision Tree Rule Explanation / Recent CART Analysis Runs)
+        ============================================================ */
+        .tab-navigation {
+            display: flex;
+            gap: 4px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #94a3b8;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(15, 23, 42, 0.05);
+            color: #0f172a;
+        }
+
+        .tab-btn.active {
+            background: #0f172a;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
 
 <body>
@@ -509,8 +566,18 @@
 
 
         <!-- =====================================================
-             BOTTOM DECISION TREE EXPLANATION
+             TABS: Decision Tree Rule Explanation / Recent CART Analysis Runs
         ====================================================== -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="decision-tree-rules">
+                <i class="fa-solid fa-diagram-project"></i> Decision Tree Rule Explanation
+            </button>
+            <button class="tab-btn" data-tab="analysis-history">
+                <i class="fa-solid fa-clock-rotate-left"></i> Recent CART Analysis Runs
+            </button>
+        </div>
+
+        <div id="tab-decision-tree-rules" class="tab-content active">
         <section class="cart-bottom-grid">
 
             <div class="card cart-explanation-card">
@@ -563,12 +630,10 @@
             </div>
 
         </section>
+        </div>
 
-
-        <!-- =====================================================
-             ANALYSIS HISTORY SECTION
-        ====================================================== -->
-        <section class="cart-bottom-grid" style="margin-top: 20px;">
+        <div id="tab-analysis-history" class="tab-content">
+        <section class="cart-bottom-grid">
 
             <div class="card cart-explanation-card">
 
@@ -606,6 +671,7 @@
             </div>
 
         </section>
+        </div>
 
     </main>
 
