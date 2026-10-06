@@ -262,8 +262,16 @@
         }
 
         .report-filters-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            /* Flexbox, not CSS Grid - on the Patrol Logs tab (a
+               tab-content that's display:none until switched into),
+               a grid with auto-fit/minmax here was computing a row
+               height far taller than its content needed (field options
+               load after an async fetch, unlike the Incident Reports
+               tab's static filters), leaving a large empty gap below
+               the fields. Flex items don't fall into the same trap. */
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
             gap: 12px;
             margin-top: 12px;
         }
@@ -271,6 +279,7 @@
         .report-filter-field {
             display: flex;
             flex-direction: column;
+            flex: 1 1 150px;
             gap: 6px;
         }
 
@@ -284,6 +293,12 @@
 
         .report-filter-field select,
         .report-filter-field input {
+            /* Pinned explicitly - a bare type="date" input inside this
+               narrow a grid column was computing a much taller intrinsic
+               height than every other field (seen specifically on the
+               Patrol Logs tab's 5-field row), inflating the whole filter
+               row with empty space underneath the visible controls. */
+            height: 39px;
             padding: 9px 12px;
             border-radius: 10px;
             border: 1px solid #e2e8f0;
