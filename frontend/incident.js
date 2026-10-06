@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSearchAndFilters();
     setupRippleEffect();
     setupModalMapClose();
+    setupTabs();
 
     // Keeps this list current with incidents reported from the field
     // (e.g. a tanod's phone) without the admin needing to re-login.
@@ -106,6 +107,33 @@ function initMapPicker() {
     mapPicker = created.map;
 
     setupMapExpand();
+}
+
+/* ============================================================
+   TABS: Incident Records / New Incident
+============================================================ */
+
+function setupTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', function () {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+
+            this.classList.add('active');
+            const tabId = this.getAttribute('data-tab');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+
+            // The map picker initializes while its tab is still
+            // display:none (0-size container to Leaflet) - force a
+            // recalculation now that switching here has made it visible.
+            if (tabId === 'new-incident' && mapPicker) {
+                setTimeout(() => mapPicker.invalidateSize(), 50);
+            }
+        });
+    });
 }
 
 function makeMarkerIcon() {
@@ -955,6 +983,13 @@ window.editIncident = async (id) => {
         if (!record) {
             showErrorModal('Error', 'Record not found!');
             return;
+        }
+
+        // Form now lives under its own tab - switch to it so the admin
+        // actually sees the record populate instead of nothing happening.
+        const newIncidentTabBtn = document.querySelector('[data-tab="new-incident"]');
+        if (newIncidentTabBtn && !newIncidentTabBtn.classList.contains('active')) {
+            newIncidentTabBtn.click();
         }
 
         document.getElementById('editIndex').value = record.id;

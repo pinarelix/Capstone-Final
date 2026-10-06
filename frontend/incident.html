@@ -17,6 +17,75 @@
 
     <!-- Leaflet CSS for Map Picker -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+    <style>
+        /* ============================================================
+           TABS (Incident Records / New Incident)
+        ============================================================ */
+        .tab-navigation {
+            display: flex;
+            gap: 4px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #94a3b8;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(15, 23, 42, 0.05);
+            color: #0f172a;
+        }
+
+        .tab-btn.active {
+            background: #0f172a;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* The search/filter card moves from the form's sidebar column
+           into its own full-width bar above the records table, so its
+           fields go from a vertical stack to a row. */
+        #tab-incident-records .control-fields {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        #tab-incident-records .control-fields .form-group {
+            flex: 1 1 180px;
+        }
+    </style>
 </head>
 
 <body>
@@ -96,7 +165,19 @@
                 </div>
             </header>
 
-            <div class="incident-top-grid">
+            <!-- =====================================================
+                 TABS: Incident Records / New Incident
+            ====================================================== -->
+            <div class="tab-navigation">
+                <button class="tab-btn active" data-tab="incident-records">
+                    <i class="fa-solid fa-folder-open"></i> Incident Records
+                </button>
+                <button class="tab-btn" data-tab="new-incident">
+                    <i class="fa-solid fa-plus"></i> New Incident
+                </button>
+            </div>
+
+            <div id="tab-new-incident" class="tab-content">
 
                 <div class="card form-card">
 
@@ -393,7 +474,11 @@
                     </p>
                 </div>
 
-                <div class="card controls-card">
+            </div>
+
+            <div id="tab-incident-records" class="tab-content active">
+
+                <div class="card controls-card" style="margin-bottom: 24px;">
                     <div class="card-title-bar" style="margin-bottom: 16px;">
                         <h2>Incident Record Controls</h2>
                         <span class="badge-subtle">Search and Filter</span>
@@ -495,38 +580,38 @@
                     </div>
                 </div>
 
-            </div>
+                <section class="card">
+                    <div class="card-title-bar">
+                        <h2>Incident Records</h2>
+                        <span class="badge-subtle" id="totalRecordsCount">0 total records</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>INCIDENT ID</th>
+                                    <th>TYPE</th>
+                                    <th>DATE / TIME</th>
+                                    <th>LOCATION</th>
+                                    <th>REPORTED BY</th>
+                                    <th>STATUS</th>
+                                    <th>DANGER LEVEL</th>
+                                    <th>RECOMMENDED ACTION</th>
+                                    <th>ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fullIncidentTableBody">
+                                <!-- Dynamically Rendered -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <span id="recordRangeText" class="pagination-range"></span>
+                        <ul class="pagination-controls" id="paginationControls"></ul>
+                    </div>
+                </section>
 
-            <section class="card">
-                <div class="card-title-bar">
-                    <h2>Incident Records</h2>
-                    <span class="badge-subtle" id="totalRecordsCount">0 total records</span>
-                </div>
-                <div class="table-responsive">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>INCIDENT ID</th>
-                                <th>TYPE</th>
-                                <th>DATE / TIME</th>
-                                <th>LOCATION</th>
-                                <th>REPORTED BY</th>
-                                <th>STATUS</th>
-                                <th>DANGER LEVEL</th>
-                                <th>RECOMMENDED ACTION</th>
-                                <th>ACTIONS</th>
-                            </tr>
-                        </thead>
-                        <tbody id="fullIncidentTableBody">
-                            <!-- Dynamically Rendered -->
-                        </tbody>
-                    </table>
-                </div>
-                <div class="pagination-bar">
-                    <span id="recordRangeText" class="pagination-range"></span>
-                    <ul class="pagination-controls" id="paginationControls"></ul>
-                </div>
-            </section>
+            </div>
 
         </main>
 
