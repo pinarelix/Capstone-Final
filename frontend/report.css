@@ -207,8 +207,8 @@ body {
 .main-content button.bg-slate-900:hover,
 .main-content button.bg-gray-900:hover {
     background-color: #1e293b !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(15, 23, 42, 0.25);
 }
 
 /* SECONDARY BUTTONS */
@@ -287,7 +287,7 @@ body {
 
 .main-content .metric-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(15, 23, 42, 0.12) !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1) !important;
 }
 
 /* TABLE */
