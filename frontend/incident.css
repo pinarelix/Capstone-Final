@@ -87,6 +87,14 @@
     margin-top: 20px;
 }
 
+/* Description / Statement / Evidence / Resolution are each a
+   standalone direct child of the form, not wrapped in a .form-row
+   like the fields above them - without this, labels sit flush
+   against whatever field came before them. */
+#incidentForm > .form-group {
+    margin-bottom: 18px;
+}
+
 .evidence-list {
     display: flex;
     flex-wrap: wrap;
