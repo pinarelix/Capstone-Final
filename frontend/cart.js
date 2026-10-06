@@ -14,6 +14,13 @@
 
 // ✅ ITO NA LANG ANG KAILANGAN - WALA NANG CUSTOM FUNCTIONS
 
+// Once the user manually runs a CART prediction, the live 15s poll
+// should stop overwriting the result card with the barangay-wide
+// aggregate (loadRealCartData) - otherwise the prediction they just
+// ran gets wiped out from under them a few seconds later. Resets on
+// page reload/navigation.
+let manualPredictionActive = false;
+
 /* ============================================================
    DOM READY
 ============================================================ */
@@ -54,7 +61,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Keeps this page current if CART analysis is re-run from another
     // session/admin, without needing to re-login.
     startLivePolling(() => {
-        loadRealCartData();
+        if (!manualPredictionActive) loadRealCartData();
         loadAnalysisHistory();
     }, 15000);
 });
@@ -88,6 +95,8 @@ function loadRealCartData() {
 }
 
 function updateDashboardWithRealData(riskFactors) {
+    if (manualPredictionActive) return;
+
     let level1 = 0, level2 = 0, level3 = 0;
     let totalScore = 0;
     
@@ -139,7 +148,7 @@ function updateDashboardWithRealData(riskFactors) {
 }
 
 function updateSummaryUI(summary) {
-    if (!summary) return;
+    if (!summary || manualPredictionActive) return;
     
     const riskBadge = document.getElementById('riskLevelBadge');
     if (riskBadge && summary.total_incidents > 0) {
@@ -241,6 +250,8 @@ function executeCartAnalysis() {
  * cartEngine - same one used for persisted incidents) into the page.
  */
 function renderPredictionResult(inputs, result) {
+    manualPredictionActive = true;
+
     const { incidentType, repeated, timeOccur, day, location, history, frequency } = inputs;
     const { totalScore, dangerLevel, scores, locationCount } = result;
 
