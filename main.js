@@ -9,10 +9,18 @@ function createWindow() {
         height: 900,
         minWidth: 1024,
         minHeight: 700,
+        // Starts hidden and maximizes before showing, so the window
+        // never flashes at its smaller default size first.
+        show: false,
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false
         }
+    });
+
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.maximize();
+        mainWindow.show();
     });
 
     mainWindow.loadURL('http://localhost:3000/login.html');
