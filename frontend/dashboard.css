@@ -114,6 +114,34 @@ body {
     overflow-y: auto;
     padding: 20px 16px;
     animation: sidebarReveal 0.5s ease both;
+    transition: width 0.25s ease;
+}
+
+/* Collapsed sidebar - toggled by clicking the logo (see apiHelper.js).
+   Only the logo stays visible; everything else is hidden rather than
+   shrunk, so the rail reads as "just the brand mark", not a half-cut
+   sidebar. */
+.sidebar.collapsed {
+    width: 90px;
+    overflow: visible;
+}
+
+.sidebar.collapsed .brand-info,
+.sidebar.collapsed .user-profile,
+.sidebar.collapsed .nav-item span:not(.nav-icon) {
+    display: none;
+}
+
+.sidebar.collapsed .sidebar-header {
+    justify-content: center;
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 20px;
+}
+
+.sidebar.collapsed .nav-item {
+    justify-content: center;
+    padding: 14px 0;
 }
 
 @keyframes sidebarReveal {
@@ -149,6 +177,13 @@ body {
     align-items: center;
     justify-content: center;
     animation: logoPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.brand-logo-container:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-md);
 }
 
 @keyframes logoPop {

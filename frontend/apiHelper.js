@@ -24,6 +24,33 @@ function escapeHTML(value) {
 }
 
 // ============================================================
+// 1c. SIDEBAR COLLAPSE/EXPAND (click the logo)
+// Self-running since apiHelper.js is loaded on every admin page -
+// no per-page wiring needed. Collapsed state is remembered across
+// page navigations (this is a multi-page app, not a SPA) via
+// localStorage, not per-session, so it stays put after a restart too.
+// ============================================================
+(function setupSidebarCollapse() {
+    const SIDEBAR_COLLAPSE_KEY = 'sidebarCollapsed';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const sidebar = document.querySelector('.sidebar');
+        const logo = document.querySelector('.brand-logo-container');
+        if (!sidebar || !logo) return;
+
+        if (localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+
+        logo.title = 'Click to collapse/expand the sidebar';
+        logo.addEventListener('click', () => {
+            const isCollapsed = sidebar.classList.toggle('collapsed');
+            localStorage.setItem(SIDEBAR_COLLAPSE_KEY, isCollapsed ? 'true' : 'false');
+        });
+    });
+})();
+
+// ============================================================
 // 1c. FILE ACCESS TOKEN (for /uploads/... image & video src URLs)
 // /uploads is no longer a bare unauthenticated static mount - it
 // requires a short-lived (60s) signed ?ftoken=... on every request.
