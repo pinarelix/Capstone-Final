@@ -12,6 +12,32 @@
     margin-bottom: 14px;
 }
 
+/* Section headers break the long flat field list into logical groups
+   (Incident Details / Location / People / Description) so the form
+   reads as a few short steps instead of one continuous wall of inputs. */
+.form-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0f172a;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 26px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.form-section-header:first-child {
+    margin-top: 0;
+}
+
+.form-section-header i {
+    color: #0ea5e9;
+    font-size: 0.85rem;
+}
+
 .form-row.map-outer-row {
     margin-bottom: 14px;
     align-items: flex-start; /* I-align sa tuktok ang mga inputs */
