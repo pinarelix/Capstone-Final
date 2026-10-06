@@ -579,225 +579,10 @@
             </div>
         </header>
 
-        <!-- SETTINGS GRID -->
-        <section class="settings-grid">
-
-            <!-- CARD 1: CURRENT USER PROFILE -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <div class="icon blue">
-                        <i class="fa-solid fa-user-circle"></i>
-                    </div>
-                    <div>
-                        <h2>Current User Profile</h2>
-                        <p>Your account details and session information</p>
-                    </div>
-                </div>
-
-                <div id="currentUserProfile">
-                    <div style="text-align: center; padding: 20px;">
-                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: #94a3b8;"></i>
-                        <p style="margin-top: 8px; color: #94a3b8; font-size: 0.85rem;">Loading user profile...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CARD 2: CHANGE PASSWORD -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <div class="icon amber">
-                        <i class="fa-solid fa-key"></i>
-                    </div>
-                    <div>
-                        <h2>Change Password</h2>
-                        <p>Update your account password</p>
-                    </div>
-                </div>
-
-                <form class="settings-form" id="changePasswordForm">
-                    <div class="form-group">
-                        <label for="currentPassword">Current Password</label>
-                        <input type="password" id="currentPassword" placeholder="Enter current password" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="newPassword">New Password</label>
-                        <input type="password" id="newPassword" placeholder="Enter new password (min 6 chars)" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="confirmPassword">Confirm New Password</label>
-                        <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
-                    </div>
-                    <button type="submit" class="btn-save">
-                        <i class="fa-solid fa-save"></i> Update Password
-                    </button>
-                    <div class="password-success" id="passwordSuccess">
-                        <i class="fa-solid fa-check-circle"></i> Password updated successfully!
-                    </div>
-                </form>
-            </div>
-
-            <!-- CARD 3: LOGIN HISTORY - 🔥 UPDATED: Gumagamit na ng database -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <div class="icon cyan">
-                        <i class="fa-solid fa-clock-rotate-left"></i>
-                    </div>
-                    <div>
-                        <h2>Login History</h2>
-                        <p>Your recent login activities</p>
-                    </div>
-                </div>
-
-                <div id="loginHistoryContainer">
-                    <div style="text-align: center; padding: 20px;">
-                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 20px; color: #94a3b8;"></i>
-                        <p style="margin-top: 8px; color: #94a3b8; font-size: 0.85rem;">Loading login history...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CARD 4: BARANGAY INFORMATION -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <div class="icon green">
-                        <i class="fa-solid fa-location-dot"></i>
-                    </div>
-                    <div>
-                        <h2>Barangay Information</h2>
-                        <p>Barangay 179 details</p>
-                    </div>
-                </div>
-
-                <div class="settings-form">
-                    <div class="form-group">
-                        <label>Barangay Name</label>
-                        <input type="text" value="Barangay 179, Amparo" disabled style="background: #f1f5f9; cursor: not-allowed;">
-                    </div>
-                    <div class="form-group">
-                        <label>City / Municipality</label>
-                        <input type="text" value="Caloocan City" disabled style="background: #f1f5f9; cursor: not-allowed;">
-                    </div>
-                    <div class="form-group">
-                        <label>Province</label>
-                        <input type="text" value="Metro Manila" disabled style="background: #f1f5f9; cursor: not-allowed;">
-                    </div>
-                    <div class="form-group">
-                        <label>Region</label>
-                        <input type="text" value="National Capital Region (NCR)" disabled style="background: #f1f5f9; cursor: not-allowed;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label>Barangay Captain</label>
-                        <input type="text" value="Hon. [Punong Barangay Name]" disabled style="background: #f1f5f9; cursor: not-allowed;">
-                    </div>
-                </div>
-            </div>
-
-            <!-- CARD 5: SYSTEM STATUS -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <div class="icon amber">
-                        <i class="fa-solid fa-heart-pulse"></i>
-                    </div>
-                    <div>
-                        <h2>System Status</h2>
-                        <p>Current system health</p>
-                    </div>
-                </div>
-
-                <div id="systemStatus">
-                    <div class="status-item">
-                        <span class="label"><i class="fa-solid fa-server"></i> Server Status</span>
-                        <span class="status-dot" id="serverStatus">
-                            <span class="dot green"></span> Running
-                        </span>
-                    </div>
-                    <div class="status-item">
-                        <span class="label"><i class="fa-solid fa-database"></i> Database Connection</span>
-                        <span class="status-dot" id="dbStatus">
-                            <span class="dot green"></span> Connected
-                        </span>
-                    </div>
-                    <div class="status-item">
-                        <span class="label"><i class="fa-solid fa-clock"></i> Uptime</span>
-                        <span class="status-dot" id="uptimeStatus">
-                            <span class="dot green"></span> <span id="uptimeValue">Loading...</span>
-                        </span>
-                    </div>
-                    <div class="status-item">
-                        <span class="label"><i class="fa-solid fa-users"></i> Total Users</span>
-                        <span class="status-dot" id="userCountStatus">
-                            <span class="dot green"></span> <span id="totalUsers">Loading...</span>
-                        </span>
-                    </div>
-                    <div class="status-item">
-                        <span class="label"><i class="fa-solid fa-file-lines"></i> Total Incidents</span>
-                        <span class="status-dot" id="incidentCountStatus">
-                            <span class="dot green"></span> <span id="totalIncidents">Loading...</span>
-                        </span>
-                    </div>
-                    <div class="status-item" style="border-bottom: none;">
-                        <span class="label"><i class="fa-solid fa-calendar-day"></i> Last Updated</span>
-                        <span class="status-dot" id="lastUpdatedStatus">
-                            <span class="dot green"></span> <span id="lastUpdated">Loading...</span>
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CARD 6: ABOUT -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <div class="icon purple">
-                        <i class="fa-solid fa-circle-info"></i>
-                    </div>
-                    <div>
-                        <h2>About System</h2>
-                        <p>System information</p>
-                    </div>
-                </div>
-
-                <div style="text-align: center; margin-bottom: 16px;">
-                    <div style="width: 64px; height: 64px; border-radius: 50%; background: #0f172a; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 1.8rem; color: white; font-weight: 800;">
-                        179
-                    </div>
-                    <h3 style="font-size: 1.1rem; font-weight: 800; color: #0f172a;">Barangay 179 Crime BI</h3>
-                    <span class="about-version">Version 1.0.0</span>
-                </div>
-
-                <div>
-                    <div class="about-item">
-                        <span class="label">System Name</span>
-                        <span class="value">Barangay 179 Crime BI</span>
-                    </div>
-                    <div class="about-item">
-                        <span class="label">Version</span>
-                        <span class="value">1.0.0</span>
-                    </div>
-                    <div class="about-item">
-                        <span class="label">Developer</span>
-                        <span class="value">Barangay 179 IT Team</span>
-                    </div>
-                    <div class="about-item">
-                        <span class="label">Barangay</span>
-                        <span class="value">Barangay 179, Amparo</span>
-                    </div>
-                    <div class="about-item">
-                        <span class="label">City</span>
-                        <span class="value">Caloocan City</span>
-                    </div>
-                    <div class="about-item" style="border-bottom: none;">
-                        <span class="label">Framework</span>
-                        <span class="value">HTML, CSS, JavaScript, Node.js</span>
-                    </div>
-                </div>
-            </div>
-
-        </section>
-
         <!-- =========================================================
              TABS: System Settings / Location Coordinates / Audit Trail
         ========================================================== -->
-        <div class="tab-navigation" style="margin-top: 24px;">
+        <div class="tab-navigation">
             <button class="tab-btn active" data-tab="system-settings">
                 <i class="fa-solid fa-sliders"></i> System Settings
             </button>
@@ -1016,6 +801,221 @@
             </div>
         </section>
         </div>
+
+        <!-- SETTINGS GRID -->
+        <section class="settings-grid" style="margin-top: 24px;">
+
+            <!-- CARD 1: CURRENT USER PROFILE -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon blue">
+                        <i class="fa-solid fa-user-circle"></i>
+                    </div>
+                    <div>
+                        <h2>Current User Profile</h2>
+                        <p>Your account details and session information</p>
+                    </div>
+                </div>
+
+                <div id="currentUserProfile">
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: #94a3b8;"></i>
+                        <p style="margin-top: 8px; color: #94a3b8; font-size: 0.85rem;">Loading user profile...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 2: CHANGE PASSWORD -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon amber">
+                        <i class="fa-solid fa-key"></i>
+                    </div>
+                    <div>
+                        <h2>Change Password</h2>
+                        <p>Update your account password</p>
+                    </div>
+                </div>
+
+                <form class="settings-form" id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" placeholder="Enter current password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" placeholder="Enter new password (min 6 chars)" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" placeholder="Confirm new password" required>
+                    </div>
+                    <button type="submit" class="btn-save">
+                        <i class="fa-solid fa-save"></i> Update Password
+                    </button>
+                    <div class="password-success" id="passwordSuccess">
+                        <i class="fa-solid fa-check-circle"></i> Password updated successfully!
+                    </div>
+                </form>
+            </div>
+
+            <!-- CARD 3: LOGIN HISTORY - 🔥 UPDATED: Gumagamit na ng database -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon cyan">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <h2>Login History</h2>
+                        <p>Your recent login activities</p>
+                    </div>
+                </div>
+
+                <div id="loginHistoryContainer">
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 20px; color: #94a3b8;"></i>
+                        <p style="margin-top: 8px; color: #94a3b8; font-size: 0.85rem;">Loading login history...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 4: BARANGAY INFORMATION -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon green">
+                        <i class="fa-solid fa-location-dot"></i>
+                    </div>
+                    <div>
+                        <h2>Barangay Information</h2>
+                        <p>Barangay 179 details</p>
+                    </div>
+                </div>
+
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label>Barangay Name</label>
+                        <input type="text" value="Barangay 179, Amparo" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>City / Municipality</label>
+                        <input type="text" value="Caloocan City" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Province</label>
+                        <input type="text" value="Metro Manila" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Region</label>
+                        <input type="text" value="National Capital Region (NCR)" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Barangay Captain</label>
+                        <input type="text" value="Hon. [Punong Barangay Name]" disabled style="background: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 5: SYSTEM STATUS -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon amber">
+                        <i class="fa-solid fa-heart-pulse"></i>
+                    </div>
+                    <div>
+                        <h2>System Status</h2>
+                        <p>Current system health</p>
+                    </div>
+                </div>
+
+                <div id="systemStatus">
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-server"></i> Server Status</span>
+                        <span class="status-dot" id="serverStatus">
+                            <span class="dot green"></span> Running
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-database"></i> Database Connection</span>
+                        <span class="status-dot" id="dbStatus">
+                            <span class="dot green"></span> Connected
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-clock"></i> Uptime</span>
+                        <span class="status-dot" id="uptimeStatus">
+                            <span class="dot green"></span> <span id="uptimeValue">Loading...</span>
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-users"></i> Total Users</span>
+                        <span class="status-dot" id="userCountStatus">
+                            <span class="dot green"></span> <span id="totalUsers">Loading...</span>
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label"><i class="fa-solid fa-file-lines"></i> Total Incidents</span>
+                        <span class="status-dot" id="incidentCountStatus">
+                            <span class="dot green"></span> <span id="totalIncidents">Loading...</span>
+                        </span>
+                    </div>
+                    <div class="status-item" style="border-bottom: none;">
+                        <span class="label"><i class="fa-solid fa-calendar-day"></i> Last Updated</span>
+                        <span class="status-dot" id="lastUpdatedStatus">
+                            <span class="dot green"></span> <span id="lastUpdated">Loading...</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 6: ABOUT -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="icon purple">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </div>
+                    <div>
+                        <h2>About System</h2>
+                        <p>System information</p>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <div style="width: 64px; height: 64px; border-radius: 50%; background: #0f172a; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 1.8rem; color: white; font-weight: 800;">
+                        179
+                    </div>
+                    <h3 style="font-size: 1.1rem; font-weight: 800; color: #0f172a;">Barangay 179 Crime BI</h3>
+                    <span class="about-version">Version 1.0.0</span>
+                </div>
+
+                <div>
+                    <div class="about-item">
+                        <span class="label">System Name</span>
+                        <span class="value">Barangay 179 Crime BI</span>
+                    </div>
+                    <div class="about-item">
+                        <span class="label">Version</span>
+                        <span class="value">1.0.0</span>
+                    </div>
+                    <div class="about-item">
+                        <span class="label">Developer</span>
+                        <span class="value">Barangay 179 IT Team</span>
+                    </div>
+                    <div class="about-item">
+                        <span class="label">Barangay</span>
+                        <span class="value">Barangay 179, Amparo</span>
+                    </div>
+                    <div class="about-item">
+                        <span class="label">City</span>
+                        <span class="value">Caloocan City</span>
+                    </div>
+                    <div class="about-item" style="border-bottom: none;">
+                        <span class="label">Framework</span>
+                        <span class="value">HTML, CSS, JavaScript, Node.js</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
 
     </main>
 
