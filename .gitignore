@@ -33,6 +33,7 @@ temp/
 # Backup
 *.bak
 *.backup
+database/backups/
 
 # Project specific
 backend/.env
