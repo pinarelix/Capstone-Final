@@ -157,7 +157,10 @@
                 <span>Records</span>
             </a>
 
-            <!-- Incident View - visible to ALL (Admin + Captain) -->
+            <!-- Incident View - the page itself allows Admin/Captain/Desk Officer,
+                 but this sidebar link is hidden for Captain via dashboard.css
+                 (body.role-decision-maker a[href="incident-view.html"]) as part
+                 of the simplified Decision-Maker UI. -->
             <a href="incident-view.html" class="nav-item" id="navIncidentView">
                 <span class="nav-icon"><i class="fa-solid fa-eye"></i></span>
                 <span>View</span>
