@@ -179,7 +179,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const type = filterType.value;
         const status = filterStatus.value;
         
-        let url = `${API_URL}/incidents/view-only?page=${currentPage}&limit=${limit}`;
+        // include_resolved: "All Status" really means all - resolved cases
+        // stay listed so their details can still be opened and reviewed.
+        let url = `${API_URL}/incidents/view-only?page=${currentPage}&limit=${limit}&include_resolved=1`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (type) url += `&type=${encodeURIComponent(type)}`;
         if (status) url += `&status=${encodeURIComponent(status)}`;
