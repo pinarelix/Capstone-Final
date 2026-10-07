@@ -29,6 +29,13 @@ function getTanodData() {
     }
 }
 
+// YYYY-MM-DD in the phone's own timezone. toISOString() is UTC, which
+// in the Philippines (UTC+8) gives yesterday's date before 8 AM.
+function localDateString(date = new Date()) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 function clearTanodSession() {
     sessionStorage.removeItem('tanodToken');
     sessionStorage.removeItem('tanodData');
@@ -228,11 +235,11 @@ async function initTanodDashboardPage() {
     const dateField = document.getElementById('reportDate');
     const timeField = document.getElementById('reportTime');
     const now = new Date();
-    if (dateField) dateField.value = now.toISOString().slice(0, 10);
+    if (dateField) dateField.value = localDateString(now);
     if (timeField) timeField.value = now.toTimeString().slice(0, 5);
 
     const logDateField = document.getElementById('logDate');
-    if (logDateField) logDateField.value = now.toISOString().slice(0, 10);
+    if (logDateField) logDateField.value = localDateString(now);
 
     const logoutModal = document.getElementById('tanodLogoutModal');
     document.getElementById('logoutBtn')?.addEventListener('click', function () {
@@ -241,7 +248,16 @@ async function initTanodDashboardPage() {
     document.getElementById('tanodLogoutCancelBtn')?.addEventListener('click', function () {
         logoutModal?.classList.remove('active');
     });
-    document.getElementById('tanodLogoutConfirmBtn')?.addEventListener('click', function () {
+    document.getElementById('tanodLogoutConfirmBtn')?.addEventListener('click', async function () {
+        // End the session on the server too, not just on this phone.
+        try {
+            await fetch(`${TANOD_API_URL}/tanod/logout`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${getTanodToken()}` }
+            });
+        } catch (e) {
+            // Offline - the session still expires server-side on its own.
+        }
         clearTanodSession();
         window.location.href = 'tanod-login.html';
     });
@@ -825,7 +841,7 @@ async function handleIncidentReport(e, tanod) {
         }
 
         const now = new Date();
-        document.getElementById('reportDate').value = now.toISOString().slice(0, 10);
+        document.getElementById('reportDate').value = localDateString(now);
         document.getElementById('reportTime').value = now.toTimeString().slice(0, 5);
 
         loadAreaIncidents(tanod.id);
@@ -879,7 +895,7 @@ async function handlePatrolLogSubmit(e, tanod) {
         statusEl.textContent = '✅ Patrol log added.';
         statusEl.className = 'tanod-form-status tanod-status-success';
         e.target.reset();
-        document.getElementById('logDate').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('logDate').value = localDateString();
 
         loadPatrolLogs(tanod.id);
     } catch (error) {

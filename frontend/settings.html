@@ -1262,8 +1262,8 @@
                     <span class="avatar-text">${initials}</span>
                 </div>
                 <div class="user-info-details">
-                    <div class="name">${currentUser.name || 'Unknown User'}</div>
-                    <div class="username">@${currentUser.username || 'unknown'}</div>
+                    <div class="name">${escapeHTML(currentUser.name || 'Unknown User')}</div>
+                    <div class="username">@${escapeHTML(currentUser.username || 'unknown')}</div>
                     <span class="role-badge ${roleClass}">${roleIcon} ${currentUser.role || 'Field User'}</span>
                 </div>
             </div>
@@ -1271,11 +1271,11 @@
             <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
                 <div class="user-detail-item">
                     <span class="label"><i class="fa-regular fa-user" style="width: 20px;"></i> Full Name</span>
-                    <span class="value">${currentUser.name || 'N/A'}</span>
+                    <span class="value">${escapeHTML(currentUser.name || 'N/A')}</span>
                 </div>
                 <div class="user-detail-item">
                     <span class="label"><i class="fa-regular fa-user" style="width: 20px;"></i> Username</span>
-                    <span class="value">${currentUser.username || 'N/A'}</span>
+                    <span class="value">${escapeHTML(currentUser.username || 'N/A')}</span>
                 </div>
                 <div class="user-detail-item">
                     <span class="label"><i class="fa-regular fa-id-badge" style="width: 20px;"></i> Role</span>
@@ -1284,7 +1284,7 @@
                 ${currentUser.contact_no ? `
                 <div class="user-detail-item">
                     <span class="label"><i class="fa-regular fa-phone" style="width: 20px;"></i> Contact Number</span>
-                    <span class="value">${currentUser.contact_no}</span>
+                    <span class="value">${escapeHTML(currentUser.contact_no)}</span>
                 </div>
                 ` : ''}
                 <div class="user-detail-item">
@@ -1378,12 +1378,12 @@ async function loadLoginHistory() {
                         ${formattedDate}
                     </span>
                     <div>
-                        <span style="font-weight: 600; color: #0f172a;">${entry.user_name || entry.username}</span>
+                        <span style="font-weight: 600; color: #0f172a;">${escapeHTML(entry.user_name || entry.username)}</span>
                         <span class="login-role ${roleClass}" style="margin-left: 8px;">
-                            ${entry.user_role || 'Field User'}
+                            ${escapeHTML(entry.user_role || 'Field User')}
                         </span>
                     </div>
-                    <span style="font-size: 0.7rem; color: #94a3b8;">${entry.ip_address || 'N/A'}</span>
+                    <span style="font-size: 0.7rem; color: #94a3b8;">${escapeHTML(entry.ip_address || 'N/A')}</span>
                 </div>
             `;
         });
@@ -1416,14 +1416,16 @@ async function loadLoginHistory() {
     async function loadSystemStatus() {
         try {
             // ✅ Gumamit ng apiFetch
-            const response = await apiFetch('/incidents');
-            
+            // limit=1: only the total count is needed, and include_resolved
+            // so it really is every incident on record.
+            const response = await apiFetch('/incidents?limit=1&include_resolved=1');
+
             if (response.ok) {
                 document.getElementById('serverStatus').innerHTML = `<span class="dot green"></span> Running`;
                 document.getElementById('dbStatus').innerHTML = `<span class="dot green"></span> Connected`;
-                
+
                 const data = await response.json();
-                document.getElementById('totalIncidents').textContent = data.length;
+                document.getElementById('totalIncidents').textContent = data.total ?? 0;
             } else {
                 document.getElementById('serverStatus').innerHTML = `<span class="dot red"></span> Offline`;
                 document.getElementById('dbStatus').innerHTML = `<span class="dot red"></span> Disconnected`;
@@ -1546,20 +1548,25 @@ async function loadLoginHistory() {
                 else if (action.includes('VIEW')) badgeClass = 'view';
                 else if (action.includes('PRINT') || action.includes('EXPORT')) badgeClass = 'export';
 
-                const userDisplay = (log.user_name || log.username || 'System') +
+                // Names come from user/tanod records anyone with staff
+                // access can edit - escape them before they hit innerHTML.
+                const userDisplay = escapeHTML(log.user_name || log.username || 'System') +
                     (log.actor_type === 'tanod' ? ' <span style="color:#d97706; font-size:0.68rem; font-weight:600;">(Tanod)</span>' : '');
 
-                auditLogDataById[log.id] = { old_data: log.old_data, new_data: log.new_data };
+                // Staff and tanod audit rows come from two tables whose ids
+                // overlap, so key by source too or "View" can show the wrong row.
+                const detailsKey = `${log.actor_type === 'tanod' ? 'tanod' : 'staff'}-${log.id}`;
+                auditLogDataById[detailsKey] = { old_data: log.old_data, new_data: log.new_data };
                 const hasDetails = log.old_data || log.new_data;
 
                 return `
                     <tr>
                         <td style="white-space: nowrap; font-size: 0.75rem;">${formattedDate}</td>
                         <td><span class="font-bold">${userDisplay}</span></td>
-                        <td><span class="audit-badge ${badgeClass}">${log.action || 'N/A'}</span></td>
-                        <td style="font-size: 0.75rem;">${log.entity_type || 'N/A'} #${log.entity_id || 'N/A'}</td>
-                        <td style="font-size: 0.7rem; color: #94a3b8;">${log.ip_address || 'N/A'}</td>
-                        <td>${hasDetails ? `<button type="button" class="btn-action-edit" onclick="viewAuditLogDetails(${log.id})"><i class="fa-solid fa-eye"></i> View</button>` : '<span style="color:#cbd5e1; font-size:0.7rem;">&mdash;</span>'}</td>
+                        <td><span class="audit-badge ${badgeClass}">${escapeHTML(log.action || 'N/A')}</span></td>
+                        <td style="font-size: 0.75rem;">${escapeHTML(log.entity_type || 'N/A')} #${escapeHTML(log.entity_id || 'N/A')}</td>
+                        <td style="font-size: 0.7rem; color: #94a3b8;">${escapeHTML(log.ip_address || 'N/A')}</td>
+                        <td>${hasDetails ? `<button type="button" class="btn-action-edit" onclick="viewAuditLogDetails('${detailsKey}')"><i class="fa-solid fa-eye"></i> View</button>` : '<span style="color:#cbd5e1; font-size:0.7rem;">&mdash;</span>'}</td>
                     </tr>
                 `;
             }).join('');

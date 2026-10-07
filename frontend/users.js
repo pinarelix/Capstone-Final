@@ -359,7 +359,7 @@ function renderTeamChips() {
     list.innerHTML = allTeams.map(team => `
         <span style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #e0e7ff; color: #4338ca; border-radius: 16px; font-size: 0.78rem; font-weight: 600;">
             ${escapeHTML(team.name)} (${team.member_count})
-            <button type="button" onclick="deleteTeam(${team.id}, '${escapeHTML(team.name).replace(/'/g, "\\'")}')" style="background: none; border: none; color: #4338ca; cursor: pointer; padding: 0; display: flex; align-items: center;" title="Delete team">
+            <button type="button" onclick="deleteTeam(${team.id}, ${escapeHTML(JSON.stringify(team.name))})" style="background: none; border: none; color: #4338ca; cursor: pointer; padding: 0; display: flex; align-items: center;" title="Delete team">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </span>
@@ -659,7 +659,7 @@ function renderUsers(filteredUsers = users) {
             </td>
             <td class="email-cell" id="emailCell-${users.id}">
                 <span class="email-display" style="color: #475569;">${escapeHTML(users.email || '—')}</span>
-                <button type="button" class="btn-icon-circle btn-edit-email" title="Edit email" onclick="startEditEmail(${users.id}, '${escapeHTML(users.email || '').replace(/'/g, "\\'")}')">
+                <button type="button" class="btn-icon-circle btn-edit-email" title="Edit email" onclick="startEditEmail(${users.id}, ${escapeHTML(JSON.stringify(users.email || ''))})">
                     <i class="fa-solid fa-pen"></i>
                 </button>
             </td>

@@ -2,6 +2,9 @@ const { app, BrowserWindow, Menu, dialog } = require('electron');
 const { startServer } = require('./backend/server');
 
 let mainWindow;
+// The port the backend actually listened on (PORT in backend/.env,
+// default 3000) - the window must load that, not a hardcoded 3000.
+let serverPort = 3000;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -23,21 +26,30 @@ function createWindow() {
         mainWindow.show();
     });
 
-    mainWindow.loadURL('http://localhost:3000/login.html');
+    mainWindow.loadURL(`http://localhost:${serverPort}/login.html`);
 }
 
 Menu.setApplicationMenu(null);
 
 app.whenReady().then(async () => {
     try {
-        await startServer();
+        const server = await startServer();
+        serverPort = server.address().port;
     } catch (error) {
-        dialog.showErrorBox(
-            'Cannot Start Server',
-            `The app could not connect to the database.\n\n` +
-            `Please make sure MySQL is running, then restart the app.\n\n` +
-            `Details: ${error.message}`
-        );
+        if (error.code === 'EADDRINUSE') {
+            dialog.showErrorBox(
+                'Port Already in Use',
+                `Port ${error.port || serverPort} is already being used by another program. ` +
+                'Close any other running copy of this app (or dev server) and try again.'
+            );
+        } else {
+            dialog.showErrorBox(
+                'Cannot Start Server',
+                `The app could not connect to the database.\n\n` +
+                `Please make sure MySQL is running, then restart the app.\n\n` +
+                `Details: ${error.message}`
+            );
+        }
         app.quit();
         return;
     }
@@ -61,7 +73,7 @@ process.on('uncaughtException', (error) => {
     if (error.code === 'EADDRINUSE') {
         dialog.showErrorBox(
             'Port Already in Use',
-            'Port 3000 is already being used by another program. ' +
+            `Port ${error.port || serverPort} is already being used by another program. ` +
             'Close any other running copy of this app (or dev server) and try again.'
         );
     } else {

@@ -34,6 +34,9 @@ window.logoutUser = function() {
 let allIncidents = [];
 let allRiskFactors = []; // 🔥 NEW: CART risk factors
 let allTanods = [];
+// Includes deactivated tanods - only for showing names on older patrol
+// logs; pickers keep using allTanods (active only).
+let allTanodsForLookup = [];
 let allTeams = [];
 let allSchedules = [];
 let allLogs = [];
@@ -271,6 +274,8 @@ async function loadAllData() {
         if (tanodResponse.ok) {
             allTanods = await tanodResponse.json();
             console.log('✅ Tanods loaded:', allTanods.length);
+            const allTanodResponse = await window.apiFetch('/tanods/all');
+            allTanodsForLookup = allTanodResponse.ok ? await allTanodResponse.json() : allTanods;
         } else {
             console.warn('⚠️ Failed to load tanods:', tanodResponse.status);
             allTanods = [];
@@ -286,7 +291,9 @@ async function loadAllData() {
         }
 
         // Load schedules
-        const scheduleResponse = await window.apiFetch('/patrol-schedules');
+        // /all, not /patrol-schedules (Active only) - otherwise a schedule
+        // disappears for good once it's marked Completed or Cancelled.
+        const scheduleResponse = await window.apiFetch('/patrol-schedules/all');
         if (scheduleResponse.ok) {
             allSchedules = await scheduleResponse.json();
             console.log('✅ Schedules loaded:', allSchedules.length);
@@ -357,7 +364,7 @@ async function refreshPatrolLogsOnly() {
 // forms since they rebuild <option>/checkbox lists from scratch).
 async function refreshSchedulesOnly() {
     try {
-        const response = await window.apiFetch('/patrol-schedules');
+        const response = await window.apiFetch('/patrol-schedules/all');
         if (!response.ok) return;
 
         allSchedules = await response.json();
@@ -1373,7 +1380,7 @@ function getScheduleName(id) {
 
 function getTanodName(id) {
     if (!id) return 'N/A';
-    const tanod = allTanods.find(t => t.id === id);
+    const tanod = allTanodsForLookup.find(t => t.id === id) || allTanods.find(t => t.id === id);
     return tanod ? tanod.name : 'Unknown Tanod';
 }
 
@@ -1438,7 +1445,8 @@ function populateScheduleDropdown() {
         const timeDisplay = schedule.start_time && schedule.end_time 
             ? `${schedule.start_time.substring(0,5)}-${schedule.end_time.substring(0,5)}` 
             : '';
-        option.textContent = `${schedule.location} (${schedule.day_of_week} ${timeDisplay})`;
+        const statusTag = schedule.status && schedule.status !== 'Active' ? ` — ${schedule.status}` : '';
+        option.textContent = `${schedule.location} (${schedule.day_of_week} ${timeDisplay})${statusTag}`;
         select.appendChild(option);
     });
 }

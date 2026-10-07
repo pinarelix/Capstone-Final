@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // always reflects the true counts across every visible record.
     // =========================================================
     function loadStats() {
-        fetch(`${API_URL}/incidents/view-only?page=1&limit=1000`, {
+        fetch(`${API_URL}/incidents/view-only?page=1&limit=1000&include_resolved=1`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             .then(response => {

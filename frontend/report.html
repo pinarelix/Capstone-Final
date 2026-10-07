@@ -1166,9 +1166,7 @@
         });
 
         logoutConfirmBtn.addEventListener('click', function() {
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.href = 'login.html';
+            logoutAndRedirect();
         });
 
         logoutModal.addEventListener('click', function(e) {

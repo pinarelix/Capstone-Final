@@ -457,7 +457,7 @@ function loadAnalysisHistory() {
                         <td><span class="badge badge-danger-mod">${log.moderate_risk_count || 0}</span></td>
                         <td><span class="badge badge-danger-low">${log.low_risk_count || 0}</span></td>
                         <td><span class="badge ${statusClass}">${statusText}</span></td>
-                        <td>${log.triggered_by || 'System'}</td>
+                        <td>${escapeHTML(log.triggered_by_name || 'System')}</td>
                     </tr>
                 `;
             }).join('');

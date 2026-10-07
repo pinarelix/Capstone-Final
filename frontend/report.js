@@ -94,7 +94,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // filtering happens client-side across all of it), not one
             // page of it — request a high limit rather than the (now
             // paginated) default of 25.
-            const response = await apiFetch('/incidents?limit=10000');
+            const response = await apiFetch('/incidents?limit=10000&include_resolved=1');
             if (!response.ok) throw new Error('Failed to load incidents');
 
             const responseData = await response.json();
@@ -514,7 +514,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const sortedHours = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
             if (sortedHours.length > 0) {
                 const hour = parseInt(sortedHours[0][0]);
-                peakHour = `${String(hour).padStart(2, '0')}:00 - ${String(hour + 2).padStart(2, '0')}:00`;
+                peakHour = `${String(hour).padStart(2, '0')}:00 - ${String((hour + 1) % 24).padStart(2, '0')}:00`;
             }
         }
 
@@ -683,7 +683,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
-            const today = new Date().toISOString().slice(0, 10);
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; // local date, not UTC
             link.setAttribute("href", url);
             link.setAttribute("download", `Barangay179_Patrol_Logs_${today}.csv`);
             document.body.appendChild(link);

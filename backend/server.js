@@ -121,7 +121,7 @@ const evidenceUpload = multer({
         destination: (req, file, cb) => cb(null, INCIDENT_EVIDENCE_DIR),
         filename: (req, file, cb) => {
             const ext = EVIDENCE_MIME_EXT[file.mimetype] || '';
-            cb(null, `evidence-${req.params.id}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+            cb(null, `evidence-${parseInt(req.params.id, 10) || 0}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
         }
     }),
     // Videos need more headroom than a photo - 25MB keeps a short mobile
@@ -386,7 +386,7 @@ const scheduleSchema = Joi.object({
     // Which specific tanods are on this schedule. assigned_tanods (the
     // headcount column) is derived server-side from tanod_ids.length —
     // no longer accepted directly from the client.
-    tanod_ids: Joi.array().items(Joi.number().integer().positive()).default([]),
+    tanod_ids: Joi.array().items(Joi.number().integer().positive()).unique().default([]),
     // Optional map pin for this schedule's location — lets tanod-reported
     // incidents at this location inherit real coordinates instead of NULL.
     latitude: Joi.number().min(-90).max(90).allow(null),
@@ -408,10 +408,22 @@ const logSchema = Joi.object({
 // 🔧 VALIDATION MIDDLEWARE
 // ============================================================
 
+function removeUploadedFiles(req) {
+    const files = [...(req.file ? [req.file] : []), ...(Array.isArray(req.files) ? req.files : [])];
+    for (const file of files) {
+        fs.unlink(file.path, (err) => {
+            if (err && err.code !== 'ENOENT') console.error('❌ Error removing rejected upload:', err);
+        });
+    }
+}
+
 function validate(schema) {
     return (req, res, next) => {
         const { error, value } = schema.validate(req.body, { abortEarly: false });
         if (error) {
+            // On multipart routes multer has already saved the upload by
+            // now - don't leave it orphaned on disk when the form is rejected.
+            removeUploadedFiles(req);
             const errors = error.details.map(detail => detail.message);
             return res.status(400).json({ 
                 error: 'Validation failed', 
@@ -739,11 +751,21 @@ async function authenticateStaffOrTanod(req, res, next) {
         }
         const token = authHeader.split(' ')[1];
 
+        // Same validity rules as authenticate() - active account and not
+        // idle past the timeout - just without bumping last_activity.
         const [staffSessions] = await pool.query(
-            `SELECT user_id FROM user_sessions WHERE session_token = ? AND is_active = 1 AND logout_time IS NULL`,
+            `SELECT user_sessions.user_id, user_sessions.last_activity FROM user_sessions
+             JOIN users ON users.id = user_sessions.user_id
+             WHERE user_sessions.session_token = ? AND user_sessions.is_active = 1
+               AND user_sessions.logout_time IS NULL AND users.is_active = 1`,
             [token]
         );
         if (staffSessions.length > 0) {
+            const timeoutMinutes = await getSessionTimeoutMinutes();
+            const idleMinutes = (Date.now() - new Date(staffSessions[0].last_activity).getTime()) / 60000;
+            if (idleMinutes > timeoutMinutes) {
+                return res.status(401).json({ error: 'Unauthorized: Session expired due to inactivity' });
+            }
             req.userId = staffSessions[0].user_id;
             return next();
         }
@@ -1010,30 +1032,41 @@ async function computeCartRiskFactors(incidentId) {
 // RECOMPUTE ALL CART RISK FACTORS
 // ============================================================
 
-async function recomputeAllCartRiskFactors() {
+// Writes exactly one cart_analysis_log row per run and returns its id.
+async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
+    const startTime = Date.now();
+    let conn;
     try {
         console.log('🔄 Starting full CART recomputation...');
-        
-        // 1. Get all incidents with valid data
-        const [incidents] = await pool.query(`
-            SELECT id, incident_type, time_of_day, is_weekend, street_name 
-            FROM incidents 
+
+        // 1. Get all incidents with valid data. time_of_day can be NULL on
+        // imported rows - derive it from `time` instead of skipping them,
+        // since the old risk rows are wiped below.
+        const [rawIncidents] = await pool.query(`
+            SELECT id, incident_type, time, time_of_day, is_weekend, street_name, date
+            FROM incidents
             WHERE id IS NOT NULL
             AND incident_type IS NOT NULL
-            AND time_of_day IS NOT NULL
         `);
+        const incidents = rawIncidents.map(i => ({
+            ...i,
+            time_of_day: i.time_of_day || computeTimeOfDay(i.time ? String(i.time) : null)
+        }));
 
         if (incidents.length === 0) {
             console.log('ℹ️ No valid incidents found to recompute');
-            await pool.query(`
+            await pool.query('DELETE FROM cart_risk_factors');
+            const [emptyLog] = await pool.query(`
                 INSERT INTO cart_analysis_log (
                     analysis_type,
                     total_incidents_analyzed,
+                    execution_time_ms,
                     status,
+                    triggered_by,
                     notes
-                ) VALUES (?, ?, ?, ?)
-            `, ['risk_prediction', 0, 'completed', 'No incidents found to analyze']);
-            return;
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            `, ['risk_prediction', 0, Date.now() - startTime, 'completed', triggeredBy, 'No incidents found to analyze']);
+            return emptyLog.insertId;
         }
 
         console.log(`📋 Found ${incidents.length} incidents to process`);
@@ -1070,9 +1103,13 @@ async function recomputeAllCartRiskFactors() {
         console.log(`📍 Location stats: ${Object.keys(locationMap).length} streets`);
         console.log(`📊 Frequency stats: ${Object.keys(frequencyMap).length} streets`);
 
-        // 4. Delete all existing risk factors
-        await pool.query('TRUNCATE TABLE cart_risk_factors');
-        console.log('🗑️ Truncated cart_risk_factors table');
+        // 4. Replace all existing risk factors inside one transaction, so
+        // readers keep seeing the previous results until the new set is
+        // complete (TRUNCATE would commit immediately and leave the table
+        // empty mid-run).
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        await conn.query('DELETE FROM cart_risk_factors');
 
         // 5. Process each incident
         let processed = 0;
@@ -1103,7 +1140,7 @@ async function recomputeAllCartRiskFactors() {
                 else if (result.dangerLevel === 'Level 2') moderateRisk++;
                 else lowRisk++;
 
-                await pool.query(`
+                await conn.query(`
                     INSERT INTO cart_risk_factors (
                         incident_id, 
                         time_risk_score, 
@@ -1131,9 +1168,9 @@ async function recomputeAllCartRiskFactors() {
 
                 // Keep incidents.danger_level in sync with the real result,
                 // same as the single-incident path in computeCartRiskFactors.
-                await pool.query(
-                    'UPDATE incidents SET danger_level = ? WHERE id = ?',
-                    [result.dangerDescription || 'Level 1 — Low Danger / Stable Area', incident.id]
+                await conn.query(
+                    'UPDATE incidents SET danger_level = ?, time_of_day = ? WHERE id = ?',
+                    [result.dangerDescription || 'Level 1 — Low Danger / Stable Area', incident.time_of_day, incident.id]
                 );
 
                 processed++;
@@ -1147,11 +1184,16 @@ async function recomputeAllCartRiskFactors() {
             }
         }
 
+        await conn.commit();
+        conn.release();
+        conn = null;
+
         // 6. Log the analysis
         const incidentTypes = [...new Set(incidents.map(i => i.incident_type).filter(Boolean))];
         const streets = [...new Set(incidents.map(i => i.street_name).filter(Boolean))];
-        
-        await pool.query(`
+        const dates = incidents.map(i => i.date).filter(Boolean).sort((a, b) => new Date(a) - new Date(b));
+
+        const [logResult] = await pool.query(`
             INSERT INTO cart_analysis_log (
                 analysis_type,
                 date_range_start,
@@ -1164,42 +1206,51 @@ async function recomputeAllCartRiskFactors() {
                 low_risk_count,
                 execution_time_ms,
                 status,
+                triggered_by,
                 notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             'risk_prediction',
-            null,
-            null,
+            dates[0] || null,
+            dates[dates.length - 1] || null,
             incidentTypes.join(', ') || 'None',
             streets.length || 0,
             processed,
             highRisk,
             moderateRisk,
             lowRisk,
-            0,
+            Date.now() - startTime,
             'completed',
+            triggeredBy,
             `Processed ${processed} incidents with ${errors} errors`
         ]);
 
         console.log(`✅ All CART risk factors recomputed for ${processed} incidents (${errors} errors)`);
         console.log(`📊 Risk distribution: High=${highRisk}, Moderate=${moderateRisk}, Low=${lowRisk}`);
+        return logResult.insertId;
 
     } catch (error) {
         console.error('❌ Error recomputing CART risk factors:', error);
         console.error('Stack:', error.stack);
-        
+
+        if (conn) {
+            try { await conn.rollback(); } catch (rollbackError) { /* already logged above */ }
+            conn.release();
+        }
+
         try {
             await pool.query(`
                 INSERT INTO cart_analysis_log (
                     analysis_type,
                     status,
+                    triggered_by,
                     notes
-                ) VALUES (?, ?, ?)
-            `, ['risk_prediction', 'failed', `Error: ${error.message}`]);
+                ) VALUES (?, ?, ?, ?)
+            `, ['risk_prediction', 'failed', triggeredBy, `Error: ${error.message}`]);
         } catch (logError) {
             console.error('❌ Failed to log error:', logError.message);
         }
-        
+
         throw error;
     }
 }
@@ -1291,11 +1342,11 @@ app.post('/api/users', authenticate, requireRole(['Administrator']), validate(us
         const { name, username, password, role, contact_no, email } = req.body;
 
         const [existing] = await pool.query(
-            'SELECT id FROM users WHERE username = ?',
+            'SELECT id, is_active FROM users WHERE username = ?',
             [username]
         );
 
-        if (existing.length > 0) {
+        if (existing.length > 0 && existing[0].is_active) {
             return res.status(400).json({
                 error: 'Username already exists.'
             });
@@ -1304,11 +1355,24 @@ app.post('/api/users', authenticate, requireRole(['Administrator']), validate(us
         const saltRounds = 10;
         const password_hash = await bcrypt.hash(password, saltRounds);
 
-        const [result] = await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, contact_no, email)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [name, username, password_hash, role, contact_no || null, email || null]
-        );
+        // "Deleting" a user only deactivates them (their audit history is
+        // kept), so re-adding the same username brings that account back
+        // with the new details instead of being blocked forever.
+        let result;
+        if (existing.length > 0) {
+            await pool.query(
+                `UPDATE users SET name = ?, password_hash = ?, role = ?, contact_no = ?, email = ?, is_active = 1
+                 WHERE id = ?`,
+                [name, password_hash, role, contact_no || null, email || null, existing[0].id]
+            );
+            result = { insertId: existing[0].id };
+        } else {
+            [result] = await pool.query(
+                `INSERT INTO users (name, username, password_hash, role, contact_no, email)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [name, username, password_hash, role, contact_no || null, email || null]
+            );
+        }
 
         const [newUser] = await pool.query(`
             SELECT
@@ -1406,6 +1470,10 @@ app.delete('/api/users/:id', authenticate, requireRole(['Administrator']), async
         // Mirrors the tanod_record deactivation pattern.
         await pool.query(
             'UPDATE users SET is_active = 0 WHERE id = ?',
+            [userId]
+        );
+        await pool.query(
+            'UPDATE user_sessions SET is_active = 0, logout_time = NOW() WHERE user_id = ? AND is_active = 1',
             [userId]
         );
 
@@ -1591,7 +1659,7 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         const { username } = req.body;
 
         const [users] = await pool.query(
-            'SELECT id, username, name, email FROM users WHERE username = ?',
+            'SELECT id, username, name, email FROM users WHERE username = ? AND is_active = 1',
             [username]
         );
 
@@ -1656,9 +1724,16 @@ app.post('/api/auth/reset-password', authRateLimit, validate(resetPasswordSchema
             [password_hash, userId]
         );
 
+        // Burn this code AND any other outstanding codes for the user, and
+        // end every existing session - if the old password was
+        // compromised, whoever had it shouldn't stay logged in.
         await pool.query(
-            'UPDATE password_resets SET used_at = NOW() WHERE reset_token = ?',
-            [reset_token]
+            'UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL',
+            [userId]
+        );
+        await pool.query(
+            'UPDATE user_sessions SET is_active = 0, logout_time = NOW() WHERE user_id = ? AND is_active = 1',
+            [userId]
         );
 
         res.json({ message: 'Password reset successful!' });
@@ -1718,15 +1793,24 @@ app.post('/api/auth/logout', async (req, res) => {
 
 app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
-        const { page = 1, limit = 25, search = '', type = '', danger = '', date = '' } = req.query;
+        const { page = 1, limit = 25, search = '', type = '', danger = '', date = '', status = '', include_resolved = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         // Search/filter moved server-side (was previously done client-side
         // over the whole loaded array) so real pagination doesn't silently
         // break search-outside-the-current-page — mirrors the same
         // pattern /api/incidents/view-only already uses successfully.
-        let filter = ["TRIM(incidents.status) != 'Resolved'"];
+        // Active cases only by default; Resolved ones come back when asked
+        // for explicitly (status=Resolved) or with include_resolved=1
+        // (Reports, which needs every case in the period).
+        let filter = [];
         let params = [];
+        if (status) {
+            filter.push('TRIM(incidents.status) = ?');
+            params.push(status);
+        } else if (include_resolved !== '1') {
+            filter.push("TRIM(incidents.status) != 'Resolved'");
+        }
 
         if (search) {
             filter.push("(incidents.incident_type LIKE ? OR incidents.street_name LIKE ? OR incidents.description LIKE ?)");
@@ -1746,7 +1830,7 @@ app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-
             params.push(date);
         }
 
-        const whereClause = `WHERE ${filter.join(' AND ')}`;
+        const whereClause = filter.length > 0 ? `WHERE ${filter.join(' AND ')}` : '';
 
         const [countResult] = await pool.query(
             `SELECT COUNT(*) as total FROM incidents ${whereClause}`,
@@ -1797,13 +1881,18 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
             return res.status(403).json({ error: 'Access denied. View-only for Captain and above.' });
         }
 
-        const { page = 1, limit = 10, search = '', type = '', status = '' } = req.query;
+        const { page = 1, limit = 10, search = '', type = '', status = '', include_resolved = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         let filter = [];
         let params = [];
 
-        filter.push("TRIM(incidents.status) != 'Resolved'");
+        // Active cases only, unless a status is picked explicitly (the
+        // Resolved filter used to always come back empty) or the caller
+        // asks for everything.
+        if (!status && include_resolved !== '1') {
+            filter.push("TRIM(incidents.status) != 'Resolved'");
+        }
 
         if (search) {
             filter.push("(incidents.incident_type LIKE ? OR incidents.street_name LIKE ? OR incidents.description LIKE ?)");
@@ -2112,6 +2201,13 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Administrator']), a
             });
         });
 
+        // Tanod-reported incidents carry their own field photo too.
+        if (oldData[0]?.photo_path) {
+            fs.unlink(path.join(INCIDENT_PHOTO_DIR, path.basename(oldData[0].photo_path)), (err) => {
+                if (err && err.code !== 'ENOENT') console.error('❌ Error removing incident photo:', err);
+            });
+        }
+
         heatmapCache.del('incidents');
 
         if (userId) {
@@ -2137,14 +2233,29 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Administrator']), a
 // INCIDENT EVIDENCE (images/videos attached to an incident record)
 // ============================================================
 
-app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Administrator']), runMulterMiddleware(evidenceUpload.array('evidence', 5)), async (req, res) => {
+// Runs BEFORE multer writes anything to disk: the incident id ends up in
+// the evidence filename, so it must be a plain number (a URL-decoded
+// "../" would otherwise let the file land outside the evidence folder),
+// and the incident must exist so a bad id doesn't leave a stray file.
+async function requireExistingIncident(req, res, next) {
+    if (!/^\d+$/.test(req.params.id)) {
+        return res.status(400).json({ error: 'Invalid incident id' });
+    }
     try {
-        const id = req.params.id;
-
-        const [incidentRows] = await pool.query('SELECT id FROM incidents WHERE id = ?', [id]);
-        if (incidentRows.length === 0) {
+        const [rows] = await pool.query('SELECT id FROM incidents WHERE id = ?', [req.params.id]);
+        if (rows.length === 0) {
             return res.status(404).json({ error: 'Incident not found' });
         }
+        next();
+    } catch (error) {
+        console.error('❌ Error checking incident:', error);
+        res.status(500).json({ error: 'Failed to upload evidence' });
+    }
+}
+
+app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Administrator']), requireExistingIncident, runMulterMiddleware(evidenceUpload.array('evidence', 5)), async (req, res) => {
+    try {
+        const id = req.params.id;
 
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ error: 'No evidence files uploaded.' });
@@ -2420,7 +2531,8 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Dec
             LIMIT 1
         `);
         const peakHour = peakResult.length > 0 ? peakResult[0].hour : 0;
-        const peak = `${String(peakHour).padStart(2, '0')}:00 - ${String((peakHour + 2) % 24).padStart(2, '0')}:00`;
+        // Counted per single clock hour (GROUP BY HOUR), so label that hour.
+        const peak = `${String(peakHour).padStart(2, '0')}:00 - ${String((peakHour + 1) % 24).padStart(2, '0')}:00`;
 
         // Distinct streets carrying at least one Level 3 (high-risk)
         // incident, not a raw incident count - tells patrol planning how
@@ -2657,18 +2769,39 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
 
         const pinHash = await bcrypt.hash(pin_code, 10);
 
-        const [result] = await pool.query(`
-            INSERT INTO tanod_record
-            (name, position, contact_no, username, pin_code_hash, team_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `, [
-            name,
-            position || 'Tanod',
-            contact_no || null,
-            username,
-            pinHash,
-            team_id || null
-        ]);
+        // Removing a tanod only deactivates the record (reports and audit
+        // rows still point at it), so re-adding the same username revives
+        // that record with the new details instead of a permanent 409.
+        const [existing] = await pool.query(
+            'SELECT id, is_active FROM tanod_record WHERE username = ?',
+            [username]
+        );
+        if (existing.length > 0 && existing[0].is_active) {
+            return res.status(409).json({ error: 'That username is already taken.' });
+        }
+
+        let result;
+        if (existing.length > 0) {
+            await pool.query(`
+                UPDATE tanod_record
+                SET name = ?, position = ?, contact_no = ?, pin_code_hash = ?, team_id = ?, is_active = 1
+                WHERE id = ?
+            `, [name, position || 'Tanod', contact_no || null, pinHash, team_id || null, existing[0].id]);
+            result = { insertId: existing[0].id };
+        } else {
+            [result] = await pool.query(`
+                INSERT INTO tanod_record
+                (name, position, contact_no, username, pin_code_hash, team_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [
+                name,
+                position || 'Tanod',
+                contact_no || null,
+                username,
+                pinHash,
+                team_id || null
+            ]);
+        }
 
         const [newTanod] = await pool.query(
             `SELECT ${TANOD_PUBLIC_COLUMNS} FROM tanod_record WHERE id = ?`,
@@ -2888,6 +3021,23 @@ app.post('/api/tanod/login', authRateLimit, validate(tanodLoginSchema), async (r
     }
 });
 
+// Ends the tanod's session server-side - clearing the phone's storage
+// alone would leave the token valid until the idle timeout.
+app.post('/api/tanod/logout', authenticateTanod, async (req, res) => {
+    try {
+        const token = req.headers.authorization.split(' ')[1];
+        await pool.query(
+            'UPDATE tanod_sessions SET is_active = 0, logout_time = NOW() WHERE session_token = ?',
+            [token]
+        );
+        await logTanodAudit(req.tanodId, 'TANOD_LOGOUT', 'tanod_record', req.tanodId, null, req);
+        res.json({ message: 'Logged out.' });
+    } catch (error) {
+        console.error('❌ Error during tanod logout:', error);
+        res.status(500).json({ error: 'Server error during logout' });
+    }
+});
+
 app.get('/api/tanod/dashboard/:tanodId', authenticateTanod, requireOwnTanodId, async (req, res) => {
     try {
         const [tanods] = await pool.query(
@@ -3096,6 +3246,7 @@ app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentP
             id: result.insertId
         });
     } catch (error) {
+        removeUploadedFiles(req);
         console.error('❌ Error creating tanod incident report:', error);
         res.status(500).json({ error: 'Failed to report incident' });
     }
@@ -3118,6 +3269,15 @@ app.get('/api/tanod/patrol-logs/:tanodId', authenticateTanod, requireOwnTanodId,
 app.post('/api/tanod/patrol-log', authenticateTanod, validate(tanodLogSchema), async (req, res) => {
     try {
         const { schedule_id, report, status, patrol_date } = req.body;
+
+        // A tanod may only log patrols for schedules they're assigned to.
+        const [assigned] = await pool.query(
+            'SELECT 1 FROM patrol_schedule_tanods WHERE schedule_id = ? AND tanod_id = ?',
+            [schedule_id, req.tanodId]
+        );
+        if (assigned.length === 0) {
+            return res.status(403).json({ error: 'You are not assigned to this patrol schedule.' });
+        }
 
         const [result] = await pool.query(`
             INSERT INTO patrol_logs (schedule_id, tanod_id, report, status, patrol_date)
@@ -3208,32 +3368,65 @@ app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator',
 
 // Replaces a schedule's tanod assignments and keeps assigned_tanods (the
 // headcount column other pages already display) in sync with the real
-// count. Shared by POST and PUT below.
-async function syncScheduleTanods(scheduleId, tanodIds) {
-    await pool.query('DELETE FROM patrol_schedule_tanods WHERE schedule_id = ?', [scheduleId]);
+// count. Shared by POST and PUT below. Takes a connection so callers can
+// run it inside the same transaction as the schedule write itself.
+async function syncScheduleTanods(conn, scheduleId, tanodIds) {
+    await conn.query('DELETE FROM patrol_schedule_tanods WHERE schedule_id = ?', [scheduleId]);
 
     if (tanodIds.length > 0) {
         const values = tanodIds.map(tanodId => [scheduleId, tanodId]);
-        await pool.query('INSERT INTO patrol_schedule_tanods (schedule_id, tanod_id) VALUES ?', [values]);
+        await conn.query('INSERT INTO patrol_schedule_tanods (schedule_id, tanod_id) VALUES ?', [values]);
     }
 
-    await pool.query('UPDATE patrol_schedules SET assigned_tanods = ? WHERE id = ?', [tanodIds.length, scheduleId]);
+    await conn.query('UPDATE patrol_schedules SET assigned_tanods = ? WHERE id = ?', [tanodIds.length, scheduleId]);
+}
+
+// Returns the ids from tanodIds that aren't active tanods, so a bad id
+// is rejected with a 400 up front instead of failing the FK mid-write.
+// A tanod already on this schedule stays allowed even if since
+// deactivated, so re-saving an older schedule doesn't get blocked.
+async function findUnknownTanodIds(tanodIds, scheduleId = null) {
+    if (tanodIds.length === 0) return [];
+    const [rows] = await pool.query(
+        `SELECT id FROM tanod_record
+         WHERE id IN (?) AND (is_active = 1 OR id IN (
+             SELECT tanod_id FROM patrol_schedule_tanods WHERE schedule_id = ?
+         ))`,
+        [tanodIds, scheduleId]
+    );
+    const found = new Set(rows.map(r => r.id));
+    return tanodIds.filter(id => !found.has(id));
 }
 
 app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(scheduleSchema), async (req, res) => {
     try {
         const { location, start_time, end_time, day_of_week, tanod_ids, latitude, longitude, reason } = req.body;
 
-        const [result] = await pool.query(`
-            INSERT INTO patrol_schedules
-            (location, start_time, end_time, day_of_week, assigned_tanods, latitude, longitude, reason)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            location, start_time, end_time, day_of_week,
-            tanod_ids.length, latitude ?? null, longitude ?? null, reason || null
-        ]);
+        const unknownIds = await findUnknownTanodIds(tanod_ids);
+        if (unknownIds.length > 0) {
+            return res.status(400).json({ error: `Unknown or inactive tanod(s): ${unknownIds.join(', ')}` });
+        }
 
-        await syncScheduleTanods(result.insertId, tanod_ids);
+        const conn = await pool.getConnection();
+        let result;
+        try {
+            await conn.beginTransaction();
+            [result] = await conn.query(`
+                INSERT INTO patrol_schedules
+                (location, start_time, end_time, day_of_week, assigned_tanods, latitude, longitude, reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                location, start_time, end_time, day_of_week,
+                tanod_ids.length, latitude ?? null, longitude ?? null, reason || null
+            ]);
+            await syncScheduleTanods(conn, result.insertId, tanod_ids);
+            await conn.commit();
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
 
         const [newSchedule] = await pool.query(
             'SELECT * FROM patrol_schedules WHERE id = ?',
@@ -3275,21 +3468,31 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator',
             return res.status(404).json({ error: 'Schedule not found' });
         }
 
-        const [result] = await pool.query(`
-            UPDATE patrol_schedules
-            SET location = ?, start_time = ?, end_time = ?,
-                day_of_week = ?, assigned_tanods = ?, latitude = ?, longitude = ?, reason = ?, status = ?
-            WHERE id = ?
-        `, [
-            location, start_time, end_time, day_of_week,
-            tanod_ids.length, latitude ?? null, longitude ?? null, reason || null, status || 'Active', id
-        ]);
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Schedule not found' });
+        const unknownIds = await findUnknownTanodIds(tanod_ids, id);
+        if (unknownIds.length > 0) {
+            return res.status(400).json({ error: `Unknown or inactive tanod(s): ${unknownIds.join(', ')}` });
         }
 
-        await syncScheduleTanods(id, tanod_ids);
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            await conn.query(`
+                UPDATE patrol_schedules
+                SET location = ?, start_time = ?, end_time = ?,
+                    day_of_week = ?, assigned_tanods = ?, latitude = ?, longitude = ?, reason = ?, status = ?
+                WHERE id = ?
+            `, [
+                location, start_time, end_time, day_of_week,
+                tanod_ids.length, latitude ?? null, longitude ?? null, reason || null, status || 'Active', id
+            ]);
+            await syncScheduleTanods(conn, id, tanod_ids);
+            await conn.commit();
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
 
         // Only the Active/Cancelled -> Completed transition counts - not
         // every re-save of a schedule that was already Completed.
@@ -3564,9 +3767,9 @@ app.get('/api/cart/summary', authenticate, requireRole(['Administrator', 'Decisi
         const [summary] = await pool.query(`
             SELECT 
                 COUNT(*) as total_incidents,
-                SUM(CASE WHEN danger_level = 'Level 3' THEN 1 ELSE 0 END) as high_risk,
-                SUM(CASE WHEN danger_level = 'Level 2' THEN 1 ELSE 0 END) as moderate_risk,
-                SUM(CASE WHEN danger_level = 'Level 1' THEN 1 ELSE 0 END) as low_risk,
+                SUM(CASE WHEN danger_level LIKE 'Level 3%' THEN 1 ELSE 0 END) as high_risk,
+                SUM(CASE WHEN danger_level LIKE 'Level 2%' THEN 1 ELSE 0 END) as moderate_risk,
+                SUM(CASE WHEN danger_level LIKE 'Level 1%' THEN 1 ELSE 0 END) as low_risk,
                 ROUND(AVG(total_risk_score), 2) as avg_risk_score,
                 MAX(total_risk_score) as max_risk_score,
                 MIN(total_risk_score) as min_risk_score
@@ -3596,8 +3799,10 @@ app.get('/api/cart/decision-rules', authenticate, requireRole(['Administrator', 
 app.get('/api/cart/analysis-logs', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT * FROM cart_analysis_log 
-            ORDER BY run_timestamp DESC 
+            SELECT l.*, u.name AS triggered_by_name
+            FROM cart_analysis_log l
+            LEFT JOIN users u ON u.id = l.triggered_by
+            ORDER BY l.run_timestamp DESC
             LIMIT 50
         `);
         res.json(rows);
@@ -3676,44 +3881,13 @@ app.post('/api/cart/analyze', authenticate, requireRole(['Administrator', 'Decis
     try {
         const startTime = Date.now();
         const triggered_by = req.userId;
-        
-        await recomputeAllCartRiskFactors();
+
+        // recomputeAllCartRiskFactors writes the (single) analysis log row
+        // itself, with the real per-level counts.
+        const logId = await recomputeAllCartRiskFactors({ triggeredBy: triggered_by || null });
 
         const executionTime = Date.now() - startTime;
-        
-        const [logResult] = await pool.query(`
-            INSERT INTO cart_analysis_log (
-                analysis_type, 
-                date_range_start, 
-                date_range_end,
-                incident_types_analyzed,
-                total_streets_analyzed,
-                total_incidents_analyzed,
-                high_risk_count, 
-                moderate_risk_count, 
-                low_risk_count,
-                execution_time_ms, 
-                status, 
-                triggered_by,
-                notes
-            )
-            SELECT 
-                'risk_prediction',
-                MIN(i.date),
-                MAX(i.date),
-                GROUP_CONCAT(DISTINCT i.incident_type SEPARATOR ', '),
-                COUNT(DISTINCT i.street_name),
-                COUNT(*),
-                SUM(CASE WHEN rf.danger_level = 'Level 3' THEN 1 ELSE 0 END),
-                SUM(CASE WHEN rf.danger_level = 'Level 2' THEN 1 ELSE 0 END),
-                SUM(CASE WHEN rf.danger_level = 'Level 1' THEN 1 ELSE 0 END),
-                ?,
-                'completed',
-                ?,
-                'CART analysis run via API'
-            FROM cart_risk_factors rf
-            JOIN incidents i ON rf.incident_id = i.id
-        `, [executionTime, triggered_by || null]);
+        const logResult = { insertId: logId };
 
         if (triggered_by) {
             await logAudit(

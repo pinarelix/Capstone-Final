@@ -5,7 +5,9 @@
    and their own assets, all of which happen to start with "tanod".
 ============================================================ */
 
-const CACHE_NAME = 'tanod-portal-v1';
+// Bumped from v1: the old cache could hold private incident photos and
+// avatars (see /uploads below) - activate() deletes any other cache name.
+const CACHE_NAME = 'tanod-portal-v2';
 const APP_SHELL = [
     '/tanod-login.html',
     '/tanod-dashboard.html',
@@ -44,6 +46,12 @@ self.addEventListener('fetch', (event) => {
     // stale info or silently break that.
     if (url.pathname.startsWith('/api/')) return;
 
+    // Never cache uploaded photos/avatars either - they're private case
+    // evidence that would otherwise stay on a shared phone after logout,
+    // and each short-lived ?ftoken= makes a new URL, so the cache would
+    // only keep growing.
+    if (url.pathname.startsWith('/uploads/')) return;
+
     // Only handle GETs for same-origin static assets - anything else
     // (POST submissions, cross-origin requests) passes straight through.
     if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
@@ -54,8 +62,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                const responseClone = response.clone();
-                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+                // Don't overwrite a good cached copy with a 404/500 page.
+                if (response.ok) {
+                    const responseClone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+                }
                 return response;
             })
             .catch(() => caches.match(event.request))

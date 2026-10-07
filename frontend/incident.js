@@ -64,6 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const note = document.getElementById('formAccessNote');
         if (note) note.textContent = 'Desk Officers can add new incident records but cannot edit or delete existing ones. Decision-Makers and Field Users have view-only access to their allowed modules.';
+
+        // Evidence uploads are Administrator-only on the server; showing
+        // the picker here only led to a rejected upload after the
+        // incident itself had already been saved.
+        const evidenceGroup = document.getElementById('evidenceFormGroup');
+        if (evidenceGroup) evidenceGroup.style.display = 'none';
     }
 
     // Fire-and-forget here - the list table itself has no images, only
@@ -845,9 +851,19 @@ function setupForm() {
 
             const savedIncidentId = incidentId || (await response.json()).id;
 
+            // The incident is already saved at this point - an evidence
+            // failure must not fall into the catch below, which reports
+            // "failed to save" and keeps the form filled (a retry would
+            // then create a duplicate incident).
+            let evidenceError = null;
             const evidenceInput = document.getElementById('incidentEvidenceInput');
-            if (evidenceInput && evidenceInput.files.length > 0) {
-                await uploadEvidenceFiles(savedIncidentId, evidenceInput.files);
+            if (isAdmin() && evidenceInput && evidenceInput.files.length > 0) {
+                try {
+                    await uploadEvidenceFiles(savedIncidentId, evidenceInput.files);
+                } catch (uploadError) {
+                    console.error('Evidence upload failed:', uploadError);
+                    evidenceError = uploadError.message;
+                }
             }
 
             clearForm();
@@ -864,7 +880,13 @@ function setupForm() {
             
             closeMapModal();
             
-            showSuccessModal('Success!', 'Incident saved successfully!');
+            if (evidenceError) {
+                showErrorModal('Incident Saved - Evidence Not Uploaded', `The incident was saved, but the evidence upload failed: ${evidenceError}
+
+Open the incident with Edit to attach the evidence again.`);
+            } else {
+                showSuccessModal('Success!', 'Incident saved successfully!');
+            }
 
         } catch (error) {
             console.error('Error saving incident:', error);

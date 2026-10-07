@@ -7,7 +7,12 @@
 // ============================================================
 // 1. GLOBAL CONSTANTS
 // ============================================================
-const API_URL = 'http://localhost:3000/api';
+// Same server that served this page (the backend serves the frontend),
+// so it also works from another PC on the LAN or a non-3000 PORT. Falls
+// back to the default dev address if a page is opened straight from disk.
+const API_URL = window.location.protocol.startsWith('http')
+    ? `${window.location.origin}/api`
+    : 'http://localhost:3000/api';
 
 // ============================================================
 // 1b. HTML ESCAPING (shared — use before inserting any API/user
@@ -146,6 +151,26 @@ function clearSession() {
     sessionStorage.removeItem('isLoggedIn');
     sessionStorage.removeItem('lastLogin');
     sessionStorage.removeItem('loginHistory');
+}
+
+// Ends the session on the server (so the token stops working and the
+// LOGOUT is audited), then clears only this app's session keys - not
+// localStorage, which holds unrelated preferences like sidebarCollapsed.
+async function logoutAndRedirect() {
+    const token = getSessionToken();
+    if (token) {
+        try {
+            await fetch(`${API_URL}/auth/logout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_token: token })
+            });
+        } catch (e) {
+            // Server unreachable - the session still idles out on its own.
+        }
+    }
+    clearSession();
+    window.location.href = 'login.html';
 }
 
 // ============================================================
