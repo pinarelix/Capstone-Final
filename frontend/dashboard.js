@@ -303,7 +303,7 @@ function updateKPIs(data) {
     };
 
     setText("kpi-incidents", data.incidents);
-    setText("kpi-incidents-desc", `Total recorded incidents in database.`);
+    setText("kpi-incidents-desc", `Open and Monitoring cases (Resolved not included).`);
     setText("kpi-today-incidents", data.todayIncidents);
 
     const changeEl = document.getElementById("kpi-change");

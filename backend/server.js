@@ -2478,10 +2478,10 @@ app.get('/api/patrol/cart-summary', authenticate, requireRole(['Administrator', 
 
 app.get('/api/dashboard/stats', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
-        // Every recorded incident, Resolved included - the card reads "Total
-        // recorded incidents in database" and must match Incident View's
-        // Total. The risk KPIs below stay active-cases-only on purpose.
-        const [totalResult] = await pool.query('SELECT COUNT(*) as total FROM incidents');
+        // "Total Active Incidents" card: Open + Monitoring only, same basis
+        // as the risk KPIs below. Incident View's Total counts every record
+        // (with Resolved shown as its own card).
+        const [totalResult] = await pool.query("SELECT COUNT(*) as total FROM incidents WHERE TRIM(status) != 'Resolved'");
         const totalIncidents = totalResult[0].total;
 
         // Incidents actually logged today, not just "whatever date last had
