@@ -3816,7 +3816,7 @@ app.get('/api/cart/analysis-logs', authenticate, requireRole(['Administrator', '
             FROM cart_analysis_log l
             LEFT JOIN users u ON u.id = l.triggered_by
             ORDER BY l.run_timestamp DESC
-            LIMIT 50
+            LIMIT 10
         `);
         res.json(rows);
     } catch (error) {

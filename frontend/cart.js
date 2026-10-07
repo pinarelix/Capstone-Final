@@ -54,6 +54,11 @@ document.addEventListener("DOMContentLoaded", function () {
         runBtn.addEventListener("click", executeCartAnalysis);
     }
 
+    const fullAnalysisBtn = document.getElementById("runFullAnalysisBtn");
+    if (fullAnalysisBtn) {
+        fullAnalysisBtn.addEventListener("click", runFullAnalysis);
+    }
+
     setupNavigationButtons();
     setupTabs();
     loadRealCartData();
@@ -410,6 +415,48 @@ function updateRiskCircle(riskClass, score) {
         circle.style.background = "linear-gradient(145deg,#fff1f2,#fee2e2)";
         circle.style.borderColor = "#fecaca";
         if (scoreElement) scoreElement.style.color = "#b91c1c";
+    }
+}
+
+// Full re-analysis (POST /cart/analyze): re-scores every incident and
+// writes one row to Recent CART Analysis Runs - unlike executeCartAnalysis
+// above, which is a stateless what-if prediction for the form inputs.
+async function runFullAnalysis() {
+    const btn = document.getElementById("runFullAnalysisBtn");
+    const status = document.getElementById("fullAnalysisStatus");
+    const originalHtml = btn ? btn.innerHTML : '';
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...';
+    }
+    if (status) {
+        status.style.color = '#64748b';
+        status.textContent = 'Running CART analysis on all recorded incidents...';
+    }
+
+    try {
+        const response = await apiFetch('/cart/analyze', { method: 'POST', body: JSON.stringify({}) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Analysis failed');
+
+        if (status) {
+            status.style.color = '#15803d';
+            status.textContent = `✅ Analysis completed in ${data.execution_time_ms} ms - see the newest run below.`;
+        }
+        loadAnalysisHistory();
+        if (!manualPredictionActive) loadRealCartData();
+    } catch (error) {
+        console.error('❌ Error running full CART analysis:', error);
+        if (status) {
+            status.style.color = '#b91c1c';
+            status.textContent = `❌ ${error.message}. Please try again.`;
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
     }
 }
 

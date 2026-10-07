@@ -643,8 +643,19 @@
                         <span class="section-label">ANALYSIS HISTORY</span>
                         <h2>Recent CART Analysis Runs</h2>
                     </div>
-                    <span class="badge-subtle">Last 10 runs</span>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+                        <span class="badge-subtle">Last 10 runs</span>
+                        <!-- Re-scores every recorded incident and logs the run below.
+                             (The "Run CART Analysis" form on the first tab is a what-if
+                             prediction only - it doesn't change data or add a run.) -->
+                        <button type="button" id="runFullAnalysisBtn" class="btn btn-primary" style="padding: 8px 14px; font-size: 0.78rem;">
+                            <i class="fa-solid fa-arrows-rotate"></i> Run Full Analysis
+                        </button>
+                    </div>
                 </div>
+                <p id="fullAnalysisStatus" style="margin: 10px 0 0; font-size: 0.78rem; color: #64748b;">
+                    Re-analyzes every recorded incident with the CART engine and logs the result here.
+                </p>
 
                 <div class="table-responsive" style="margin-top: 14px;">
                     <table class="data-table" id="analysisHistoryTable">
