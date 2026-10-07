@@ -229,209 +229,225 @@
 
 
         <!-- =====================================================
-             KPI CARDS
+             KPI CARDS - grouped into 3 related strips instead of one
+             flat 8-card grid, so volume/risk/pattern metrics don't
+             blur together. Each strip is its own bordered card (see
+             .kpi-group-grid in dashboard.css) sized to exactly fit
+             its card count (3/3/2) - the .kpi-card cells and their
+             ids/content are unchanged from before, just regrouped.
         ====================================================== -->
-        <section class="kpi-grid">
+        <div class="kpi-group">
+            <span class="dash-section-label">Incident Volume</span>
+            <section class="kpi-group-grid kpi-group-grid--3">
 
-            <div class="kpi-card animated-card">
-                <span class="kpi-label">
-                    Total Incidents
-                </span>
-
-                <div class="kpi-value-wrapper">
-                    <span
-                        class="kpi-value counter"
-                        id="kpi-incidents"
-                    >
-                        0
+                <div class="kpi-card animated-card">
+                    <span class="kpi-label">
+                        Total Incidents
                     </span>
+
+                    <div class="kpi-value-wrapper">
+                        <span
+                            class="kpi-value counter"
+                            id="kpi-incidents"
+                        >
+                            0
+                        </span>
+                    </div>
+
+                    <p
+                        class="kpi-desc"
+                        id="kpi-incidents-desc"
+                    >
+                        Total recorded incidents in database.
+                    </p>
                 </div>
 
-                <p
-                    class="kpi-desc"
-                    id="kpi-incidents-desc"
-                >
-                    Total recorded incidents in database.
-                </p>
-            </div>
+                <div class="kpi-card animated-card">
 
-
-            <div class="kpi-card animated-card">
-
-                <span class="kpi-label">
-                    Latest Incident Today
-                </span>
-
-                <div class="kpi-value-wrapper">
-
-                    <span
-                        class="kpi-value counter"
-                        id="kpi-today-incidents"
-                    >
-                        0
+                    <span class="kpi-label">
+                        Latest Incident Today
                     </span>
 
-                </div>
+                    <div class="kpi-value-wrapper">
 
-                <p class="kpi-desc">
-                    Incidents recorded today.
-                </p>
+                        <span
+                            class="kpi-value counter"
+                            id="kpi-today-incidents"
+                        >
+                            0
+                        </span>
 
-            </div>
+                    </div>
 
-
-            <div class="kpi-card animated-card">
-
-                <span class="kpi-label">
-                    Month Change
-                </span>
-
-                <div class="kpi-value-wrapper">
-
-                    <span
-                        class="kpi-value"
-                        id="kpi-change"
-                    >
-                        0
-                    </span>
+                    <p class="kpi-desc">
+                        Incidents recorded today.
+                    </p>
 
                 </div>
 
-                <p class="kpi-desc">
-                    Compared with previous month.
-                </p>
+                <div class="kpi-card animated-card">
 
-            </div>
-
-
-            <div class="kpi-card animated-card">
-
-                <span class="kpi-label">
-                    Priority Zones
-                </span>
-
-                <div class="kpi-value-wrapper">
-
-                    <span
-                        class="kpi-value counter"
-                        id="kpi-zones"
-                    >
-                        0
+                    <span class="kpi-label">
+                        Month Change
                     </span>
+
+                    <div class="kpi-value-wrapper">
+
+                        <span
+                            class="kpi-value"
+                            id="kpi-change"
+                        >
+                            0
+                        </span>
+
+                    </div>
+
+                    <p class="kpi-desc">
+                        Compared with previous month.
+                    </p>
 
                 </div>
 
-                <p class="kpi-desc">
-                    High-risk locations requiring patrol visibility.
-                </p>
+            </section>
+        </div>
 
-            </div>
+        <div class="kpi-group">
+            <span class="dash-section-label">Risk &amp; Hotspots</span>
+            <section class="kpi-group-grid kpi-group-grid--3">
 
+                <div class="kpi-card animated-card">
 
-            <div class="kpi-card animated-card">
-
-                <span class="kpi-label">
-                    Common Incident
-                </span>
-
-                <div class="kpi-value-wrapper">
-
-                    <span
-                        class="kpi-value text-lg"
-                        id="kpi-common"
-                    >
-                        N/A
+                    <span class="kpi-label">
+                        Priority Zones
                     </span>
+
+                    <div class="kpi-value-wrapper">
+
+                        <span
+                            class="kpi-value counter"
+                            id="kpi-zones"
+                        >
+                            0
+                        </span>
+
+                    </div>
+
+                    <p class="kpi-desc">
+                        High-risk locations requiring patrol visibility.
+                    </p>
 
                 </div>
 
-                <p class="kpi-desc">
-                    Most frequent category.
-                </p>
+                <div class="kpi-card animated-card">
 
-            </div>
-
-
-            <div class="kpi-card animated-card">
-
-                <span class="kpi-label">
-                    Highest-Risk Area
-                </span>
-
-                <div class="kpi-value-wrapper">
-
-                    <span
-                        class="kpi-value text-lg"
-                        id="kpi-area"
-                    >
-                        N/A
+                    <span class="kpi-label">
+                        Streets at Risk
                     </span>
+
+                    <div class="kpi-value-wrapper">
+
+                        <span
+                            class="kpi-value counter"
+                            id="kpi-risk-streets"
+                        >
+                            0
+                        </span>
+
+                    </div>
+
+                    <p
+                        class="kpi-desc"
+                        id="kpi-risk-streets-desc"
+                    >
+                        Streets with at least one Level 3 (high-risk) incident.
+                    </p>
 
                 </div>
 
-                <p class="kpi-desc">
-                    Repeated moderate or high-risk reports.
-                </p>
+                <div class="kpi-card animated-card">
 
-            </div>
-
-
-            <div class="kpi-card animated-card">
-
-                <span class="kpi-label">
-                    Peak Time
-                </span>
-
-                <div class="kpi-value-wrapper">
-
-                    <span
-                        class="kpi-value text-lg"
-                        id="kpi-peak"
-                    >
-                        N/A
+                    <span class="kpi-label">
+                        Highest-Risk Area
                     </span>
+
+                    <div class="kpi-value-wrapper">
+
+                        <span
+                            class="kpi-value text-lg"
+                            id="kpi-area"
+                        >
+                            N/A
+                        </span>
+
+                    </div>
+
+                    <p class="kpi-desc">
+                        Repeated moderate or high-risk reports.
+                    </p>
 
                 </div>
 
-                <p class="kpi-desc">
-                    Most common incident period.
-                </p>
+            </section>
+        </div>
 
-            </div>
+        <div class="kpi-group">
+            <span class="dash-section-label">Patterns</span>
+            <section class="kpi-group-grid kpi-group-grid--2">
 
+                <div class="kpi-card animated-card">
 
-            <div class="kpi-card animated-card">
-
-                <span class="kpi-label">
-                    Streets at Risk
-                </span>
-
-                <div class="kpi-value-wrapper">
-
-                    <span
-                        class="kpi-value counter"
-                        id="kpi-risk-streets"
-                    >
-                        0
+                    <span class="kpi-label">
+                        Common Incident
                     </span>
+
+                    <div class="kpi-value-wrapper">
+
+                        <span
+                            class="kpi-value text-lg"
+                            id="kpi-common"
+                        >
+                            N/A
+                        </span>
+
+                    </div>
+
+                    <p class="kpi-desc">
+                        Most frequent category.
+                    </p>
 
                 </div>
 
-                <p
-                    class="kpi-desc"
-                    id="kpi-risk-streets-desc"
-                >
-                    Streets with at least one Level 3 (high-risk) incident.
-                </p>
+                <div class="kpi-card animated-card">
 
-            </div>
+                    <span class="kpi-label">
+                        Peak Time
+                    </span>
 
-        </section>
+                    <div class="kpi-value-wrapper">
+
+                        <span
+                            class="kpi-value text-lg"
+                            id="kpi-peak"
+                        >
+                            N/A
+                        </span>
+
+                    </div>
+
+                    <p class="kpi-desc">
+                        Most common incident period.
+                    </p>
+
+                </div>
+
+            </section>
+        </div>
 
 
         <!-- =====================================================
              ANALYTICS ROW 1
         ====================================================== -->
+        <span class="dash-section-label dash-section-label--spaced">Crime Breakdown</span>
         <section class="charts-grid">
 
             <!-- BAR -->
@@ -551,6 +567,7 @@
         <!-- =====================================================
              ANALYTICS ROW 2
         ====================================================== -->
+        <span class="dash-section-label dash-section-label--spaced">Trends Over Time</span>
         <section class="charts-grid">
 
             <!-- LINE -->
@@ -628,6 +645,7 @@
         <!-- =====================================================
              TABLE + HOTSPOTS
         ====================================================== -->
+        <span class="dash-section-label dash-section-label--spaced">Recent Activity</span>
         <section class="data-grid">
 
             <!-- INCIDENT TABLE -->

@@ -800,6 +800,74 @@ body {
 
 
 /* ============================================================
+   DASHBOARD SECTION LABELS / KPI GROUPS
+   Splits the KPI strip into 3 related groups (Incident Volume /
+   Risk & Hotspots / Patterns) and labels the chart/table sections
+   below them, instead of one flat unlabeled wall of cards. Reuses
+   .kpi-card for each cell's own padding/typography, but needs its
+   own border-divider rules below since .kpi-grid/.kpi-card (also
+   used as-is on grid-heatmap.html and incident-view.html) assume a
+   fixed 4-column/2-row shape that these smaller groups don't match.
+============================================================ */
+.dash-section-label {
+    display: block;
+
+    font-size: 0.68rem;
+
+    font-weight: 800;
+
+    letter-spacing: 1px;
+
+    color: var(--accent-blue);
+
+    text-transform: uppercase;
+
+    margin: 0 0 8px 2px;
+}
+
+.dash-section-label--spaced {
+    margin-top: 28px;
+}
+
+.kpi-group {
+    margin-bottom: 20px;
+}
+
+.kpi-group-grid {
+    display: grid;
+
+    flex-shrink: 0;
+
+    background: var(--bg-card);
+
+    border: 1px solid var(--border-card);
+
+    border-radius: var(--radius-lg);
+
+    box-shadow: var(--shadow-sm);
+
+    overflow: hidden;
+}
+
+.kpi-group-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.kpi-group-grid--2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.kpi-group-grid .kpi-card {
+    border-bottom: none;
+    border-right: 1px solid var(--sidebar-border);
+}
+
+.kpi-group-grid .kpi-card:last-child {
+    border-right: none;
+}
+
+
+/* ============================================================
    KPI CARD
 ============================================================ */
 
@@ -1678,7 +1746,9 @@ body {
         width: 250px;
     }
 
-    .kpi-grid {
+    .kpi-grid,
+    .kpi-group-grid--3,
+    .kpi-group-grid--2 {
         grid-template-columns:
             repeat(2, 1fr);
     }
@@ -1761,8 +1831,19 @@ body {
         padding: 16px;
     }
 
-    .kpi-grid {
+    .kpi-grid,
+    .kpi-group-grid--3,
+    .kpi-group-grid--2 {
         grid-template-columns: 1fr;
+    }
+
+    .kpi-group-grid .kpi-card {
+        border-right: none;
+        border-bottom: 1px solid var(--sidebar-border);
+    }
+
+    .kpi-group-grid .kpi-card:last-child {
+        border-bottom: none;
     }
 
     .analytics-summary-grid {
