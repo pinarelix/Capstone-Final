@@ -592,6 +592,47 @@ textarea.form-control {
     margin-right: 8px;
 }
 
+/* Patrol Schedules: status filter + count, right side of the header */
+.schedule-header-tools {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.schedule-filter-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.schedule-status-filter {
+    padding: 6px 32px 6px 12px;
+    font-size: 0.8rem;
+    min-width: 130px;
+}
+
+/* Group divider rows (Active / Completed / Cancelled) in the schedules table */
+.schedule-group-row td {
+    background: #f1f5f9;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #334155;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.schedule-group-row .schedule-group-count {
+    margin-left: 6px;
+    font-weight: 600;
+    color: #64748b;
+}
+
 /* ============================================================
    RESPONSIVE
 ============================================================ */

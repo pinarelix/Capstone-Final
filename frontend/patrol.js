@@ -97,6 +97,15 @@ document.addEventListener("DOMContentLoaded", function () {
     startLivePolling(refreshPatrolLogsOnly, 15000);
     startLivePolling(refreshSchedulesOnly, 15000);
     startLivePolling(refreshRecommendationsOnly, 15000);
+
+    const scheduleStatusFilter = document.getElementById('scheduleStatusFilter');
+    if (scheduleStatusFilter) {
+        scheduleStatusFilter.addEventListener('change', () => {
+            schedulePage = 1;
+            renderSchedules(allSchedules);
+            updateCounts();
+        });
+    }
     
     const monthSelect = document.getElementById('monthSelect');
     if (monthSelect) {
@@ -1191,27 +1200,59 @@ function renderIncidentTypeBadges(location, maxShown = 2) {
     return `<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px;">${badges}${moreBadge}</div>`;
 }
 
+// Active schedules first, then Completed, then Cancelled - each group in
+// weekday then start-time order - narrowed by the Status dropdown.
+const SCHEDULE_STATUS_ORDER = { Active: 0, Completed: 1, Cancelled: 2 };
+const WEEKDAY_ORDER = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
+
+function getVisibleSchedules(schedules) {
+    const filter = document.getElementById('scheduleStatusFilter')?.value || '';
+    return (schedules || [])
+        .filter(s => !filter || (s.status || 'Active') === filter)
+        .sort((a, b) =>
+            ((SCHEDULE_STATUS_ORDER[a.status || 'Active'] ?? 3) - (SCHEDULE_STATUS_ORDER[b.status || 'Active'] ?? 3)) ||
+            ((WEEKDAY_ORDER[a.day_of_week] ?? 7) - (WEEKDAY_ORDER[b.day_of_week] ?? 7)) ||
+            String(a.start_time || '').localeCompare(String(b.start_time || '')) ||
+            (a.id - b.id)
+        );
+}
+
 function renderSchedules(schedules) {
     const tbody = document.getElementById('scheduleTableBody');
     if (!tbody) return;
 
-    if (!schedules || schedules.length === 0) {
-        tbody.innerHTML = emptyTableRow(8, 'fa-calendar-times', 'No patrol schedules found.');
+    const visible = getVisibleSchedules(schedules);
+
+    if (visible.length === 0) {
+        const filter = document.getElementById('scheduleStatusFilter')?.value;
+        tbody.innerHTML = emptyTableRow(8, 'fa-calendar-times', filter ? `No ${filter.toLowerCase()} patrol schedules.` : 'No patrol schedules found.');
         document.getElementById('schedulePaginationControls').innerHTML = '';
         return;
     }
 
     const { pageItems } = renderPaginatedTable(
-        schedules, schedulePage, 'schedulePaginationControls',
+        visible, schedulePage, 'schedulePaginationControls',
         (p) => { schedulePage = p; renderSchedules(allSchedules); }
     );
 
+    const groupCounts = {};
+    visible.forEach(s => { const st = s.status || 'Active'; groupCounts[st] = (groupCounts[st] || 0) + 1; });
+    const groupIcons = { Active: 'fa-person-walking', Completed: 'fa-circle-check', Cancelled: 'fa-ban' };
+
+    // A divider row starts each status group (and repeats at the top of a
+    // page that continues a group), so Active and Completed never blend.
+    let previousStatus = null;
     tbody.innerHTML = pageItems.map(schedule => {
+        const status = schedule.status || 'Active';
+        const groupRow = status !== previousStatus
+            ? `<tr class="schedule-group-row"><td colspan="8"><i class="fa-solid ${groupIcons[status] || 'fa-list'}"></i> ${escapeHTML(status)} schedules<span class="schedule-group-count">(${groupCounts[status]})</span></td></tr>`
+            : '';
+        previousStatus = status;
         const statusClass = schedule.status === 'Active' ? 'badge-open' :
                            schedule.status === 'Completed' ? 'badge-resolved' : 'badge-monitoring';
         const timeDisplay = `${schedule.start_time ? schedule.start_time.substring(0,5) : 'N/A'} - ${schedule.end_time ? schedule.end_time.substring(0,5) : 'N/A'}`;
 
-        return `
+        return groupRow + `
             <tr>
                 <td class="font-bold">${schedule.id}</td>
                 <td>${escapeHTML(schedule.location)}</td>
@@ -1538,7 +1579,11 @@ function updateCounts() {
     const logCount = document.getElementById('logCount');
 
     if (scheduleCount) {
-        scheduleCount.textContent = `${allSchedules ? allSchedules.length : 0} schedules`;
+        const total = allSchedules ? allSchedules.length : 0;
+        const filter = document.getElementById('scheduleStatusFilter')?.value;
+        scheduleCount.textContent = filter
+            ? `${getVisibleSchedules(allSchedules).length} of ${total} schedules`
+            : `${total} schedules`;
     }
 
     if (logCount) {

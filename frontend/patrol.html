@@ -293,7 +293,16 @@
                 <div class="patrol-table-card">
                     <div class="table-header">
                         <h3><i class="fa-solid fa-list"></i> Patrol Schedules</h3>
-                        <span class="badge-subtle" id="scheduleCount">0 schedules</span>
+                        <div class="schedule-header-tools">
+                            <label for="scheduleStatusFilter" class="schedule-filter-label">Status</label>
+                            <select id="scheduleStatusFilter" class="form-select schedule-status-filter">
+                                <option value="">All</option>
+                                <option value="Active">Active</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                            <span class="badge-subtle" id="scheduleCount">0 schedules</span>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="data-table">
