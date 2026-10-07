@@ -464,7 +464,9 @@ async function loadIncidents() {
     }
 
     try {
-        const params = new URLSearchParams({ page: currentPage, limit: incidentsPerPage });
+        // include_resolved: closed cases stay listed here too, so they can
+        // still be opened (and reopened by an admin) after resolution.
+        const params = new URLSearchParams({ page: currentPage, limit: incidentsPerPage, include_resolved: '1' });
 
         const searchVal = document.getElementById('searchInput')?.value.trim();
         const typeVal = document.getElementById('filterType')?.value;
