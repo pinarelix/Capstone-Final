@@ -339,9 +339,13 @@ const resetPasswordSchema = Joi.object({
 });
 
 // Tanod Schema
+// The only ranks offered in Users > Tanod Records. "Tanod" and "Desk
+// Officer" were retired; older records keep them until next edited.
+const TANOD_POSITIONS = ['Dispatcher', 'Team Leader', 'Assistant Team Leader', 'Head Tanod / EXO'];
+
 const tanodSchema = Joi.object({
     name: Joi.string().required(),
-    position: Joi.string().allow('', null),
+    position: Joi.string().valid(...TANOD_POSITIONS).required(),
     contact_no: Joi.string().allow('', null),
     username: Joi.string().min(3).required(),
     // Optional here (not required) so PUT can omit it to leave the PIN
@@ -2792,7 +2796,7 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
                 UPDATE tanod_record
                 SET name = ?, position = ?, contact_no = ?, pin_code_hash = ?, team_id = ?, is_active = 1
                 WHERE id = ?
-            `, [name, position || 'Tanod', contact_no || null, pinHash, team_id || null, existing[0].id]);
+            `, [name, position, contact_no || null, pinHash, team_id || null, existing[0].id]);
             result = { insertId: existing[0].id };
         } else {
             [result] = await pool.query(`
@@ -2801,7 +2805,7 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
                 VALUES (?, ?, ?, ?, ?, ?)
             `, [
                 name,
-                position || 'Tanod',
+                position,
                 contact_no || null,
                 username,
                 pinHash,
@@ -2870,7 +2874,7 @@ app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
                 username = ?, pin_code_hash = ?, is_active = ?, team_id = ?
             WHERE id = ?
         `, [
-            name, position || 'Tanod', contact_no || null,
+            name, position, contact_no || null,
             username, pinHash,
             // is_active isn't part of this form's payload today, so it was
             // never actually sent - but defaulting to 1 here meant every

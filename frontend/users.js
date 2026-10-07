@@ -189,7 +189,10 @@ async function loadTanods() {
    GET POSITION BADGE CLASS & ICON
 ============================================================ */
 
-// Exact-match table for the 6 fixed ranks in the Position dropdown -
+// Exact-match table for the ranks in the Position dropdown (Dispatcher,
+// Team Leader, Assistant Team Leader, Head Tanod / EXO). "Desk Officer"
+// and "Tanod" are no longer offered but stay here so older records
+// still render with a proper badge -
 // previously a keyword guess (pos.includes('head')/'deputy'/etc.) since
 // Position used to be free text; now it's a closed dropdown so every
 // value is known up front and can get its own badge instead of being
@@ -502,6 +505,11 @@ async function addTanod() {
         return;
     }
 
+    if (!position) {
+        showToast('Please select a position.', 'error');
+        return;
+    }
+
     if (!id && !pin_code) {
         showToast('Please set a 4-digit PIN for this tanod.', 'error');
         return;
@@ -562,7 +570,10 @@ window.editTanod = async function(id) {
 
         document.getElementById('editTanodId').value = tanod.id;
         document.getElementById('tanodName').value = tanod.name;
-        document.getElementById('tanodPosition').value = tanod.position || 'Tanod';
+        // Records saved under a retired position (old "Tanod"/"Desk
+        // Officer") match no option, so the select falls back to the
+        // "Select position" placeholder and a current one must be picked.
+        document.getElementById('tanodPosition').value = tanod.position || '';
         document.getElementById('tanodContact').value = tanod.contact_no || '';
         document.getElementById('tanodTeam').value = tanod.team_id || '';
         document.getElementById('tanodUsername').value = tanod.username || '';
