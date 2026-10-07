@@ -874,6 +874,15 @@ function setupForm() {
 
     const evidenceInput = document.getElementById('incidentEvidenceInput');
     evidenceInput?.addEventListener('change', () => {
+        const fileCount = document.getElementById('evidenceFileCount');
+        if (fileCount) {
+            fileCount.textContent = evidenceInput.files.length === 0
+                ? 'No file chosen'
+                : evidenceInput.files.length === 1
+                    ? evidenceInput.files[0].name
+                    : `${evidenceInput.files.length} files selected`;
+        }
+
         renderEvidencePreview(Array.from(evidenceInput.files).map(f => ({
             isNewFile: true,
             name: f.name,
@@ -982,6 +991,11 @@ function clearForm() {
     const evidencePreview = document.getElementById('evidencePreviewList');
     if (evidencePreview) evidencePreview.innerHTML = '';
     currentExistingEvidence = [];
+
+    // form.reset() above clears the file input's value but doesn't fire
+    // its 'change' event, so the custom count label needs resetting too.
+    const fileCount = document.getElementById('evidenceFileCount');
+    if (fileCount) fileCount.textContent = 'No file chosen';
 
     if (marker) {
         mapPicker.removeLayer(marker);
