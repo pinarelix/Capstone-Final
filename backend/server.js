@@ -233,21 +233,28 @@ async function testConnection() {
         WHERE tanod_record.team_id IS NOT NULL AND tanod_teams.id IS NULL
     `);
 
-    try {
-        // A named constraint so repeat runs can detect "already added"
-        // the same way the column add above does, instead of an
-        // unnamed FK piling up a fresh duplicate on every restart.
-        // Previously this was deliberately left DB-unenforced and
-        // cleaned up manually in DELETE /api/tanod-teams/:id - this
-        // keeps that same ON DELETE SET NULL behavior but makes the
-        // database itself guarantee it too.
+    // A named constraint so repeat runs can detect "already added"
+    // instead of an unnamed FK piling up a fresh duplicate on every
+    // restart. Previously this was deliberately left DB-unenforced and
+    // cleaned up manually in DELETE /api/tanod-teams/:id - this keeps
+    // that same ON DELETE SET NULL behavior but makes the database
+    // itself guarantee it too. Checked via information_schema rather
+    // than by catching the duplicate error, because MySQL 8 reports it
+    // as ER_FK_DUP_NAME (1826) but MariaDB/XAMPP reports a generic
+    // ER_CANT_CREATE_TABLE (1005, errno 121), which crashed startup.
+    const [existingFk] = await pool.query(`
+        SELECT 1 FROM information_schema.TABLE_CONSTRAINTS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'tanod_record'
+          AND CONSTRAINT_NAME = 'fk_tanod_record_team'
+          AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+    `);
+    if (existingFk.length === 0) {
         await pool.query(`
             ALTER TABLE tanod_record
             ADD CONSTRAINT fk_tanod_record_team
             FOREIGN KEY (team_id) REFERENCES tanod_teams(id) ON DELETE SET NULL
         `);
-    } catch (err) {
-        if (err.code !== 'ER_FK_DUP_NAME' && err.errno !== 1826) throw err;
     }
 }
 
