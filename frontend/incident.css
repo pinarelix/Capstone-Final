@@ -130,6 +130,11 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    /* Anchors the visually-hidden file input below. Without it the input
+       is positioned against <body>, lands below the window, and clicking
+       "Choose Files" focuses it - the browser scrolls the (overflow:hidden)
+       page down to it and leaves a white band you can't scroll away. */
+    position: relative;
 }
 
 .evidence-upload-btn {
@@ -215,6 +220,31 @@
 .evidence-item-pending i {
     font-size: 1.4rem;
     color: #94a3b8;
+}
+
+/* Picked image not uploaded yet: show the actual picture, edge to edge */
+.evidence-item-pending.has-thumb {
+    padding: 0;
+    border-style: dashed;
+    border-color: #0ea5e9;
+}
+
+.evidence-item-pending .evidence-remove-btn i {
+    font-size: 11px;
+    color: #fff;
+}
+
+.evidence-new-tag {
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #0ea5e9;
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
 }
 
 .evidence-pending-name {

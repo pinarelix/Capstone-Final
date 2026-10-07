@@ -898,20 +898,8 @@ Open the incident with Edit to attach the evidence again.`);
 
     const evidenceInput = document.getElementById('incidentEvidenceInput');
     evidenceInput?.addEventListener('change', () => {
-        const fileCount = document.getElementById('evidenceFileCount');
-        if (fileCount) {
-            fileCount.textContent = evidenceInput.files.length === 0
-                ? 'No file chosen'
-                : evidenceInput.files.length === 1
-                    ? evidenceInput.files[0].name
-                    : `${evidenceInput.files.length} files selected`;
-        }
-
-        renderEvidencePreview(Array.from(evidenceInput.files).map(f => ({
-            isNewFile: true,
-            name: f.name,
-            isVideo: f.type.startsWith('video/')
-        })), currentExistingEvidence, document.getElementById('editIndex').value);
+        updateEvidenceFileCount();
+        renderEvidencePreview(Array.from(evidenceInput.files), currentExistingEvidence, document.getElementById('editIndex').value);
     });
 }
 
@@ -980,15 +968,69 @@ function renderEvidencePreview(pendingFiles, existingEvidence, incidentId) {
         </div>
     `).join('');
 
-    const pendingHtml = pendingFiles.map(f => `
-        <div class="evidence-item evidence-item-pending" title="Will be uploaded when you save">
-            <i class="fa-solid ${f.isVideo ? 'fa-file-video' : 'fa-file-image'}"></i>
-            <span class="evidence-pending-name">${escapeHTML(f.name)}</span>
-        </div>
-    `).join('');
+    // Free the previous render's local previews before making new ones.
+    pendingPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    pendingPreviewUrls = [];
+
+    const pendingHtml = pendingFiles.map((f, index) => {
+        const isImage = f.type && f.type.startsWith('image/');
+        let preview;
+        if (isImage) {
+            const url = URL.createObjectURL(f);
+            pendingPreviewUrls.push(url);
+            preview = `<img src="${url}" alt="${escapeHTML(f.name)}">`;
+        } else {
+            preview = `<i class="fa-solid fa-file-video"></i><span class="evidence-pending-name">${escapeHTML(f.name)}</span>`;
+        }
+        return `
+            <div class="evidence-item evidence-item-pending${isImage ? ' has-thumb' : ''}" title="${escapeHTML(f.name)} - will be uploaded when you save">
+                ${preview}
+                <span class="evidence-new-tag">New</span>
+                <button type="button" class="evidence-remove-btn" onclick="removePendingEvidence(${index})" title="Remove">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
 
     container.innerHTML = existingHtml + pendingHtml;
 }
+
+// Object URLs for the current pending-file thumbnails (revoked on re-render).
+let pendingPreviewUrls = [];
+
+function updateEvidenceFileCount() {
+    const input = document.getElementById('incidentEvidenceInput');
+    const fileCount = document.getElementById('evidenceFileCount');
+    if (!input || !fileCount) return;
+    fileCount.textContent = input.files.length === 0
+        ? 'No file chosen'
+        : input.files.length === 1
+            ? input.files[0].name
+            : `${input.files.length} files selected`;
+}
+
+// Drops one not-yet-uploaded file. A FileList is read-only, so the input's
+// files are rebuilt through a DataTransfer without that entry.
+function removePendingEvidence(index) {
+    const input = document.getElementById('incidentEvidenceInput');
+    if (!input) return;
+    const dt = new DataTransfer();
+    Array.from(input.files).forEach((file, i) => { if (i !== index) dt.items.add(file); });
+    input.files = dt.files;
+    updateEvidenceFileCount();
+    renderEvidencePreview(Array.from(input.files), currentExistingEvidence, document.getElementById('editIndex').value);
+}
+
+// Clears any picked-but-unsaved files (e.g. left over from the New
+// Incident form) so they can't get uploaded to a different incident.
+function resetPendingEvidence() {
+    const input = document.getElementById('incidentEvidenceInput');
+    if (input) input.value = '';
+    updateEvidenceFileCount();
+}
+
+window.removePendingEvidence = removePendingEvidence;
 
 window.deleteEvidenceFile = deleteEvidenceFile;
 
@@ -1136,6 +1178,8 @@ window.editIncident = async (id) => {
 
         // Evidence isn't in the list payload (only the single-incident
         // detail route joins it) - fetch it separately for the preview.
+        resetPendingEvidence();
+        renderEvidencePreview([], [], id);
         try {
             await ensureFileToken();
             const detailResponse = await apiFetch(`/incidents/${id}`);
