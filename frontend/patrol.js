@@ -952,6 +952,7 @@ function applyRecommendationToScheduleForm(idx) {
     document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
     document.getElementById('scheduleFormCard')?.classList.remove('edit-modal-mode');
+    dockScheduleFormCard();
 
     const locationSelect = document.getElementById('scheduleLocation');
     if ([...locationSelect.options].some(opt => opt.value === rec.area)) {
@@ -1111,6 +1112,30 @@ function resetScheduleFormState() {
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
     resetScheduleMapPicker();
     document.getElementById('scheduleFormCard')?.classList.remove('edit-modal-mode');
+    dockScheduleFormCard();
+}
+
+// The schedules table lives in its own "Patrol Schedules" tab, but the
+// Add/Edit form card lives in the "Schedules" tab. A fixed-position popup
+// still disappears while its tab is display:none, so for editing the card
+// is moved to <body> and put back in its tab spot when the popup closes.
+let scheduleFormCardHome = null;
+
+function undockScheduleFormCard() {
+    const card = document.getElementById('scheduleFormCard');
+    if (!card || card.parentNode === document.body) return;
+    if (!scheduleFormCardHome) {
+        scheduleFormCardHome = document.createComment('scheduleFormCard home');
+    }
+    card.parentNode.insertBefore(scheduleFormCardHome, card);
+    document.body.appendChild(card);
+}
+
+function dockScheduleFormCard() {
+    const card = document.getElementById('scheduleFormCard');
+    if (!card || !scheduleFormCardHome || !scheduleFormCardHome.parentNode) return;
+    scheduleFormCardHome.parentNode.insertBefore(card, scheduleFormCardHome);
+    scheduleFormCardHome.remove();
 }
 
 // Pops the Add/Edit Patrol Schedule form card up as a centered modal
@@ -1120,6 +1145,7 @@ function resetScheduleFormState() {
 function openScheduleModal() {
     const card = document.getElementById('scheduleFormCard');
     if (!card) return;
+    undockScheduleFormCard();
     card.classList.add('edit-modal-mode');
     if (scheduleMapPicker) {
         setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
@@ -1286,6 +1312,12 @@ window.editSchedule = async function(id) {
         document.getElementById('scheduleStatus').value = schedule.status || 'Active';
         document.getElementById('scheduleReason').value = schedule.reason || '';
 
+        // Show the popup first: the map picker can only be created (or
+        // measured) once its container is visible - and when editing from
+        // the Patrol Schedules tab the Schedules tab may never have opened.
+        openScheduleModal();
+        if (!scheduleMapPicker) initScheduleMapPicker();
+
         if (scheduleMapPicker) {
             if (schedule.latitude != null && schedule.longitude != null) {
                 document.getElementById('scheduleLat').value = schedule.latitude;
@@ -1301,8 +1333,6 @@ window.editSchedule = async function(id) {
 
         document.getElementById('scheduleFormTitle').textContent = 'Edit Patrol Schedule';
         document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update Schedule';
-
-        openScheduleModal();
     } catch (error) {
         console.error('Error fetching schedule:', error);
         showToast('Failed to load schedule details.', 'error');

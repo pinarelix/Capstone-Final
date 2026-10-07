@@ -106,6 +106,9 @@
                 <button class="patrol-tab" data-tab="schedules">
                     <i class="fa-solid fa-calendar-check"></i> Schedules
                 </button>
+                <button class="patrol-tab" data-tab="schedule-list">
+                    <i class="fa-solid fa-list"></i> Patrol Schedules
+                </button>
                 <button class="patrol-tab" data-tab="logs">
                     <i class="fa-solid fa-clipboard-list"></i> Patrol Logs
                 </button>
@@ -289,6 +292,14 @@
                     </div>
                 </div>
 
+            </div>
+
+            <!-- =====================================================
+                 TAB 3: PATROL SCHEDULES (table only - add/suggest lives
+                 in the Schedules tab; Update opens the form as a popup)
+            ====================================================== -->
+            <div id="tab-schedule-list" class="patrol-tab-content">
+
                 <!-- Schedules Table -->
                 <div class="patrol-table-card">
                     <div class="table-header">
@@ -331,7 +342,7 @@
             </div>
 
             <!-- =====================================================
-                 TAB 3: PATROL LOGS
+                 TAB 4: PATROL LOGS
             ====================================================== -->
             <div id="tab-logs" class="patrol-tab-content">
 
