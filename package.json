@@ -2,10 +2,11 @@
   "name": "barangay179-crime-bi",
   "version": "1.0.0",
   "description": "Barangay 179 Crime Intelligence and Patrol Decision Support System",
+  "author": "Barangay 179 Crime BI Capstone Team",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder --win --x64"
   },
   "type": "commonjs",
   "devDependencies": {
@@ -15,17 +16,47 @@
   "build": {
     "appId": "com.barangay179.crimebi",
     "productName": "Barangay 179 Crime BI",
+    "copyright": "Barangay 179 Crime BI Capstone Team",
     "asar": false,
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "main.js",
       "package.json",
       "backend/**/*",
       "frontend/**/*",
       "!backend/.env",
-      "!backend/*.log"
+      "!backend/*.log",
+      "!backend/uploads/**",
+      "!backend/tests/**",
+      "!backend/jest.config.js"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/node_modules",
+        "to": "app/backend/node_modules",
+        "filter": [
+          "**/*",
+          "!.bin",
+          "!.cache"
+        ]
+      }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "frontend/icons/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Barangay 179 Crime BI",
+      "uninstallDisplayName": "Barangay 179 Crime BI",
+      "artifactName": "Barangay179-CrimeBI-Setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": false
     }
   },
   "allowScripts": {

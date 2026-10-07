@@ -229,7 +229,22 @@ npm test
 npm run build
 ```
 
-Produces a Windows installer via `electron-builder`, output to `dist/`.
+Produces `dist/Barangay179-CrimeBI-Setup-<version>.exe` via `electron-builder`. Run it from a plain terminal (not one where `ELECTRON_RUN_AS_NODE` is set).
+
+> **First build on Windows fails with "Cannot create symbolic link"?** electron-builder's `winCodeSign` download contains two macOS symlinks that Windows won't create without admin rights. Extract it once by hand, ignoring those two errors, then rebuild:
+> ```powershell
+> $c = "$env:LOCALAPPDATA\electron-builder\Cache\winCodeSign"
+> $a = Get-ChildItem "$c\*.7z" | Select-Object -First 1
+> & .\node_modules\7zip-bin\win\x64\7za.exe x -y $a.FullName "-o$c\winCodeSign-2.6.0"
+> ```
+
+### Installing the desktop app
+
+1. MySQL 8.0 must be running with the `brgydata` database imported (`database/schema.sql`).
+2. Run `Barangay179-CrimeBI-Setup-<version>.exe` and open **Barangay 179 Crime BI** from the desktop or Start Menu.
+3. On first launch the app creates `%APPDATA%\Barangay 179 Crime BI\.env` and asks for the MySQL root password — put it after `DB_PASSWORD=`, save, and open the app again.
+
+The installed app keeps its settings and all uploaded photos/evidence in `%APPDATA%\Barangay 179 Crime BI\` (not the install folder), so reinstalling or updating doesn't lose them. Running from source (`npm start`) still uses `backend/.env` and `backend/uploads/`.
 
 ---
 

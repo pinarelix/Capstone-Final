@@ -12,7 +12,13 @@ const nodemailer = require('nodemailer');
 const cartEngine = require('./cart-engine');
 const { BARANGAY_LOCATIONS } = require('./locationList');
 
-dotenv.config({ path: path.join(__dirname, '.env') });
+// The installed desktop app passes APP_CONFIG_PATH/UPLOADS_DIR (see
+// main.js) so settings and uploaded files live in the user's AppData
+// folder - the install folder gets wiped on every reinstall/uninstall.
+// Running from source (npm start / node server.js) keeps using
+// backend/.env and backend/uploads as before.
+dotenv.config({ path: process.env.APP_CONFIG_PATH || path.join(__dirname, '.env') });
+const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,7 +60,7 @@ app.use(express.static(path.join(__dirname, '..', 'frontend')));
 // Kept outside frontend/ (source assets) and out of git (see
 // .gitignore) — this is user-uploaded content, not part of the app.
 // ============================================================
-const AVATAR_DIR = path.join(__dirname, 'uploads', 'tanod-avatars');
+const AVATAR_DIR = path.join(UPLOADS_ROOT, 'tanod-avatars');
 fs.mkdirSync(AVATAR_DIR, { recursive: true });
 
 // Gated by a short-lived file token (?ftoken=...) instead of being a
@@ -67,7 +73,7 @@ app.use('/uploads', (req, res, next) => {
         return res.status(401).json({ error: 'Unauthorized: missing or expired file token' });
     }
     next();
-}, express.static(path.join(__dirname, 'uploads')));
+}, express.static(UPLOADS_ROOT));
 
 const avatarUpload = multer({
     storage: multer.diskStorage({
@@ -87,7 +93,7 @@ const avatarUpload = multer({
 // ============================================================
 // UPLOADS (incident report photo evidence, tanod field reports)
 // ============================================================
-const INCIDENT_PHOTO_DIR = path.join(__dirname, 'uploads', 'incident-photos');
+const INCIDENT_PHOTO_DIR = path.join(UPLOADS_ROOT, 'incident-photos');
 fs.mkdirSync(INCIDENT_PHOTO_DIR, { recursive: true });
 
 const incidentPhotoUpload = multer({
@@ -108,7 +114,7 @@ const incidentPhotoUpload = multer({
 // ============================================================
 // UPLOADS (incident evidence - admin-attached images/videos)
 // ============================================================
-const INCIDENT_EVIDENCE_DIR = path.join(__dirname, 'uploads', 'incident-evidence');
+const INCIDENT_EVIDENCE_DIR = path.join(UPLOADS_ROOT, 'incident-evidence');
 fs.mkdirSync(INCIDENT_EVIDENCE_DIR, { recursive: true });
 
 const EVIDENCE_MIME_EXT = {
@@ -3076,7 +3082,7 @@ app.post('/api/tanod/profile-picture', authenticateTanod, runMulterMiddleware(av
         // Best-effort cleanup of the old file - a failed unlink here (e.g.
         // it's already gone) shouldn't fail the upload that just succeeded.
         if (previous?.profile_picture) {
-            fs.unlink(path.join(__dirname, 'uploads', previous.profile_picture), () => {});
+            fs.unlink(path.join(UPLOADS_ROOT, previous.profile_picture), () => {});
         }
 
         await logTanodAudit(req.tanodId, 'TANOD_UPDATE_PROFILE_PICTURE', 'tanod_record', req.tanodId, null, req);
