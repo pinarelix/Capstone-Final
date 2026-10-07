@@ -213,7 +213,41 @@ document.addEventListener("DOMContentLoaded", () => {
     // 🔥 STEP 5: Setup logout button
     // ============================================================
     setupLogoutButton();
+
+    // ============================================================
+    // TABS: Overview / Analytics
+    // ============================================================
+    setupTabs();
 });
+
+/* ============================================================
+   TABS: Overview / Analytics
+============================================================ */
+
+function setupTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', function () {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+
+            this.classList.add('active');
+            const tabId = this.getAttribute('data-tab');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+
+            // The charts render while their canvases are still
+            // display:none (0-size to Chart.js) if this is the first
+            // visit to this tab - force each one to recalculate now
+            // that switching here has made its container visible.
+            if (tabId === 'analytics') {
+                [incidentTypesChart, dangerLevelChart, crimeTrendChart, peakHoursChart]
+                    .forEach(chart => chart?.resize());
+            }
+        });
+    });
+}
 
 /* ============================================================
    HELPER: DATE / TIME FORMATTING

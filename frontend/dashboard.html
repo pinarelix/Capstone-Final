@@ -30,6 +30,61 @@
         body.role-admin #logoutBtn {
             display: none !important;
         }
+
+        /* ============================================================
+           TABS (Overview / Analytics)
+        ============================================================ */
+        .tab-navigation {
+            display: flex;
+            gap: 4px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #94a3b8;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(15, 23, 42, 0.05);
+            color: #0f172a;
+        }
+
+        .tab-btn.active {
+            background: #0f172a;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 
@@ -227,6 +282,19 @@
 
         </header>
 
+        <!-- =====================================================
+             TABS: Overview / Analytics
+        ====================================================== -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="overview">
+                <i class="fa-solid fa-gauge-high"></i> Overview
+            </button>
+            <button class="tab-btn" data-tab="analytics">
+                <i class="fa-solid fa-chart-line"></i> Analytics
+            </button>
+        </div>
+
+        <div id="tab-overview" class="tab-content active">
 
         <!-- =====================================================
              KPI CARDS - grouped into 3 related strips instead of one
@@ -443,6 +511,98 @@
             </section>
         </div>
 
+        <!-- =====================================================
+             TABLE + HOTSPOTS
+        ====================================================== -->
+        <span class="dash-section-label dash-section-label--spaced">Recent Activity</span>
+        <section class="data-grid">
+
+            <!-- INCIDENT TABLE -->
+            <div class="data-card card">
+
+                <div class="card-title-bar">
+
+                    <div>
+                        <span class="chart-kicker">
+                            RECORDS
+                        </span>
+
+                        <h2>
+                            Recent Incident Table
+                        </h2>
+                    </div>
+
+                    <span
+                        class="badge-subtle"
+                    >
+                        Latest Records
+                    </span>
+
+                </div>
+
+                <div class="table-responsive">
+
+                    <table class="data-table">
+
+                        <thead>
+
+                        <tr>
+                            <th>INCIDENT ID</th>
+                            <th>TYPE</th>
+                            <th>DATE / TIME</th>
+                            <th>LOCATION</th>
+                            <th>STATUS</th>
+                            <th>DANGER LEVEL</th>
+                        </tr>
+
+                        </thead>
+
+                        <tbody id="incidentTableBody">
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+
+            <!-- HOTSPOTS -->
+            <div class="data-card card">
+
+                <div class="card-title-bar">
+
+                    <div>
+                        <span class="chart-kicker">
+                            RISK MAPPING
+                        </span>
+
+                        <h2>
+                            Top Hotspot Areas
+                        </h2>
+                    </div>
+
+                    <span
+                        class="badge-subtle"
+                    >
+                        By Danger Level
+                    </span>
+
+                </div>
+
+                <div
+                    class="hotspot-list"
+                    id="hotspotList"
+                >
+                </div>
+
+            </div>
+
+        </section>
+
+        </div><!-- /tab-overview -->
+
+        <div id="tab-analytics" class="tab-content">
 
         <!-- =====================================================
              ANALYTICS ROW 1
@@ -641,95 +801,7 @@
 
         </section>
 
-
-        <!-- =====================================================
-             TABLE + HOTSPOTS
-        ====================================================== -->
-        <span class="dash-section-label dash-section-label--spaced">Recent Activity</span>
-        <section class="data-grid">
-
-            <!-- INCIDENT TABLE -->
-            <div class="data-card card">
-
-                <div class="card-title-bar">
-
-                    <div>
-                        <span class="chart-kicker">
-                            RECORDS
-                        </span>
-
-                        <h2>
-                            Recent Incident Table
-                        </h2>
-                    </div>
-
-                    <span
-                        class="badge-subtle"
-                    >
-                        Latest Records
-                    </span>
-
-                </div>
-
-                <div class="table-responsive">
-
-                    <table class="data-table">
-
-                        <thead>
-
-                        <tr>
-                            <th>INCIDENT ID</th>
-                            <th>TYPE</th>
-                            <th>DATE / TIME</th>
-                            <th>LOCATION</th>
-                            <th>STATUS</th>
-                            <th>DANGER LEVEL</th>
-                        </tr>
-
-                        </thead>
-
-                        <tbody id="incidentTableBody">
-                        </tbody>
-
-                    </table>
-
-                </div>
-
-            </div>
-
-
-            <!-- HOTSPOTS -->
-            <div class="data-card card">
-
-                <div class="card-title-bar">
-
-                    <div>
-                        <span class="chart-kicker">
-                            RISK MAPPING
-                        </span>
-
-                        <h2>
-                            Top Hotspot Areas
-                        </h2>
-                    </div>
-
-                    <span
-                        class="badge-subtle"
-                    >
-                        By Danger Level
-                    </span>
-
-                </div>
-
-                <div
-                    class="hotspot-list"
-                    id="hotspotList"
-                >
-                </div>
-
-            </div>
-
-        </section>
+        </div><!-- /tab-analytics -->
 
     </main>
 
