@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show loading state
         tableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center py-4 text-muted">
+                <td colspan="9" class="text-center py-4 text-muted">
                     <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading incidents...
                 </td>
             </tr>
@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center py-4 text-danger">
+                    <td colspan="9" class="text-center py-4 text-danger">
                         <i class="fa-solid fa-circle-exclamation me-2"></i>
                         Failed to load incidents. Please try again.
                         <br>
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!incidents || incidents.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center py-5">
+                    <td colspan="9" class="text-center py-5">
                         <div class="empty-state">
                             <i class="fa-regular fa-inbox"></i>
                             <h4>No Incidents Found</h4>
@@ -318,10 +318,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${escapeHTML(location)}</td>
                     <td>${formattedDate}</td>
                     <td><span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span></td>
-                    <td>
-                        <span class="badge ${dangerClass}">${escapeHTML(danger || 'Not assessed')}</span>
-                        ${incident.cart_score != null ? `<div class="cart-only" style="font-size: 0.65rem; color: #64748b; margin-top: 2px;">CART Score: ${parseFloat(incident.cart_score).toFixed(0)}</div>` : ''}
-                    </td>
+                    <td><span class="badge ${dangerClass}">${escapeHTML(danger || 'Not assessed')}</span></td>
+                    <td class="cart-only">${incident.cart_score != null ? parseFloat(incident.cart_score).toFixed(0) : 'N/A'}</td>
                     <td>${escapeHTML(reporterName)}</td>
                     <td>
                         <button class="btn-view" data-id="${incident.id}">

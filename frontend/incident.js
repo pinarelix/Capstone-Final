@@ -503,7 +503,7 @@ async function loadIncidents() {
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 24px; color: #ef4444;">
+                    <td colspan="10" style="text-align: center; padding: 24px; color: #ef4444;">
                         <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
                         Failed to load incidents.
                         <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">${error.message}</p>
@@ -679,7 +679,7 @@ function renderTable(dataToRender) {
     if (dataToRender.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" style="text-align: center; padding: 30px; color: #94a3b8;">
+                <td colspan="10" style="text-align: center; padding: 30px; color: #94a3b8;">
                     <i class="fa-regular fa-circle" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
                     No incident records found.
                 </td>
@@ -724,10 +724,8 @@ function renderTable(dataToRender) {
             <td>${escapeHTML(locationDisplay)}</td>
             <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
             <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
-            <td>
-                <span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span>
-                ${item.cart_score != null ? `<div style="font-size: 0.65rem; color: #64748b; margin-top: 2px;">CART Score: ${parseFloat(item.cart_score).toFixed(0)}</div>` : ''}
-            </td>
+            <td><span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span></td>
+            <td>${item.cart_score != null ? parseFloat(item.cart_score).toFixed(0) : 'N/A'}</td>
             <td class="text-secondary" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(item.recommended_action || '')}">${escapeHTML(item.recommended_action || 'N/A')}</td>
             <td>${actionButtons}</td>
         `;
