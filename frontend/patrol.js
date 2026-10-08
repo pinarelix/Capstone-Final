@@ -730,7 +730,11 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             maxRisk: maxRisk,
             dominantLevel: dominantLevel,
             riskBadgeColor: riskBadgeColor,
-            count: count
+            count: count,
+            // The actual incidents behind this recommendation (this month,
+            // this street) - shown as type badges on the card itself and
+            // carried over when "Use This" prefills the schedule form.
+            incidents: incidents
         };
     });
     
@@ -882,6 +886,9 @@ function renderCartRecommendationCards(recs, container) {
                 <div><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
                 <div><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
                 <div><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
+                <div style="margin-top: 6px;"><strong>Incidents Here This Month:</strong><br>
+                    ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 4)}
+                </div>
                 <div><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
                 <div><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
             </div>
@@ -929,6 +936,9 @@ function renderScheduleSuggestions(recs) {
             <div class="danger-level ${rec.priority}">${escapeHTML(rec.level)}</div>
             <div class="rec-details">
                 <div><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
+                <div style="margin-top: 4px;"><strong>Incidents Here:</strong><br>
+                    ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 2)}
+                </div>
                 <div><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
             </div>
             <button type="button" class="btn btn-secondary" style="margin-top: 12px; padding: 8px 14px; font-size: 0.8rem;" onclick="applyRecommendationToScheduleForm(${idx})">
@@ -958,6 +968,7 @@ function applyRecommendationToScheduleForm(idx) {
     if ([...locationSelect.options].some(opt => opt.value === rec.area)) {
         locationSelect.value = rec.area;
     }
+    updateScheduleLocationIncidents();
 
     const timeParts = rec.time.split(' – ');
     if (timeParts.length === 2) {
@@ -1029,6 +1040,11 @@ async function confirmDelete(endpoint, id, successMsg, errorMsg) {
 
 function setupScheduleForm() {
     setupFormSubmit('scheduleForm', saveSchedule);
+
+    const locationSelect = document.getElementById('scheduleLocation');
+    if (locationSelect) {
+        locationSelect.addEventListener('change', updateScheduleLocationIncidents);
+    }
 
     const teamSelect = document.getElementById('scheduleTeamSelect');
     if (teamSelect) {
@@ -1110,6 +1126,7 @@ function resetScheduleFormState() {
     document.getElementById('editScheduleId').value = '';
     document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
+    updateScheduleLocationIncidents();
     resetScheduleMapPicker();
     document.getElementById('scheduleFormCard')?.classList.remove('edit-modal-mode');
     dockScheduleFormCard();
@@ -1198,32 +1215,62 @@ function renderPaginatedTable(items, page, controlsId, onPageChange, rowRenderFn
 // of admins having to cross-reference Incident Records by hand to tell
 // otherwise-identical rows (same day/time pattern, different location)
 // apart.
-function getIncidentTypesForLocation(location) {
+// Shared core for every "what incidents happened here" badge display -
+// the Patrol Schedules/Logs tables (all-time, by location), the CART
+// recommendation cards (this month only, by recommendation), and the
+// Add Schedule form's location info panel (all-time, by location) all
+// render the same count-per-type pill style from a plain incidents array.
+function countIncidentTypesIn(incidents) {
     const counts = {};
-    (allIncidents || []).forEach(inc => {
-        if (inc.street_name === location) {
-            counts[inc.incident_type] = (counts[inc.incident_type] || 0) + 1;
-        }
+    (incidents || []).forEach(inc => {
+        counts[inc.incident_type] = (counts[inc.incident_type] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
 }
 
-function renderIncidentTypeBadges(location, maxShown = 2) {
-    const types = getIncidentTypesForLocation(location);
-    if (types.length === 0) {
+function typeCountsToBadgeHtml(typeCounts, maxShown = 2) {
+    if (typeCounts.length === 0) {
         return '<span style="font-size: 0.72rem; color: #94a3b8;">No incidents recorded</span>';
     }
 
-    const shown = types.slice(0, maxShown);
-    const remaining = types.length - shown.length;
+    const shown = typeCounts.slice(0, maxShown);
+    const remaining = typeCounts.length - shown.length;
     const badges = shown.map(([type, count]) =>
         `<span class="badge-subtle" style="font-size: 0.65rem; padding: 2px 8px; white-space: nowrap;">${escapeHTML(type)} (${count})</span>`
     ).join(' ');
     const moreBadge = remaining > 0
-        ? `<span class="badge-subtle" style="font-size: 0.65rem; padding: 2px 8px;" title="${escapeHTML(types.slice(maxShown).map(([t, c]) => `${t} (${c})`).join(', '))}">+${remaining} more</span>`
+        ? `<span class="badge-subtle" style="font-size: 0.65rem; padding: 2px 8px;" title="${escapeHTML(typeCounts.slice(maxShown).map(([t, c]) => `${t} (${c})`).join(', '))}">+${remaining} more</span>`
         : '';
 
     return `<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px;">${badges}${moreBadge}</div>`;
+}
+
+function getIncidentTypesForLocation(location) {
+    return countIncidentTypesIn((allIncidents || []).filter(inc => inc.street_name === location));
+}
+
+function renderIncidentTypeBadges(location, maxShown = 2) {
+    return typeCountsToBadgeHtml(getIncidentTypesForLocation(location), maxShown);
+}
+
+// Updates the Add/Edit Schedule form's "Incidents Reported At This
+// Location" panel to match whatever the Location dropdown currently
+// holds - called on manual selection, and explicitly after any script
+// that sets scheduleLocation.value directly (which doesn't fire 'change').
+function updateScheduleLocationIncidents() {
+    const group = document.getElementById('scheduleLocationIncidentsGroup');
+    const container = document.getElementById('scheduleLocationIncidents');
+    if (!group || !container) return;
+
+    const location = document.getElementById('scheduleLocation')?.value;
+    if (!location) {
+        group.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = renderIncidentTypeBadges(location, 6);
+    group.style.display = '';
 }
 
 // Active schedules first, then Completed, then Cancelled - each group in
@@ -1305,6 +1352,7 @@ window.editSchedule = async function(id) {
         
         document.getElementById('editScheduleId').value = schedule.id;
         document.getElementById('scheduleLocation').value = schedule.location || '';
+        updateScheduleLocationIncidents();
         document.getElementById('scheduleDay').value = schedule.day_of_week || 'Monday';
         document.getElementById('scheduleStart').value = schedule.start_time ? schedule.start_time.substring(0,5) : '';
         document.getElementById('scheduleEnd').value = schedule.end_time ? schedule.end_time.substring(0,5) : '';
