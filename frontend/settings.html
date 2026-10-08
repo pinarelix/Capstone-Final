@@ -464,7 +464,16 @@
             margin-bottom: 12px;
         }
 
-        .audit-filter-bar select,
+        /* Action/Entity selects use the shared .form-select look (same
+           custom-chevron dropdown style as every other filter in the app)
+           instead of the bare native <select> they had before - this just
+           sizes them to sit comfortably next to the Refresh button. */
+        .audit-filter-select {
+            min-width: 180px;
+            font-size: 0.75rem;
+            padding: 8px 32px 8px 12px;
+        }
+
         .audit-filter-bar input {
             padding: 6px 12px;
             border-radius: 6px;
@@ -473,7 +482,6 @@
             background: #f8fafc;
         }
 
-        .audit-filter-bar select:focus,
         .audit-filter-bar input:focus {
             border-color: #2563eb;
             outline: none;
@@ -710,7 +718,7 @@
 
                 <!-- Filter Bar -->
                 <div class="audit-filter-bar">
-                    <select id="auditFilterAction">
+                    <select id="auditFilterAction" class="form-select audit-filter-select">
                         <option value="">All Actions</option>
                         <option value="LOGIN">Login</option>
                         <option value="LOGOUT">Logout</option>
@@ -742,7 +750,7 @@
                         <option value="EXPORT_CSV_PATROL_LOGS">Export CSV Patrol Logs</option>
                     </select>
 
-                    <select id="auditFilterEntity">
+                    <select id="auditFilterEntity" class="form-select audit-filter-select">
                         <option value="">All Entities</option>
                         <option value="incidents">Incidents</option>
                         <option value="users">Users</option>
