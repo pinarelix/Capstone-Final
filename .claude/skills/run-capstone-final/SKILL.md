@@ -102,6 +102,7 @@ Screenshots land in `.claude/skills/run-capstone-final/screenshots/`.
 | `wait-for text=Foo` or `wait-for <css-selector>` | wait until visible |
 | `click text=Foo` or `click <css-selector>` | click |
 | `fill <selector> <value...>` | fill an input |
+| `upload <selector> <path...>` | set a file input's selected file(s), relative to this skill's folder |
 | `press <key>` | keyboard key (e.g. `Enter`) |
 | `screenshot [name]` | full-page PNG to `screenshots/` |
 | `eval <js>` | run JS in the page, prints the result |

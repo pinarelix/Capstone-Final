@@ -53,6 +53,12 @@ async function run(line) {
       console.log(`fill ${sel} -> ok`);
       break;
     }
+    case 'upload': {
+      const [sel, ...fileParts] = rest;
+      await page.setInputFiles(sel, fileParts.join(' '));
+      console.log(`upload ${sel} -> ok`);
+      break;
+    }
     case 'press': {
       await page.keyboard.press(rest[0]);
       console.log(`press ${rest[0]} -> ok`);

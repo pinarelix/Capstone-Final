@@ -63,13 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (badge) badge.textContent = 'Desk Officer Access';
 
         const note = document.getElementById('formAccessNote');
-        if (note) note.textContent = 'Desk Officers can add new incident records but cannot edit or delete existing ones. Decision-Makers and Field Users have view-only access to their allowed modules.';
-
-        // Evidence uploads are Administrator-only on the server; showing
-        // the picker here only led to a rejected upload after the
-        // incident itself had already been saved.
-        const evidenceGroup = document.getElementById('evidenceFormGroup');
-        if (evidenceGroup) evidenceGroup.style.display = 'none';
+        if (note) note.textContent = 'Desk Officers can add and update incident records, including evidence, but cannot delete them. Decision-Makers and Field Users have view-only access to their allowed modules.';
     }
 
     // Fire-and-forget here - the list table itself has no images, only
