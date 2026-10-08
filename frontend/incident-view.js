@@ -318,7 +318,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${escapeHTML(location)}</td>
                     <td>${formattedDate}</td>
                     <td><span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span></td>
-                    <td><span class="badge ${dangerClass}">${escapeHTML(danger || 'Not assessed')}</span></td>
+                    <td>
+                        <span class="badge ${dangerClass}">${escapeHTML(danger || 'Not assessed')}</span>
+                        ${incident.cart_score != null ? `<div class="cart-only" style="font-size: 0.65rem; color: #64748b; margin-top: 2px;">CART Score: ${parseFloat(incident.cart_score).toFixed(0)}</div>` : ''}
+                    </td>
                     <td>${escapeHTML(reporterName)}</td>
                     <td>
                         <button class="btn-view" data-id="${incident.id}">
