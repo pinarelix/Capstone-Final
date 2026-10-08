@@ -490,6 +490,15 @@ function populateMonthDropdown(incidents) {
         return;
     }
 
+    // "All Dates" sits above the individual months - a separate sentinel
+    // value (not an empty string, which updateDashboardWithCartData()
+    // already treats as "nothing selected") that skips the month filter
+    // entirely in getCartBasedPatrolRecommendations() below.
+    const allOpt = document.createElement('option');
+    allOpt.value = 'all';
+    allOpt.textContent = 'All Dates';
+    monthSelect.appendChild(allOpt);
+
     sorted.forEach(key => {
         const [year, month] = key.split('-');
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -498,9 +507,12 @@ function populateMonthDropdown(incidents) {
         opt.textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
         monthSelect.appendChild(opt);
     });
-    
-    if (monthSelect.options.length > 0) {
-        monthSelect.value = monthSelect.options[0].value;
+
+    // Default to the most recent month (not "All Dates") so the normal,
+    // most-common view is unchanged - "All Dates" is there for whoever
+    // wants it, one click away.
+    if (monthSelect.options.length > 1) {
+        monthSelect.value = monthSelect.options[1].value;
         updateDashboardWithCartData(monthSelect.value);
     }
 }
@@ -535,21 +547,22 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
         }];
     }
     
-    // 1. Filter incidents by month
-    const monthIncidents = incidents.filter(item => 
-        item.date && item.date.startsWith(month)
-    );
-    
+    // 1. Filter incidents by month - "all" (the "All Dates" option) skips
+    // this entirely and considers every recorded incident.
+    const monthIncidents = month === 'all'
+        ? incidents
+        : incidents.filter(item => item.date && item.date.startsWith(month));
+
     console.log('📊 Month incidents:', monthIncidents.length);
-    
+
     if (monthIncidents.length === 0) {
         console.warn('⚠️ No incidents found for month:', month);
         return [{
-            area: 'No Incidents This Month',
+            area: month === 'all' ? 'No Incidents Recorded' : 'No Incidents This Month',
             priority: 'low',
             level: 'Level 1 — Low Danger / Stable Area',
             time: 'N/A',
-            reason: 'No incidents recorded for this month.',
+            reason: month === 'all' ? 'No incidents recorded yet.' : 'No incidents recorded for this month.',
             pattern: 'No incidents to analyze',
             tanods: 0,
             action: 'No patrol recommendations available.',
@@ -839,7 +852,13 @@ function updateMetricsEmptyState() {
 function renderCartRecommendationCards(recs, container) {
     if (!container) return;
     container.innerHTML = "";
-    
+
+    // "All Dates" means the incidents behind each card span every recorded
+    // month, not just one - the label should say so instead of claiming
+    // "This Month" for data that isn't scoped to a month at all.
+    const isAllDates = document.getElementById('monthSelect')?.value === 'all';
+    const incidentsLabel = isAllDates ? 'Incidents Here:' : 'Incidents Here This Month:';
+
     if (!recs || recs.length === 0) {
         container.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;">
@@ -886,7 +905,7 @@ function renderCartRecommendationCards(recs, container) {
                 <div><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
                 <div><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
                 <div><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
-                <div style="margin-top: 6px;"><strong>Incidents Here This Month:</strong><br>
+                <div style="margin-top: 6px;"><strong>${incidentsLabel}</strong><br>
                     ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 4)}
                 </div>
                 <div><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
