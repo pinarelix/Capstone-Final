@@ -41,6 +41,14 @@
             line-height: normal;
         }
 
+        /* Desk Officer can update incident records now too, just not
+           delete them - the View modal's Update button still carries
+           the shared .admin-action class (hidden for this role
+           elsewhere by dashboard.css), so carve it out here. */
+        body.role-desk-officer #viewIncidentUpdateBtn {
+            display: inline-block !important;
+        }
+
         /* Additional styles for incident view */
         .incident-view-header {
             background: white;

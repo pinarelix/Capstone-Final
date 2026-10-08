@@ -2119,7 +2119,7 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Off
     }
 });
 
-app.put('/api/incidents/:id', authenticate, requireRole(['Administrator']), validate(incidentSchema), async (req, res) => {
+app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk Officer']), validate(incidentSchema), async (req, res) => {
     try {
         const {
             incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
@@ -2263,7 +2263,7 @@ async function requireExistingIncident(req, res, next) {
     }
 }
 
-app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Administrator']), requireExistingIncident, runMulterMiddleware(evidenceUpload.array('evidence', 5)), async (req, res) => {
+app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Administrator', 'Desk Officer']), requireExistingIncident, runMulterMiddleware(evidenceUpload.array('evidence', 5)), async (req, res) => {
     try {
         const id = req.params.id;
 
@@ -2294,7 +2294,7 @@ app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Administrato
     }
 });
 
-app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(['Administrator']), async (req, res) => {
+app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(['Administrator', 'Desk Officer']), async (req, res) => {
     try {
         const { id, evidenceId } = req.params;
 

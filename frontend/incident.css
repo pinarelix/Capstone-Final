@@ -303,6 +303,15 @@
     transform: translateY(-1px);
 }
 
+/* Desk Officer can update incident records (and their evidence), just
+   not delete them - the Update button still carries the shared
+   .admin-action class (hidden for this role everywhere else by
+   dashboard.css), so carve out this one table specifically. Same
+   pattern as the Patrol Schedules table's Desk Officer edit button. */
+body.role-desk-officer #fullIncidentTableBody .btn-action-edit {
+    display: inline-flex !important;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 1200px) {
     .incident-top-grid {

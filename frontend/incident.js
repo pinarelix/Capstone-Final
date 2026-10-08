@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // fetches the record itself if it isn't on the currently loaded table
     // page, so this doesn't need to wait for loadIncidents().
     const editId = new URLSearchParams(window.location.search).get('edit');
-    if (editId && isAdmin()) {
+    if (editId && (isAdmin() || isDeskOfficer())) {
         editIncident(parseInt(editId, 10));
         history.replaceState({}, '', window.location.pathname);
     }
@@ -696,6 +696,7 @@ function renderTable(dataToRender) {
     }
 
     const isAdminUser = isAdmin(); // mula sa apiHelper.js
+    const isDeskOfficerUser = isDeskOfficer(); // mula sa apiHelper.js
     console.log('👑 Is Admin:', isAdminUser);
 
     // ✅ Use for loop with DOM manipulation para sigurado
@@ -710,9 +711,13 @@ function renderTable(dataToRender) {
         const formattedTime = formatTime(item.time);
         const locationDisplay = item.street_name || `${item.latitude || 'N/A'}, ${item.longitude || 'N/A'}`;
         
+        // Desk Officer can update incident records (and their evidence)
+        // but not delete them - only Administrator gets the Delete button.
         const actionButtons = isAdminUser ? `
             <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Update</button>
             <button class="btn-action-delete admin-action" onclick="requestDeleteIncident(${item.id})"><i class="fa-solid fa-trash"></i> Delete</button>
+        ` : isDeskOfficerUser ? `
+            <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Update</button>
         ` : `<span style="color: #94a3b8; font-size: 0.7rem;">View Only</span>`;
         
         const reportedByDisplay = item.reported_by_name || item.reporter_name || 'N/A';
@@ -750,10 +755,8 @@ function setupForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        // Desk Officer can add new incidents but not edit existing ones -
-        // editIncident() below has its own admin-only gate that blocks
-        // entry into edit mode, so this form only ever runs in create
-        // mode for them.
+        // Desk Officer can both add and edit incidents (including
+        // evidence) - only deleting a record stays Administrator-only.
         if (!isAdmin() && !isDeskOfficer()) {
             showErrorModal('Access Denied', 'Only administrators and desk officers can add incidents.');
             return;
@@ -859,7 +862,7 @@ function setupForm() {
             // then create a duplicate incident).
             let evidenceError = null;
             const evidenceInput = document.getElementById('incidentEvidenceInput');
-            if (isAdmin() && evidenceInput && evidenceInput.files.length > 0) {
+            if ((isAdmin() || isDeskOfficer()) && evidenceInput && evidenceInput.files.length > 0) {
                 try {
                     await uploadEvidenceFiles(savedIncidentId, evidenceInput.files);
                 } catch (uploadError) {
@@ -1122,8 +1125,8 @@ window.confirmDeleteIncident = async function(id) {
 ============================================================ */
 
 window.editIncident = async (id) => {
-    if (!isAdmin()) { // mula sa apiHelper.js
-        showErrorModal('Access Denied', 'Only administrators can edit incidents.');
+    if (!isAdmin() && !isDeskOfficer()) { // mula sa apiHelper.js
+        showErrorModal('Access Denied', 'Only administrators and desk officers can edit incidents.');
         return;
     }
 
