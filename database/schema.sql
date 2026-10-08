@@ -649,6 +649,7 @@ CREATE TABLE `users` (
 --
 INSERT INTO `users` (`name`, `username`, `password_hash`, `role`, `is_active`) VALUES
 ('Demo Administrator', 'admin', '$2b$10$ip7Eo1S35tl3RKWWZ30vNeXtkGE5f5uhYJtqtPxrc2Nx4wnCB1I8.', 'Administrator', 1),
-('Demo Barangay Captain', 'captain', '$2b$10$IqJllqxbyiiznMCV5GyGPuePb1GVVryljozpbx8522ZGbyj5jadWy', 'Decision-Maker', 1);
+('Demo Barangay Captain', 'captain', '$2b$10$IqJllqxbyiiznMCV5GyGPuePb1GVVryljozpbx8522ZGbyj5jadWy', 'Decision-Maker', 1),
+('Demo Desk Officer', 'deskofficer', '$2b$10$r8nAnGyPDJbCbwYkgfdZeuO4eSNlV0E40iYKZeiSZE8PPUOzP2Dae', 'Desk Officer', 1);
 
 -- Dump completed on 2026-09-04 23:11:21

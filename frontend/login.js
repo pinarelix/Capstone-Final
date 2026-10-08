@@ -39,6 +39,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (role === 'captain') {
                 usernameInput.value = 'captain';
                 passwordField.value = 'captain123';
+            } else if (role === 'deskofficer') {
+                usernameInput.value = 'deskofficer';
+                passwordField.value = 'deskofficer123';
             }
         });
     });
