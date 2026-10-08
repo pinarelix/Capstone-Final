@@ -59,6 +59,11 @@ document.addEventListener("DOMContentLoaded", function () {
         fullAnalysisBtn.addEventListener("click", runFullAnalysis);
     }
 
+    const refreshHistoryBtn = document.getElementById("refreshAnalysisHistoryBtn");
+    if (refreshHistoryBtn) {
+        refreshHistoryBtn.addEventListener("click", loadAnalysisHistory);
+    }
+
     setupNavigationButtons();
     setupTabs();
     loadRealCartData();
@@ -238,6 +243,10 @@ function executeCartAnalysis() {
         .then(result => {
             console.log('✅ CART prediction:', result);
             renderPredictionResult(inputs, result);
+            // The backend logs every simulation to cart_analysis_log now -
+            // refresh the history table so it's current if the user switches
+            // tabs, without them needing to click Refresh themselves first.
+            loadAnalysisHistory();
         })
         .catch(error => {
             console.error('❌ Error running CART prediction:', error);
@@ -475,7 +484,7 @@ function loadAnalysisHistory() {
             if (logs.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 24px; color: #888;">
+                        <td colspan="8" style="text-align: center; padding: 24px; color: #888;">
                             No CART analysis runs yet.
                         </td>
                     </tr>
@@ -496,10 +505,20 @@ function loadAnalysisHistory() {
                 const statusClass = log.status === 'completed' ? 'badge-open' : 'badge-resolved';
                 const statusText = log.status === 'completed' ? '✅ Completed' : '❌ Failed';
 
+                // Simulations (the Cart Simulation tab's what-if form) never
+                // touch real incidents, so "incidents analyzed" doesn't apply
+                // to them - show a dash instead of a misleading 0.
+                const isSimulation = log.analysis_type === 'simulation';
+                const typeBadge = isSimulation
+                    ? '<span class="badge-subtle" title="What-if prediction from the Cart Simulation tab">Simulation</span>'
+                    : '<span class="badge-subtle" title="Full system-wide re-score">Full Analysis</span>';
+                const incidentsCell = isSimulation ? '—' : (log.total_incidents_analyzed ?? 0);
+
                 return `
                     <tr>
                         <td>${formattedDate}</td>
-                        <td><strong>${log.total_incidents_analyzed || 0}</strong></td>
+                        <td>${typeBadge}</td>
+                        <td><strong>${incidentsCell}</strong></td>
                         <td><span class="badge badge-danger-high">${log.high_risk_count || 0}</span></td>
                         <td><span class="badge badge-danger-mod">${log.moderate_risk_count || 0}</span></td>
                         <td><span class="badge badge-danger-low">${log.low_risk_count || 0}</span></td>
@@ -513,7 +532,7 @@ function loadAnalysisHistory() {
             console.error('❌ Error loading analysis history:', error);
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 24px; color: #888;">
+                    <td colspan="8" style="text-align: center; padding: 24px; color: #888;">
                         Failed to load analysis history.
                     </td>
                 </tr>

@@ -3833,6 +3833,7 @@ app.get('/api/cart/analysis-logs', authenticate, requireRole(['Administrator', '
 // street - but never writes to incidents or cart_risk_factors.
 // ============================================================
 app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
+    const startTime = Date.now();
     try {
         const { incident_type, time, day, location, repeated, history, frequency } = req.body;
 
@@ -3876,6 +3877,33 @@ app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decis
             { street_count: effectiveLocationCount },
             { recent_count: effectiveRecentCount }
         );
+
+        // Logged as its own analysis_type ('simulation') so the Recent CART
+        // Analysis Runs tab can show what-if runs alongside real full-system
+        // ones - this never touched incidents/cart_risk_factors (see the
+        // comment above this route), so "incidents analyzed" doesn't apply;
+        // the one risk-level count that's set just reflects this run's own
+        // predicted level. A logging failure must not fail the prediction
+        // itself, which the user is actively waiting on.
+        try {
+            await pool.query(`
+                INSERT INTO cart_analysis_log (
+                    analysis_type, date_range_start, date_range_end, incident_types_analyzed,
+                    total_streets_analyzed, total_incidents_analyzed, high_risk_count,
+                    moderate_risk_count, low_risk_count, execution_time_ms, status, triggered_by, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                'simulation', null, null, incident_type,
+                location ? 1 : 0, null,
+                result.dangerLevel === 'Level 3' ? 1 : 0,
+                result.dangerLevel === 'Level 2' ? 1 : 0,
+                result.dangerLevel === 'Level 1' ? 1 : 0,
+                Date.now() - startTime, 'completed', req.userId,
+                `Simulation: ${incident_type} on ${day} at ${time}${location ? ` near ${location}` : ''}`
+            ]);
+        } catch (logError) {
+            console.error('❌ Error logging CART simulation run:', logError);
+        }
 
         res.json({
             success: true,

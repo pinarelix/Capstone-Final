@@ -645,16 +645,22 @@
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
                         <span class="badge-subtle">Last 10 runs</span>
-                        <!-- Re-scores every recorded incident and logs the run below.
-                             (The "Run CART Analysis" form on the first tab is a what-if
-                             prediction only - it doesn't change data or add a run.) -->
-                        <button type="button" id="runFullAnalysisBtn" class="btn btn-primary" style="padding: 8px 14px; font-size: 0.78rem;">
+                        <!-- Passive reload only - picks up simulation runs logged from
+                             the Cart Simulation tab without recomputing anything. -->
+                        <button type="button" id="refreshAnalysisHistoryBtn" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.78rem;">
+                            <i class="fa-solid fa-rotate"></i> Refresh
+                        </button>
+                        <!-- Re-scores every recorded incident system-wide and logs the
+                             run below - a real, data-touching action (unlike the what-if
+                             Simulation tab), kept available but secondary since it's
+                             needed only occasionally (e.g. after patrol decay changes). -->
+                        <button type="button" id="runFullAnalysisBtn" class="btn btn-primary" style="padding: 8px 14px; font-size: 0.72rem;">
                             <i class="fa-solid fa-arrows-rotate"></i> Run Full Analysis
                         </button>
                     </div>
                 </div>
                 <p id="fullAnalysisStatus" style="margin: 10px 0 0; font-size: 0.78rem; color: #64748b;">
-                    Re-analyzes every recorded incident with the CART engine and logs the result here.
+                    Shows every CART run, both what-if simulations and full system-wide re-analyses.
                 </p>
 
                 <div class="table-responsive" style="margin-top: 14px;">
@@ -662,6 +668,7 @@
                         <thead>
                             <tr>
                                 <th>RUN DATE</th>
+                                <th>TYPE</th>
                                 <th>INCIDENTS</th>
                                 <th>HIGH</th>
                                 <th>MODERATE</th>
@@ -672,7 +679,7 @@
                         </thead>
                         <tbody id="analysisHistoryBody">
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 24px; color: #888;">
+                                <td colspan="8" style="text-align: center; padding: 24px; color: #888;">
                                     Loading analysis history...
                                 </td>
                             </tr>
