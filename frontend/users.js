@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (user?.role === 'Administrator') {
             roleDisplay = '<i class="fa-solid fa-crown"></i> Administrator — Full System Access';
         } else if (user?.role === 'Desk Officer') {
-            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Patrol Scheduling Access';
+            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Records & Patrol Access';
         }
         roleEl.innerHTML = roleDisplay || 'User';
     }

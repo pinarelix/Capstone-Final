@@ -420,7 +420,7 @@ function applyRoleBasedUI() {
         } else if (user.role === 'Captain') {
             roleDisplay = '<i class="fa-solid fa-chart-column"></i> Captain — View & Analytics Access';
         } else if (user.role === 'Desk Officer') {
-            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Patrol Scheduling Access';
+            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Records & Patrol Access';
         }
         roleEl.innerHTML = roleDisplay;
     }
