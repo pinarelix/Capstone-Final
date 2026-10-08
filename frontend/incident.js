@@ -724,7 +724,10 @@ function renderTable(dataToRender) {
             <td>${escapeHTML(locationDisplay)}</td>
             <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
             <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
-            <td><span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span></td>
+            <td>
+                <span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span>
+                ${item.cart_score != null ? `<div style="font-size: 0.65rem; color: #64748b; margin-top: 2px;">CART Score: ${parseFloat(item.cart_score).toFixed(0)}</div>` : ''}
+            </td>
             <td class="text-secondary" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(item.recommended_action || '')}">${escapeHTML(item.recommended_action || 'N/A')}</td>
             <td>${actionButtons}</td>
         `;

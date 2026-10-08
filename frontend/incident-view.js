@@ -496,6 +496,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span>
                             <span class="badge ${modalDangerClass}">${escapeHTML(incident.danger_level || 'Not assessed')}</span>
                             ${incident.priority === 'Urgent' ? `<span class="badge badge-priority-urgent"><i class="fa-solid fa-bolt"></i> Urgent</span>` : ''}
+                            ${incident.cart_score != null ? `<span class="badge badge-danger-${dangerTier} cart-only" title="Weighted CART risk score (0-100)">CART Score: ${parseFloat(incident.cart_score).toFixed(0)}</span>` : ''}
                         </div>
                     </div>
                 </div>
@@ -576,6 +577,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="incident-text-card accent-people">
                             <div class="incident-text-card-header"><i class="fa-solid fa-people-group"></i> Person(s) Involved</div>
                             <div class="incident-text-card-body">${escapeHTML(incident.persons_involved)}</div>
+                        </div>` : ''}
+                        ${incident.cart_decision_path ? `
+                        <div class="incident-text-card accent-cart cart-only">
+                            <div class="incident-text-card-header"><i class="fa-solid fa-chart-line"></i> CART Risk Breakdown</div>
+                            <div class="incident-text-card-body" style="line-height: 1.7;">${escapeHTML(incident.cart_decision_path).replace(/\n/g, '<br>')}</div>
                         </div>` : ''}
                         <div class="incident-text-card accent-resolution">
                             <div class="incident-text-card-header"><i class="fa-solid fa-shield-halved"></i> Resolution / Recommended Solution</div>

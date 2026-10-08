@@ -1854,10 +1854,12 @@ app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-
                 incidents.*,
                 COALESCE(users.name, tanod_record.name) as reporter_name,
                 users.contact_no as reporter_contact_no,
-                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type
+                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type,
+                rf.total_risk_score as cart_score
             FROM incidents
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN tanod_record ON incidents.reporter_tanod_id = tanod_record.id
+            LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
             ${whereClause}
             ORDER BY incidents.date DESC, incidents.time DESC
             LIMIT ? OFFSET ?
@@ -1987,10 +1989,13 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
                 incidents.*,
                 COALESCE(users.name, tanod_record.name) as reporter_name,
                 users.contact_no as reporter_contact_no,
-                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type
+                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type,
+                rf.total_risk_score as cart_score,
+                rf.decision_path as cart_decision_path
             FROM incidents
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN tanod_record ON incidents.reporter_tanod_id = tanod_record.id
+            LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
             WHERE incidents.id = ?
         `, [req.params.id]);
 
