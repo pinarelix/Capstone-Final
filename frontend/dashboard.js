@@ -634,6 +634,7 @@ function renderCharts(data) {
 
         peakHoursChart = new Chart(peakCanvas, {
             type: "line",
+            plugins: [ChartDataLabels],
             data: {
                 labels: labels,
                 datasets: [{
@@ -656,7 +657,26 @@ function renderCharts(data) {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: "index", intersect: false },
-                plugins: { legend: { display: false } },
+                // Layout padding keeps the topmost datalabel (at the peak
+                // hour) from getting clipped by the canvas edge.
+                layout: { padding: { top: 20 } },
+                plugins: {
+                    legend: { display: false },
+                    // Exact counts shown directly on the chart, not just in
+                    // the hover tooltip - zero-value hours are skipped so
+                    // the quiet overnight stretch doesn't fill up with "0"s.
+                    datalabels: {
+                        display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+                        align: "top",
+                        anchor: "end",
+                        offset: 6,
+                        color: "#92400e",
+                        font: { size: 10, weight: "700" },
+                        backgroundColor: "rgba(255, 255, 255, 0.85)",
+                        borderRadius: 4,
+                        padding: { top: 2, bottom: 2, left: 5, right: 5 }
+                    }
+                },
                 scales: {
                     x: { grid: { display: false }, ticks: { color: "#0f172a", maxRotation: 45, minRotation: 45 } },
                     y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { color: "#0f172a", stepSize: 1 } }
