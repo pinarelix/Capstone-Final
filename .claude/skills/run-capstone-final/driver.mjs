@@ -59,6 +59,16 @@ async function run(line) {
       console.log(`upload ${sel} -> ok`);
       break;
     }
+    case 'clickat': {
+      // Clicks raw page coordinates instead of a selector - needed for
+      // canvas-rendered Leaflet layers (preferCanvas:true, e.g. the Risk
+      // Map's heatmap circles), which have no per-shape DOM node a normal
+      // `click` selector could target.
+      const [x, y] = rest.map(Number);
+      await page.mouse.click(x, y);
+      console.log(`clickat ${x},${y} -> ok`);
+      break;
+    }
     case 'press': {
       await page.keyboard.press(rest[0]);
       console.log(`press ${rest[0]} -> ok`);

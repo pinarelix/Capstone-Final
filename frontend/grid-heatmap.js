@@ -577,7 +577,10 @@ function showIncidentDetails(incidents, lat, lng) {
                 <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                 <td>${dateStr} ${timeStr}</td>
                 <td><span class="${statusClass}">${escapeHTML(item.status || 'Open')}</span></td>
-                <td><span class="${dangerClass}">${escapeHTML(danger || 'Calculated by System')}</span></td>
+                <td>
+                    <span class="${dangerClass}">${escapeHTML(danger || 'Calculated by System')}</span>
+                    ${item.cart_score != null ? `<div class="cart-only" style="font-size: 0.65rem; color: #64748b; margin-top: 2px;">CART Score: ${parseFloat(item.cart_score).toFixed(0)}</div>` : ''}
+                </td>
                 <td>${escapeHTML(item.recommended_action || 'Scheduled patrol and risk monitoring')}</td>
                 <td><strong>${escapeHTML(streetName)}</strong></td>
             </tr>

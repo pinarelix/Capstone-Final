@@ -101,6 +101,7 @@ Screenshots land in `.claude/skills/run-capstone-final/screenshots/`.
 | `nav <url>` | navigate |
 | `wait-for text=Foo` or `wait-for <css-selector>` | wait until visible |
 | `click text=Foo` or `click <css-selector>` | click |
+| `clickat <x> <y>` | click raw page coordinates - for canvas-rendered layers (e.g. the Risk Map's heatmap circles) with no DOM node to select |
 | `fill <selector> <value...>` | fill an input |
 | `upload <selector> <path...>` | set a file input's selected file(s), relative to this skill's folder |
 | `press <key>` | keyboard key (e.g. `Enter`) |

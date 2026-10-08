@@ -16,6 +16,15 @@
 
     <!-- Grid Heatmap CSS -->
     <style>
+        /* The numeric CART score is jargon already hidden from the
+           non-technical Captain (Decision-Maker) elsewhere (incident-view.html,
+           patrol.html's Recommendations tab) - same rule here, scoped to this
+           page's own stylesheet since those pages' CSS isn't loaded here.
+           Admin and Desk Officer still see it. */
+        body.role-decision-maker .cart-only {
+            display: none !important;
+        }
+
         /* ============================================================
            MAP WRAPPER
         ============================================================ */

@@ -2027,10 +2027,12 @@ app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'D
             SELECT
                 incidents.*,
                 COALESCE(users.name, tanod_record.name) as reporter_name,
-                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type
+                CASE WHEN incidents.reporter_tanod_id IS NOT NULL THEN 'Tanod' ELSE NULL END as reporter_type,
+                rf.total_risk_score as cart_score
             FROM incidents
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN tanod_record ON incidents.reporter_tanod_id = tanod_record.id
+            LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
             WHERE TRIM(incidents.status) != 'Resolved'
               AND incidents.latitude IS NOT NULL
               AND incidents.longitude IS NOT NULL
