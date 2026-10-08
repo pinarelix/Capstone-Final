@@ -734,12 +734,25 @@ body.role-desk-officer #scheduleTableBody .btn-action-edit {
 /* The barangay Captain (Decision-Maker) is here to review and decide,
    not to personally fill out deployment forms - hide the Add Schedule
    / Add Log forms (and the recommendation-prefill shortcuts that only
-   matter alongside them) so his Schedules/Patrol Logs tabs are just
-   the read-only tables. Desk Officer still needs these, so this is
-   scoped to role-decision-maker only, not the shared admin-section rule. */
+   matter alongside them) so his Patrol Schedules/Patrol Logs tabs are
+   just the read-only tables. Desk Officer still needs these, so this
+   is scoped to role-decision-maker only, not the shared admin-section
+   rule.
+
+   The Schedules tab now holds ONLY that suggestions section + Add
+   Schedule form (the table moved to its own "Patrol Schedules" tab),
+   so for Captain it would render completely empty - hide the tab
+   button and its content outright instead of leaving a blank panel
+   he can still click into. The "Patrol Schedules" list tab stays
+   visible so he can still see what's scheduled. */
 body.role-decision-maker #scheduleSuggestionsSection,
 body.role-decision-maker #scheduleFormCard,
 body.role-decision-maker #logFormCard {
+    display: none !important;
+}
+
+body.role-decision-maker .patrol-tab[data-tab="schedules"],
+body.role-decision-maker #tab-schedules {
     display: none !important;
 }
 
