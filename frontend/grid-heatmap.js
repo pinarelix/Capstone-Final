@@ -508,17 +508,12 @@ function renderGrid(incidents) {
         const streetName = item.street_name || 'Unknown';
         streetTally[streetName] = (streetTally[streetName] || 0) + 1;
     });
-    let topStreet = null;
-    let topStreetCount = 0;
-    Object.entries(streetTally).forEach(([streetName, count]) => {
-        if (count > topStreetCount) {
-            topStreet = streetName;
-            topStreetCount = count;
-        }
-    });
+    const topStreets = Object.entries(streetTally)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
 
-    updateKPIs(totalIncidents, activeCells, peakCount, highRiskCells, topStreet);
-    console.log(`📊 KPI: Total=${totalIncidents}, Cells=${activeCells}, Peak=${peakCount}, HighRisk=${highRiskCells}, TopHotspot=${topStreet}`);
+    updateKPIs(totalIncidents, activeCells, peakCount, highRiskCells, topStreets);
+    console.log(`📊 KPI: Total=${totalIncidents}, Cells=${activeCells}, Peak=${peakCount}, HighRisk=${highRiskCells}, TopHotspots=${topStreets.map(s => s[0]).join(', ')}`);
     console.log("✅ Rendering Complete!");
 
     startMapAnimationLoop();
@@ -644,12 +639,20 @@ function showErrorState() {
 
 function clearEmptyState() {}
 
-function updateKPIs(total, cells, peak, high, hotspot) {
+function updateKPIs(total, cells, peak, high, topStreets) {
     document.getElementById("kpi-incidents").textContent = total;
     document.getElementById("kpi-cells").textContent = cells;
     document.getElementById("kpi-peak").textContent = peak;
     document.getElementById("kpi-high").textContent = high;
-    document.getElementById("kpi-hotspot").textContent = hotspot || 'N/A';
+
+    const hotspotList = document.getElementById("kpi-hotspot");
+    if (topStreets && topStreets.length > 0) {
+        hotspotList.innerHTML = topStreets
+            .map(([streetName, count]) => `<li>${escapeHTML(streetName)} (${count})</li>`)
+            .join('');
+    } else {
+        hotspotList.innerHTML = '<li>N/A</li>';
+    }
 }
 
 document.addEventListener("DOMContentLoaded", function() {
