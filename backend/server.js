@@ -32,6 +32,24 @@ const SERVER_START_TIME = Date.now();
 const heatmapCache = new NodeCache({ stdTTL: 60 });
 
 // ============================================================
+// LIVE NOTIFICATIONS (Server-Sent Events)
+// Push-style alerts to connected staff browsers - currently just "a
+// tanod reported a new incident". Each open /api/notifications/stream
+// connection's `res` object is kept here only in-memory (no DB table,
+// no offline queue) - a staff member who isn't actively connected at
+// the moment an incident comes in simply doesn't get that alert; it's
+// a live heads-up, not a notification inbox.
+// ============================================================
+const notificationClients = new Set();
+
+function broadcastNotification(payload) {
+    const data = `data: ${JSON.stringify(payload)}\n\n`;
+    for (const client of notificationClients) {
+        client.write(data);
+    }
+}
+
+// ============================================================
 // MIDDLEWARE
 // ============================================================
 // No CORS middleware — the app converted from a two-port web app
@@ -674,6 +692,47 @@ async function authenticate(req, res, next) {
     }
 }
 
+// Same session validation as authenticate(), but reads the token from a
+// query string instead of an Authorization header - needed for the SSE
+// notification stream below, since the browser's EventSource API cannot
+// send custom headers at all. Doesn't bump last_activity (a long-lived
+// background connection isn't "activity" the idle timeout should reset
+// on); authenticate() already does that for the user's real requests.
+async function authenticateFromQueryToken(req, res, next) {
+    try {
+        const token = req.query.token;
+        if (!token) {
+            return res.status(401).json({ error: 'Unauthorized: No session token provided' });
+        }
+
+        const [sessions] = await pool.query(
+            `SELECT user_id, last_activity
+             FROM user_sessions
+             WHERE session_token = ? AND is_active = 1 AND logout_time IS NULL`,
+            [token]
+        );
+
+        if (sessions.length === 0) {
+            return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
+        }
+
+        const session = sessions[0];
+        const timeoutMinutes = await getSessionTimeoutMinutes();
+        const idleMinutes = (Date.now() - new Date(session.last_activity).getTime()) / 60000;
+
+        if (idleMinutes > timeoutMinutes) {
+            return res.status(401).json({ error: 'Unauthorized: Session expired due to inactivity' });
+        }
+
+        req.userId = session.user_id;
+        next();
+
+    } catch (error) {
+        console.error('❌ Authentication error (notification stream):', error);
+        return res.status(500).json({ error: 'Server error during authentication' });
+    }
+}
+
 // ============================================================
 // 🔐 MIDDLEWARE: ROLE-BASED AUTHORIZATION
 // ============================================================
@@ -705,6 +764,33 @@ function requireRole(allowedRoles) {
         }
     };
 }
+
+// Live push stream for staff - right now just "a tanod reported a new
+// incident" (see POST /api/tanod/incident's broadcastNotification call).
+// A plain GET the frontend opens with the browser's native EventSource,
+// which auto-reconnects on its own if the connection drops.
+app.get('/api/notifications/stream', authenticateFromQueryToken, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), (req, res) => {
+    res.set({
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+    res.flushHeaders();
+    res.write(': connected\n\n');
+
+    notificationClients.add(res);
+
+    // Keeps the connection from being silently dropped as idle by any
+    // intermediary - harmless no-op on a direct localhost/LAN connection,
+    // cheap insurance otherwise.
+    const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 30000);
+
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        notificationClients.delete(res);
+    });
+});
 
 // ============================================================
 // 🔐 MIDDLEWARE: TANOD SESSION AUTHENTICATION
@@ -3303,6 +3389,22 @@ app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentP
 
         await logTanodAudit(req.tanodId, 'TANOD_CREATE_INCIDENT', 'incidents', result.insertId,
             { incident_type, location, date, time }, req);
+
+        // Best-effort live alert to connected staff - must never fail the
+        // actual incident report, which is already saved at this point.
+        try {
+            const [tanodRows] = await pool.query('SELECT name FROM tanod_record WHERE id = ?', [req.tanodId]);
+            broadcastNotification({
+                type: 'new_incident',
+                incidentId: result.insertId,
+                incidentType: incident_type,
+                location: location,
+                tanodName: tanodRows[0]?.name || 'A tanod',
+                timestamp: new Date().toISOString()
+            });
+        } catch (notifyError) {
+            console.error('❌ Error broadcasting new incident notification:', notifyError);
+        }
 
         res.status(201).json({
             message: 'Incident reported successfully.',

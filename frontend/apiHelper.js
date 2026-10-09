@@ -305,6 +305,123 @@ function showToast(message, type = 'success') {
 }
 
 // ============================================================
+// 4b. LIVE NOTIFICATIONS (Server-Sent Events)
+// A heads-up popup for staff when a tanod reports a new incident,
+// pushed from the server instead of waiting for a page refresh or
+// manual poll. Separate from showToast() above - this is clickable
+// (jumps to Incident Records), stacks instead of replacing, and stays
+// up longer, since missing it matters more than a routine save-toast.
+// ============================================================
+
+let _liveNotificationContainer = null;
+
+function getLiveNotificationContainer() {
+    if (_liveNotificationContainer && document.body.contains(_liveNotificationContainer)) {
+        return _liveNotificationContainer;
+    }
+    _liveNotificationContainer = document.createElement('div');
+    _liveNotificationContainer.id = 'liveNotificationContainer';
+    _liveNotificationContainer.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 100000;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 360px;
+    `;
+    document.body.appendChild(_liveNotificationContainer);
+    return _liveNotificationContainer;
+}
+
+function showIncidentNotification(data) {
+    const container = getLiveNotificationContainer();
+
+    const card = document.createElement('div');
+    card.style.cssText = `
+        background: #ffffff;
+        border-left: 4px solid #dc2626;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.2);
+        padding: 14px 16px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        transform: translateX(30px);
+        opacity: 0;
+        transition: all 0.3s ease;
+    `;
+
+    card.innerHTML = `
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+            <strong style="display: block; font-size: 0.82rem; color: #0f172a; margin-bottom: 2px;">New Incident Reported</strong>
+            <p style="margin: 0; font-size: 0.78rem; color: #475569; line-height: 1.4;">
+                <strong>${escapeHTML(data.tanodName || 'A tanod')}</strong> reported <strong>${escapeHTML(data.incidentType || 'an incident')}</strong> at ${escapeHTML(data.location || 'an unknown location')}.
+            </p>
+        </div>
+        <button type="button" aria-label="Dismiss" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; flex-shrink: 0;">&times;</button>
+    `;
+
+    card.querySelector('button').addEventListener('click', (e) => {
+        e.stopPropagation();
+        dismissCard();
+    });
+
+    card.addEventListener('click', () => {
+        window.location.href = 'incident.html';
+    });
+
+    container.prepend(card);
+
+    requestAnimationFrame(() => {
+        card.style.transform = 'translateX(0)';
+        card.style.opacity = '1';
+    });
+
+    function dismissCard() {
+        card.style.transform = 'translateX(30px)';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 300);
+    }
+
+    setTimeout(dismissCard, 12000);
+}
+
+let _liveNotificationSource = null;
+
+function initLiveNotifications() {
+    const token = getSessionToken();
+    if (!token || _liveNotificationSource) return;
+
+    try {
+        _liveNotificationSource = new EventSource(`${API_URL}/notifications/stream?token=${encodeURIComponent(token)}`);
+        _liveNotificationSource.onmessage = (event) => {
+            if (!event.data || event.data.startsWith(':')) return;
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'new_incident') {
+                    showIncidentNotification(data);
+                }
+            } catch (e) {
+                console.error('Failed to parse live notification:', e);
+            }
+        };
+    } catch (e) {
+        console.error('Failed to open live notification stream:', e);
+    }
+}
+
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', initLiveNotifications);
+}
+
+// ============================================================
 // 5. ROLE-BASED ACCESS CONTROL HELPERS
 // ============================================================
 
