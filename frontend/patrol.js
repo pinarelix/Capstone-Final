@@ -1052,7 +1052,7 @@ function renderScheduleSuggestions(recs) {
                 </div>
                 <div><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
             </div>
-            <button type="button" class="btn btn-secondary" style="margin-top: 12px; padding: 8px 14px; font-size: 0.8rem;" onclick="applyRecommendationToScheduleForm(${idx})">
+            <button type="button" class="use-this-btn" onclick="applyRecommendationToScheduleForm(${idx})">
                 <i class="fa-solid fa-arrow-turn-down"></i> Use This
             </button>
         `;
