@@ -2796,7 +2796,7 @@ app.get('/api/tanod-teams', authenticate, requireRole(['Administrator', 'Decisio
     }
 });
 
-app.post('/api/tanod-teams', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodTeamSchema), async (req, res) => {
+app.post('/api/tanod-teams', authenticate, requireRole(['Administrator']), validate(tanodTeamSchema), async (req, res) => {
     try {
         const { name } = req.body;
         const [result] = await pool.query('INSERT INTO tanod_teams (name) VALUES (?)', [name]);
@@ -2810,7 +2810,7 @@ app.post('/api/tanod-teams', authenticate, requireRole(['Administrator', 'Decisi
     }
 });
 
-app.put('/api/tanod-teams/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodTeamSchema), async (req, res) => {
+app.put('/api/tanod-teams/:id', authenticate, requireRole(['Administrator']), validate(tanodTeamSchema), async (req, res) => {
     try {
         const { name } = req.body;
         const [result] = await pool.query('UPDATE tanod_teams SET name = ? WHERE id = ?', [name, req.params.id]);
@@ -2827,7 +2827,7 @@ app.put('/api/tanod-teams/:id', authenticate, requireRole(['Administrator', 'Dec
     }
 });
 
-app.delete('/api/tanod-teams/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
+app.delete('/api/tanod-teams/:id', authenticate, requireRole(['Administrator']), async (req, res) => {
     try {
         const id = req.params.id;
         // fk_tanod_record_team (see testConnection) has ON DELETE SET
@@ -2908,7 +2908,7 @@ app.get('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision
     }
 });
 
-app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodSchema), async (req, res) => {
+app.post('/api/tanods', authenticate, requireRole(['Administrator']), validate(tanodSchema), async (req, res) => {
     try {
         const { name, position, contact_no, username, pin_code, team_id } = req.body;
 
@@ -2984,17 +2984,10 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator', 'Decision-Ma
     }
 });
 
-app.put('/api/tanods/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(tanodSchema), async (req, res) => {
+app.put('/api/tanods/:id', authenticate, requireRole(['Administrator']), validate(tanodSchema), async (req, res) => {
     try {
         const { name, position, contact_no, username, pin_code, is_active, team_id } = req.body;
         const id = req.params.id;
-
-        // Resetting a Tanod's login PIN is a credential change, not a
-        // record edit - Decision-Maker keeps edit access to the rest of
-        // this form but can't touch the PIN.
-        if (pin_code && req.userRole !== 'Administrator') {
-            return res.status(403).json({ error: 'Only an Administrator can reset a Tanod\'s PIN.' });
-        }
 
         const [oldData] = await pool.query('SELECT * FROM tanod_record WHERE id = ?', [id]);
 
@@ -3563,7 +3556,7 @@ async function findUnknownTanodIds(tanodIds, scheduleId = null) {
     return tanodIds.filter(id => !found.has(id));
 }
 
-app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(scheduleSchema), async (req, res) => {
+app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'Desk Officer']), validate(scheduleSchema), async (req, res) => {
     try {
         const { location, start_time, end_time, day_of_week, tanod_ids, latitude, longitude, reason } = req.body;
 
@@ -3622,7 +3615,7 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Administrator', 'D
     }
 });
 
-app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(scheduleSchema), async (req, res) => {
+app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Administrator', 'Desk Officer']), validate(scheduleSchema), async (req, res) => {
     try {
         const { location, start_time, end_time, day_of_week, tanod_ids, latitude, longitude, reason, status } = req.body;
         const id = req.params.id;
