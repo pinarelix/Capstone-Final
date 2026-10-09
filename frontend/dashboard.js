@@ -523,6 +523,7 @@ function renderCharts(data) {
 
         incidentTypesChart = new Chart(typesCanvas, {
             type: "bar",
+            plugins: [ChartDataLabels],
             data: {
                 labels: labels,
                 datasets: [{
@@ -538,7 +539,21 @@ function renderCharts(data) {
                 indexAxis: "y",
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                // Right padding keeps the count label on the longest bar
+                // (whichever type is most frequent) from being clipped by
+                // the canvas edge.
+                layout: { padding: { right: 28 } },
+                plugins: {
+                    legend: { display: false },
+                    // Exact count shown just past each bar's end, colored
+                    // to match its own bar for a cohesive look.
+                    datalabels: {
+                        anchor: "end",
+                        align: "end",
+                        color: ctx => barColors[ctx.dataIndex],
+                        font: { size: 11, weight: "700" }
+                    }
+                },
                 scales: {
                     x: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { color: "#0f172a", stepSize: 1 } },
                     y: { grid: { display: false }, ticks: { color: "#0f172a", font: { weight: "600" } } }

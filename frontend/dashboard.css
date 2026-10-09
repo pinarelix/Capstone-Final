@@ -1408,6 +1408,16 @@ body {
     overflow-x: auto;
 }
 
+/* The Recent Incident Table's 6 columns (at .data-table's shared 12px/13px
+   padding, used as-is on 7 other pages) were a few pixels wider than this
+   half-width dashboard card, clipping the Danger Level column with no
+   visible scrollbar to reveal it. Tighter padding here only - the shared
+   .data-table rule stays untouched for every other page using it. */
+#recentIncidentTable th,
+#recentIncidentTable td {
+    padding: 10px 8px;
+}
+
 
 .data-table {
     width: 100%;
