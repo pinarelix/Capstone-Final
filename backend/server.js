@@ -86,7 +86,7 @@ fs.mkdirSync(AVATAR_DIR, { recursive: true });
 // why. verifyFileToken/FILE_TOKEN_SECRET are defined further down but
 // this only runs per-request, by which point the whole module (and
 // those const declarations) has already finished loading.
-app.use('/uploads', (req, res, next) => {
+app.use('/uploads', async (req, res, next) => {
     const identity = verifyFileToken(req.query.ftoken);
     if (!identity) {
         return res.status(401).json({ error: 'Unauthorized: missing or expired file token' });
@@ -95,15 +95,36 @@ app.use('/uploads', (req, res, next) => {
     // Staff can view any uploaded file - matches the rest of the API,
     // where any authorized staff role can already view any incident and
     // its evidence (no per-incident ownership model). A tanod's token is
-    // scoped to only its own avatar and its own submitted incident
-    // photos - never another tanod's files, and never the admin-attached
+    // scoped to its own avatar, its own submitted incident photos, and the
+    // photos of incidents on its assigned streets (exactly the incidents
+    // GET /api/tanod/incidents/:tanodId shows it under Area Incidents) -
+    // never other tanods' avatars, and never the admin-attached
     // incident-evidence files, which tanods have no route to see anyway.
     if (identity.kind === 'tanod') {
         const requestedPath = req.path.replace(/^\/+/, '');
         const ownAvatar = requestedPath.startsWith(`tanod-avatars/tanod-${identity.tanodId}-`);
         const ownIncidentPhoto = requestedPath.startsWith(`incident-photos/incident-${identity.tanodId}-`);
         if (!ownAvatar && !ownIncidentPhoto) {
-            return res.status(403).json({ error: 'Forbidden: cannot access this file' });
+            let areaIncidentPhoto = false;
+            if (requestedPath.startsWith('incident-photos/')) {
+                try {
+                    const photoFile = path.basename(requestedPath);
+                    const locations = await getTanodScheduleLocations(identity.tanodId);
+                    if (locations.length > 0) {
+                        const [rows] = await pool.query(
+                            'SELECT 1 FROM incidents WHERE photo_path = ? AND street_name IN (?) LIMIT 1',
+                            [photoFile, locations.map(l => l.location)]
+                        );
+                        areaIncidentPhoto = rows.length > 0;
+                    }
+                } catch (error) {
+                    console.error('❌ Error checking tanod photo access:', error);
+                    return res.status(500).json({ error: 'Failed to check file access' });
+                }
+            }
+            if (!areaIncidentPhoto) {
+                return res.status(403).json({ error: 'Forbidden: cannot access this file' });
+            }
         }
     }
 
@@ -783,8 +804,34 @@ app.get('/api/notifications/stream', authenticateFromQueryToken, requireRole(['A
 
     // Keeps the connection from being silently dropped as idle by any
     // intermediary - harmless no-op on a direct localhost/LAN connection,
-    // cheap insurance otherwise.
-    const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 30000);
+    // cheap insurance otherwise. Each beat also re-checks the session:
+    // auth only ran at connect time, so a user deactivated or logged out
+    // (or idled out) since then would otherwise keep receiving every
+    // tanod report until the tab closed. Ending the response makes the
+    // browser reconnect, which then fails auth and stops for good.
+    const token = req.query.token;
+    const heartbeat = setInterval(async () => {
+        try {
+            const [rows] = await pool.query(
+                `SELECT s.last_activity FROM user_sessions s
+                 JOIN users u ON u.id = s.user_id
+                 WHERE s.session_token = ? AND s.is_active = 1 AND s.logout_time IS NULL AND u.is_active = 1`,
+                [token]
+            );
+            const timeoutMinutes = await getSessionTimeoutMinutes();
+            const stillValid = rows.length > 0 &&
+                (Date.now() - new Date(rows[0].last_activity).getTime()) / 60000 <= timeoutMinutes;
+            if (!stillValid) {
+                clearInterval(heartbeat);
+                notificationClients.delete(res);
+                res.end();
+                return;
+            }
+            res.write(': heartbeat\n\n');
+        } catch (error) {
+            console.error('❌ Notification stream session check failed:', error.message);
+        }
+    }, 30000);
 
     req.on('close', () => {
         clearInterval(heartbeat);
@@ -3759,7 +3806,7 @@ app.get('/api/patrol-logs/:id', authenticate, requireRole(['Administrator', 'Dec
     }
 });
 
-app.post('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(logSchema), async (req, res) => {
+app.post('/api/patrol-logs', authenticate, requireRole(['Administrator', 'Desk Officer']), validate(logSchema), async (req, res) => {
     try {
         const { schedule_id, tanod_id, report, status, patrol_date } = req.body;
         

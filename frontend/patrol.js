@@ -937,7 +937,7 @@ function fullIncidentListHtml(incidents) {
 
     const rows = sorted.map(inc => {
         const statusClass = statusClassMap[inc.status] || 'badge-open';
-        const cartScore = inc.cart_score != null ? `<span class="badge-subtle" style="font-size: 0.62rem;">CART ${parseFloat(inc.cart_score).toFixed(0)}</span>` : '';
+        const cartScore = inc.cart_score != null ? `<span class="badge-subtle cart-score-chip" style="font-size: 0.62rem;">CART ${parseFloat(inc.cart_score).toFixed(0)}</span>` : '';
         return `
             <div class="street-modal-incident-row">
                 <div class="street-modal-incident-main">

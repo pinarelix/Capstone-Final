@@ -791,8 +791,14 @@ function setupForm() {
             return;
         }
 
-        const repId = parseInt(reporterIdRaw, 10);
-        if (isNaN(repId) || repId <= 0) {
+        // A new incident's reporter is the logged-in user, so it must be
+        // known. An edit keeps the stored reporter (the PUT route ignores
+        // reporter_id), and tanod-filed incidents have none - requiring one
+        // here made those impossible to update.
+        const isEdit = !!document.getElementById('editIndex').value;
+        const parsedRepId = parseInt(reporterIdRaw, 10);
+        const repId = Number.isInteger(parsedRepId) && parsedRepId > 0 ? parsedRepId : null;
+        if (!isEdit && repId === null) {
             showErrorModal('Session Error', 'Could not determine the logged-in user. Please log out and log back in, then try again.');
             return;
         }

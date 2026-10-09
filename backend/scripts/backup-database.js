@@ -79,12 +79,21 @@ function main() {
     // unused leftover view (vw_incident_details, see FUTURE_WORK.md) that
     // references columns which no longer exist, and LOCK TABLES fails
     // trying to resolve it. --ignore-table skips it for good measure too.
-    execSync(
-        `"${mysqldumpBin}" --single-transaction --routines --triggers ` +
-        `--ignore-table=${DB_NAME}.vw_incident_details ` +
-        `-h ${DB_HOST} -u ${DB_USER} ${DB_NAME} > "${outFile}"`,
-        { shell: true, env, stdio: 'inherit' }
-    );
+    try {
+        execSync(
+            `"${mysqldumpBin}" --single-transaction --routines --triggers ` +
+            `--ignore-table=${DB_NAME}.vw_incident_details ` +
+            `-h ${DB_HOST} -u ${DB_USER} ${DB_NAME} > "${outFile}"`,
+            { shell: true, env, stdio: 'inherit' }
+        );
+    } catch (error) {
+        // The shell creates outFile before mysqldump runs, so a failed dump
+        // leaves an empty/partial .sql behind - delete it, or pruning would
+        // count it as one of the backups to keep (and a restore could pick it).
+        fs.rmSync(outFile, { force: true });
+        console.error(`❌ Backup failed - nothing was saved. ${error.message}`);
+        process.exit(1);
+    }
 
     const sizeKb = (fs.statSync(outFile).size / 1024).toFixed(1);
     console.log(`✅ Backup saved: ${outFile} (${sizeKb} KB)`);

@@ -99,18 +99,40 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(res.body.error).toMatch(/Unknown or inactive tanod/);
     });
 
-    test('Decision-Maker (Captain) can create and update a schedule, matching the documented API-level permission', async () => {
-        const createRes = await request(app)
+    // Schedule create/update is Administrator + Desk Officer only (db54b1b);
+    // the Captain's Patrol page has no schedule form.
+    test('Decision-Maker (Captain) cannot create or update a schedule', async () => {
+        const dmCreateRes = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${dmToken}`)
             .send(validSchedulePayload());
-        expect(createRes.status).toBe(201);
+        expect(dmCreateRes.status).toBe(403);
+
+        const createRes = await request(app)
+            .post('/api/patrol-schedules')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send(validSchedulePayload());
         createdScheduleId = createRes.body.schedule.id;
 
         const updateRes = await request(app)
             .put(`/api/patrol-schedules/${createdScheduleId}`)
             .set('Authorization', `Bearer ${dmToken}`)
             .send({ ...validSchedulePayload(), reason: 'updated by DM' });
+        expect(updateRes.status).toBe(403);
+    });
+
+    test('Desk Officer can create and update a schedule', async () => {
+        const createRes = await request(app)
+            .post('/api/patrol-schedules')
+            .set('Authorization', `Bearer ${deskToken}`)
+            .send(validSchedulePayload());
+        expect(createRes.status).toBe(201);
+        createdScheduleId = createRes.body.schedule.id;
+
+        const updateRes = await request(app)
+            .put(`/api/patrol-schedules/${createdScheduleId}`)
+            .set('Authorization', `Bearer ${deskToken}`)
+            .send({ ...validSchedulePayload(), reason: 'updated by Desk Officer' });
         expect(updateRes.status).toBe(200);
     });
 
@@ -190,6 +212,28 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(logRes.status).toBe(201);
         expect(logRes.body.log.tanod_name).toBe('Test Patrol Tanod');
         createdLogId = logRes.body.log.id;
+    });
+
+    // The Captain's Patrol page has no log form, so the API rejects it too.
+    test('Decision-Maker (Captain) cannot create a patrol log', async () => {
+        const scheduleRes = await request(app)
+            .post('/api/patrol-schedules')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ ...validSchedulePayload(), tanod_ids: [tanodId] });
+        createdScheduleId = scheduleRes.body.schedule.id;
+
+        const logRes = await request(app)
+            .post('/api/patrol-logs')
+            .set('Authorization', `Bearer ${dmToken}`)
+            .send({
+                schedule_id: createdScheduleId,
+                tanod_id: tanodId,
+                report: 'should be rejected',
+                status: 'Completed',
+                patrol_date: '2026-01-20'
+            });
+
+        expect(logRes.status).toBe(403);
     });
 
     test('Desk Officer cannot edit or delete a patrol log (Administrator-only routes)', async () => {

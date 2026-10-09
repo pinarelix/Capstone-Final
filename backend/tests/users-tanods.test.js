@@ -224,7 +224,9 @@ describe('Tanods CRUD + role enforcement', () => {
         expect(dupRes.status).toBe(409);
     });
 
-    test('Decision-Maker can edit a tanod but cannot reset its PIN', async () => {
+    // Tanod edits are Administrator-only (db54b1b) - the Captain's view of
+    // Tanod Records is read-only, so the API must reject the edit too.
+    test('Decision-Maker cannot edit a tanod or reset its PIN (Administrator-only route)', async () => {
         const createRes = await request(app)
             .post('/api/tanods')
             .set('Authorization', `Bearer ${adminToken}`)
@@ -235,14 +237,16 @@ describe('Tanods CRUD + role enforcement', () => {
             .put(`/api/tanods/${createdTanodId}`)
             .set('Authorization', `Bearer ${dmToken}`)
             .send({ name: 'Edited By DM', position: 'Dispatcher', username: newTanodUsername });
-        expect(editRes.status).toBe(200);
-        expect(editRes.body.tanod.name).toBe('Edited By DM');
+        expect(editRes.status).toBe(403);
 
         const pinResetRes = await request(app)
             .put(`/api/tanods/${createdTanodId}`)
             .set('Authorization', `Bearer ${dmToken}`)
             .send({ name: 'Edited By DM', position: 'Dispatcher', username: newTanodUsername, pin_code: '9999' });
         expect(pinResetRes.status).toBe(403);
+
+        const [rows] = await pool.query('SELECT name FROM tanod_record WHERE id = ?', [createdTanodId]);
+        expect(rows[0].name).not.toBe('Edited By DM');
     });
 
     test('Administrator can reset a tanod PIN', async () => {

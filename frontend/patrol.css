@@ -835,7 +835,8 @@ body.role-decision-maker #tab-schedules {
    plain language, so hide the score/jargon layer for him only. */
 body.role-decision-maker #cartScoreMetricCard,
 body.role-decision-maker #cartEnhancedBadge,
-body.role-decision-maker .cart-risk-badge {
+body.role-decision-maker .cart-risk-badge,
+body.role-decision-maker .cart-score-chip {
     display: none !important;
 }
 
