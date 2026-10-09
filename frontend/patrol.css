@@ -419,6 +419,55 @@
     color: #059669;
 }
 
+.rec-detail-icon {
+    color: var(--accent-blue);
+    width: 14px;
+    display: inline-block;
+    text-align: center;
+    margin-right: 6px;
+    font-size: 0.72rem;
+}
+
+.incident-mini-list {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.incident-mini-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+}
+
+.incident-mini-date {
+    color: #64748b;
+    font-weight: 700;
+    width: 38px;
+    flex-shrink: 0;
+}
+
+.incident-mini-type {
+    color: #0f172a;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.incident-mini-more {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
 /* ============================================================
    FORM CARD
 ============================================================ */

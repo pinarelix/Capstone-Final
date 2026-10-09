@@ -737,6 +737,7 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             time: time,
             reason: `CART analysis detected ${dominantLevel} risk with ${count} incident${count > 1 ? 's' : ''} (avg risk score: ${avgRisk.toFixed(1)})`,
             pattern: `${count} incident${count > 1 ? 's' : ''} recorded in this area. Risk distribution: ${riskSummary || 'No risk data available'}`,
+            riskDist: riskDist,
             tanods: tanods,
             action: action,
             avgRisk: avgRisk,
@@ -902,14 +903,16 @@ function renderCartRecommendationCards(recs, container) {
                 </span>` : ''}
             </div>
             <div class="rec-details">
-                <div><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
-                <div><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
-                <div><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
-                <div style="margin-top: 6px;"><strong>${incidentsLabel}</strong><br>
+                <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
+                <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
+                <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
+                ${riskDistBadgeHtml(rec.riskDist)}
+                <div style="margin-top: 6px;"><i class="fa-solid fa-tags rec-detail-icon"></i><strong>${incidentsLabel}</strong><br>
                     ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 4)}
                 </div>
-                <div><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
-                <div><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
+                ${incidentListItemsHtml(rec.incidents, 4)}
+                <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
+                <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
             </div>
         `;
         container.appendChild(card);
@@ -1266,6 +1269,49 @@ function typeCountsToBadgeHtml(typeCounts, maxShown = 2) {
 
 function getIncidentTypesForLocation(location) {
     return countIncidentTypesIn((allIncidents || []).filter(inc => inc.street_name === location));
+}
+
+// Colored High/Moderate/Low chips for a recommendation's riskDist (e.g.
+// {High: 3, Moderate: 1}), reusing the .risk-tag classes already defined
+// in patrol.css.
+function riskDistBadgeHtml(riskDist) {
+    if (!riskDist) return '';
+    const order = [['High', 'high'], ['Moderate', 'medium'], ['Low', 'low']];
+    const chips = order
+        .filter(([level]) => riskDist[level])
+        .map(([level, cls]) => `<span class="risk-tag ${cls}">${riskDist[level]} ${level}</span>`)
+        .join('');
+    return chips ? `<div class="risk-distribution">${chips}</div>` : '';
+}
+
+// Individual incidents behind a recommendation (date, type, status) -
+// more specific than the aggregated type-count badges above, which only
+// say "how many of each type" without saying when or what happened to them.
+function incidentListItemsHtml(incidents, maxShown = 4) {
+    if (!incidents || incidents.length === 0) return '';
+
+    const statusClassMap = { Open: 'badge-open', Monitoring: 'badge-monitoring', Resolved: 'badge-resolved' };
+    const sorted = [...incidents].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const shown = sorted.slice(0, maxShown);
+    const remaining = sorted.length - shown.length;
+
+    const rows = shown.map(inc => {
+        const dateDisplay = inc.date ? inc.date.slice(5).replace('-', '/') : 'N/A';
+        const statusClass = statusClassMap[inc.status] || 'badge-open';
+        return `
+            <div class="incident-mini-row">
+                <span class="incident-mini-date">${escapeHTML(dateDisplay)}</span>
+                <span class="incident-mini-type">${escapeHTML(inc.incident_type || 'N/A')}</span>
+                <span class="badge ${statusClass}" style="font-size: 0.6rem; padding: 1px 7px;">${escapeHTML(inc.status || 'Open')}</span>
+            </div>
+        `;
+    }).join('');
+
+    const more = remaining > 0
+        ? `<div class="incident-mini-more">+${remaining} more incident${remaining > 1 ? 's' : ''}</div>`
+        : '';
+
+    return `<div class="incident-mini-list">${rows}${more}</div>`;
 }
 
 function renderIncidentTypeBadges(location, maxShown = 2) {
