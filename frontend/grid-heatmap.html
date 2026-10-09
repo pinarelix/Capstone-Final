@@ -464,7 +464,7 @@
             gap: 14px;
             background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-left: 4px solid transparent;
+            border-left: 4px solid var(--accent-blue);
             border-radius: 12px;
             padding: 18px;
             box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
@@ -478,6 +478,7 @@
             inset: 0;
             z-index: 0;
             opacity: 0.04;
+            background: var(--accent-blue);
             pointer-events: none;
         }
 
@@ -486,24 +487,10 @@
             box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
         }
 
-        .heatmap-metric-card--blue { border-left-color: #1d4ed8; }
-        .heatmap-metric-card--blue::before { background: #1d4ed8; }
         .heatmap-metric-card--blue .heatmap-metric-icon { background: #dbeafe; color: #1d4ed8; }
-
-        .heatmap-metric-card--violet { border-left-color: #7c3aed; }
-        .heatmap-metric-card--violet::before { background: #7c3aed; }
         .heatmap-metric-card--violet .heatmap-metric-icon { background: #ede9fe; color: #7c3aed; }
-
-        .heatmap-metric-card--amber { border-left-color: #d97706; }
-        .heatmap-metric-card--amber::before { background: #d97706; }
         .heatmap-metric-card--amber .heatmap-metric-icon { background: #fef3c7; color: #d97706; }
-
-        .heatmap-metric-card--red { border-left-color: #dc2626; }
-        .heatmap-metric-card--red::before { background: #dc2626; }
         .heatmap-metric-card--red .heatmap-metric-icon { background: #fee2e2; color: #dc2626; }
-
-        .heatmap-metric-card--green { border-left-color: #059669; }
-        .heatmap-metric-card--green::before { background: #059669; }
         .heatmap-metric-card--green .heatmap-metric-icon { background: #d1fae5; color: #059669; }
 
         .heatmap-metric-icon {
