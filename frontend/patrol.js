@@ -873,7 +873,7 @@ function renderCartRecommendationCards(recs, container) {
     
     recs.forEach((rec, index) => {
         const card = document.createElement("div");
-        card.className = `rec-card ${rec.priority} fade-transition`;
+        card.className = `rec-card rec-card-clickable ${rec.priority} fade-transition`;
         card.style.animationDelay = `${index * 0.08}s`;
         
         // 🔥 NEW: CART risk score badge
@@ -914,10 +914,99 @@ function renderCartRecommendationCards(recs, container) {
                 <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
                 <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
             </div>
+            <div class="rec-card-view-hint"><i class="fa-solid fa-expand"></i> Click for full street details</div>
         `;
+        card.addEventListener('click', () => showStreetDetailModal(rec));
         container.appendChild(card);
     });
 }
+
+// ============================================================
+// 9a2. STREET DETAIL MODAL - full breakdown for one recommendation,
+// opened by clicking its card. Shows every incident behind the
+// recommendation (the card itself only shows the first 4).
+// ============================================================
+
+function fullIncidentListHtml(incidents) {
+    if (!incidents || incidents.length === 0) {
+        return '<p style="color: #94a3b8; font-size: 0.8rem; text-align: center; padding: 16px 0;">No incidents recorded.</p>';
+    }
+
+    const statusClassMap = { Open: 'badge-open', Monitoring: 'badge-monitoring', Resolved: 'badge-resolved' };
+    const sorted = [...incidents].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    const rows = sorted.map(inc => {
+        const statusClass = statusClassMap[inc.status] || 'badge-open';
+        const cartScore = inc.cart_score != null ? `<span class="badge-subtle" style="font-size: 0.62rem;">CART ${parseFloat(inc.cart_score).toFixed(0)}</span>` : '';
+        return `
+            <div class="street-modal-incident-row">
+                <div class="street-modal-incident-main">
+                    <span class="street-modal-incident-date">${escapeHTML(inc.date || 'N/A')}${inc.time ? ' · ' + escapeHTML(inc.time.slice(0, 5)) : ''}</span>
+                    <span class="street-modal-incident-type">${escapeHTML(inc.incident_type || 'N/A')}</span>
+                </div>
+                <div class="street-modal-incident-badges">
+                    ${cartScore}
+                    <span class="badge ${statusClass}" style="font-size: 0.62rem;">${escapeHTML(inc.status || 'Open')}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `<div class="street-modal-incident-list">${rows}</div>`;
+}
+
+function showStreetDetailModal(rec) {
+    const modal = document.getElementById('streetDetailModal');
+    const content = document.getElementById('streetDetailModalContent');
+    if (!modal || !content || !rec) return;
+
+    const riskBadge = rec.avgRisk > 0
+        ? `<span class="cart-risk-badge" style="background: ${rec.riskBadgeColor || '#0f172a'}; color: white;">CART Score: ${rec.avgRisk.toFixed(1)}</span>`
+        : `<span class="cart-risk-badge" style="background: #94a3b8; color: white;">No CART Score</span>`;
+
+    content.innerHTML = `
+        <div class="rec-card-header" style="margin-bottom: 4px;">
+            <h3 style="font-size: 1.15rem;">
+                ${escapeHTML(rec.area)}
+                <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; margin-left: 8px;">
+                    (${rec.count} incident${rec.count > 1 ? 's' : ''})
+                </span>
+            </h3>
+            <span class="priority-badge ${rec.priority}">${rec.priority.toUpperCase()} PRIORITY</span>
+        </div>
+        <div class="danger-level ${rec.priority}" style="margin-bottom: 10px;">${escapeHTML(rec.level)}</div>
+        <div style="margin-bottom: 10px;">
+            ${riskBadge}
+            ${rec.maxRisk > 0 ? `<span class="cart-risk-badge" style="background: #1e293b; color: #e2e8f0; margin-left: 6px;">Peak: ${rec.maxRisk}</span>` : ''}
+        </div>
+        <div class="rec-details">
+            <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
+            <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
+            <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
+            ${riskDistBadgeHtml(rec.riskDist)}
+            <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
+            <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
+        </div>
+        <div class="street-modal-section-label"><i class="fa-solid fa-list-ul"></i> All Incidents at This Location (${rec.incidents?.length || 0})</div>
+        ${fullIncidentListHtml(rec.incidents)}
+    `;
+
+    modal.classList.add('active');
+}
+
+function closeStreetDetailModal() {
+    document.getElementById('streetDetailModal')?.classList.remove('active');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('streetDetailCloseBtn')?.addEventListener('click', closeStreetDetailModal);
+    document.getElementById('streetDetailModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'streetDetailModal') closeStreetDetailModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeStreetDetailModal();
+    });
+});
 
 // ============================================================
 // 9b. 🔥 NEW: SURFACE RECOMMENDATIONS ON THE SCHEDULES TAB

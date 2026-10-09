@@ -516,6 +516,13 @@
     <!-- =========================================================
          DELETE CONFIRMATION MODAL
     ============================================================ -->
+    <div id="streetDetailModal" class="street-detail-modal-overlay">
+        <div class="street-detail-modal-box">
+            <button class="street-detail-modal-close" id="streetDetailCloseBtn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            <div id="streetDetailModalContent"></div>
+        </div>
+    </div>
+
     <div id="deleteModal" class="delete-modal-overlay">
         <div class="delete-modal-box">
             <div class="delete-modal-icon" style="font-size: 2rem; color: #334155;">
@@ -585,6 +592,142 @@
             font-weight: 700;
             color: #0f172a;
             margin-bottom: 8px;
+        }
+
+        /* ============================================================
+           STREET DETAIL MODAL (click a recommendation card for the
+           full breakdown - every incident, not just the first 4)
+        ============================================================ */
+        .rec-card-clickable {
+            cursor: pointer;
+        }
+
+        .rec-card-view-hint {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.68rem;
+            color: #94a3b8;
+            text-align: center;
+        }
+
+        .rec-card-clickable:hover .rec-card-view-hint {
+            color: var(--accent-blue);
+        }
+
+        .street-detail-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .street-detail-modal-overlay.active {
+            display: flex;
+        }
+
+        .street-detail-modal-box {
+            background: white;
+            max-width: 640px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            border-radius: 16px;
+            padding: 28px;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalPop 0.3s ease;
+        }
+
+        .street-detail-modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #f1f5f9;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .street-detail-modal-close:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .street-modal-section-label {
+            margin-top: 18px;
+            margin-bottom: 8px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #64748b;
+        }
+
+        .street-modal-section-label i {
+            color: var(--accent-blue);
+            margin-right: 6px;
+        }
+
+        .street-modal-incident-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 260px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .street-modal-incident-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+
+        .street-modal-incident-main {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .street-modal-incident-date {
+            font-size: 0.68rem;
+            color: #64748b;
+            font-weight: 700;
+        }
+
+        .street-modal-incident-type {
+            font-size: 0.8rem;
+            color: #0f172a;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .street-modal-incident-badges {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
         }
 
         .delete-modal-message {
