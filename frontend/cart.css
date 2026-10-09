@@ -858,15 +858,15 @@
 }
 
 #analysisHistoryTable thead th {
-    background: #f1f5f9;
-    color: #475569;
+    background: linear-gradient(135deg, #e0e7ff, #dbeafe);
+    color: #1e3a8a;
     font-weight: 700;
     padding: 10px 12px;
     text-align: left;
-    border-bottom: 2px solid #e2e8f0;
+    border-bottom: 2px solid #93c5fd;
     font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.6px;
 }
 
 #analysisHistoryTable tbody td {

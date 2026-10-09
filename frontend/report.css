@@ -307,12 +307,13 @@ body {
 
 .main-content table thead,
 .main-content table th {
-    background-color: #cbd5e1 !important;
-    color: #0f172a !important;
+    background: linear-gradient(135deg, #e0e7ff, #dbeafe) !important;
+    color: #1e3a8a !important;
     font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    border-bottom: 1px solid #94a3b8;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid #93c5fd;
 }
 
 .main-content table td {
