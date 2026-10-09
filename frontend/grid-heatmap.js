@@ -648,10 +648,16 @@ function updateKPIs(total, cells, peak, high, topStreets) {
     const hotspotList = document.getElementById("kpi-hotspot");
     if (topStreets && topStreets.length > 0) {
         hotspotList.innerHTML = topStreets
-            .map(([streetName, count]) => `<li>${escapeHTML(streetName)} (${count})</li>`)
+            .map(([streetName, count], index) => `
+                <div class="hotspot-rank-row">
+                    <span class="hotspot-rank-badge">${index + 1}</span>
+                    <span class="hotspot-rank-name">${escapeHTML(streetName)}</span>
+                    <span class="hotspot-rank-count">${count}</span>
+                </div>
+            `)
             .join('');
     } else {
-        hotspotList.innerHTML = '<li>N/A</li>';
+        hotspotList.innerHTML = '<div class="hotspot-rank-row"><span class="hotspot-rank-name">N/A</span></div>';
     }
 }
 

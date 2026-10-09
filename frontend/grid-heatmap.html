@@ -458,15 +458,27 @@
         }
 
         .heatmap-metric-card {
+            position: relative;
             display: flex;
             align-items: flex-start;
             gap: 14px;
             background: #ffffff;
             border: 1px solid #e2e8f0;
+            border-left: 4px solid transparent;
             border-radius: 12px;
             padding: 18px;
             box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
             transition: transform 0.25s ease, box-shadow 0.25s ease;
+            overflow: hidden;
+        }
+
+        .heatmap-metric-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.04;
+            pointer-events: none;
         }
 
         .heatmap-metric-card:hover {
@@ -474,7 +486,29 @@
             box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
         }
 
+        .heatmap-metric-card--blue { border-left-color: #1d4ed8; }
+        .heatmap-metric-card--blue::before { background: #1d4ed8; }
+        .heatmap-metric-card--blue .heatmap-metric-icon { background: #dbeafe; color: #1d4ed8; }
+
+        .heatmap-metric-card--violet { border-left-color: #7c3aed; }
+        .heatmap-metric-card--violet::before { background: #7c3aed; }
+        .heatmap-metric-card--violet .heatmap-metric-icon { background: #ede9fe; color: #7c3aed; }
+
+        .heatmap-metric-card--amber { border-left-color: #d97706; }
+        .heatmap-metric-card--amber::before { background: #d97706; }
+        .heatmap-metric-card--amber .heatmap-metric-icon { background: #fef3c7; color: #d97706; }
+
+        .heatmap-metric-card--red { border-left-color: #dc2626; }
+        .heatmap-metric-card--red::before { background: #dc2626; }
+        .heatmap-metric-card--red .heatmap-metric-icon { background: #fee2e2; color: #dc2626; }
+
+        .heatmap-metric-card--green { border-left-color: #059669; }
+        .heatmap-metric-card--green::before { background: #059669; }
+        .heatmap-metric-card--green .heatmap-metric-icon { background: #d1fae5; color: #059669; }
+
         .heatmap-metric-icon {
+            position: relative;
+            z-index: 1;
             width: 42px;
             height: 42px;
             border-radius: 10px;
@@ -486,6 +520,8 @@
         }
 
         .heatmap-metric-info {
+            position: relative;
+            z-index: 1;
             min-width: 0;
             flex: 1;
         }
@@ -513,13 +549,52 @@
             margin: 0;
         }
 
-        .hotspot-mini-list {
-            margin: 4px 0 2px;
-            padding-left: 16px;
+        .hotspot-rank-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin: 6px 0 4px;
+        }
+
+        .hotspot-rank-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hotspot-rank-badge {
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: #059669;
+            color: #ffffff;
+            font-size: 0.6rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .hotspot-rank-name {
             font-size: 0.78rem;
             font-weight: 700;
             color: #0f172a;
-            line-height: 1.45;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .hotspot-rank-count {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #059669;
+            background: #d1fae5;
+            padding: 1px 7px;
+            border-radius: 10px;
+            flex-shrink: 0;
         }
 
         @media (max-width: 992px) {
@@ -636,43 +711,45 @@
 
         <!-- KPI CARDS -->
         <div class="heatmap-kpi-grid" id="heatmapKpiGrid">
-            <div class="heatmap-metric-card">
-                <div class="heatmap-metric-icon" style="background: #dbeafe; color: #1d4ed8;"><i class="fa-solid fa-file-lines"></i></div>
+            <div class="heatmap-metric-card heatmap-metric-card--blue">
+                <div class="heatmap-metric-icon"><i class="fa-solid fa-file-lines"></i></div>
                 <div class="heatmap-metric-info">
                     <span class="heatmap-metric-label">Total Incidents</span>
                     <h4 id="kpi-incidents">0</h4>
                     <p>Records mapped in the grid.</p>
                 </div>
             </div>
-            <div class="heatmap-metric-card">
-                <div class="heatmap-metric-icon" style="background: #ede9fe; color: #7c3aed;"><i class="fa-solid fa-table-cells"></i></div>
+            <div class="heatmap-metric-card heatmap-metric-card--violet">
+                <div class="heatmap-metric-icon"><i class="fa-solid fa-table-cells"></i></div>
                 <div class="heatmap-metric-info">
                     <span class="heatmap-metric-label">Active Grid Cells</span>
                     <h4 id="kpi-cells">0</h4>
                     <p>Cells containing at least 1 incident.</p>
                 </div>
             </div>
-            <div class="heatmap-metric-card">
-                <div class="heatmap-metric-icon" style="background: #fef3c7; color: #d97706;"><i class="fa-solid fa-chart-line"></i></div>
+            <div class="heatmap-metric-card heatmap-metric-card--amber">
+                <div class="heatmap-metric-icon"><i class="fa-solid fa-chart-line"></i></div>
                 <div class="heatmap-metric-info">
                     <span class="heatmap-metric-label">Peak Incident Count</span>
                     <h4 id="kpi-peak">0</h4>
                     <p>Highest incidents in a single cell.</p>
                 </div>
             </div>
-            <div class="heatmap-metric-card">
-                <div class="heatmap-metric-icon" style="background: #fee2e2; color: #dc2626;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="heatmap-metric-card heatmap-metric-card--red">
+                <div class="heatmap-metric-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
                 <div class="heatmap-metric-info">
                     <span class="heatmap-metric-label">High Risk Cells</span>
                     <h4 id="kpi-high">0</h4>
                     <p>Cells with 10 or more incidents.</p>
                 </div>
             </div>
-            <div class="heatmap-metric-card">
-                <div class="heatmap-metric-icon" style="background: #d1fae5; color: #059669;"><i class="fa-solid fa-location-dot"></i></div>
+            <div class="heatmap-metric-card heatmap-metric-card--green">
+                <div class="heatmap-metric-icon"><i class="fa-solid fa-location-dot"></i></div>
                 <div class="heatmap-metric-info">
                     <span class="heatmap-metric-label">Top 3 Hotspot Areas</span>
-                    <ol class="hotspot-mini-list" id="kpi-hotspot"><li>N/A</li></ol>
+                    <div class="hotspot-rank-list" id="kpi-hotspot">
+                        <div class="hotspot-rank-row"><span class="hotspot-rank-name">N/A</span></div>
+                    </div>
                     <p>Streets with the most incidents in the current filter.</p>
                 </div>
             </div>
