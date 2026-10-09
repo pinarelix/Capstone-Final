@@ -459,6 +459,10 @@
             outline-offset: 2px;
         }
 
+        #heatmapKpiGrid {
+            grid-template-columns: repeat(5, 1fr);
+        }
+
         /* Responsive */
         @media (max-width: 992px) {
             .kpi-grid {
@@ -569,7 +573,7 @@
         </header>
 
         <!-- KPI CARDS -->
-        <div class="kpi-grid">
+        <div class="kpi-grid" id="heatmapKpiGrid">
             <div class="kpi-card">
                 <span class="kpi-label">Total Incidents</span>
                 <div class="kpi-value-wrapper"><span class="kpi-value" id="kpi-incidents">0</span></div>
@@ -589,6 +593,11 @@
                 <span class="kpi-label">High Risk Cells</span>
                 <div class="kpi-value-wrapper"><span class="kpi-value" id="kpi-high">0</span></div>
                 <p class="kpi-desc">Cells with 10 or more incidents.</p>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Top Hotspot Area</span>
+                <div class="kpi-value-wrapper"><span class="kpi-value text-lg" id="kpi-hotspot">N/A</span></div>
+                <p class="kpi-desc">Street with the most incidents in the current filter.</p>
             </div>
         </div>
 

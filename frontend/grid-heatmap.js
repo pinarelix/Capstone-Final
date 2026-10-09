@@ -169,7 +169,7 @@ async function loadRealData() {
 
     } catch (error) {
         console.error("❌ Error:", error.message);
-        updateKPIs(0, 0, 0, 0);
+        updateKPIs(0, 0, 0, 0, null);
         showErrorState();
     }
 }
@@ -369,7 +369,7 @@ function applyFilterAndRender() {
     if (filtered.length === 0) {
         console.warn("⚠️ No incidents match the current filter.");
         heatmapLayerGroup.clearLayers();
-        updateKPIs(0, 0, 0, 0);
+        updateKPIs(0, 0, 0, 0, null);
         showEmptyState();
         return;
     }
@@ -403,7 +403,7 @@ function renderGrid(incidents) {
 
     if (validIncidents.length === 0) {
         console.warn("⚠️ No valid incidents with coordinates.");
-        updateKPIs(0, 0, 0, 0);
+        updateKPIs(0, 0, 0, 0, null);
         showEmptyState();
         return;
     }
@@ -425,7 +425,7 @@ function renderGrid(incidents) {
 
     if (cells.length === 0) {
         console.warn("⚠️ No cells created.");
-        updateKPIs(0, 0, 0, 0);
+        updateKPIs(0, 0, 0, 0, null);
         showEmptyState();
         return;
     }
@@ -503,8 +503,22 @@ function renderGrid(incidents) {
         });
     });
 
-    updateKPIs(totalIncidents, activeCells, peakCount, highRiskCells);
-    console.log(`📊 KPI: Total=${totalIncidents}, Cells=${activeCells}, Peak=${peakCount}, HighRisk=${highRiskCells}`);
+    const streetTally = {};
+    validIncidents.forEach(item => {
+        const streetName = item.street_name || 'Unknown';
+        streetTally[streetName] = (streetTally[streetName] || 0) + 1;
+    });
+    let topStreet = null;
+    let topStreetCount = 0;
+    Object.entries(streetTally).forEach(([streetName, count]) => {
+        if (count > topStreetCount) {
+            topStreet = streetName;
+            topStreetCount = count;
+        }
+    });
+
+    updateKPIs(totalIncidents, activeCells, peakCount, highRiskCells, topStreet);
+    console.log(`📊 KPI: Total=${totalIncidents}, Cells=${activeCells}, Peak=${peakCount}, HighRisk=${highRiskCells}, TopHotspot=${topStreet}`);
     console.log("✅ Rendering Complete!");
 
     startMapAnimationLoop();
@@ -630,11 +644,12 @@ function showErrorState() {
 
 function clearEmptyState() {}
 
-function updateKPIs(total, cells, peak, high) {
+function updateKPIs(total, cells, peak, high, hotspot) {
     document.getElementById("kpi-incidents").textContent = total;
     document.getElementById("kpi-cells").textContent = cells;
     document.getElementById("kpi-peak").textContent = peak;
     document.getElementById("kpi-high").textContent = high;
+    document.getElementById("kpi-hotspot").textContent = hotspot || 'N/A';
 }
 
 document.addEventListener("DOMContentLoaded", function() {
