@@ -370,8 +370,8 @@
             align-items: center;
             gap: 8px;
             flex-wrap: wrap;
-            padding: 5px;
-            background: #eef2f7;
+            padding: 6px;
+            background: linear-gradient(135deg, #eff6ff, #eef2f7);
             border: 1px solid #dbe3ee;
             border-radius: 14px;
         }
@@ -389,18 +389,19 @@
 
         .gh-filter-chip:hover {
             transform: translateY(-1px);
-            border-color: #f39c12;
-            box-shadow: 0 4px 12px rgba(243, 156, 18, 0.18);
+            border-color: var(--accent-blue);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.18);
         }
 
         .gh-filter-chip:focus-within {
-            border-color: #f39c12;
-            box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.18);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
         }
 
         .gh-filter-icon {
             font-size: 0.78rem;
             line-height: 1;
+            color: var(--accent-blue);
             opacity: 0.85;
         }
 
@@ -423,7 +424,19 @@
         }
 
         .gh-select:hover {
-            color: #d35400;
+            color: var(--accent-blue);
+        }
+
+        .gh-science-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: 10px;
         }
 
         /* ============================================================
@@ -769,7 +782,7 @@
                         <span class="gh-filter-icon"><i class="fa-solid fa-calendar-days"></i></span>
                         <select id="heatmapPeriod" class="gh-select"></select>
                     </div>
-                    <span class="badge-subtle">Scientific Mapping</span>
+                    <span class="gh-science-badge"><i class="fa-solid fa-flask"></i> Scientific Mapping</span>
                 </div>
             </div>
 
