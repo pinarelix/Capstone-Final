@@ -75,6 +75,12 @@
     box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
 }
 
+.form-control.field-missing,
+.form-select.field-missing {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
 .textarea {
     resize: vertical;
     min-height: 60px;

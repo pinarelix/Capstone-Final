@@ -774,8 +774,25 @@ function setupForm() {
         const statement = document.getElementById('incidentStatement').value.trim();
         const priority = document.getElementById('incidentPriority').value;
 
-        if (!type || !date || !time || !street) {
-            showErrorModal('Validation Error', 'Please fill in all required fields including street name.');
+        const requiredFields = [
+            { id: 'incidentType', label: 'Incident Type' },
+            { id: 'incidentDate', label: 'Date' },
+            { id: 'incidentTime', label: 'Time' },
+            { id: 'incidentStreet', label: 'Street Name' },
+            { id: 'reportedBy', label: 'Report Submitted By' },
+            { id: 'incidentStatus', label: 'Status' }
+        ];
+
+        document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));
+
+        const missingFields = requiredFields.filter(f => !document.getElementById(f.id)?.value);
+        if (missingFields.length > 0) {
+            missingFields.forEach(f => document.getElementById(f.id)?.classList.add('field-missing'));
+            document.getElementById(missingFields[0].id)?.focus();
+            showErrorModal(
+                'Missing Required Fields',
+                `Please fill in the following before saving:\n\n${missingFields.map(f => `• ${f.label}`).join('\n')}`
+            );
             return;
         }
 
@@ -898,6 +915,17 @@ Open the incident with Edit to attach the evidence again.`);
     evidenceInput?.addEventListener('change', () => {
         updateEvidenceFileCount();
         renderEvidencePreview(Array.from(evidenceInput.files), currentExistingEvidence, document.getElementById('editIndex').value);
+    });
+
+    // Clear the red "missing" highlight on a field as soon as the user
+    // fills it in, instead of waiting for the next submit attempt.
+    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'reportedBy', 'incidentStatus'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', function () {
+            if (this.value) this.classList.remove('field-missing');
+        });
+        document.getElementById(id)?.addEventListener('change', function () {
+            if (this.value) this.classList.remove('field-missing');
+        });
     });
 }
 
@@ -1264,9 +1292,10 @@ function showErrorModal(title, message) {
     const modal = document.getElementById('errorModal');
     const titleEl = document.getElementById('errorTitle');
     const msgEl = document.getElementById('errorMessage');
-    
+
     titleEl.textContent = title || 'Error!';
     msgEl.textContent = message || 'Something went wrong.';
+    msgEl.style.textAlign = (message || '').includes('\n') ? 'left' : 'center';
     modal.style.display = 'flex';
 }
 

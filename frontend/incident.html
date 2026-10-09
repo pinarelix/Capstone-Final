@@ -195,7 +195,7 @@
                         </div>
                     </div>
 
-                    <form id="incidentForm">
+                    <form id="incidentForm" novalidate>
                         <input type="hidden" id="editIndex" value="">
 
                         <div class="form-section-header"><i class="fa-solid fa-clipboard-list"></i> Incident Details</div>
@@ -811,7 +811,7 @@
             <h2 id="errorTitle" style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
                 Error!
             </h2>
-            <p id="errorMessage" style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+            <p id="errorMessage" style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px; white-space: pre-line;">
                 Failed to save incident.
             </p>
             <button id="errorModalBtn" style="
@@ -1092,9 +1092,10 @@
             const modal = document.getElementById('errorModal');
             const titleEl = document.getElementById('errorTitle');
             const msgEl = document.getElementById('errorMessage');
-            
+
             titleEl.textContent = title || 'Error!';
             msgEl.textContent = message || 'Something went wrong.';
+            msgEl.style.textAlign = (message || '').includes('\n') ? 'left' : 'center';
             modal.style.display = 'flex';
         }
 
