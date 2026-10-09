@@ -1418,6 +1418,19 @@ body {
     padding: 10px 8px;
 }
 
+#recentIncidentTable th {
+    background: linear-gradient(135deg, #e0e7ff, #dbeafe);
+    color: #1e3a8a;
+    letter-spacing: 0.6px;
+    border-bottom: 2px solid #93c5fd;
+}
+
+#recentIncidentTable th i {
+    margin-right: 5px;
+    color: #3b82f6;
+    font-size: 0.7rem;
+}
+
 
 .data-table {
     width: 100%;

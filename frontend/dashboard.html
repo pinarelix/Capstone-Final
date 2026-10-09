@@ -59,22 +59,30 @@
             font-weight: 600;
             color: #475569;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
         }
 
-        .tab-btn:hover {
-            background: rgba(15, 23, 42, 0.05);
-            color: #0f172a;
+        .tab-btn:hover:not(.active) {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1d4ed8;
+            transform: translateY(-1px);
         }
 
         .tab-btn.active {
-            background: #0f172a;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
             color: #ffffff;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.05);
+        }
+
+        .tab-btn.active i {
+            color: #38bdf8;
         }
 
         .tab-content {
@@ -552,12 +560,12 @@
                         <thead>
 
                         <tr>
-                            <th>INCIDENT ID</th>
-                            <th>TYPE</th>
-                            <th>DATE / TIME</th>
-                            <th>LOCATION</th>
-                            <th>STATUS</th>
-                            <th>DANGER LEVEL</th>
+                            <th><i class="fa-solid fa-hashtag"></i>INCIDENT ID</th>
+                            <th><i class="fa-solid fa-tag"></i>TYPE</th>
+                            <th><i class="fa-solid fa-clock"></i>DATE / TIME</th>
+                            <th><i class="fa-solid fa-location-dot"></i>LOCATION</th>
+                            <th><i class="fa-solid fa-circle-info"></i>STATUS</th>
+                            <th><i class="fa-solid fa-triangle-exclamation"></i>DANGER LEVEL</th>
                         </tr>
 
                         </thead>
