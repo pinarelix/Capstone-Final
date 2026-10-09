@@ -246,7 +246,7 @@
     border: 1px solid #e2e8f0;
     padding: 18px 20px;
     position: relative;
-    border-left: 5px solid #10b981;
+    border-left: 5px solid var(--accent-blue);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
     transition: all 0.3s ease;
 }
@@ -254,18 +254,6 @@
 .rec-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
-}
-
-.rec-card.high {
-    border-left-color: #ef4444;
-}
-
-.rec-card.medium {
-    border-left-color: #f59e0b;
-}
-
-.rec-card.low {
-    border-left-color: #10b981;
 }
 
 .rec-card-header {
