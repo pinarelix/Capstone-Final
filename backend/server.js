@@ -69,9 +69,26 @@ fs.mkdirSync(AVATAR_DIR, { recursive: true });
 // this only runs per-request, by which point the whole module (and
 // those const declarations) has already finished loading.
 app.use('/uploads', (req, res, next) => {
-    if (!verifyFileToken(req.query.ftoken)) {
+    const identity = verifyFileToken(req.query.ftoken);
+    if (!identity) {
         return res.status(401).json({ error: 'Unauthorized: missing or expired file token' });
     }
+
+    // Staff can view any uploaded file - matches the rest of the API,
+    // where any authorized staff role can already view any incident and
+    // its evidence (no per-incident ownership model). A tanod's token is
+    // scoped to only its own avatar and its own submitted incident
+    // photos - never another tanod's files, and never the admin-attached
+    // incident-evidence files, which tanods have no route to see anyway.
+    if (identity.kind === 'tanod') {
+        const requestedPath = req.path.replace(/^\/+/, '');
+        const ownAvatar = requestedPath.startsWith(`tanod-avatars/tanod-${identity.tanodId}-`);
+        const ownIncidentPhoto = requestedPath.startsWith(`incident-photos/incident-${identity.tanodId}-`);
+        if (!ownAvatar && !ownIncidentPhoto) {
+            return res.status(403).json({ error: 'Forbidden: cannot access this file' });
+        }
+    }
+
     next();
 }, express.static(UPLOADS_ROOT));
 
@@ -819,26 +836,38 @@ async function authenticateStaffOrTanod(req, res, next) {
 const FILE_TOKEN_SECRET = crypto.randomBytes(32).toString('hex');
 const FILE_TOKEN_TTL_MS = 60 * 1000;
 
-function issueFileToken() {
+// The token carries WHO it was issued to (not just "someone, until this
+// expiry") so the /uploads gate above can scope a tanod's access to only
+// its own files - see that gate for why that distinction matters.
+function issueFileToken({ tanodId } = {}) {
     const expiry = Date.now() + FILE_TOKEN_TTL_MS;
-    const sig = crypto.createHmac('sha256', FILE_TOKEN_SECRET).update(String(expiry)).digest('hex');
-    return `${expiry}.${sig}`;
+    const kind = tanodId ? 'tanod' : 'staff';
+    const payload = `${expiry}.${kind}.${tanodId || ''}`;
+    const sig = crypto.createHmac('sha256', FILE_TOKEN_SECRET).update(payload).digest('hex');
+    return `${payload}.${sig}`;
 }
 
 function verifyFileToken(token) {
-    if (!token || typeof token !== 'string') return false;
-    const [expiryStr, sig] = token.split('.');
-    const expiry = parseInt(expiryStr, 10);
-    if (!expiry || !sig || Date.now() > expiry) return false;
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 4) return null;
 
-    const expectedSig = crypto.createHmac('sha256', FILE_TOKEN_SECRET).update(String(expiry)).digest('hex');
+    const [expiryStr, kind, tanodIdStr, sig] = parts;
+    const expiry = parseInt(expiryStr, 10);
+    if (!expiry || !sig || Date.now() > expiry) return null;
+    if (kind !== 'staff' && kind !== 'tanod') return null;
+
+    const payload = `${expiryStr}.${kind}.${tanodIdStr}`;
+    const expectedSig = crypto.createHmac('sha256', FILE_TOKEN_SECRET).update(payload).digest('hex');
     const sigBuf = Buffer.from(sig);
     const expectedBuf = Buffer.from(expectedSig);
-    return sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf);
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+
+    return { kind, tanodId: tanodIdStr ? parseInt(tanodIdStr, 10) : null };
 }
 
 app.get('/api/uploads/file-token', authenticateStaffOrTanod, (req, res) => {
-    res.json({ token: issueFileToken(), expiresIn: FILE_TOKEN_TTL_MS });
+    res.json({ token: issueFileToken({ tanodId: req.tanodId || null }), expiresIn: FILE_TOKEN_TTL_MS });
 });
 
 // ============================================================
