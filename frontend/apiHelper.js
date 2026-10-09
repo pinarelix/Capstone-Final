@@ -407,6 +407,9 @@ function initLiveNotifications() {
                 const data = JSON.parse(event.data);
                 if (data.type === 'new_incident') {
                     showIncidentNotification(data);
+                    _livePollCallbacks.forEach(fn => {
+                        try { fn(); } catch (refreshError) { console.error('Live-refresh callback failed:', refreshError); }
+                    });
                 }
             } catch (e) {
                 console.error('Failed to parse live notification:', e);
@@ -687,9 +690,18 @@ const LoginHistoryAPI = {
 // log out and back in. Skips ticks while the tab is in the background
 // (no point burning requests on a page nobody's looking at) and
 // refreshes immediately the moment it's visible again.
+//
+// Every fn registered here also gets fired instantly the moment the SSE
+// notification stream below reports a new tanod-submitted incident -
+// so whatever page is open refreshes right away instead of waiting out
+// its own 15-30s poll interval.
 // ============================================================
 
+const _livePollCallbacks = [];
+
 function startLivePolling(fn, intervalMs = 15000) {
+    _livePollCallbacks.push(fn);
+
     const timer = setInterval(() => {
         if (document.visibilityState === 'visible') fn();
     }, intervalMs);
