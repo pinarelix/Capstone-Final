@@ -456,6 +456,13 @@ const rateLimitBuckets = new Map();
 
 function rateLimit({ windowMs, max }) {
     return (req, res, next) => {
+        // Jest runs --runInBand (one shared process for the whole test
+        // run), so this in-memory bucket otherwise accumulates across
+        // every test file's requests and starts rejecting calls partway
+        // through an unrelated suite. The separate per-username
+        // login_attempts lockout (tested in auth.test.js) still applies.
+        if (process.env.NODE_ENV === 'test') return next();
+
         const key = `${req.ip}:${req.path}`;
         const now = Date.now();
         const attempts = (rateLimitBuckets.get(key) || []).filter(t => now - t < windowMs);
@@ -2052,14 +2059,17 @@ app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'D
 app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Officer']), validate(incidentSchema), async (req, res) => {
     try {
         const {
-            incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
+            incident_type, date, time, latitude, longitude, street_name, address,
             status, description, recommended_action,
             blotter_number, reported_by_name, statement, persons_involved, priority
         } = req.body;
 
         const finalStreetName = street_name || null;
         const finalAddress = address || null;
-        const finalReporterId = (reporter_id && !isNaN(parseInt(reporter_id))) ? parseInt(reporter_id) : null;
+        // Always the authenticated submitter - never trust a client-supplied
+        // reporter_id here, since nothing used to stop one staff account
+        // from attributing a report to another.
+        const finalReporterId = req.userId || null;
 
         const timeOfDay = computeTimeOfDay(time);
         const dayOfWeek = getDayOfWeek(date);
@@ -2131,7 +2141,7 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Off
 app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk Officer']), validate(incidentSchema), async (req, res) => {
     try {
         const {
-            incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
+            incident_type, date, time, latitude, longitude, street_name, address,
             status, description, recommended_action,
             blotter_number, reported_by_name, statement, persons_involved, priority
         } = req.body;
@@ -2141,7 +2151,9 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk 
 
         const finalStreetName = street_name || null;
         const finalAddress = address || null;
-        const finalReporterId = (reporter_id && !isNaN(parseInt(reporter_id))) ? parseInt(reporter_id) : null;
+        // Editing an incident never changes who originally reported it -
+        // always keep the existing value, regardless of what the client sent.
+        const finalReporterId = oldData[0]?.reporter_id ?? null;
 
         const timeOfDay = computeTimeOfDay(time);
         const dayOfWeek = getDayOfWeek(date);

@@ -7,6 +7,7 @@ describe('Incident CRUD + role enforcement', () => {
     const dmUsername = 'test_dm_incidents';
     const password = 'testpass123';
     let adminToken;
+    let adminUserId;
     let dmToken;
     let createdIncidentId;
 
@@ -23,6 +24,7 @@ describe('Incident CRUD + role enforcement', () => {
 
         const adminLogin = await request(app).post('/api/auth/login').send({ username: adminUsername, password });
         adminToken = adminLogin.body.session_token;
+        adminUserId = adminLogin.body.user.id;
 
         const dmLogin = await request(app).post('/api/auth/login').send({ username: dmUsername, password });
         dmToken = dmLogin.body.session_token;
@@ -112,6 +114,31 @@ describe('Incident CRUD + role enforcement', () => {
     test('a request with no token is rejected with 401', async () => {
         const res = await request(app).get('/api/incidents');
         expect(res.status).toBe(401);
+    });
+
+    test('reporter_id always follows the authenticated user, never the request body', async () => {
+        const createRes = await request(app)
+            .post('/api/incidents')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ ...validIncidentPayload, reporter_id: 999999 });
+        expect(createRes.status).toBe(201);
+        createdIncidentId = createRes.body.id;
+
+        const afterCreate = await request(app)
+            .get(`/api/incidents/${createdIncidentId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(afterCreate.body.reporter_id).toBe(adminUserId);
+
+        const updateRes = await request(app)
+            .put(`/api/incidents/${createdIncidentId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ ...validIncidentPayload, reporter_id: 888888, status: 'Monitoring' });
+        expect(updateRes.status).toBe(200);
+
+        const afterUpdate = await request(app)
+            .get(`/api/incidents/${createdIncidentId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(afterUpdate.body.reporter_id).toBe(adminUserId);
     });
 });
 

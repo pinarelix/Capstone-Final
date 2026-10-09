@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initMapPicker();
     loadLocationCoordinates();
-    loadReporters();
+    setDefaultReporter();
     setupStreetLocationSync();
     
     // ✅ Force load incidents with delay
@@ -402,43 +402,16 @@ function setupModalMapClose() {
 }
 
 /* ============================================================
-   LOAD REPORTERS
+   DEFAULT REPORTER (always the logged-in staff member - no longer a
+   user-facing choice, since nothing checked it matched req.userId
+   anyway. Editing an existing incident keeps its original reporter_id
+   instead of overwriting it - see editIncident()).
 ============================================================ */
 
-async function loadReporters() {
-    try {
-        const response = await apiFetch('/users-list');
-        
-        if (!response.ok) {
-            throw new Error('Failed to load reporters');
-        }
-        
-        const users = await response.json();
-        const select = document.getElementById('reportedBy');
-        
-        if (!select) return;
-        
-        select.innerHTML = '<option value="">Select Reporter</option>';
-        
-        if (users.length === 0) {
-            const option = document.createElement('option');
-            option.value = "";
-            option.textContent = "No users available - add a user first";
-            option.disabled = true;
-            select.appendChild(option);
-            return;
-        }
-        
-        users.forEach(user => {
-            const option = document.createElement('option');
-            option.value = user.id;
-            option.textContent = user.name;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading reporters:', error);
-        showErrorModal('Error', 'Failed to load reporters. Please check your connection.');
-    }
+function setDefaultReporter() {
+    const field = document.getElementById('reportedBy');
+    const user = getCurrentUser();
+    if (field && user) field.value = user.id;
 }
 
 /* ============================================================
@@ -779,7 +752,6 @@ function setupForm() {
             { id: 'incidentDate', label: 'Date' },
             { id: 'incidentTime', label: 'Time' },
             { id: 'incidentStreet', label: 'Street Name' },
-            { id: 'reportedBy', label: 'Report Submitted By' },
             { id: 'incidentStatus', label: 'Status' }
         ];
 
@@ -821,7 +793,7 @@ function setupForm() {
 
         const repId = parseInt(reporterIdRaw, 10);
         if (isNaN(repId) || repId <= 0) {
-            showErrorModal('Validation Error', 'Please select a valid Reporter from the list.');
+            showErrorModal('Session Error', 'Could not determine the logged-in user. Please log out and log back in, then try again.');
             return;
         }
 
@@ -919,7 +891,7 @@ Open the incident with Edit to attach the evidence again.`);
 
     // Clear the red "missing" highlight on a field as soon as the user
     // fills it in, instead of waiting for the next submit attempt.
-    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'reportedBy', 'incidentStatus'].forEach(id => {
+    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', function () {
             if (this.value) this.classList.remove('field-missing');
         });
@@ -1074,7 +1046,7 @@ function clearForm() {
     document.getElementById('editIndex').value = '';
     document.getElementById('formTitle').textContent = "Add New Incident";
     document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Incident`;
-    document.getElementById('reportedBy').value = '';
+    setDefaultReporter();
     document.getElementById('incidentStreet').value = '';
     document.getElementById('incidentLat').value = '';
     document.getElementById('incidentLng').value = '';
