@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // ✅ FIXED: gumamit ng incident.incident_type (hindi type)
             return `
                 <tr>
-                    <td>${(currentPage - 1) * limit + index + 1}</td>
+                    <td><strong>${formatIncidentId(incident.id, incident.incident_type)}</strong></td>
                     <td><strong>${escapeHTML(incident.incident_type || 'N/A')}</strong></td>
                     <td>${escapeHTML(location)}</td>
                     <td>${formattedDate}</td>
