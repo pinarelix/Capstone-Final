@@ -1864,7 +1864,7 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         );
 
         if (users.length === 0) {
-            return res.json({ message: 'If the username exists, a reset link has been sent.' });
+            return res.status(404).json({ error: 'Username not found. Please check and try again.' });
         }
 
         const user = users[0];
