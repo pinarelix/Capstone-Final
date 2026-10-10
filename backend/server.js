@@ -1115,6 +1115,31 @@ async function applyConfiguredThresholds() {
 }
 
 // ============================================================
+// 🆕 CART ENGINE - APPLY CONFIGURED WEIGHTS
+// ============================================================
+async function applyConfiguredWeights() {
+    const [rows] = await pool.query(
+        `SELECT setting_key, setting_value FROM system_settings
+         WHERE setting_key IN ('cart_weight_time','cart_weight_day','cart_weight_type','cart_weight_location','cart_weight_frequency')`
+    );
+    const s = {};
+    rows.forEach(r => { s[r.setting_key] = r.setting_value; });
+
+    const parse = (key, def) => {
+        const v = parseInt(s[key], 10);
+        return Number.isFinite(v) ? v / 100 : def;
+    };
+
+    cartEngine.updateWeights({
+        time:      parse('cart_weight_time',      0.25),
+        day:       parse('cart_weight_day',       0.15),
+        type:      parse('cart_weight_type',      0.30),
+        location:  parse('cart_weight_location',  0.20),
+        frequency: parse('cart_weight_frequency', 0.10)
+    });
+}
+
+// ============================================================
 // 🆕 CART ENGINE - COMPUTE FOR SINGLE INCIDENT
 // ============================================================
 
@@ -1164,6 +1189,7 @@ async function computeCartRiskFactors(incidentId) {
 
         // 4. Analyze using CART Engine
         await applyConfiguredThresholds();
+        await applyConfiguredWeights();
         const result = cartEngine.analyze(
             incident,
             locationData,
@@ -1311,6 +1337,7 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
         let lowRisk = 0;
 
         await applyConfiguredThresholds();
+        await applyConfiguredWeights();
 
         for (const incident of incidents) {
             try {
@@ -4098,6 +4125,69 @@ app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Administrator']),
 });
 
 // ============================================================
+// CART WEIGHTS API ROUTES
+// ============================================================
+
+app.get('/api/cart/weights', authenticate, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT setting_key, setting_value FROM system_settings
+             WHERE setting_key IN ('cart_weight_time','cart_weight_day','cart_weight_type','cart_weight_location','cart_weight_frequency')`
+        );
+        const defaults = { time: 25, day: 15, type: 30, location: 20, frequency: 10 };
+        rows.forEach(r => {
+            const key = r.setting_key.replace('cart_weight_', '');
+            defaults[key] = parseInt(r.setting_value, 10);
+        });
+        res.json(defaults);
+    } catch (error) {
+        console.error('Error fetching CART weights:', error);
+        res.status(500).json({ error: 'Failed to fetch CART weights' });
+    }
+});
+
+const cartWeightsSchema = Joi.object({
+    time:      Joi.number().integer().min(1).max(98).required(),
+    day:       Joi.number().integer().min(1).max(98).required(),
+    type:      Joi.number().integer().min(1).max(98).required(),
+    location:  Joi.number().integer().min(1).max(98).required(),
+    frequency: Joi.number().integer().min(1).max(98).required()
+});
+
+app.put('/api/cart/weights', authenticate, requireRole(['Administrator']), validate(cartWeightsSchema), async (req, res) => {
+    try {
+        const { time, day, type, location, frequency } = req.body;
+        const total = time + day + type + location + frequency;
+        if (total !== 100) {
+            return res.status(400).json({ error: `Weights must sum to 100%. Current total: ${total}%` });
+        }
+
+        const userId = req.user.id;
+        const entries = { time, day, type, location, frequency };
+
+        for (const [key, val] of Object.entries(entries)) {
+            const settingKey = `cart_weight_${key}`;
+            const [existing] = await pool.query('SELECT id FROM system_settings WHERE setting_key = ?', [settingKey]);
+            if (existing.length > 0) {
+                await pool.query('UPDATE system_settings SET setting_value = ?, updated_by = ? WHERE setting_key = ?',
+                    [String(val), userId, settingKey]);
+            } else {
+                await pool.query('INSERT INTO system_settings (setting_key, setting_value, updated_by) VALUES (?, ?, ?)',
+                    [settingKey, String(val), userId]);
+            }
+        }
+
+        await logAudit(userId, 'UPDATE_CART_WEIGHTS', 'system_settings', null, null, entries, req);
+        await applyConfiguredWeights();
+
+        res.json({ message: 'CART weights updated successfully.' });
+    } catch (error) {
+        console.error('Error updating CART weights:', error);
+        res.status(500).json({ error: 'Failed to update CART weights' });
+    }
+});
+
+// ============================================================
 // CART ANALYTICS API ROUTES
 // ============================================================
 
@@ -4228,6 +4318,7 @@ app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decis
         const effectiveRecentCount = Math.max(recentCount, parseInt(repeated) || 0, BUCKET_COUNT[frequency] || 0);
 
         await applyConfiguredThresholds();
+        await applyConfiguredWeights();
         const result = cartEngine.analyze(
             { incident_type, time_of_day: timeOfDay, is_weekend: isWeekend, street_name: location || null },
             { street_count: effectiveLocationCount },
@@ -4429,7 +4520,12 @@ const SETTINGS_DEFAULTS = {
     maintenance_mode: 'false',
     cart_model_version: 'v1.0',
     default_danger_threshold_high: '67',
-    default_danger_threshold_moderate: '34'
+    default_danger_threshold_moderate: '34',
+    cart_weight_time: '25',
+    cart_weight_day: '15',
+    cart_weight_type: '30',
+    cart_weight_location: '20',
+    cart_weight_frequency: '10'
 };
 
 app.post('/api/settings', authenticate, requireRole(['Administrator']), async (req, res) => {

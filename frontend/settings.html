@@ -708,6 +708,73 @@
                 </div>
             </div>
         </section>
+
+        <!-- =========================================================
+             CART WEIGHTS CARD (admin only)
+        ========================================================== -->
+        <section class="settings-grid admin-only" style="margin-top: 20px;">
+            <div class="settings-card full-width">
+                <div class="card-header">
+                    <div class="icon blue">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                    </div>
+                    <div>
+                        <h2>CART Scoring Weights</h2>
+                        <p>Adjust how much each factor contributes to the CART risk score. All weights must total exactly <strong>100%</strong>.</p>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 8px;">
+                    <div class="form-group">
+                        <label for="weightTime">Time of Day <span style="color:#94a3b8;font-weight:400;">(default 25%)</span></label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="number" id="weightTime" class="form-input" min="1" max="98" placeholder="25" style="width:80px;">
+                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="weightDay">Day Type <span style="color:#94a3b8;font-weight:400;">(default 15%)</span></label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="number" id="weightDay" class="form-input" min="1" max="98" placeholder="15" style="width:80px;">
+                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="weightType">Incident Type <span style="color:#94a3b8;font-weight:400;">(default 30%)</span></label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="number" id="weightType" class="form-input" min="1" max="98" placeholder="30" style="width:80px;">
+                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="weightLocation">Location History <span style="color:#94a3b8;font-weight:400;">(default 20%)</span></label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="number" id="weightLocation" class="form-input" min="1" max="98" placeholder="20" style="width:80px;">
+                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="weightFrequency">Recent Frequency <span style="color:#94a3b8;font-weight:400;">(default 10%)</span></label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="number" id="weightFrequency" class="form-input" min="1" max="98" placeholder="10" style="width:80px;">
+                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:16px;margin-top:18px;padding-top:16px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
+                    <div id="weightTotal" style="font-size:0.85rem;font-weight:600;padding:6px 14px;border-radius:20px;background:#f1f5f9;color:#64748b;">
+                        Total: <span id="weightTotalValue">—</span>
+                    </div>
+                    <button type="button" class="btn-save" id="saveWeightsBtn">
+                        <i class="fa-solid fa-save"></i> Save Weights
+                    </button>
+                    <button type="button" class="btn-secondary" id="resetWeightsBtn" style="padding:10px 20px;border:none;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:600;cursor:pointer;">
+                        <i class="fa-solid fa-rotate-left"></i> Reset to Defaults
+                    </button>
+                </div>
+            </div>
+        </section>
         </div>
 
         <!-- =========================================================
@@ -2244,6 +2311,80 @@ async function loadLoginHistory() {
         // Settings listeners
         document.getElementById('saveSettingsBtn').addEventListener('click', saveAllSettings);
         document.getElementById('refreshSettingsBtn').addEventListener('click', loadSystemSettings);
+
+        // ── CART Weights ──────────────────────────────────────────────
+        const weightIds = ['weightTime','weightDay','weightType','weightLocation','weightFrequency'];
+
+        function updateWeightTotal() {
+            let total = 0;
+            weightIds.forEach(id => {
+                const v = parseInt(document.getElementById(id)?.value, 10);
+                if (!isNaN(v)) total += v;
+            });
+            const el = document.getElementById('weightTotalValue');
+            const wrap = document.getElementById('weightTotal');
+            if (el) el.textContent = total + '%';
+            if (wrap) {
+                wrap.style.background = total === 100 ? '#dcfce7' : '#fee2e2';
+                wrap.style.color = total === 100 ? '#15803d' : '#dc2626';
+            }
+            return total;
+        }
+
+        weightIds.forEach(id => {
+            document.getElementById(id)?.addEventListener('input', updateWeightTotal);
+        });
+
+        async function loadCartWeights() {
+            try {
+                const res = await apiFetch('/cart/weights');
+                const data = await res.json();
+                document.getElementById('weightTime').value = data.time ?? 25;
+                document.getElementById('weightDay').value = data.day ?? 15;
+                document.getElementById('weightType').value = data.type ?? 30;
+                document.getElementById('weightLocation').value = data.location ?? 20;
+                document.getElementById('weightFrequency').value = data.frequency ?? 10;
+                updateWeightTotal();
+            } catch (e) {
+                console.error('Failed to load CART weights:', e);
+            }
+        }
+
+        document.getElementById('saveWeightsBtn')?.addEventListener('click', async () => {
+            const total = updateWeightTotal();
+            if (total !== 100) {
+                showToast(`Weights must total 100%. Current total: ${total}%`, 'error');
+                return;
+            }
+            try {
+                const res = await apiFetch('/cart/weights', {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        time:      parseInt(document.getElementById('weightTime').value, 10),
+                        day:       parseInt(document.getElementById('weightDay').value, 10),
+                        type:      parseInt(document.getElementById('weightType').value, 10),
+                        location:  parseInt(document.getElementById('weightLocation').value, 10),
+                        frequency: parseInt(document.getElementById('weightFrequency').value, 10)
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to save weights');
+                showToast('CART weights saved successfully.', 'success');
+            } catch (e) {
+                showToast(e.message || 'Failed to save weights.', 'error');
+            }
+        });
+
+        document.getElementById('resetWeightsBtn')?.addEventListener('click', () => {
+            document.getElementById('weightTime').value = 25;
+            document.getElementById('weightDay').value = 15;
+            document.getElementById('weightType').value = 30;
+            document.getElementById('weightLocation').value = 20;
+            document.getElementById('weightFrequency').value = 10;
+            updateWeightTotal();
+        });
+
+        loadCartWeights();
     });
 </script>
 
