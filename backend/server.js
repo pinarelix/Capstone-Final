@@ -2057,9 +2057,9 @@ app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-
         }
 
         if (search) {
-            filter.push("(incidents.incident_type LIKE ? OR incidents.street_name LIKE ? OR incidents.description LIKE ?)");
+            filter.push("(CAST(incidents.id AS CHAR) LIKE ? OR incidents.incident_type LIKE ? OR incidents.street_name LIKE ? OR incidents.description LIKE ?)");
             const searchTerm = `%${search}%`;
-            params.push(searchTerm, searchTerm, searchTerm);
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
         if (type) {
             filter.push('incidents.incident_type = ?');
@@ -2141,9 +2141,9 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         }
 
         if (search) {
-            filter.push("(incidents.incident_type LIKE ? OR incidents.street_name LIKE ? OR incidents.description LIKE ?)");
+            filter.push("(CAST(incidents.id AS CHAR) LIKE ? OR incidents.incident_type LIKE ? OR incidents.street_name LIKE ? OR incidents.description LIKE ?)");
             const searchTerm = `%${search}%`;
-            params.push(searchTerm, searchTerm, searchTerm);
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
 
         if (type) {

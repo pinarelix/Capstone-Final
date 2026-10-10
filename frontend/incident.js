@@ -435,7 +435,11 @@ async function loadIncidents() {
         // still be opened (and reopened by an admin) after resolution.
         const params = new URLSearchParams({ page: currentPage, limit: incidentsPerPage, include_resolved: '1' });
 
-        const searchVal = document.getElementById('searchInput')?.value.trim();
+        const searchRaw = document.getElementById('searchInput')?.value.trim();
+        // Strip category prefix (e.g. "VC-175" → "175") so the backend
+        // can match by numeric ID when user types the formatted display ID.
+        const prefixMatch = searchRaw && searchRaw.match(/^[A-Za-z]{2}-(\d+)$/);
+        const searchVal = prefixMatch ? prefixMatch[1] : searchRaw;
         const typeVal = document.getElementById('filterType')?.value;
         const dangerVal = document.getElementById('filterDanger')?.value;
         const dateVal = document.getElementById('filterDate')?.value;
