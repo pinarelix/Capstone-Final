@@ -433,7 +433,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Person(s) Involved <span style="font-weight: 400; color: #64748b;">(optional)</span></label>
-                                <input type="text" id="incidentPersonsInvolved" class="form-control" placeholder="e.g. Suspect: ..., Victim: ..., Witness: ...">
+                                <input type="text" id="incidentPersonsInvolved" class="form-control" placeholder="e.g. Suspect: ..., Victim: ..., Witness: ..." maxlength="255">
                             </div>
                         </div>
 
@@ -444,7 +444,7 @@
                         ========================================================== -->
                         <div class="form-group">
                             <label>Description</label>
-                            <textarea id="incidentDesc" class="form-control textarea" placeholder="Describe the incident pattern or report details." rows="2"></textarea>
+                            <textarea id="incidentDesc" class="form-control textarea" placeholder="Describe the incident pattern or report details." rows="2" maxlength="2000"></textarea>
                         </div>
 
                         <!-- ==========================================================
@@ -452,7 +452,7 @@
                         ========================================================== -->
                         <div class="form-group">
                             <label>Statement <span style="font-weight: 400; color: #64748b;">(optional)</span></label>
-                            <textarea id="incidentStatement" class="form-control textarea" placeholder="Direct account/statement from the reporter or witness." rows="2"></textarea>
+                            <textarea id="incidentStatement" class="form-control textarea" placeholder="Direct account/statement from the reporter or witness." rows="2" maxlength="2000"></textarea>
                         </div>
 
                         <!-- ==========================================================
@@ -475,7 +475,7 @@
                         ========================================================== -->
                         <div class="form-group">
                             <label>Resolution / Recommended Solution</label>
-                            <textarea id="recommendedAction" class="form-control textarea" placeholder="Action required by patrol or admin" rows="2">Scheduled patrol and risk monitoring</textarea>
+                            <textarea id="recommendedAction" class="form-control textarea" placeholder="Action required by patrol or admin" rows="2" maxlength="2000">Scheduled patrol and risk monitoring</textarea>
                         </div>
 
                         <!-- ==========================================================
@@ -503,7 +503,7 @@
                     </div>
                     <div class="control-fields">
                         <div class="form-group">
-                            <input type="text" id="searchInput" class="form-control" placeholder="Search by ID, type, location, description...">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Search by ID, type, location, description..." maxlength="100">
                         </div>
                         <div class="form-group">
                             <select id="filterType" class="form-select">
