@@ -225,7 +225,7 @@
    FORM INPUTS - MAY KULAY NA
 ============================================================ */
 .form-group {
-    margin-bottom: 14px;
+    margin-bottom: 20px;
 }
 
 .form-group label {
@@ -233,7 +233,7 @@
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 7px;
+    margin-bottom: 8px;
 }
 
 .form-input,
