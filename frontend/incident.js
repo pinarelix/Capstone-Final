@@ -686,7 +686,7 @@ function renderTable(dataToRender) {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td class="font-bold">${item.id}</td>
+            <td class="font-bold">${formatIncidentId(item.id, item.incident_type)}</td>
             <td>${escapeHTML(item.incident_type || 'N/A')}</td>
             <td class="text-secondary">${formattedDate} ${formattedTime}</td>
             <td>${escapeHTML(locationDisplay)}</td>
@@ -1172,7 +1172,7 @@ window.editIncident = async (id) => {
         document.getElementById('incidentStatement').value = record.statement || '';
         document.getElementById('incidentPriority').value = record.priority || 'Normal';
 
-        document.getElementById('formTitle').textContent = `Edit Incident (#${record.id})`;
+        document.getElementById('formTitle').textContent = `Edit Incident (${formatIncidentId(record.id, record.incident_type)})`;
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;
 
         // Evidence isn't in the list payload (only the single-incident

@@ -739,4 +739,56 @@ window.HeatmapAPI = HeatmapAPI;
 window.ReportsAPI = ReportsAPI;
 window.LoginHistoryAPI = LoginHistoryAPI;
 
+// ============================================================
+// INCIDENT ID FORMATTING — category prefix + database ID
+// e.g. Robbery (Violent Crime) → VC-175
+// ============================================================
+const INCIDENT_CATEGORY_PREFIX = {
+    // Violent Crimes
+    'Homicide': 'VC', 'Attempted Murder': 'VC', 'Kidnapping': 'VC',
+    'Child Abuse': 'VC', 'VAWC': 'VC', 'Illegal Release of Fire Arms': 'VC',
+    'Attempted Arson': 'VC', 'Robbery': 'VC', 'Grave Threat': 'VC',
+    'Act of Lasciviousness': 'VC', 'Physical Injury': 'VC', 'Threats': 'VC',
+    'Less Serious Physical Injuries': 'VC', 'Falsification of Documents': 'VC',
+    'Slight Physical Injuries and Maltreatment': 'VC', 'Light Threats': 'VC',
+    // Property Crimes
+    'Arson': 'PC', 'Theft': 'PC', 'Fencing of Stolen Properties': 'PC',
+    'Qualified Trespass to Dwelling': 'PC',
+    'Occupation of Real Property or Usurpation of': 'PC',
+    'Removal, Sale or Pledge of Mortgaged Property': 'PC',
+    'Trespassing': 'PC', 'Altering Boundaries of Landmarks': 'PC', 'Vandalism': 'PC',
+    // Financial / Fraud Crimes
+    'Scam': 'FC', 'Swindling of Estafa': 'FC', 'Estafa': 'FC',
+    'Cybercrime Prevention Act 2012 (RA 10175)': 'FC',
+    'Estafa/Debts': 'FC', 'Cyber Bullying': 'FC',
+    // Social / Public Order Crimes
+    'Voyeurism Act': 'SC', 'Alarms and Scandals': 'SC',
+    'Incriminating Innocent Persons': 'SC',
+    'Threatening to Publish and offer to prevent': 'SC',
+    'Oral Defamation': 'SC', 'Harassment': 'SC', 'Intriguing Against Honor': 'SC',
+    'Unlawful Use of Means of Publication and Unlaw': 'SC',
+    'Prohibiting Publication of Acts Referred to in the': 'SC',
+    // Special / Child-Related
+    'BCPC': 'CR', 'Child Support': 'CR',
+    // Other Incidents
+    'Hit and Run': 'OI', 'Noise Complaint': 'OI', 'Anti Electricity Pilferage': 'OI',
+    'Reckless Impudence Resulting to Damage to Property and Physical Injury': 'OI',
+    'Reckless Impudence Resulting Physical Injury': 'OI',
+    'Reckless Impudence Resulting to Damage to Property': 'OI',
+    'Safe Special Act': 'OI', 'Bastos Law': 'OI', 'Abandoning a Minor': 'OI',
+    'Abandonment of a Person in Danger': 'OI',
+    'Inducing a Minor to Abandon His/her Home': 'OI',
+    'Animal Welfare Acts': 'OI', 'Suspicious Activity': 'OI',
+    'Traffic Obstruction': 'OI', 'Breach of Contract': 'OI',
+    'Breach Contact': 'OI', 'Curfew Violation': 'OI',
+    'Abandon': 'OI', 'Missing': 'OI', 'Suicide': 'OI',
+};
+
+function formatIncidentId(id, incidentType) {
+    const prefix = INCIDENT_CATEGORY_PREFIX[incidentType] || 'OI';
+    return `${prefix}-${id}`;
+}
+window.formatIncidentId = formatIncidentId;
+window.INCIDENT_CATEGORY_PREFIX = INCIDENT_CATEGORY_PREFIX;
+
 console.log('✅ apiHelper.js loaded successfully (sessionStorage version)');
