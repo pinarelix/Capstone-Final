@@ -720,50 +720,96 @@
                     </div>
                     <div>
                         <h2>CART Scoring Weights</h2>
-                        <p>Adjust how much each factor contributes to the CART risk score. All weights must total exactly <strong>100%</strong>.</p>
+                        <p>Control how much each factor influences the overall risk score. All five weights must add up to exactly <strong>100%</strong>.</p>
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 8px;">
-                    <div class="form-group">
-                        <label for="weightTime">Time of Day <span style="color:#94a3b8;font-weight:400;">(default 25%)</span></label>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <input type="number" id="weightTime" class="form-input" min="1" max="98" placeholder="25" style="width:80px;">
-                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:16px;">
+
+                    <!-- Time of Day -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <span style="width:30px;height:30px;background:#dbeafe;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-clock" style="color:#2563eb;font-size:0.8rem;"></i>
+                            </span>
+                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Time of Day</span>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="weightDay">Day Type <span style="color:#94a3b8;font-weight:400;">(default 15%)</span></label>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <input type="number" id="weightDay" class="form-input" min="1" max="98" placeholder="15" style="width:80px;">
-                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="number" id="weightTime" min="1" max="98" placeholder="25"
+                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
+                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
                         </div>
+                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 25%</div>
                     </div>
-                    <div class="form-group">
-                        <label for="weightType">Incident Type <span style="color:#94a3b8;font-weight:400;">(default 30%)</span></label>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <input type="number" id="weightType" class="form-input" min="1" max="98" placeholder="30" style="width:80px;">
-                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+
+                    <!-- Day Type -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <span style="width:30px;height:30px;background:#fef9c3;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-calendar-days" style="color:#ca8a04;font-size:0.8rem;"></i>
+                            </span>
+                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Day Type</span>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="weightLocation">Location History <span style="color:#94a3b8;font-weight:400;">(default 20%)</span></label>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <input type="number" id="weightLocation" class="form-input" min="1" max="98" placeholder="20" style="width:80px;">
-                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="number" id="weightDay" min="1" max="98" placeholder="15"
+                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
+                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
                         </div>
+                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 15%</div>
                     </div>
-                    <div class="form-group">
-                        <label for="weightFrequency">Recent Frequency <span style="color:#94a3b8;font-weight:400;">(default 10%)</span></label>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <input type="number" id="weightFrequency" class="form-input" min="1" max="98" placeholder="10" style="width:80px;">
-                            <span style="color:#64748b;font-size:0.9rem;">%</span>
+
+                    <!-- Incident Type -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <span style="width:30px;height:30px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;font-size:0.8rem;"></i>
+                            </span>
+                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Incident Type</span>
                         </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="number" id="weightType" min="1" max="98" placeholder="30"
+                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
+                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
+                        </div>
+                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 30%</div>
                     </div>
+
+                    <!-- Location History -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <span style="width:30px;height:30px;background:#dcfce7;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-location-dot" style="color:#16a34a;font-size:0.8rem;"></i>
+                            </span>
+                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Location History</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="number" id="weightLocation" min="1" max="98" placeholder="20"
+                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
+                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
+                        </div>
+                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 20%</div>
+                    </div>
+
+                    <!-- Recent Frequency -->
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <span style="width:30px;height:30px;background:#f3e8ff;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-chart-line" style="color:#9333ea;font-size:0.8rem;"></i>
+                            </span>
+                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Recent Frequency</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <input type="number" id="weightFrequency" min="1" max="98" placeholder="10"
+                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
+                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
+                        </div>
+                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 10%</div>
+                    </div>
+
                 </div>
 
-                <div style="display:flex;align-items:center;gap:16px;margin-top:18px;padding-top:16px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
-                    <div id="weightTotal" style="font-size:0.85rem;font-weight:600;padding:6px 14px;border-radius:20px;background:#f1f5f9;color:#64748b;">
+                <div style="display:flex;align-items:center;gap:14px;margin-top:18px;padding-top:16px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
+                    <div id="weightTotal" style="font-size:0.82rem;font-weight:700;padding:7px 16px;border-radius:20px;background:#f1f5f9;color:#64748b;transition:background 0.2s,color 0.2s;">
                         Total: <span id="weightTotalValue">—</span>
                     </div>
                     <button type="button" class="btn-save" id="saveWeightsBtn">
