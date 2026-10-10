@@ -810,7 +810,10 @@
              TAB: ARCHIVE (Administrator only) - everything deleted
              anywhere in the app, with View and Restore
         ========================================================== -->
-        <div id="tab-archive" class="tab-content admin-only">
+        <!-- Not .admin-only here: that class forces display:flex !important
+             (dashboard.css), which would show this tab under every other
+             tab. Only the tab button is admin-only; the API is Admin-only. -->
+        <div id="tab-archive" class="tab-content">
         <section class="settings-grid">
             <div class="settings-card full-width">
                 <div class="card-header">
