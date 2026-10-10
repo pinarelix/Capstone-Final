@@ -251,6 +251,10 @@
     transition: all 0.3s ease;
 }
 
+.rec-card.high  { border-left-color: #dc2626; }
+.rec-card.medium { border-left-color: #f59e0b; }
+.rec-card.low    { border-left-color: #059669; }
+
 .rec-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);

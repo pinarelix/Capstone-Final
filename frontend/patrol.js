@@ -673,8 +673,8 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
         `${loc}: maxRisk=${data.maxRisk}, avgRisk=${data.avgRisk.toFixed(1)}, count=${data.count}`
     ));
     
-    // 6. Generate recommendations based on CART data
-    const recommendations = sortedLocations.slice(0, 4).map(([location, data]) => {
+    // 6. Generate recommendations based on CART data (all streets with incidents)
+    const recommendations = sortedLocations.map(([location, data]) => {
         const { count, avgRisk, maxRisk, dominantLevel, incidents } = data;
         
         // Determine priority based on CART risk levels
