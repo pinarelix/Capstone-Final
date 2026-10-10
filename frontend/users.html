@@ -316,17 +316,17 @@
 
                     <form id="userForm" autocomplete="off">
                         <div class="form-group">
-                            <label for="userName">Name</label>
+                            <label for="userName">Name <span style="color: #ef4444;">*</span></label>
                             <input type="text" id="userName" class="form-input" placeholder="Full name or position" required maxlength="100">
                         </div>
 
                         <div class="form-group">
-                            <label for="username">Username</label>
+                            <label for="username">Username <span style="color: #ef4444;">*</span></label>
                             <input type="text" id="username" class="form-input" placeholder="username" required maxlength="100">
                         </div>
 
                         <div class="form-group">
-                            <label for="password">Password</label>
+                            <label for="password">Password <span style="color: #ef4444;">*</span></label>
                             <div class="password-wrapper">
                                 <input type="password" id="password" class="form-input" placeholder="password" required maxlength="128">
                                 <button type="button" class="password-toggle" id="passwordToggle" title="Show password" aria-label="Show password">
@@ -336,7 +336,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="role">Role</label>
+                            <label for="role">Role <span style="color: #ef4444;">*</span></label>
                             <select id="role" class="form-select-full" required>
                                 <option value="Administrator">Administrator</option>
                                 <option value="Decision-Maker">Decision-Maker</option>
