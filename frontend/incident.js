@@ -1114,8 +1114,9 @@ window.confirmDeleteIncident = async function(id) {
         setTimeout(async () => {
             await loadIncidents();
         }, 200);
-        
-        showSuccessModal('Deleted!', `Incident #${id} deleted successfully!`);
+
+        clearForm();
+        showSuccessModal('Archived!', `Incident #${id} has been moved to the Archive.`);
     } catch (error) {
         console.error('Error deleting incident:', error);
         showErrorModal('Error', 'Failed to delete incident.');
