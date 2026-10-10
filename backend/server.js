@@ -379,7 +379,7 @@ const userSchema = Joi.object({
     password: Joi.string().min(8).required(),
     role: Joi.string().valid('Administrator', 'Decision-Maker', 'Desk Officer').required(),
     contact_no: Joi.string().allow('', null),
-    email: Joi.string().email({ tlds: false }).allow('', null)
+    email: Joi.string().email({ tlds: false }).required()
 });
 
 const userEmailSchema = Joi.object({

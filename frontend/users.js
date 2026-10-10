@@ -440,8 +440,15 @@ async function addUser() {
     const role = roleInput.value;
     const email = emailInput ? emailInput.value.trim() : '';
 
-    if (!name || !username || !password || !role) {
+    if (!name || !username || !password || !role || !email) {
         showToast("Please complete all required fields.", "error");
+        return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showToast("Please enter a valid email address.", "error");
+        emailInput.focus();
         return;
     }
 
@@ -451,8 +458,8 @@ async function addUser() {
         return;
     }
 
-    if (password.length < 6) {
-        showToast("Password must contain at least 6 characters.", "error");
+    if (password.length < 8) {
+        showToast("Password must contain at least 8 characters.", "error");
         passwordInput.focus();
         return;
     }
