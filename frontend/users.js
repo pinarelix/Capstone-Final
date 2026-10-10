@@ -268,9 +268,6 @@ function renderTanods(tanods) {
                 <button type="button" class="btn-action-edit admin-action" onclick="editTanod(${tanod.id})">
                     <i class="fa-solid fa-pen"></i> Edit
                 </button>
-                <button type="button" class="btn-action-delete admin-action" onclick="deleteTanod(${tanod.id})">
-                    <i class="fa-solid fa-trash"></i> Delete
-                </button>
             </td>
         </tr>
     `;
@@ -689,9 +686,8 @@ function renderUsers(filteredUsers = users) {
                 </div>
             </td>
             <td>
-                <button type="button" class="btn-delete" data-delete-id="${users.id}">
-                    <i class="fa-solid fa-trash"></i>
-                    Delete
+                <button type="button" class="btn-action-edit" onclick="openEditUserModal(${users.id})">
+                    <i class="fa-solid fa-pen"></i> Edit
                 </button>
             </td>
         `;
@@ -756,6 +752,74 @@ async function saveEmail(userId) {
 }
 window.startEditEmail = startEditEmail;
 window.saveEmail = saveEmail;
+
+/* ============================================================
+   EDIT USER MODAL
+============================================================ */
+function openEditUserModal(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+
+    document.getElementById('editUserId').value = userId;
+    document.getElementById('editUserName').value = user.name || '';
+    document.getElementById('editUserUsername').value = user.username || '';
+    document.getElementById('editUserRole').value = user.role || 'Desk Officer';
+    document.getElementById('editUserEmail').value = user.email || '';
+    document.getElementById('editUserPassword').value = '';
+
+    document.getElementById('editUserModal').style.display = 'flex';
+}
+window.openEditUserModal = openEditUserModal;
+
+async function saveEditUser() {
+    const id = document.getElementById('editUserId').value;
+    const name = document.getElementById('editUserName').value.trim();
+    const username = document.getElementById('editUserUsername').value.trim();
+    const role = document.getElementById('editUserRole').value;
+    const email = document.getElementById('editUserEmail').value.trim();
+    const password = document.getElementById('editUserPassword').value;
+
+    if (!name || !username || !role || !email) {
+        showToast('Name, Username, Role, and Email are required.', 'error');
+        return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showToast('Please enter a valid email address.', 'error');
+        return;
+    }
+    if (password && password.length < 8) {
+        showToast('New password must be at least 8 characters.', 'error');
+        return;
+    }
+
+    const saveBtn = document.getElementById('editUserSaveBtn');
+    const orig = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+    try {
+        const body = { name, username, role, email };
+        if (password) body.password = password;
+
+        const response = await apiFetch(`/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(body)
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Failed to update user');
+
+        showToast('User updated successfully.', 'success');
+        document.getElementById('editUserModal').style.display = 'none';
+        await loadUsers();
+    } catch (error) {
+        showToast(error.message || 'Failed to update user.', 'error');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = orig;
+    }
+}
+window.saveEditUser = saveEditUser;
 
 function updateAccountCount() {
     const accountCount = document.getElementById("accountCount");

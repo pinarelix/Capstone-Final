@@ -646,6 +646,57 @@
 </div>
 
 <!-- =========================================================
+     EDIT USER MODAL
+============================================================ -->
+<div id="editUserModal" style="
+    position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);
+    z-index:999999;display:none;align-items:center;justify-content:center;"
+    onclick="if(event.target===this)this.style.display='none';">
+    <div style="background:#fff;max-width:480px;width:92%;border-radius:16px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div>
+                <h2 style="font-size:1.1rem;font-weight:700;color:#0f172a;margin:0;">Edit System User</h2>
+                <p style="font-size:0.75rem;color:#64748b;margin:4px 0 0;">Leave Password blank to keep the current one.</p>
+            </div>
+            <button onclick="document.getElementById('editUserModal').style.display='none'" style="background:#f1f5f9;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;color:#475569;font-size:0.9rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <input type="hidden" id="editUserId">
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Name <span style="color:#ef4444;">*</span></label>
+            <input type="text" id="editUserName" class="form-input" placeholder="Full name or position" maxlength="100">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Username <span style="color:#ef4444;">*</span></label>
+            <input type="text" id="editUserUsername" class="form-input" placeholder="username" maxlength="100">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Role <span style="color:#ef4444;">*</span></label>
+            <select id="editUserRole" class="form-select-full">
+                <option value="Administrator">Administrator</option>
+                <option value="Decision-Maker">Decision-Maker</option>
+                <option value="Desk Officer">Desk Officer</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Email <span style="color:#ef4444;">*</span></label>
+            <input type="email" id="editUserEmail" class="form-input" placeholder="name@gmail.com" maxlength="100">
+        </div>
+        <div class="form-group" style="margin-bottom:24px;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">New Password <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+            <input type="password" id="editUserPassword" class="form-input" placeholder="Leave blank to keep current" maxlength="128">
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="document.getElementById('editUserModal').style.display='none'" style="padding:10px 20px;border:none;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:600;cursor:pointer;">Cancel</button>
+            <button id="editUserSaveBtn" onclick="saveEditUser()" style="padding:10px 24px;border:none;border-radius:8px;background:#0f172a;color:#fff;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <i class="fa-solid fa-save"></i> Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
      DELETE CONFIRMATION MODAL (NEW)
 ============================================================ -->
 <div id="deleteModal" class="delete-modal-overlay">

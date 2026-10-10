@@ -1627,10 +1627,50 @@ app.post('/api/users', authenticate, requireRole(['Administrator']), validate(us
     }
 });
 
-// There's no general PUT /api/users/:id (editing an existing staff
-// account isn't a feature yet) - this is intentionally scoped to just
-// the one field needed for password-reset emails to work on accounts
-// that predate the email column.
+// Full user update (name, username, role, email, optional password)
+const userUpdateSchema = Joi.object({
+    name: Joi.string().required(),
+    username: Joi.string().min(3).required(),
+    role: Joi.string().valid('Administrator', 'Decision-Maker', 'Desk Officer').required(),
+    email: Joi.string().email({ tlds: false }).required(),
+    password: Joi.string().min(8).allow('', null).optional()
+});
+
+app.put('/api/users/:id', authenticate, requireRole(['Administrator']), validate(userUpdateSchema), async (req, res) => {
+    try {
+        const { name, username, role, email, password } = req.body;
+        const userId = req.params.id;
+
+        const [existing] = await pool.query('SELECT id, username FROM users WHERE id = ?', [userId]);
+        if (existing.length === 0) return res.status(404).json({ error: 'User not found' });
+
+        const [dupCheck] = await pool.query(
+            'SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]
+        );
+        if (dupCheck.length > 0) return res.status(409).json({ error: 'Username already taken.' });
+
+        if (password) {
+            const bcrypt = require('bcrypt');
+            const hashed = await bcrypt.hash(password, 10);
+            await pool.query(
+                'UPDATE users SET name=?, username=?, role=?, email=?, password=? WHERE id=?',
+                [name, username, role, email, hashed, userId]
+            );
+        } else {
+            await pool.query(
+                'UPDATE users SET name=?, username=?, role=?, email=? WHERE id=?',
+                [name, username, role, email, userId]
+            );
+        }
+
+        await logAudit(req.userId, 'UPDATE_USER', 'users', userId, existing[0], { name, username, role, email }, req);
+        res.json({ message: 'User updated successfully.' });
+    } catch (error) {
+        console.error('❌ Error updating user:', error);
+        res.status(500).json({ error: 'Failed to update user' });
+    }
+});
+
 app.put('/api/users/:id/email', authenticate, requireRole(['Administrator']), validate(userEmailSchema), async (req, res) => {
     try {
         const { email } = req.body;
