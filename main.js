@@ -6,55 +6,37 @@ const fs = require('fs');
 // regardless of how the app was launched.
 app.setName('Barangay 179 Crime BI');
 
-// Installed app: settings (.env) and uploaded photos/evidence live in
-// the user's AppData folder, because the install folder is replaced on
-// every reinstall/update and backend/.env is deliberately not shipped
-// (it holds the database password). Running from source (npm start)
-// keeps using backend/.env and backend/uploads.
+// ── Config Manager ──────────────────────────────────────────────────
+// Centralised config lives in config-manager.js. In packaged builds the
+// JSON config goes into %APPDATA%; in dev mode the module falls back to
+// backend/.env automatically.
+const {
+    setDataDir,
+    loadConfig,
+    migrateIfNeeded,
+    applyToProcessEnv,
+} = require('./backend/config-manager');
+
 const DATA_DIR = app.getPath('userData');
-const CONFIG_PATH = path.join(DATA_DIR, '.env');
 if (app.isPackaged) {
-    process.env.APP_CONFIG_PATH = CONFIG_PATH;
+    setDataDir(DATA_DIR);
     process.env.UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 }
 
-const CONFIG_TEMPLATE = [
-    '# Barangay 179 Crime BI - database settings',
-    '# Fill in DB_PASSWORD with this PC\'s MySQL root password, save,',
-    '# then open the app again.',
-    '',
-    'DB_HOST=localhost',
-    'DB_USER=root',
-    'DB_PASSWORD=',
-    'DB_NAME=brgydata',
-    'PORT=3000',
-    '',
-    '# Optional: Gmail address + App Password for password-reset emails.',
-    'EMAIL_USER=',
-    'EMAIL_APP_PASSWORD=',
-    ''
-].join('\r\n');
+// Migrate a legacy .env → config.json on first boot after the upgrade.
+// No-ops when there's nothing to migrate.
+migrateIfNeeded();
 
-// First run on a new PC: create the settings file and point the user at
-// it, instead of failing with a database error they can't act on.
-async function ensureConfigExists() {
-    if (!app.isPackaged || fs.existsSync(CONFIG_PATH)) return true;
+// Load config and push values into process.env so existing code in
+// server.js keeps working without changes.
+const cfg = loadConfig();
+applyToProcessEnv(cfg);
 
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(CONFIG_PATH, CONFIG_TEMPLATE);
-
-    const { response } = await dialog.showMessageBox({
-        type: 'info',
-        title: 'Set Up Database Connection',
-        message: 'Almost ready - the app needs this PC\'s MySQL password.',
-        detail: `A settings file was created at:\n${CONFIG_PATH}\n\n` +
-            'Open it, type the MySQL root password after DB_PASSWORD=, save it, ' +
-            'then open the app again.',
-        buttons: ['Open Settings File', 'Close'],
-        defaultId: 0
-    });
-    if (response === 0) await shell.openPath(CONFIG_PATH);
-    return false;
+// Tell server.js where .env lives (for any remaining dotenv.config()
+// call — it will read the same values we just set on process.env, so
+// this is a no-op in practice, but avoids a "file not found" warning).
+if (app.isPackaged) {
+    process.env.APP_CONFIG_PATH = path.join(DATA_DIR, '.env');
 }
 
 let mainWindow;
@@ -105,11 +87,6 @@ if (!gotSingleInstanceLock) {
 
 app.whenReady().then(async () => {
     if (!gotSingleInstanceLock) return;
-
-    if (!(await ensureConfigExists())) {
-        app.quit();
-        return;
-    }
 
     try {
         // Required here, not at the top: server.js reads its settings
