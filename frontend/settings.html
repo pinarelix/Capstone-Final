@@ -1214,6 +1214,79 @@
     </div>
 </div>
 
+<div id="restoreConfirmModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+" onclick="if (event.target === this) this.style.display = 'none';">
+    <div style="
+        background: white;
+        max-width: 420px;
+        width: 90%;
+        border-radius: 16px;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <div style="
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #dbeafe;
+            color: #1d4ed8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 1.8rem;
+        ">
+            <i class="fa-solid fa-rotate-left"></i>
+        </div>
+        <h2 style="font-size: 1.15rem; font-weight: 700; color: #0f172a; margin-bottom: 10px;">Restore This Record?</h2>
+        <p id="restoreConfirmLabel" style="
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #1d4ed8;
+            background: #eff6ff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            word-break: break-word;
+        "></p>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 24px;">
+            It will be restored with all of its original data, just as it was before it was deleted.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button id="restoreConfirmCancelBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #f1f5f9;
+                color: #475569;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            ">Cancel</button>
+            <button id="restoreConfirmOkBtn" style="
+                padding: 10px 28px;
+                border: none;
+                border-radius: 10px;
+                background: #1d4ed8;
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            "><i class="fa-solid fa-rotate-left"></i> Restore</button>
+        </div>
+    </div>
+</div>
+
 <div id="auditDetailsModal" style="
     position: fixed;
     inset: 0;
@@ -1749,10 +1822,21 @@ async function loadLoginHistory() {
         document.getElementById('archiveDetailsModal').style.display = 'flex';
     }
 
-    async function restoreArchiveEntry(id) {
+    let pendingRestoreId = null;
+
+    function restoreArchiveEntry(id) {
         const entry = archiveEntriesById[id];
         if (!entry) return;
-        if (!confirm(`Restore "${entry.label}"?\n\nIt will be put back exactly as it was before it was deleted.`)) return;
+        pendingRestoreId = id;
+        document.getElementById('restoreConfirmLabel').textContent = entry.label;
+        document.getElementById('restoreConfirmModal').style.display = 'flex';
+    }
+
+    async function confirmRestoreArchiveEntry() {
+        const id = pendingRestoreId;
+        document.getElementById('restoreConfirmModal').style.display = 'none';
+        pendingRestoreId = null;
+        if (!id) return;
 
         try {
             const response = await apiFetch(`/archive/${id}/restore`, { method: 'POST' });
@@ -1770,6 +1854,12 @@ async function loadLoginHistory() {
             showToast('Failed to restore record.', 'error');
         }
     }
+
+    document.getElementById('restoreConfirmCancelBtn').addEventListener('click', () => {
+        document.getElementById('restoreConfirmModal').style.display = 'none';
+        pendingRestoreId = null;
+    });
+    document.getElementById('restoreConfirmOkBtn').addEventListener('click', confirmRestoreArchiveEntry);
 
     window.viewArchiveEntry = viewArchiveEntry;
     window.restoreArchiveEntry = restoreArchiveEntry;
