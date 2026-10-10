@@ -47,7 +47,8 @@ describe('Users CRUD + role enforcement', () => {
         name: 'Created By Test',
         username: newUsername,
         password: 'brandnewpass123',
-        role: 'Desk Officer'
+        role: 'Desk Officer',
+        email: 'created.by.test@example.com'
     });
 
     test('Administrator can create a user', async () => {

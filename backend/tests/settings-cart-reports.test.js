@@ -7,7 +7,9 @@ describe('System Settings + role enforcement', () => {
     const dmUsername = 'test_dm_settings';
     const password = 'testpass123';
     let adminToken, dmToken;
-    const settingKey = 'test_automated_setting';
+    // Must be a real key: the server only accepts keys listed in
+    // SETTINGS_DEFAULTS. afterEach deletes it from the (throwaway) test DB.
+    const settingKey = 'cart_model_version';
 
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
@@ -78,7 +80,7 @@ describe('System Settings + role enforcement', () => {
 
     test('updating a setting that does not exist yet returns 404', async () => {
         const res = await request(app)
-            .put('/api/settings/does_not_exist_key')
+            .put(`/api/settings/${settingKey}`)
             .set('Authorization', `Bearer ${adminToken}`)
             .send({ setting_value: 'x' });
         expect(res.status).toBe(404);

@@ -64,7 +64,7 @@ describe('Incident CRUD + role enforcement', () => {
         createdIncidentId = createRes.body.id;
 
         const listRes = await request(app)
-            .get('/api/incidents')
+            .get('/api/incidents?limit=200&include_resolved=1')
             .set('Authorization', `Bearer ${adminToken}`);
 
         expect(listRes.status).toBe(200);

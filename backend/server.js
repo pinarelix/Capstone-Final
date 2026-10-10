@@ -355,7 +355,10 @@ const incidentSchema = Joi.object({
     longitude: Joi.number().min(-180).max(180).required(),
     street_name: Joi.string().valid(...BARANGAY_LOCATIONS).allow('', null),
     address: Joi.string().max(255).allow('', null),
-    // reporter_id is always derived from the session (req.userId) server-side — never trusted from the client
+    // reporter_id is always derived from the session (req.userId) server-side — never trusted from the client.
+    // Still accepted (and discarded) because the incident form sends it: rejecting
+    // it made every create/edit from the UI fail with "reporter_id is not allowed".
+    reporter_id: Joi.any().strip(),
     status: Joi.string().valid('Open', 'Monitoring', 'Resolved').default('Open'),
     description: Joi.string().max(2000).allow('', null),
     recommended_action: Joi.string().max(1000).allow('', null),
