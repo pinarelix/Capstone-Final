@@ -1686,15 +1686,39 @@ async function loadLoginHistory() {
         const body = document.getElementById('auditDetailsBody');
         if (!modal || !body) return;
 
-        let html = '';
+        const date = new Date(entry.created_at);
+        const formattedDate = date.toLocaleString('en-PH', {
+            month: 'short', day: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+
+        const metaRow = (label, value) =>
+            `<div style="display:flex; gap:8px; margin-bottom:6px; font-size:0.82rem;">
+                <span style="color:#64748b; min-width:90px; flex-shrink:0;">${label}</span>
+                <span style="color:#0f172a; font-weight:500; word-break:break-all;">${escapeHTML(String(value ?? '—'))}</span>
+            </div>`;
+
+        let html = `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:16px;">
+            ${metaRow('Action', entry.action)}
+            ${metaRow('Performed by', (entry.user_name || entry.username || 'System') + (entry.actor_type === 'tanod' ? ' (Tanod)' : ''))}
+            ${metaRow('Entity', (entry.entity_type || '—') + (entry.entity_id ? ' #' + entry.entity_id : ''))}
+            ${metaRow('Timestamp', formattedDate)}
+            ${metaRow('IP Address', entry.ip_address)}
+        </div>`;
+
         if (entry.old_data) {
-            html += `<strong style="display:block; margin-bottom:6px; color:#64748b; font-size:0.75rem;">BEFORE</strong><pre style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; font-size:0.78rem; white-space:pre-wrap; word-break:break-word; margin-bottom:16px;">${escapeHTML(JSON.stringify(entry.old_data, null, 2))}</pre>`;
+            html += `<strong style="display:block; margin-bottom:6px; color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">Before</strong>
+            <pre style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:12px; font-size:0.78rem; white-space:pre-wrap; word-break:break-word; margin-bottom:14px; color:#92400e;">${escapeHTML(JSON.stringify(entry.old_data, null, 2))}</pre>`;
         }
         if (entry.new_data) {
-            html += `<strong style="display:block; margin-bottom:6px; color:#64748b; font-size:0.75rem;">AFTER</strong><pre style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; font-size:0.78rem; white-space:pre-wrap; word-break:break-word;">${escapeHTML(JSON.stringify(entry.new_data, null, 2))}</pre>`;
+            html += `<strong style="display:block; margin-bottom:6px; color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">After</strong>
+            <pre style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; font-size:0.78rem; white-space:pre-wrap; word-break:break-word; color:#166534;">${escapeHTML(JSON.stringify(entry.new_data, null, 2))}</pre>`;
+        }
+        if (!entry.old_data && !entry.new_data) {
+            html += '<p style="color:#94a3b8; font-size:0.85rem; text-align:center; padding:8px 0;">No data snapshot recorded for this action.</p>';
         }
 
-        body.innerHTML = html || '<p style="color:#94a3b8;">No details recorded.</p>';
+        body.innerHTML = html;
         modal.style.display = 'flex';
     }
     window.viewAuditLogDetails = viewAuditLogDetails;
@@ -1925,7 +1949,7 @@ async function loadLoginHistory() {
                 // Staff and tanod audit rows come from two tables whose ids
                 // overlap, so key by source too or "View" can show the wrong row.
                 const detailsKey = `${log.actor_type === 'tanod' ? 'tanod' : 'staff'}-${log.id}`;
-                auditLogDataById[detailsKey] = { old_data: log.old_data, new_data: log.new_data };
+                auditLogDataById[detailsKey] = log;
                 const hasDetails = log.old_data || log.new_data;
 
                 return `
