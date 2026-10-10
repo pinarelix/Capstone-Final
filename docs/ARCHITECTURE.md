@@ -312,30 +312,67 @@ erDiagram
         date patrol_date
     }
 
-    USERS ||--o{ USER_SESSIONS : "authenticates"
-    USERS ||--o{ LOGIN_HISTORY : "logs in"
-    USERS ||--o{ PASSWORD_RESETS : "requests"
-    USERS ||--o{ AUDIT_LOGS : "performs actions"
-    USERS ||--o{ SYSTEM_SETTINGS : "last updated by"
-    USERS ||--o{ INCIDENTS : "reports (staff-logged)"
-    USERS ||--o{ CART_ANALYSIS_LOG : "triggers"
-    USERS ||--o{ CART_DECISION_RULES : "authors"
-    USERS ||--o{ LOCATION_COORDINATES : "pins"
-    USERS ||--o| TANOD_RECORD : "optionally linked staff account"
-    USERS ||--o{ ARCHIVED_RECORDS : "deletes / restores"
+    %% ── User / Auth subsystem ──────────────────────────────────────
+    %% A staff user owns many session tokens; each token belongs to exactly one user.
+    USERS ||--o{ USER_SESSIONS : "user_id · 1 user → 0..* active sessions"
+    %% Every successful login writes a history row; rows outlive the session.
+    USERS ||--o{ LOGIN_HISTORY : "user_id · 1 user → 0..* login events"
+    %% A user may request multiple resets over their lifetime.
+    USERS ||--o{ PASSWORD_RESETS : "user_id · 1 user → 0..* OTP reset requests"
+    %% Every state-changing API call appends an audit row attributed to the caller.
+    USERS ||--o{ AUDIT_LOGS : "user_id · 1 user → 0..* audit entries"
+    %% Each setting row records who last changed it (not the full history — audit_logs covers that).
+    USERS ||--o{ SYSTEM_SETTINGS : "updated_by · 1 user → 0..* settings last touched"
 
-    INCIDENTS ||--o{ INCIDENT_EVIDENCE : "has attached"
-    INCIDENTS ||--|| CART_RISK_FACTORS : "scored by"
+    %% ── Incident reporting ───────────────────────────────────────
+    %% Staff-created incidents carry the reporter's user_id (nullable — tanod-logged ones have NULL here).
+    USERS ||--o{ INCIDENTS : "reporter_id · 1 user → 0..* staff-created incidents"
+    %% Who clicked 'Run CART Analysis' in the dashboard.
+    USERS ||--o{ CART_ANALYSIS_LOG : "triggered_by · 1 user → 0..* analysis runs"
+    %% Decision rules are authored by admin users.
+    USERS ||--o{ CART_DECISION_RULES : "created_by · 1 user → 0..* rule definitions"
+    %% An admin pins a GPS coordinate for each street name.
+    USERS ||--o{ LOCATION_COORDINATES : "set_by · 1 user → 0..* location pins"
 
-    TANOD_TEAMS ||--o{ TANOD_RECORD : "groups"
-    TANOD_RECORD ||--o{ TANOD_SESSIONS : "authenticates"
-    TANOD_RECORD ||--o{ TANOD_AUDIT_LOGS : "performs actions"
-    TANOD_RECORD ||--o{ INCIDENTS : "reports (field-logged)"
-    TANOD_RECORD ||--o{ PATROL_SCHEDULE_TANODS : "assigned via"
-    TANOD_RECORD ||--o{ PATROL_LOGS : "submits"
+    %% ── Tanod ↔ Staff account optional link ─────────────────────
+    %% A tanod record MAY be linked to a staff account (user_id FK on tanod_record is nullable);
+    %% a staff account MAY be linked to at most one tanod record.  Both sides are optional.
+    USERS o|--o| TANOD_RECORD : "user_id (nullable) · optional 1-to-1 staff link"
 
-    PATROL_SCHEDULES ||--o{ PATROL_SCHEDULE_TANODS : "staffed by"
-    PATROL_SCHEDULES ||--o{ PATROL_LOGS : "logged against"
+    %% ── Archive ──────────────────────────────────────────────────
+    %% deleted_by and restored_by are both nullable FKs to users on the same table.
+    %% No FK constraint — the original row is gone when the archive row is written.
+    USERS ||--o{ ARCHIVED_RECORDS : "deleted_by / restored_by · 1 user → 0..* archive events"
+
+    %% ── Incident evidence & CART scoring ────────────────────────
+    %% One incident can have many attached files (photos / videos).
+    INCIDENTS ||--o{ INCIDENT_EVIDENCE : "incident_id · 1 incident → 0..* evidence files"
+    %% CART scoring is run on-demand; a row is created only after the engine scores the incident.
+    %% A new incident has no risk-factor row until CART analysis runs → zero-or-one, not exactly-one.
+    INCIDENTS ||--o| CART_RISK_FACTORS : "incident_id (UNIQUE) · 1 incident → 0..1 CART score"
+
+    %% ── Tanod team membership ────────────────────────────────────
+    %% Each team groups multiple tanods; team_id on tanod_record is nullable (unassigned tanods allowed).
+    TANOD_TEAMS ||--o{ TANOD_RECORD : "team_id · 1 team → 0..* tanod members"
+
+    %% ── Tanod auth & activity ────────────────────────────────────
+    %% PIN-based login creates a session token row, separate from staff sessions.
+    TANOD_RECORD ||--o{ TANOD_SESSIONS : "tanod_id · 1 tanod → 0..* field sessions"
+    %% Field actions (incident report, patrol log submit) are logged here, not in audit_logs.
+    TANOD_RECORD ||--o{ TANOD_AUDIT_LOGS : "tanod_id · 1 tanod → 0..* field audit entries"
+    %% Tanod-reported incidents carry reporter_tanod_id (nullable — staff-logged ones have NULL).
+    TANOD_RECORD ||--o{ INCIDENTS : "reporter_tanod_id · 1 tanod → 0..* field-reported incidents"
+
+    %% ── Patrol scheduling (junction + log) ───────────────────────
+    %% Many-to-many: a schedule can have many assigned tanods; a tanod can be on many schedules.
+    TANOD_RECORD ||--o{ PATROL_SCHEDULE_TANODS : "tanod_id · 1 tanod → 0..* schedule assignments"
+    %% A tanod submits one patrol log per schedule they cover.
+    TANOD_RECORD ||--o{ PATROL_LOGS : "tanod_id · 1 tanod → 0..* submitted logs"
+
+    %% One schedule row is staffed by many tanods via the junction table.
+    PATROL_SCHEDULES ||--o{ PATROL_SCHEDULE_TANODS : "schedule_id · 1 schedule → 1..* assigned tanods"
+    %% Each patrol log is filed against the schedule it covers.
+    PATROL_SCHEDULES ||--o{ PATROL_LOGS : "schedule_id · 1 schedule → 0..* filed patrol logs"
 ```
 
 `ARCHIVED_RECORDS` holds everything deleted anywhere in the app: `entity_type` +
