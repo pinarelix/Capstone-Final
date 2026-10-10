@@ -294,7 +294,7 @@
             <!-- Reset request confirmation area (token itself is never sent to the browser) -->
             <div id="resetTokenDisplay" style="display: none; margin-top: 12px; padding: 10px; background: #fef3c7; border-radius: 8px; text-align: center;">
                 <p style="font-size: 0.8rem; color: #92400e; margin: 0;" id="resetTokenValue">
-                    If that account exists, a reset code has been generated and emailed to the address on file (if any). If you don't receive it, please contact your barangay system administrator for the code.
+                    A 6-digit code has been sent to your registered email. Click "Enter New Password" and enter the code below. It expires in 10 minutes.
                 </p>
             </div>
 
@@ -326,8 +326,10 @@
             <input
                 type="text"
                 id="resetTokenInput"
-                placeholder="Reset Token"
-                maxlength="128"
+                placeholder="Enter 6-digit code"
+                maxlength="6"
+                inputmode="numeric"
+                pattern="[0-9]*"
             >
 
             <input

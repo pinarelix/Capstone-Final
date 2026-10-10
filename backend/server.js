@@ -585,11 +585,11 @@ async function sendPasswordResetEmail(toEmail, name, resetToken) {
             subject: 'Password Reset Code - Barangay 179 Crime BI',
             html: `
                 <p>Hi ${name},</p>
-                <p>We received a request to reset your password for the Barangay 179 Crime BI system.</p>
-                <p>Your reset code is:</p>
-                <p style="font-size: 20px; font-weight: bold; letter-spacing: 1px;">${resetToken}</p>
-                <p>Enter this code on the password reset screen. It expires in 30 minutes.</p>
-                <p>If you didn't request this, you can safely ignore this email.</p>
+                <p>We received a request to reset your password for the <strong>Barangay 179 Crime BI</strong> system.</p>
+                <p>Your 6-digit password reset code is:</p>
+                <p style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1d4ed8; text-align: center; margin: 20px 0; padding: 16px; background: #eff6ff; border-radius: 8px;">${resetToken}</p>
+                <p>Enter this code on the password reset screen. <strong>It expires in 10 minutes.</strong></p>
+                <p style="color: #6b7280; font-size: 0.9em;">If you didn't request this, you can safely ignore this email. Your password will not be changed.</p>
             `
         });
         return true;
@@ -1873,8 +1873,8 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         }
 
         const user = users[0];
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+        const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         await pool.query(`
             INSERT INTO password_resets (user_id, reset_token, expires_at)
@@ -1894,7 +1894,9 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
             { username: user.username, reset_token: resetToken, expires_at: expiresAt, emailed_to: emailSent ? user.email : null }, req);
 
         res.json({
-            message: 'If the username exists, a reset link has been sent.'
+            message: emailSent
+                ? 'A 6-digit reset code has been sent to your registered email. It expires in 10 minutes.'
+                : 'Reset code generated. Please contact your administrator for the code.'
         });
 
     } catch (error) {

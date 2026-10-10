@@ -172,6 +172,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            if (!/^\d{6}$/.test(resetToken)) {
+                showToast('Please enter the 6-digit code from your email.', 'error');
+                return;
+            }
+
             if (newPassword.length < 8) {
                 showToast('New password must be at least 8 characters.', 'error');
                 return;
