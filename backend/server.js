@@ -396,6 +396,11 @@ const forgotPasswordSchema = Joi.object({
     username: Joi.string().required()
 });
 
+const changePasswordSchema = Joi.object({
+    current_password: Joi.string().required(),
+    new_password: Joi.string().min(8).required()
+});
+
 const resetPasswordSchema = Joi.object({
     username: Joi.string().required(),
     reset_token: Joi.string().required(),
@@ -1945,6 +1950,41 @@ app.post('/api/auth/reset-password', authRateLimit, validate(resetPasswordSchema
     } catch (error) {
         console.error('Error in reset-password:', error);
         res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
+
+// ============================================================
+// AUTH - CHANGE PASSWORD (logged-in user changing their own)
+// ============================================================
+
+app.post('/api/auth/change-password', authenticate, validate(changePasswordSchema), async (req, res) => {
+    try {
+        const { current_password, new_password } = req.body;
+
+        const [rows] = await pool.query(
+            'SELECT id, password_hash FROM users WHERE id = ? AND is_active = 1',
+            [req.userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        const valid = await bcrypt.compare(current_password, rows[0].password_hash);
+        if (!valid) {
+            return res.status(400).json({ error: 'Current password is incorrect.' });
+        }
+
+        const password_hash = await bcrypt.hash(new_password, 10);
+        await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash, req.userId]);
+
+        await logAudit(req.userId, 'CHANGE_PASSWORD', 'users', req.userId, null, null, req);
+
+        res.json({ message: 'Password updated successfully.' });
+
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(500).json({ error: 'Failed to update password.' });
     }
 });
 

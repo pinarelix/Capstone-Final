@@ -930,9 +930,6 @@
                     <button type="submit" class="btn-save">
                         <i class="fa-solid fa-save"></i> Update Password
                     </button>
-                    <div class="password-success" id="passwordSuccess">
-                        <i class="fa-solid fa-check-circle"></i> Password updated successfully!
-                    </div>
                 </form>
             </div>
 
@@ -1365,7 +1362,7 @@
     // =========================================================
     // CHANGE PASSWORD
     // =========================================================
-    document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
+    document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
         const current = document.getElementById('currentPassword').value;
@@ -1387,15 +1384,32 @@
             return;
         }
 
-        const successMsg = document.getElementById('passwordSuccess');
-        successMsg.classList.add('show');
+        const btn = this.querySelector('button[type="submit"]');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
 
-        setTimeout(() => {
-            document.getElementById('changePasswordForm').reset();
-            setTimeout(() => {
-                successMsg.classList.remove('show');
-            }, 2000);
-        }, 1000);
+        try {
+            const response = await apiFetch('/auth/change-password', {
+                method: 'POST',
+                body: JSON.stringify({ current_password: current, new_password: newPass })
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                showToast(data.error || 'Failed to update password.', 'error');
+                return;
+            }
+
+            showToast('Password updated successfully.', 'success');
+            this.reset();
+        } catch (error) {
+            console.error('Change password error:', error);
+            showToast('Failed to update password. Please try again.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
     });
 
     // =========================================================
