@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Setup - Barangay 179 Crime Analytics</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="setup.css">
+</head>
+<body>
+
+    <div class="setup-wrapper">
+
+        <div class="setup-card">
+
+            <!-- Header -->
+            <div class="setup-header">
+                <div class="setup-icon">
+                    <i class="fa-solid fa-plug-circle-bolt"></i>
+                </div>
+                <h1>Database Connection</h1>
+                <p class="setup-subtitle">
+                    Configure your MySQL connection to continue.
+                </p>
+            </div>
+
+            <!-- Form -->
+            <form id="setupForm" autocomplete="off">
+
+                <div class="form-grid">
+
+                    <!-- Host -->
+                    <div class="input-group">
+                        <label for="dbHost">Host</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-server input-icon"></i>
+                            <input
+                                type="text"
+                                id="dbHost"
+                                name="host"
+                                placeholder="localhost"
+                                value="localhost"
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Port -->
+                    <div class="input-group">
+                        <label for="dbPort">Port</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-hashtag input-icon"></i>
+                            <input
+                                type="number"
+                                id="dbPort"
+                                name="port"
+                                placeholder="3306"
+                                value="3306"
+                                required
+                                min="1"
+                                max="65535"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Username -->
+                    <div class="input-group">
+                        <label for="dbUser">Username</label>
+                        <div class="input-wrap">
+                            <i class="fa-regular fa-user input-icon"></i>
+                            <input
+                                type="text"
+                                id="dbUser"
+                                name="user"
+                                placeholder="root"
+                                value="root"
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="input-group">
+                        <label for="dbPassword">Password</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-lock input-icon"></i>
+                            <input
+                                type="password"
+                                id="dbPassword"
+                                name="password"
+                                placeholder="Enter password"
+                            >
+                            <i
+                                class="fa-regular fa-eye toggle-password"
+                                id="togglePassword"
+                                aria-label="Toggle password visibility"
+                            ></i>
+                        </div>
+                    </div>
+
+                    <!-- Database Name (full width) -->
+                    <div class="input-group full-width">
+                        <label for="dbName">Database Name</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-database input-icon"></i>
+                            <input
+                                type="text"
+                                id="dbName"
+                                name="database"
+                                placeholder="brgydata"
+                                value="brgydata"
+                                required
+                            >
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Status / Result Area -->
+                <div id="statusArea" class="status-area" style="display: none;">
+                    <div id="statusContent"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="setup-actions">
+
+                    <button
+                        type="button"
+                        id="btnTest"
+                        class="btn-test"
+                    >
+                        <i class="fa-solid fa-vial"></i>
+                        Test Connection
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btnLaunch"
+                        class="btn-launch"
+                        disabled
+                    >
+                        <span id="btnLaunchLabel">Save &amp; Launch</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+
+                </div>
+
+            </form>
+
+            <!-- Footer -->
+            <div class="setup-footer">
+                <p>&copy; 2026 Barangay 179 Amparo, Caloocan City. All rights reserved.</p>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="setup.js"></script>
+
+</body>
+</html>

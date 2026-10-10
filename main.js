@@ -15,6 +15,7 @@ const {
     loadConfig,
     migrateIfNeeded,
     applyToProcessEnv,
+    getConfigPath,
 } = require('./backend/config-manager');
 
 const DATA_DIR = app.getPath('userData');
@@ -41,8 +42,12 @@ if (app.isPackaged) {
 
 let mainWindow;
 // The port the backend actually listened on (PORT in backend/.env,
-// default 3000) - the window must load that, not a hardcoded 3000.
+// default 3000) — the window must load that, not a hardcoded 3000.
 let serverPort = 3000;
+
+// ── Window creation ─────────────────────────────────────────────────
+// Always opens setup.html first (the mandatory connection gate).
+// setup.js navigates to login.html once a live DB connection is confirmed.
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -54,7 +59,7 @@ function createWindow() {
         // never flashes at its smaller default size first.
         show: false,
         icon: path.join(__dirname, 'frontend', 'icons', 'icon-512.png'),
-        backgroundColor: '#ffffff',
+        backgroundColor: '#0b1c3c',
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false
@@ -66,7 +71,12 @@ function createWindow() {
         mainWindow.show();
     });
 
-    mainWindow.loadURL(`http://localhost:${serverPort}/login.html`);
+    // ── Mandatory gate: always land on the setup wizard first ────────
+    // The wizard auto-tests the saved config. If it passes, the user
+    // clicks "Connect & Continue" (one click) and setup.js navigates
+    // to login.html. On first run or a broken connection they stay in
+    // the wizard until they fix it.
+    mainWindow.loadURL(`http://localhost:${serverPort}/setup.html`);
 }
 
 Menu.setApplicationMenu(null);
@@ -89,8 +99,10 @@ app.whenReady().then(async () => {
     if (!gotSingleInstanceLock) return;
 
     try {
-        // Required here, not at the top: server.js reads its settings
-        // (APP_CONFIG_PATH) the moment it loads.
+        // Start the Express server so /api/setup/* endpoints are available
+        // for the wizard. If the DB is down the server still starts — the
+        // setup routes don't need a live pool; they test connections on
+        // demand. startServer() is modified to not crash on DB failure.
         const { startServer } = require('./backend/server');
         const server = await startServer();
         serverPort = server.address().port;
@@ -101,17 +113,40 @@ app.whenReady().then(async () => {
                 `Port ${error.port || serverPort} is already being used by another program. ` +
                 'Close any other running copy of this app (or dev server) and try again.'
             );
-        } else {
-            dialog.showErrorBox(
-                'Cannot Start Server',
-                `The app could not connect to the database.\n\n` +
-                `Please make sure MySQL is running, then restart the app.\n\n` +
-                (app.isPackaged ? `Database settings: ${CONFIG_PATH}\n\n` : '') +
-                `Details: ${error.message}`
-            );
+            app.quit();
+            return;
         }
-        app.quit();
-        return;
+        // For any other error (including DB failures), still try to show
+        // the wizard — the user can fix the connection from there.
+        console.error('⚠️ Server start error (will show wizard):', error.message);
+
+        // Fall back: start a minimal Express just to serve static files
+        // and the setup API so the wizard can work.
+        try {
+            const express = require('express');
+            const fallbackApp = express();
+            fallbackApp.use(express.json());
+            fallbackApp.use(express.static(path.join(__dirname, 'frontend')));
+
+            // Mount the setup routes so the wizard can test/save config
+            const setupRouter = require('./backend/routes/setup');
+            fallbackApp.use('/api/setup', setupRouter);
+
+            const fallbackServer = await new Promise((resolve, reject) => {
+                const s = fallbackApp.listen(cfg.server.port || 3000, () => resolve(s));
+                s.on('error', reject);
+            });
+            serverPort = fallbackServer.address().port;
+            console.log(`🔧 Fallback server on port ${serverPort} (setup wizard only)`);
+        } catch (fallbackErr) {
+            dialog.showErrorBox(
+                'Cannot Start',
+                `The app could not start.\n\n` +
+                `Details: ${fallbackErr.message}`
+            );
+            app.quit();
+            return;
+        }
     }
 
     createWindow();
