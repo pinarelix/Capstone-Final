@@ -629,6 +629,9 @@
             <button class="tab-btn" data-tab="audit-trail">
                 <i class="fa-solid fa-list-check"></i> Audit Trail
             </button>
+            <button class="tab-btn admin-only" data-tab="archive">
+                <i class="fa-solid fa-box-archive"></i> Archive
+            </button>
         </div>
 
         <!-- =========================================================
@@ -735,17 +738,20 @@
                         <option value="CREATE_INCIDENT">Create Incident</option>
                         <option value="UPDATE_INCIDENT">Update Incident</option>
                         <option value="DELETE_INCIDENT">Delete Incident</option>
+                        <option value="DELETE_INCIDENT_EVIDENCE">Delete Incident Evidence</option>
                         <option value="CREATE_USER">Create User</option>
                         <option value="DELETE_USER">Delete User</option>
                         <option value="CREATE_TANOD">Create Tanod</option>
                         <option value="UPDATE_TANOD">Update Tanod</option>
                         <option value="DELETE_TANOD">Delete Tanod</option>
+                        <option value="DELETE_TANOD_TEAM">Delete Tanod Team</option>
                         <option value="CREATE_SCHEDULE">Create Schedule</option>
                         <option value="UPDATE_SCHEDULE">Update Schedule</option>
                         <option value="DELETE_SCHEDULE">Delete Schedule</option>
                         <option value="CREATE_LOG">Create Log</option>
                         <option value="UPDATE_LOG">Update Log</option>
                         <option value="DELETE_LOG">Delete Log</option>
+                        <option value="RESTORE_RECORD">Restore From Archive</option>
                         <option value="RUN_CART_ANALYSIS">Run CART Analysis</option>
                         <option value="UPDATE_SETTINGS">Update Settings</option>
                         <option value="TANOD_LOGIN">Tanod Login</option>
@@ -791,6 +797,72 @@
                             <tr>
                                 <td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
                                     <i class="fa-solid fa-spinner fa-spin"></i> Loading audit logs...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        </div>
+
+        <!-- =========================================================
+             TAB: ARCHIVE (Administrator only) - everything deleted
+             anywhere in the app, with View and Restore
+        ========================================================== -->
+        <div id="tab-archive" class="tab-content admin-only">
+        <section class="settings-grid">
+            <div class="settings-card full-width">
+                <div class="card-header">
+                    <div class="icon blue">
+                        <i class="fa-solid fa-box-archive"></i>
+                    </div>
+                    <div>
+                        <h2>Archive</h2>
+                        <p>Records deleted by any user are kept here and can be restored</p>
+                    </div>
+                    <span style="margin-left: auto; font-size: 0.7rem; color: #94a3b8;" id="archiveCount">0 records</span>
+                </div>
+
+                <div class="audit-filter-bar">
+                    <select id="archiveFilterType" class="form-select audit-filter-select" aria-label="Filter archive by type">
+                        <option value="">All Types</option>
+                        <option value="incident">Incidents</option>
+                        <option value="incident_evidence">Evidence Files</option>
+                        <option value="patrol_schedule">Patrol Schedules</option>
+                        <option value="patrol_log">Patrol Logs</option>
+                        <option value="tanod_team">Tanod Teams</option>
+                        <option value="tanod">Tanods</option>
+                        <option value="user">Users</option>
+                    </select>
+
+                    <select id="archiveFilterState" class="form-select audit-filter-select" aria-label="Filter archive by status">
+                        <option value="archived">In Archive</option>
+                        <option value="restored">Restored</option>
+                        <option value="all">All</option>
+                    </select>
+
+                    <button class="btn-save" style="padding: 6px 16px; font-size: 0.75rem;" id="archiveRefreshBtn">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                </div>
+
+                <div class="audit-log-container">
+                    <table class="data-table" id="archiveTable">
+                        <thead>
+                            <tr>
+                                <th>Deleted</th>
+                                <th>Type</th>
+                                <th>Record</th>
+                                <th>Deleted By</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="archiveBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading archive...
                                 </td>
                             </tr>
                         </tbody>
@@ -1099,6 +1171,46 @@
 <!-- =========================================================
      AUDIT LOG DETAILS MODAL
 ============================================================ -->
+<!-- Archive entry details (Settings > Archive > View) -->
+<div id="archiveDetailsModal" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+" onclick="if (event.target === this) this.style.display = 'none';">
+    <div style="
+        background: white;
+        max-width: 640px;
+        width: 92%;
+        max-height: 82vh;
+        overflow-y: auto;
+        border-radius: 16px;
+        padding: 28px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        animation: modalPop 0.3s ease;
+    ">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px;">
+            <div>
+                <h2 id="archiveDetailsTitle" style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0 0 4px;">Archived Record</h2>
+                <p id="archiveDetailsMeta" style="font-size: 0.78rem; color: #64748b; margin: 0;"></p>
+            </div>
+            <button aria-label="Close" onclick="document.getElementById('archiveDetailsModal').style.display = 'none';" style="background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: #475569; flex-shrink: 0;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="archiveDetailsBody"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+            <button id="archiveDetailsRestoreBtn" class="btn-save" style="padding: 8px 18px;">
+                <i class="fa-solid fa-rotate-left"></i> Restore
+            </button>
+        </div>
+    </div>
+</div>
+
 <div id="auditDetailsModal" style="
     position: fixed;
     inset: 0;
@@ -1511,6 +1623,154 @@ async function loadLoginHistory() {
     }
     window.viewAuditLogDetails = viewAuditLogDetails;
 
+    // =========================================================
+    // ARCHIVE (Administrator only) - everything deleted anywhere in
+    // the app; see backend/archive.js
+    // =========================================================
+    const ARCHIVE_TYPE_LABELS = {
+        incident: 'Incident',
+        incident_evidence: 'Evidence File',
+        patrol_schedule: 'Patrol Schedule',
+        patrol_log: 'Patrol Log',
+        tanod_team: 'Tanod Team',
+        tanod: 'Tanod',
+        user: 'User'
+    };
+    let archiveEntriesById = {};
+
+    function formatArchiveDate(value) {
+        if (!value) return '—';
+        return new Date(value).toLocaleString('en-PH', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadArchive() {
+        const tbody = document.getElementById('archiveBody');
+        const countEl = document.getElementById('archiveCount');
+        if (!tbody) return;
+
+        const type = document.getElementById('archiveFilterType').value;
+        const state = document.getElementById('archiveFilterState').value;
+
+        try {
+            const response = await apiFetch(`/archive?state=${encodeURIComponent(state)}${type ? `&type=${encodeURIComponent(type)}` : ''}`);
+            if (!response.ok) throw new Error('Failed to fetch archive');
+            const entries = await response.json();
+
+            archiveEntriesById = {};
+            entries.forEach(e => { archiveEntriesById[e.id] = e; });
+            if (countEl) countEl.textContent = `${entries.length} record${entries.length === 1 ? '' : 's'}`;
+
+            if (entries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
+                    ${state === 'restored' ? 'No restored records.' : 'The archive is empty - nothing has been deleted.'}</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = entries.map(e => {
+                const restored = !!e.restored_at;
+                const status = restored
+                    ? `<span class="audit-badge create" title="Restored by ${escapeHTML(e.restored_by_name || 'System')} on ${escapeHTML(formatArchiveDate(e.restored_at))}">Restored</span>`
+                    : '<span class="audit-badge delete">Archived</span>';
+                return `
+                    <tr>
+                        <td style="white-space: nowrap; font-size: 0.75rem;">${escapeHTML(formatArchiveDate(e.deleted_at))}</td>
+                        <td style="font-size: 0.75rem;">${escapeHTML(ARCHIVE_TYPE_LABELS[e.entity_type] || e.entity_type)}</td>
+                        <td><span class="font-bold">${escapeHTML(e.label)}</span></td>
+                        <td style="font-size: 0.75rem;">${escapeHTML(e.deleted_by_name || 'System')}</td>
+                        <td>${status}</td>
+                        <td style="white-space: nowrap;">
+                            <button type="button" class="btn-action-edit" onclick="viewArchiveEntry(${e.id})"><i class="fa-solid fa-eye"></i> View</button>
+                            ${restored ? '' : `<button type="button" class="btn-action-edit" style="margin-left: 6px;" onclick="restoreArchiveEntry(${e.id})"><i class="fa-solid fa-rotate-left"></i> Restore</button>`}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error loading archive:', error);
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #ef4444;">Failed to load the archive.</td></tr>`;
+        }
+    }
+
+    // Readable key/value rows for a snapshot - skips empty fields and
+    // internal columns nobody needs to read.
+    function archiveFieldsTable(row) {
+        const hidden = new Set(['latitude', 'longitude', 'is_weekend', 'updated_at']);
+        const rows = Object.entries(row || {})
+            .filter(([key, value]) => value !== null && value !== '' && !hidden.has(key))
+            .map(([key, value]) => {
+                const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const shown = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) ? formatArchiveDate(value) : value;
+                return `<tr><td style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; white-space: nowrap; vertical-align: top;">${escapeHTML(label)}</td>
+                        <td style="padding: 6px 10px; font-size: 0.8rem; color: #0f172a; word-break: break-word;">${escapeHTML(typeof shown === 'object' ? JSON.stringify(shown) : shown)}</td></tr>`;
+            }).join('');
+        return `<table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">${rows}</table>`;
+    }
+
+    async function viewArchiveEntry(id) {
+        const entry = archiveEntriesById[id];
+        if (!entry) return;
+        const data = entry.data || {};
+        const files = entry.files || [];
+
+        document.getElementById('archiveDetailsTitle').textContent = entry.label;
+        document.getElementById('archiveDetailsMeta').textContent =
+            `${ARCHIVE_TYPE_LABELS[entry.entity_type] || entry.entity_type} · deleted by ${entry.deleted_by_name || 'System'} on ${formatArchiveDate(entry.deleted_at)}` +
+            (entry.restored_at ? ` · restored by ${entry.restored_by_name || 'System'} on ${formatArchiveDate(entry.restored_at)}` : '');
+
+        let html = archiveFieldsTable(data.row);
+
+        if ((data.evidence || []).length) {
+            html += `<p style="margin: 16px 0 6px; font-size: 0.75rem; font-weight: 700; color: #64748b;">EVIDENCE (${data.evidence.length})</p>`;
+        }
+        if (data.tanod_ids) {
+            html += `<p style="margin: 12px 0 0; font-size: 0.78rem; color: #475569;">Assigned tanods: ${data.tanod_ids.length} · linked patrol logs: ${(data.log_ids || []).length}</p>`;
+        }
+        if (data.member_ids) {
+            html += `<p style="margin: 12px 0 0; font-size: 0.78rem; color: #475569;">Team members at deletion: ${data.member_ids.length}</p>`;
+        }
+
+        // Archived photos/evidence are still viewable (kept under uploads/archive/).
+        const imageFiles = files.filter(f => /\.(png|jpe?g|webp)$/i.test(f.archived || ''));
+        if (imageFiles.length) {
+            try { await ensureFileToken(); } catch (e) { /* thumbnails just won't load */ }
+            html += `<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">` +
+                imageFiles.map(f => `<a href="${buildUploadUrl(f.archived)}" target="_blank" rel="noopener">
+                    <img src="${buildUploadUrl(f.archived)}" alt="Archived file" style="width: 96px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1;"></a>`).join('') +
+                `</div>`;
+        }
+
+        document.getElementById('archiveDetailsBody').innerHTML = html;
+        const restoreBtn = document.getElementById('archiveDetailsRestoreBtn');
+        restoreBtn.style.display = entry.restored_at ? 'none' : '';
+        restoreBtn.onclick = () => restoreArchiveEntry(entry.id);
+        document.getElementById('archiveDetailsModal').style.display = 'flex';
+    }
+
+    async function restoreArchiveEntry(id) {
+        const entry = archiveEntriesById[id];
+        if (!entry) return;
+        if (!confirm(`Restore "${entry.label}"?\n\nIt will be put back exactly as it was before it was deleted.`)) return;
+
+        try {
+            const response = await apiFetch(`/archive/${id}/restore`, { method: 'POST' });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                showToast(result.error || 'Failed to restore record.', 'error');
+                return;
+            }
+            showToast(result.message || 'Record restored.', 'success');
+            document.getElementById('archiveDetailsModal').style.display = 'none';
+            loadArchive();
+            loadAuditLogs();
+        } catch (error) {
+            console.error('Error restoring archive entry:', error);
+            showToast('Failed to restore record.', 'error');
+        }
+    }
+
+    window.viewArchiveEntry = viewArchiveEntry;
+    window.restoreArchiveEntry = restoreArchiveEntry;
+
     async function loadAuditLogs() {
         const tbody = document.getElementById('auditLogBody');
         const countEl = document.getElementById('auditLogCount');
@@ -1819,6 +2079,16 @@ async function loadLoginHistory() {
         document.getElementById('auditFilterAction').addEventListener('change', loadAuditLogs);
         document.getElementById('auditFilterEntity').addEventListener('change', loadAuditLogs);
         document.getElementById('auditRefreshBtn').addEventListener('click', loadAuditLogs);
+
+        // Archive (admin only - the API returns 403 for anyone else, so
+        // don't call it for other roles)
+        if (typeof isAdmin === 'function' && isAdmin()) {
+            loadArchive();
+            document.getElementById('archiveFilterType').addEventListener('change', loadArchive);
+            document.getElementById('archiveFilterState').addEventListener('change', loadArchive);
+            document.getElementById('archiveRefreshBtn').addEventListener('click', loadArchive);
+            document.querySelector('.tab-btn[data-tab="archive"]')?.addEventListener('click', loadArchive);
+        }
 
         // Settings listeners
         document.getElementById('saveSettingsBtn').addEventListener('click', saveAllSettings);

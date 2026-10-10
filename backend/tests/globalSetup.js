@@ -6,6 +6,7 @@ const { execSync } = require('child_process');
 const mysql = require('mysql2/promise');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { findBinary } = require('./mysqlBin');
+const { createArchive } = require('../archive');
 
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_USER = process.env.DB_USER || 'root';
@@ -40,6 +41,13 @@ module.exports = async function globalSetup() {
         `"${mysqldumpBin}" --no-data --ignore-table=${SOURCE_DB}.vw_incident_details -h ${DB_HOST} -u ${DB_USER} ${SOURCE_DB} | "${mysqlBin}" -h ${DB_HOST} -u ${DB_USER} ${TEST_DB}`,
         { shell: true, env, stdio: 'pipe' }
     );
+
+    // Tables the server creates on startup (see testConnection) may not
+    // exist in the source DB yet if it hasn't been restarted since they
+    // were added - run the same idempotent creation against the clone.
+    const testPool = mysql.createPool({ host: DB_HOST, user: DB_USER, password: DB_PASSWORD, database: TEST_DB });
+    await createArchive({ pool: testPool, uploadsRoot: '' }).ensureArchiveTable();
+    await testPool.end();
 
     console.log(`✅ Test database "${TEST_DB}" created with schema cloned from "${SOURCE_DB}".`);
 };

@@ -16,6 +16,37 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Table structure for table `archived_records`
+-- Everything deleted in the app lands here (snapshot of the record plus
+-- related rows, files moved to uploads/archive/) so an Administrator can
+-- review and restore it from Settings > Archive. See backend/archive.js.
+--
+
+DROP TABLE IF EXISTS `archived_records`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `archived_records` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `entity_type` varchar(30) NOT NULL,
+  `entity_id` int NOT NULL,
+  `label` varchar(255) NOT NULL,
+  `data` json NOT NULL,
+  `files` json DEFAULT NULL,
+  `deleted_by` int DEFAULT NULL,
+  `deleted_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `restored_by` int DEFAULT NULL,
+  `restored_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_archive_entity` (`entity_type`,`entity_id`),
+  KEY `idx_archive_restored` (`restored_at`),
+  KEY `fk_archive_deleted_by` (`deleted_by`),
+  KEY `fk_archive_restored_by` (`restored_by`),
+  CONSTRAINT `fk_archive_deleted_by` FOREIGN KEY (`deleted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_archive_restored_by` FOREIGN KEY (`restored_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `area_risk_decay`
 --
 

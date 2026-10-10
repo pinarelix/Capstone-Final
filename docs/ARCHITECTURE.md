@@ -79,12 +79,25 @@ flowchart TB
 
 ## 2. Entity-Relationship Diagram
 
-Generated directly from `database/schema.sql` (22 tables). Grouped by subsystem below
+Generated directly from `database/schema.sql` (23 tables). Grouped by subsystem below
 for readability, but this is one connected diagram — foreign keys cross the groups
 (e.g. almost every table traces back to `users`).
 
 ```mermaid
 erDiagram
+    ARCHIVED_RECORDS {
+        int id PK
+        varchar entity_type "incident | incident_evidence | patrol_schedule | patrol_log | tanod_team | tanod | user"
+        int entity_id
+        varchar label
+        json data "snapshot of the deleted row + related rows"
+        json files "uploads moved to uploads/archive/"
+        int deleted_by FK
+        timestamp deleted_at
+        int restored_by FK
+        timestamp restored_at
+    }
+
     USERS {
         int id PK
         varchar name
@@ -309,6 +322,7 @@ erDiagram
     USERS ||--o{ CART_DECISION_RULES : "authors"
     USERS ||--o{ LOCATION_COORDINATES : "pins"
     USERS ||--o| TANOD_RECORD : "optionally linked staff account"
+    USERS ||--o{ ARCHIVED_RECORDS : "deletes / restores"
 
     INCIDENTS ||--o{ INCIDENT_EVIDENCE : "has attached"
     INCIDENTS ||--|| CART_RISK_FACTORS : "scored by"
@@ -323,6 +337,12 @@ erDiagram
     PATROL_SCHEDULES ||--o{ PATROL_SCHEDULE_TANODS : "staffed by"
     PATROL_SCHEDULES ||--o{ PATROL_LOGS : "logged against"
 ```
+
+`ARCHIVED_RECORDS` holds everything deleted anywhere in the app: `entity_type` +
+`entity_id` point at the original table and row, but deliberately without a foreign
+key, because the original row no longer exists (or, for users/tanods, is deactivated).
+`data` keeps a full JSON snapshot so an Administrator can restore it from
+Settings > Archive (see `backend/archive.js`).
 
 `LOGIN_ATTEMPTS` and `TANOD_LOGIN_ATTEMPTS` are intentionally not linked by foreign
 key — they key off `username` (text) specifically so a lockout record survives even

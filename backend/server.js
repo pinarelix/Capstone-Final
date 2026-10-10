@@ -11,6 +11,7 @@ const NodeCache = require('node-cache');
 const nodemailer = require('nodemailer');
 const cartEngine = require('./cart-engine');
 const { BARANGAY_LOCATIONS } = require('./locationList');
+const { createArchive, registerArchiveRoutes } = require('./archive');
 
 // The installed desktop app passes APP_CONFIG_PATH/UPLOADS_DIR (see
 // main.js) so settings and uploaded files live in the user's AppData
@@ -226,6 +227,8 @@ const pool = mysql.createPool({
     dateStrings: ['DATE']
 });
 
+const archive = createArchive({ pool, uploadsRoot: UPLOADS_ROOT });
+
 async function testConnection() {
     const connection = await pool.getConnection();
     console.log('✅ Database connected successfully!');
@@ -318,6 +321,10 @@ async function testConnection() {
             FOREIGN KEY (team_id) REFERENCES tanod_teams(id) ON DELETE SET NULL
         `);
     }
+
+    // Archive of everything deleted (see archive.js) - created here too so
+    // existing databases get it without a manual migration.
+    await archive.ensureArchiveTable();
 }
 
 // ============================================================
@@ -1545,6 +1552,7 @@ app.post('/api/users', authenticate, requireRole(['Administrator']), validate(us
                 [name, password_hash, role, contact_no || null, email || null, existing[0].id]
             );
             result = { insertId: existing[0].id };
+            await archive.markEntityRestored('user', existing[0].id, req.userId);
         } else {
             [result] = await pool.query(
                 `INSERT INTO users (name, username, password_hash, role, contact_no, email)
@@ -1656,7 +1664,19 @@ app.delete('/api/users/:id', authenticate, requireRole(['Administrator']), async
             [userId]
         );
 
-        res.json({ message: 'User account deactivated successfully.' });
+        const [userRow] = await pool.query(
+            'SELECT id, name, username, role, contact_no, email, created_at FROM users WHERE id = ?',
+            [userId]
+        );
+        await archive.archiveRecord(pool, {
+            entityType: 'user',
+            entityId: Number(userId),
+            label: `User: ${userRow[0].name} (${userRow[0].role})`,
+            data: { row: userRow[0] },
+            deletedBy: loggedInUserId
+        });
+
+        res.json({ message: 'User account moved to the Archive.' });
         
     } catch (error) {
         console.error('❌ Error deleting user:', error);
@@ -2376,29 +2396,54 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Administrator']), a
         const userId = req.userId;
 
         const [oldData] = await pool.query('SELECT * FROM incidents WHERE id = ?', [id]);
-        const [evidenceRows] = await pool.query('SELECT file_path FROM incident_evidence WHERE incident_id = ?', [id]);
-
-        await pool.query('DELETE FROM cart_risk_factors WHERE incident_id = ?', [id]);
-        // incident_evidence rows cascade-delete with the incident (FK ON
-        // DELETE CASCADE) - the files on disk don't, so remove those here.
-        const [result] = await pool.query('DELETE FROM incidents WHERE id = ?', [id]);
-
-        if (result.affectedRows === 0) {
+        if (oldData.length === 0) {
             return res.status(404).json({ error: 'Incident not found' });
         }
+        const [evidenceRows] = await pool.query('SELECT * FROM incident_evidence WHERE incident_id = ?', [id]);
 
+        // Archived, not erased: snapshot the incident with its evidence rows
+        // (which cascade-delete with it), then remove it - one transaction.
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            const files = [];
+            await archive.archiveRecord(conn, {
+                entityType: 'incident',
+                entityId: Number(id),
+                label: `Incident #${id}: ${oldData[0].incident_type} - ${oldData[0].street_name || 'no street'} (${oldData[0].date})`,
+                data: { row: oldData[0], evidence: evidenceRows },
+                files,
+                deletedBy: userId
+            });
+            await conn.query('DELETE FROM cart_risk_factors WHERE incident_id = ?', [id]);
+            await conn.query('DELETE FROM incidents WHERE id = ?', [id]);
+            await conn.commit();
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
+
+        // Move the files into the archive folder (kept, not deleted) and
+        // record where they went so a restore can put them back.
+        const movedFiles = [];
         evidenceRows.forEach(row => {
-            const filePath = path.join(INCIDENT_EVIDENCE_DIR, row.file_path);
-            fs.unlink(filePath, (err) => {
-                if (err && err.code !== 'ENOENT') console.error('❌ Error removing evidence file:', err);
-            });
+            const original = `incident-evidence/${row.file_path}`;
+            const archived = archive.archiveFile(original);
+            if (archived) movedFiles.push({ original, archived });
         });
-
         // Tanod-reported incidents carry their own field photo too.
-        if (oldData[0]?.photo_path) {
-            fs.unlink(path.join(INCIDENT_PHOTO_DIR, path.basename(oldData[0].photo_path)), (err) => {
-                if (err && err.code !== 'ENOENT') console.error('❌ Error removing incident photo:', err);
-            });
+        if (oldData[0].photo_path) {
+            const original = `incident-photos/${path.basename(oldData[0].photo_path)}`;
+            const archived = archive.archiveFile(original);
+            if (archived) movedFiles.push({ original, archived });
+        }
+        if (movedFiles.length) {
+            await pool.query(
+                `UPDATE archived_records SET files = ? WHERE entity_type = 'incident' AND entity_id = ? AND restored_at IS NULL`,
+                [JSON.stringify(movedFiles), id]
+            );
         }
 
         heatmapCache.del('incidents');
@@ -2415,7 +2460,7 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Administrator']), a
             );
         }
 
-        res.json({ message: 'Incident deleted successfully.' });
+        res.json({ message: 'Incident moved to the Archive.' });
     } catch (error) {
         console.error('❌ Error deleting incident:', error);
         res.status(500).json({ error: 'Failed to delete incident' });
@@ -2489,19 +2534,28 @@ app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(
             return res.status(404).json({ error: 'Evidence file not found' });
         }
 
+        const userId = req.userId;
+        const original = `incident-evidence/${rows[0].file_path}`;
+        const archiveId = await archive.archiveRecord(pool, {
+            entityType: 'incident_evidence',
+            entityId: Number(evidenceId),
+            label: `Evidence for incident #${id}: ${rows[0].original_filename || rows[0].file_path}`,
+            data: { row: rows[0] },
+            deletedBy: userId
+        });
         await pool.query('DELETE FROM incident_evidence WHERE id = ?', [evidenceId]);
 
-        const filePath = path.join(INCIDENT_EVIDENCE_DIR, rows[0].file_path);
-        fs.unlink(filePath, (err) => {
-            if (err && err.code !== 'ENOENT') console.error('❌ Error removing evidence file:', err);
-        });
+        // Kept in the archive folder (not deleted) so it can be restored.
+        const archived = archive.archiveFile(original);
+        if (archived) {
+            await pool.query('UPDATE archived_records SET files = ? WHERE id = ?', [JSON.stringify([{ original, archived }]), archiveId]);
+        }
 
-        const userId = req.userId;
         if (userId) {
             await logAudit(userId, 'DELETE_INCIDENT_EVIDENCE', 'incidents', id, rows[0], null, req);
         }
 
-        res.json({ message: 'Evidence removed successfully.' });
+        res.json({ message: 'Evidence moved to the Archive.' });
     } catch (error) {
         console.error('❌ Error deleting incident evidence:', error);
         res.status(500).json({ error: 'Failed to delete evidence' });
@@ -2877,14 +2931,36 @@ app.put('/api/tanod-teams/:id', authenticate, requireRole(['Administrator']), va
 app.delete('/api/tanod-teams/:id', authenticate, requireRole(['Administrator']), async (req, res) => {
     try {
         const id = req.params.id;
-        // fk_tanod_record_team (see testConnection) has ON DELETE SET
-        // NULL, so members' team_id clears automatically - no manual
-        // cleanup needed here.
-        const [result] = await pool.query('DELETE FROM tanod_teams WHERE id = ?', [id]);
-        if (result.affectedRows === 0) {
+        const [team] = await pool.query('SELECT * FROM tanod_teams WHERE id = ?', [id]);
+        if (team.length === 0) {
             return res.status(404).json({ error: 'Team not found' });
         }
-        res.json({ message: 'Team deleted successfully' });
+        // fk_tanod_record_team (see testConnection) has ON DELETE SET
+        // NULL, so members' team_id clears automatically - the archive
+        // keeps who was on the team so a restore can put them back.
+        const [members] = await pool.query('SELECT id FROM tanod_record WHERE team_id = ?', [id]);
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            await archive.archiveRecord(conn, {
+                entityType: 'tanod_team',
+                entityId: Number(id),
+                label: `Tanod team: ${team[0].name} (${members.length} member${members.length === 1 ? '' : 's'})`,
+                data: { row: team[0], member_ids: members.map(m => m.id) },
+                deletedBy: req.userId
+            });
+            await conn.query('DELETE FROM tanod_teams WHERE id = ?', [id]);
+            await conn.commit();
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
+        }
+        if (req.userId) {
+            await logAudit(req.userId, 'DELETE_TANOD_TEAM', 'tanod_teams', id, team[0], null, req);
+        }
+        res.json({ message: 'Team moved to the Archive.' });
     } catch (error) {
         console.error('❌ Error deleting tanod team:', error);
         res.status(500).json({ error: 'Failed to delete team' });
@@ -2984,6 +3060,7 @@ app.post('/api/tanods', authenticate, requireRole(['Administrator']), validate(t
                 WHERE id = ?
             `, [name, position, contact_no || null, pinHash, team_id || null, existing[0].id]);
             result = { insertId: existing[0].id };
+            await archive.markEntityRestored('tanod', existing[0].id, req.userId);
         } else {
             [result] = await pool.query(`
                 INSERT INTO tanod_record
@@ -3111,11 +3188,22 @@ app.delete('/api/tanods/:id', authenticate, requireRole(['Administrator']), asyn
             'UPDATE tanod_record SET is_active = 0 WHERE id = ?',
             [id]
         );
-        
+
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Tanod not found' });
         }
-        
+
+        // The row stays (deactivated); the archive entry makes it findable
+        // and restorable from Settings > Archive. No PIN hash in the snapshot.
+        const { pin_code_hash, ...tanodSnapshot } = oldData[0];
+        await archive.archiveRecord(pool, {
+            entityType: 'tanod',
+            entityId: Number(id),
+            label: `Tanod: ${tanodSnapshot.name}${tanodSnapshot.position ? ` (${tanodSnapshot.position})` : ''}`,
+            data: { row: tanodSnapshot },
+            deletedBy: userId
+        });
+
         if (userId) {
             await logAudit(
                 userId,
@@ -3740,17 +3828,33 @@ app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Administrato
         const userId = req.userId;
         
         const [oldData] = await pool.query('SELECT * FROM patrol_schedules WHERE id = ?', [id]);
-
-        // Detach (don't delete) historical patrol logs — deleting a schedule
-        // shouldn't erase the real patrol reports that were filed against it.
-        await pool.query('UPDATE patrol_logs SET schedule_id = NULL WHERE schedule_id = ?', [id]);
-        const [result] = await pool.query(
-            'DELETE FROM patrol_schedules WHERE id = ?',
-            [id]
-        );
-        
-        if (result.affectedRows === 0) {
+        if (oldData.length === 0) {
             return res.status(404).json({ error: 'Schedule not found' });
+        }
+        const [assigned] = await pool.query('SELECT tanod_id FROM patrol_schedule_tanods WHERE schedule_id = ?', [id]);
+        const [linkedLogs] = await pool.query('SELECT id FROM patrol_logs WHERE schedule_id = ?', [id]);
+
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            await archive.archiveRecord(conn, {
+                entityType: 'patrol_schedule',
+                entityId: Number(id),
+                label: `Patrol schedule #${id}: ${oldData[0].location}, ${oldData[0].day_of_week} ${String(oldData[0].start_time).slice(0, 5)}-${String(oldData[0].end_time).slice(0, 5)}`,
+                data: { row: oldData[0], tanod_ids: assigned.map(a => a.tanod_id), log_ids: linkedLogs.map(l => l.id) },
+                deletedBy: userId
+            });
+            // Detach (don't delete) historical patrol logs — deleting a schedule
+            // shouldn't erase the real patrol reports that were filed against it.
+            // The archive remembers them so a restore re-links them.
+            await conn.query('UPDATE patrol_logs SET schedule_id = NULL WHERE schedule_id = ?', [id]);
+            await conn.query('DELETE FROM patrol_schedules WHERE id = ?', [id]);
+            await conn.commit();
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
         }
         
         if (userId) {
@@ -3765,7 +3869,7 @@ app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Administrato
             );
         }
         
-        res.json({ message: 'Patrol schedule deleted successfully' });
+        res.json({ message: 'Patrol schedule moved to the Archive.' });
     } catch (error) {
         console.error('❌ Error deleting patrol schedule:', error);
         res.status(500).json({ error: 'Failed to delete schedule' });
@@ -3904,14 +4008,27 @@ app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Administrator']),
         const userId = req.userId;
         
         const [oldData] = await pool.query('SELECT * FROM patrol_logs WHERE id = ?', [id]);
-        
-        const [result] = await pool.query(
-            'DELETE FROM patrol_logs WHERE id = ?',
-            [id]
-        );
-        
-        if (result.affectedRows === 0) {
+        if (oldData.length === 0) {
             return res.status(404).json({ error: 'Patrol log not found' });
+        }
+
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            await archive.archiveRecord(conn, {
+                entityType: 'patrol_log',
+                entityId: Number(id),
+                label: `Patrol log #${id}: ${oldData[0].status} on ${oldData[0].patrol_date ? String(oldData[0].patrol_date).slice(0, 10) : 'unknown date'}`,
+                data: { row: oldData[0] },
+                deletedBy: userId
+            });
+            await conn.query('DELETE FROM patrol_logs WHERE id = ?', [id]);
+            await conn.commit();
+        } catch (err) {
+            await conn.rollback();
+            throw err;
+        } finally {
+            conn.release();
         }
         
         if (userId) {
@@ -3926,7 +4043,7 @@ app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Administrator']),
             );
         }
         
-        res.json({ message: 'Patrol log deleted successfully' });
+        res.json({ message: 'Patrol log moved to the Archive.' });
     } catch (error) {
         console.error('❌ Error deleting patrol log:', error);
         res.status(500).json({ error: 'Failed to delete patrol log' });
@@ -4473,6 +4590,9 @@ app.get('/api/system/status', authenticate, requireRole(['Administrator', 'Decis
 // through to Express's default error page - both render a full stack
 // trace to the client, which is an information leak.
 // ============================================================
+
+// Settings > Archive (see archive.js)
+registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, logAudit, computeCartRiskFactors, heatmapCache });
 
 app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });

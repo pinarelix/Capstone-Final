@@ -407,7 +407,7 @@ function setupTeamManagement() {
 }
 
 window.deleteTeam = async function(id, name) {
-    if (!confirm(`Delete "${name}"? Tanods on this team will become unassigned, not deleted.`)) return;
+    if (!confirm(`Delete "${name}"? Tanods on this team will become unassigned, not deleted. It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`)) return;
 
     try {
         const response = await apiFetch(`/tanod-teams/${id}`, { method: 'DELETE' });
@@ -598,7 +598,7 @@ window.deleteTanod = async function(id) {
     const tanod = allTanods.find(t => t.id === id);
     if (!tanod) return;
 
-    showDeleteModal(`Are you sure you want to deactivate tanod "${tanod.name}"?`, id, 'tanod');
+    showDeleteModal(`Are you sure you want to deactivate tanod "${tanod.name}"? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`, id, 'tanod');
 };
 
 window.confirmDeleteTanod = async function(id) {
@@ -774,7 +774,7 @@ async function deleteUser(id) {
         return;
     }
 
-    showDeleteModal(`Are you sure you want to deactivate user "${user.name}"?`, id, 'user');
+    showDeleteModal(`Are you sure you want to deactivate user "${user.name}"? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`, id, 'user');
 }
 
 window.confirmDeleteUser = async function(id) {
