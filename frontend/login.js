@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             } catch (error) {
                 console.error('Error sending reset request:', error);
-                showToast('Failed to send reset request. Please try again.', 'error');
+                showToast(error.message || 'Failed to send reset request. Please try again.', 'error');
                 submitReset.disabled = false;
                 submitReset.innerHTML = 'Send Request';
             }
