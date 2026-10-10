@@ -678,12 +678,7 @@ function renderTable(dataToRender) {
         const formattedTime = formatTime(item.time);
         const locationDisplay = item.street_name || `${item.latitude || 'N/A'}, ${item.longitude || 'N/A'}`;
         
-        // Desk Officer can update incident records (and their evidence)
-        // but not delete them - only Administrator gets the Delete button.
-        const actionButtons = isAdminUser ? `
-            <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Update</button>
-            <button class="btn-action-delete admin-action" onclick="requestDeleteIncident(${item.id})"><i class="fa-solid fa-trash"></i> Delete</button>
-        ` : isDeskOfficerUser ? `
+        const actionButtons = (isAdminUser || isDeskOfficerUser) ? `
             <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Update</button>
         ` : `<span style="color: #94a3b8; font-size: 0.7rem;">View Only</span>`;
         
