@@ -917,15 +917,24 @@
                 <form class="settings-form" id="changePasswordForm">
                     <div class="form-group">
                         <label for="currentPassword">Current Password</label>
-                        <input type="password" id="currentPassword" placeholder="Enter current password" maxlength="128" required>
+                        <div style="position:relative;">
+                            <input type="password" id="currentPassword" placeholder="Enter current password" maxlength="128" required style="padding-right:40px; width:100%; box-sizing:border-box;">
+                            <button type="button" onclick="togglePw('currentPassword',this)" tabindex="-1" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:0;font-size:1rem;"><i class="fa-solid fa-eye"></i></button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="newPassword">New Password</label>
-                        <input type="password" id="newPassword" placeholder="Enter new password (min 8 chars)" maxlength="128" required>
+                        <div style="position:relative;">
+                            <input type="password" id="newPassword" placeholder="Enter new password (min 8 chars)" maxlength="128" required style="padding-right:40px; width:100%; box-sizing:border-box;">
+                            <button type="button" onclick="togglePw('newPassword',this)" tabindex="-1" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:0;font-size:1rem;"><i class="fa-solid fa-eye"></i></button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="confirmPassword">Confirm New Password</label>
-                        <input type="password" id="confirmPassword" placeholder="Confirm new password" maxlength="128" required>
+                        <div style="position:relative;">
+                            <input type="password" id="confirmPassword" placeholder="Confirm new password" maxlength="128" required style="padding-right:40px; width:100%; box-sizing:border-box;">
+                            <button type="button" onclick="togglePw('confirmPassword',this)" tabindex="-1" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:0;font-size:1rem;"><i class="fa-solid fa-eye"></i></button>
+                        </div>
                     </div>
                     <button type="submit" class="btn-save">
                         <i class="fa-solid fa-save"></i> Update Password
@@ -1362,6 +1371,17 @@
     // =========================================================
     // CHANGE PASSWORD
     // =========================================================
+    function togglePw(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'fa-solid fa-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'fa-solid fa-eye';
+        }
+    }
     document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
