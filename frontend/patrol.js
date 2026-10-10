@@ -1490,7 +1490,6 @@ function renderSchedules(schedules) {
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
                     <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})"><i class="fa-solid fa-pen"></i> Update</button>
-                    <button type="button" class="btn-action-delete admin-action" onclick="requestDeleteSchedule(${schedule.id})">Delete</button>
                 </td>
             </tr>
         `;
@@ -1638,7 +1637,6 @@ function renderLogs(logs) {
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(log.report || '')}">${escapeHTML(log.report || 'N/A')}</td>
                 <td>
                     <button type="button" class="btn-action-edit admin-action" onclick="editLog(${log.id})"><i class="fa-solid fa-pen"></i> Edit</button>
-                    <button type="button" class="btn-action-delete admin-action" onclick="requestDeleteLog(${log.id})"><i class="fa-solid fa-trash"></i> Delete</button>
                 </td>
             </tr>
         `;
