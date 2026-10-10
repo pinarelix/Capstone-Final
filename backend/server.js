@@ -376,7 +376,7 @@ const reportExportSchema = Joi.object({
 const userSchema = Joi.object({
     name: Joi.string().required(),
     username: Joi.string().min(3).required(),
-    password: Joi.string().min(6).required(),
+    password: Joi.string().min(8).required(),
     role: Joi.string().valid('Administrator', 'Decision-Maker', 'Desk Officer').required(),
     contact_no: Joi.string().allow('', null),
     email: Joi.string().email({ tlds: false }).allow('', null)
@@ -398,7 +398,7 @@ const forgotPasswordSchema = Joi.object({
 
 const resetPasswordSchema = Joi.object({
     reset_token: Joi.string().required(),
-    new_password: Joi.string().min(6).required()
+    new_password: Joi.string().min(8).required()
 });
 
 // Tanod Schema
