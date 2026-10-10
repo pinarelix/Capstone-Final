@@ -1051,6 +1051,8 @@ function clearForm() {
     document.getElementById('editIndex').value = '';
     document.getElementById('formTitle').textContent = "Add New Incident";
     document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Incident`;
+    const archiveBtn = document.getElementById('archiveIncidentBtn');
+    if (archiveBtn) archiveBtn.style.display = 'none';
     setDefaultReporter();
     document.getElementById('incidentStreet').value = '';
     document.getElementById('incidentLat').value = '';
@@ -1178,6 +1180,12 @@ window.editIncident = async (id) => {
 
         document.getElementById('formTitle').textContent = `Edit Incident (${formatIncidentId(record.id, record.incident_type)})`;
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;
+
+        const archiveBtn = document.getElementById('archiveIncidentBtn');
+        if (archiveBtn && isAdmin()) {
+            archiveBtn.style.display = 'inline-flex';
+            archiveBtn.onclick = () => requestDeleteIncident(record.id);
+        }
 
         // Evidence isn't in the list payload (only the single-incident
         // detail route joins it) - fetch it separately for the preview.
