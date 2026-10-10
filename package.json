@@ -45,7 +45,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "frontend/icons/icon-512.png"
+      "icon": "frontend/icons/icon-512.png",
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,
@@ -53,6 +54,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
+      "runAfterFinish": true,
       "shortcutName": "Barangay 179 Crime BI",
       "uninstallDisplayName": "Barangay 179 Crime BI",
       "artifactName": "Barangay179-CrimeBI-Setup-${version}.${ext}",
