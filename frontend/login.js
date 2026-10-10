@@ -76,11 +76,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    let pendingResetUsername = '';
+
     if (submitReset && forgotModal) {
         submitReset.addEventListener('click', async function() {
             const username = resetEmail ? resetEmail.value.trim() : '';
             if (!username) {
-                alert('Please enter your username.');
+                showToast('Please enter your username.', 'error');
                 return;
             }
 
@@ -99,6 +101,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(data.error || 'Failed to send reset request');
                 }
 
+                pendingResetUsername = username;
+
                 if (resetTokenDisplay) {
                     resetTokenDisplay.style.display = 'block';
                 }
@@ -109,6 +113,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(() => {
                     const resetPasswordModal = document.getElementById('resetPasswordModal');
                     if (resetPasswordModal) {
+                        const display = document.getElementById('resetUsernameDisplay');
+                        const label = document.getElementById('resetUsernameLabel');
+                        if (display && label) {
+                            label.textContent = pendingResetUsername;
+                            display.style.display = 'block';
+                        }
                         forgotModal.style.display = 'none';
                         resetPasswordModal.style.display = 'flex';
                     }
@@ -116,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             } catch (error) {
                 console.error('Error sending reset request:', error);
-                alert('Failed to send reset request. Please try again.');
+                showToast('Failed to send reset request. Please try again.', 'error');
                 submitReset.disabled = false;
                 submitReset.innerHTML = 'Send Request';
             }
@@ -158,17 +168,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value.trim() : '';
 
             if (!resetToken || !newPassword || !confirmPassword) {
-                alert('Please fill in all fields.');
+                showToast('Please fill in all fields.', 'error');
                 return;
             }
 
-            if (newPassword.length < 6) {
-                alert('New password must be at least 6 characters.');
+            if (newPassword.length < 8) {
+                showToast('New password must be at least 8 characters.', 'error');
                 return;
             }
 
             if (newPassword !== confirmPassword) {
-                alert('Passwords do not match.');
+                showToast('Passwords do not match.', 'error');
                 return;
             }
 
@@ -178,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const response = await apiFetch('/auth/reset-password', {
                     method: 'POST',
-                    body: JSON.stringify({ reset_token: resetToken, new_password: newPassword })
+                    body: JSON.stringify({ username: pendingResetUsername, reset_token: resetToken, new_password: newPassword })
                 });
 
                 const data = await response.json();
@@ -187,12 +197,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(data.error || 'Failed to reset password');
                 }
 
-                alert('✅ Password reset successful! You can now login with your new password.');
+                showToast('Password reset successful! You can now log in.', 'success');
 
                 resetPasswordModal.style.display = 'none';
                 if (resetTokenInput) resetTokenInput.value = '';
                 if (newPasswordInput) newPasswordInput.value = '';
                 if (confirmPasswordInput) confirmPasswordInput.value = '';
+                const display = document.getElementById('resetUsernameDisplay');
+                if (display) display.style.display = 'none';
+                pendingResetUsername = '';
 
                 const loginForm = document.getElementById('loginForm');
                 if (loginForm) loginForm.reset();
@@ -203,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             } catch (error) {
                 console.error('Error resetting password:', error);
-                alert('Failed to reset password. ' + error.message);
+                showToast('Failed to reset password. ' + error.message, 'error');
             } finally {
                 submitResetPassword.disabled = false;
                 submitResetPassword.innerHTML = 'Reset Password';

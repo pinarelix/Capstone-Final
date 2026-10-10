@@ -397,6 +397,7 @@ const forgotPasswordSchema = Joi.object({
 });
 
 const resetPasswordSchema = Joi.object({
+    username: Joi.string().required(),
     reset_token: Joi.string().required(),
     new_password: Joi.string().min(8).required()
 });
@@ -1903,12 +1904,16 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
 
 app.post('/api/auth/reset-password', authRateLimit, validate(resetPasswordSchema), async (req, res) => {
     try {
-        const { reset_token, new_password } = req.body;
+        const { username, reset_token, new_password } = req.body;
 
+        // Verify the token AND that it was issued for this specific username,
+        // so a leaked token cannot be used against a different account.
         const [resetRecords] = await pool.query(`
-            SELECT user_id FROM password_resets 
-            WHERE reset_token = ? AND used_at IS NULL AND expires_at > NOW()
-        `, [reset_token]);
+            SELECT pr.user_id FROM password_resets pr
+            JOIN users u ON u.id = pr.user_id
+            WHERE pr.reset_token = ? AND pr.used_at IS NULL AND pr.expires_at > NOW()
+              AND u.username = ? AND u.is_active = 1
+        `, [reset_token, username]);
 
         if (resetRecords.length === 0) {
             return res.status(400).json({ error: 'Invalid or expired reset token' });

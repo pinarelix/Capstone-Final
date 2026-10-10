@@ -319,6 +319,10 @@
                 Enter the reset token and your new password.
             </p>
 
+            <div id="resetUsernameDisplay" style="display:none; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:8px 12px; margin-bottom:10px; font-size:0.85rem; color:#0369a1;">
+                Resetting password for: <strong id="resetUsernameLabel"></strong>
+            </div>
+
             <input
                 type="text"
                 id="resetTokenInput"
@@ -329,7 +333,7 @@
             <input
                 type="password"
                 id="newPasswordInput"
-                placeholder="New Password (min 6 chars)"
+                placeholder="New Password (min 8 chars)"
                 style="margin-top: 10px;"
                 maxlength="128"
             >
