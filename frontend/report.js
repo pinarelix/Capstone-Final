@@ -469,7 +469,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function openPatrolModal() {
         const currentMonth = monthSelect.value;
         if (!currentMonth) {
-            alert('Please select a valid month first.');
+            showToast('Please select a valid month first.', 'error');
             return;
         }
 
@@ -659,7 +659,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const filteredData = applyPatrolLogFilters(currentPatrolLogData);
 
             if (filteredData.length === 0) {
-                alert("No patrol log data available to export for the selected filters.");
+                showToast("No patrol log data available to export for the selected filters.", "error");
                 return;
             }
 
@@ -706,14 +706,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             e.preventDefault();
             const currentMonth = monthSelect.value;
             if (!currentMonth) {
-                alert("Please select a month first.");
+                showToast("Please select a month first.", "error");
                 return;
             }
             
             const filteredData = applyFilters(currentMonth, currentIncidentData);
 
             if (filteredData.length === 0) {
-                alert("No data available to export for the selected filters.");
+                showToast("No data available to export for the selected filters.", "error");
                 return;
             }
             
