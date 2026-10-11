@@ -214,6 +214,7 @@ function runMulterMiddleware(middleware) {
 // ============================================================
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
+    port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'brgydata',
@@ -4809,6 +4810,13 @@ app.get('/api/system/status', authenticate, requireRole(['Administrator', 'Decis
 // Settings > Archive (see archive.js)
 registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, logAudit, computeCartRiskFactors, heatmapCache });
 
+// ── Setup Wizard API ────────────────────────────────────────────────
+// These routes let the in-app wizard test DB connections and save
+// config without touching a terminal. Mounted before the 404 catch-all
+// so they work even when the rest of the app hasn't loaded yet.
+const setupRouter = require('./routes/setup');
+app.use('/api/setup', setupRouter);
+
 app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
 });
@@ -4852,7 +4860,15 @@ app.use((err, req, res, next) => {
 });
 
 async function startServer() {
-    await testConnection();
+    // Try to connect to the DB and run migrations, but don't crash if it
+    // fails — the setup wizard needs the Express server running so it can
+    // serve setup.html and the /api/setup/* endpoints.
+    try {
+        await testConnection();
+    } catch (dbErr) {
+        console.warn('⚠️  Database not reachable at startup — the setup wizard will handle it.');
+        console.warn(`   ${dbErr.message}`);
+    }
 
     return new Promise((resolve, reject) => {
         const server = app.listen(PORT, () => {

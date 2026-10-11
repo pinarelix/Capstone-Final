@@ -6,61 +6,48 @@ const fs = require('fs');
 // regardless of how the app was launched.
 app.setName('Barangay 179 Crime BI');
 
-// Installed app: settings (.env) and uploaded photos/evidence live in
-// the user's AppData folder, because the install folder is replaced on
-// every reinstall/update and backend/.env is deliberately not shipped
-// (it holds the database password). Running from source (npm start)
-// keeps using backend/.env and backend/uploads.
+// ── Config Manager ──────────────────────────────────────────────────
+// Centralised config lives in config-manager.js. In packaged builds the
+// JSON config goes into %APPDATA%; in dev mode the module falls back to
+// backend/.env automatically.
+const {
+    setDataDir,
+    loadConfig,
+    migrateIfNeeded,
+    applyToProcessEnv,
+    getConfigPath,
+} = require('./backend/config-manager');
+
 const DATA_DIR = app.getPath('userData');
-const CONFIG_PATH = path.join(DATA_DIR, '.env');
 if (app.isPackaged) {
-    process.env.APP_CONFIG_PATH = CONFIG_PATH;
+    setDataDir(DATA_DIR);
     process.env.UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 }
 
-const CONFIG_TEMPLATE = [
-    '# Barangay 179 Crime BI - database settings',
-    '# Fill in DB_PASSWORD with this PC\'s MySQL root password, save,',
-    '# then open the app again.',
-    '',
-    'DB_HOST=localhost',
-    'DB_USER=root',
-    'DB_PASSWORD=',
-    'DB_NAME=brgydata',
-    'PORT=3000',
-    '',
-    '# Optional: Gmail address + App Password for password-reset emails.',
-    'EMAIL_USER=',
-    'EMAIL_APP_PASSWORD=',
-    ''
-].join('\r\n');
+// Migrate a legacy .env → config.json on first boot after the upgrade.
+// No-ops when there's nothing to migrate.
+migrateIfNeeded();
 
-// First run on a new PC: create the settings file and point the user at
-// it, instead of failing with a database error they can't act on.
-async function ensureConfigExists() {
-    if (!app.isPackaged || fs.existsSync(CONFIG_PATH)) return true;
+// Load config and push values into process.env so existing code in
+// server.js keeps working without changes.
+const cfg = loadConfig();
+applyToProcessEnv(cfg);
 
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(CONFIG_PATH, CONFIG_TEMPLATE);
-
-    const { response } = await dialog.showMessageBox({
-        type: 'info',
-        title: 'Set Up Database Connection',
-        message: 'Almost ready - the app needs this PC\'s MySQL password.',
-        detail: `A settings file was created at:\n${CONFIG_PATH}\n\n` +
-            'Open it, type the MySQL root password after DB_PASSWORD=, save it, ' +
-            'then open the app again.',
-        buttons: ['Open Settings File', 'Close'],
-        defaultId: 0
-    });
-    if (response === 0) await shell.openPath(CONFIG_PATH);
-    return false;
+// Tell server.js where .env lives (for any remaining dotenv.config()
+// call — it will read the same values we just set on process.env, so
+// this is a no-op in practice, but avoids a "file not found" warning).
+if (app.isPackaged) {
+    process.env.APP_CONFIG_PATH = path.join(DATA_DIR, '.env');
 }
 
 let mainWindow;
 // The port the backend actually listened on (PORT in backend/.env,
-// default 3000) - the window must load that, not a hardcoded 3000.
+// default 3000) — the window must load that, not a hardcoded 3000.
 let serverPort = 3000;
+
+// ── Window creation ─────────────────────────────────────────────────
+// Always opens setup.html first (the mandatory connection gate).
+// setup.js navigates to login.html once a live DB connection is confirmed.
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -72,7 +59,7 @@ function createWindow() {
         // never flashes at its smaller default size first.
         show: false,
         icon: path.join(__dirname, 'frontend', 'icons', 'icon-512.png'),
-        backgroundColor: '#ffffff',
+        backgroundColor: '#0b1c3c',
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false
@@ -84,7 +71,12 @@ function createWindow() {
         mainWindow.show();
     });
 
-    mainWindow.loadURL(`http://localhost:${serverPort}/login.html`);
+    // ── Mandatory gate: always land on the setup wizard first ────────
+    // The wizard auto-tests the saved config. If it passes, the user
+    // clicks "Connect & Continue" (one click) and setup.js navigates
+    // to login.html. On first run or a broken connection they stay in
+    // the wizard until they fix it.
+    mainWindow.loadURL(`http://localhost:${serverPort}/setup.html`);
 }
 
 Menu.setApplicationMenu(null);
@@ -106,14 +98,11 @@ if (!gotSingleInstanceLock) {
 app.whenReady().then(async () => {
     if (!gotSingleInstanceLock) return;
 
-    if (!(await ensureConfigExists())) {
-        app.quit();
-        return;
-    }
-
     try {
-        // Required here, not at the top: server.js reads its settings
-        // (APP_CONFIG_PATH) the moment it loads.
+        // Start the Express server so /api/setup/* endpoints are available
+        // for the wizard. If the DB is down the server still starts — the
+        // setup routes don't need a live pool; they test connections on
+        // demand. startServer() is modified to not crash on DB failure.
         const { startServer } = require('./backend/server');
         const server = await startServer();
         serverPort = server.address().port;
@@ -124,17 +113,40 @@ app.whenReady().then(async () => {
                 `Port ${error.port || serverPort} is already being used by another program. ` +
                 'Close any other running copy of this app (or dev server) and try again.'
             );
-        } else {
-            dialog.showErrorBox(
-                'Cannot Start Server',
-                `The app could not connect to the database.\n\n` +
-                `Please make sure MySQL is running, then restart the app.\n\n` +
-                (app.isPackaged ? `Database settings: ${CONFIG_PATH}\n\n` : '') +
-                `Details: ${error.message}`
-            );
+            app.quit();
+            return;
         }
-        app.quit();
-        return;
+        // For any other error (including DB failures), still try to show
+        // the wizard — the user can fix the connection from there.
+        console.error('⚠️ Server start error (will show wizard):', error.message);
+
+        // Fall back: start a minimal Express just to serve static files
+        // and the setup API so the wizard can work.
+        try {
+            const express = require('express');
+            const fallbackApp = express();
+            fallbackApp.use(express.json());
+            fallbackApp.use(express.static(path.join(__dirname, 'frontend')));
+
+            // Mount the setup routes so the wizard can test/save config
+            const setupRouter = require('./backend/routes/setup');
+            fallbackApp.use('/api/setup', setupRouter);
+
+            const fallbackServer = await new Promise((resolve, reject) => {
+                const s = fallbackApp.listen(cfg.server.port || 3000, () => resolve(s));
+                s.on('error', reject);
+            });
+            serverPort = fallbackServer.address().port;
+            console.log(`🔧 Fallback server on port ${serverPort} (setup wizard only)`);
+        } catch (fallbackErr) {
+            dialog.showErrorBox(
+                'Cannot Start',
+                `The app could not start.\n\n` +
+                `Details: ${fallbackErr.message}`
+            );
+            app.quit();
+            return;
+        }
     }
 
     createWindow();

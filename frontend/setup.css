@@ -1,0 +1,438 @@
+/* ============================================================
+   SETUP WIZARD - Barangay 179 Crime BI
+   Database connection setup page (pre-login gate)
+============================================================ */
+
+/* Reset and Base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background-color: #0b1c3c;
+    color: #ffffff;
+    overflow-x: hidden;
+}
+
+/* Background Wrapper */
+.setup-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    background-image: url('background_jpeg.jfif');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+.setup-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(5, 11, 24, 0.82);
+    z-index: 0;
+}
+
+/* Setup Card */
+.setup-card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 580px;
+    background: rgba(15, 30, 60, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 165, 0, 0.18);
+    border-radius: 20px;
+    padding: 36px 40px 28px;
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.5),
+        0 0 40px rgba(255, 165, 0, 0.06);
+    opacity: 0;
+    transform: translateY(30px);
+    animation: cardSlideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+}
+
+@keyframes cardSlideUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Header */
+.setup-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.setup-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 14px;
+    background: linear-gradient(135deg, rgba(255, 179, 71, 0.2), rgba(255, 120, 0, 0.15));
+    border: 1px solid rgba(255, 179, 71, 0.3);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #ffb347;
+    transition: transform 0.3s ease;
+}
+
+.setup-card:hover .setup-icon {
+    transform: scale(1.05);
+}
+
+.setup-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+}
+
+.setup-subtitle {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 400;
+}
+
+/* Form Grid */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.form-grid .full-width {
+    grid-column: 1 / -1;
+}
+
+/* Input Groups */
+.input-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.65);
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.input-wrap {
+    position: relative;
+}
+
+.input-wrap input {
+    width: 100%;
+    padding: 11px 14px 11px 40px;
+    background-color: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    color: #ffffff;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-wrap input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.input-wrap input:focus {
+    border-color: rgba(255, 179, 71, 0.6);
+    background-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 179, 71, 0.12), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.input-icon {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 13px;
+    transition: color 0.3s ease;
+    pointer-events: none;
+}
+
+.input-wrap input:focus ~ .input-icon,
+.input-wrap input:focus + .input-icon {
+    color: #ffb347;
+}
+
+/* Reorder: icon is before input in DOM, so use the next-sibling approach via JS or
+   rely on the parent focus-within */
+.input-wrap:focus-within .input-icon {
+    color: #ffb347;
+}
+
+/* Password toggle */
+.toggle-password {
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255, 255, 255, 0.35);
+    cursor: pointer;
+    font-size: 14px;
+    transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.toggle-password:hover {
+    color: #ffb347;
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* Number input - hide spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* Status Area */
+.status-area {
+    margin-bottom: 20px;
+    border-radius: 10px;
+    padding: 14px 16px;
+    animation: statusFadeIn 0.3s ease;
+}
+
+@keyframes statusFadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.status-area.status-testing {
+    background: rgba(255, 179, 71, 0.1);
+    border: 1px solid rgba(255, 179, 71, 0.25);
+}
+
+.status-area.status-success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-area.status-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.status-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.status-testing .status-icon {
+    background: rgba(255, 179, 71, 0.2);
+    color: #ffb347;
+}
+
+.status-success .status-icon {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.status-error .status-icon {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.status-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.status-text .status-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.status-testing .status-title {
+    color: #ffb347;
+}
+
+.status-success .status-title {
+    color: #10b981;
+}
+
+.status-error .status-title {
+    color: #ef4444;
+}
+
+.status-text .status-detail {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.5;
+}
+
+.status-text .status-detail strong {
+    color: rgba(255, 255, 255, 0.75);
+    font-weight: 600;
+}
+
+/* Action Buttons */
+.setup-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-test,
+.btn-launch {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Test Connection Button */
+.btn-test {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-test:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 179, 71, 0.4);
+    color: #ffb347;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-test:active {
+    transform: translateY(1px);
+}
+
+.btn-test:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Launch / Continue Button */
+.btn-launch {
+    background: linear-gradient(135deg, #f39c12, #d35400);
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(211, 84, 0, 0.3);
+}
+
+.btn-launch::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: 0.5s;
+}
+
+.btn-launch:hover::before {
+    left: 100%;
+}
+
+.btn-launch:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(211, 84, 0, 0.4);
+}
+
+.btn-launch:active {
+    transform: translateY(1px) scale(0.99);
+    box-shadow: 0 2px 10px rgba(211, 84, 0, 0.3);
+}
+
+.btn-launch:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none;
+}
+
+.btn-launch:disabled::before {
+    display: none;
+}
+
+/* Footer */
+.setup-footer {
+    text-align: center;
+    margin-top: 22px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.setup-footer p {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Spinner animation */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.fa-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .setup-wrapper {
+        padding: 20px 16px;
+    }
+
+    .setup-card {
+        padding: 28px 24px 22px;
+        border-radius: 16px;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .setup-actions {
+        flex-direction: column;
+    }
+
+    .setup-header h1 {
+        font-size: 20px;
+    }
+}
