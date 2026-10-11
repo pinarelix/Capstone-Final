@@ -230,10 +230,24 @@ const pool = mysql.createPool({
 const archive = createArchive({ pool, uploadsRoot: UPLOADS_ROOT });
 
 async function testConnection() {
-    const connection = await pool.getConnection();
-    console.log('✅ Database connected successfully!');
-    console.log(`📁 Using database: ${process.env.DB_NAME || 'brgydata'}`);
-    connection.release();
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY_MS = 3000;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const connection = await pool.getConnection();
+            console.log('✅ Database connected successfully!');
+            console.log(`📁 Using database: ${process.env.DB_NAME || 'brgydata'}`);
+            connection.release();
+            break;
+        } catch (err) {
+            if (attempt < MAX_RETRIES) {
+                console.warn(`⚠️  DB connection attempt ${attempt}/${MAX_RETRIES} failed: ${err.message}. Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+                await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+            } else {
+                throw new Error(`Could not connect to database after ${MAX_RETRIES} attempts: ${err.message}`);
+            }
+        }
+    }
 
     // Per-street risk decay (Patrol Decision Support): each completed
     // patrol schedule shaves a bit off that street's recommended risk
@@ -4797,6 +4811,39 @@ registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, logAudit,
 
 app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
+});
+
+// ============================================================
+// 🩺 SYSTEM HEALTH CHECK
+// ============================================================
+app.get('/api/health', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        const [[{ staff_sessions }]] = await pool.query(
+            'SELECT COUNT(*) as staff_sessions FROM user_sessions WHERE is_active = 1'
+        );
+        const [[{ tanod_sessions }]] = await pool.query(
+            'SELECT COUNT(*) as tanod_sessions FROM tanod_sessions WHERE is_active = 1'
+        );
+        res.json({
+            status: 'ok',
+            db: 'connected',
+            uptime_seconds: Math.floor(process.uptime()),
+            active_staff_sessions: staff_sessions,
+            active_tanod_sessions: tanod_sessions,
+            cart_engine: cartEngine ? 'loaded' : 'error',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: 'error',
+            db: 'disconnected',
+            uptime_seconds: Math.floor(process.uptime()),
+            cart_engine: cartEngine ? 'loaded' : 'error',
+            error: 'Database unreachable',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 app.use((err, req, res, next) => {

@@ -192,6 +192,10 @@ document.addEventListener("DOMContentLoaded", () => {
         loadCharts();
     }, 30000);
 
+    // System health status — initial check + refresh every 60 seconds
+    loadSystemHealth();
+    setInterval(loadSystemHealth, 60000);
+
     // ============================================================
     // 🔥 STEP 4: Sidebar ripple effect
     // ============================================================
@@ -816,6 +820,50 @@ function setupLogoutButton() {
                 }
             }
         });
+    }
+}
+
+/* ============================================================
+   SYSTEM HEALTH STATUS BAR
+============================================================ */
+async function loadSystemHealth() {
+    const dot        = document.getElementById('statusDbDot');
+    const dbText     = document.getElementById('statusDbText');
+    const sessions   = document.getElementById('statusSessions');
+    const uptime     = document.getElementById('statusUptime');
+    const cart       = document.getElementById('statusCart');
+    if (!dot) return;
+
+    try {
+        const token = getSessionToken();
+        const res = await fetch(`${API_URL}/health`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.status === 'ok') {
+            dot.className = 'status-dot ok';
+            dbText.textContent = 'DB';
+
+            const staff  = data.active_staff_sessions ?? 0;
+            const tanods = data.active_tanod_sessions ?? 0;
+            sessions.textContent = `${staff + tanods} online`;
+
+            const secs = data.uptime_seconds ?? 0;
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            uptime.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+            cart.textContent = data.cart_engine === 'loaded' ? 'CART ✓' : 'CART ✗';
+        } else {
+            dot.className = 'status-dot error';
+            dbText.textContent = 'DB Error';
+        }
+    } catch {
+        if (dot) {
+            dot.className = 'status-dot error';
+            dbText.textContent = 'Offline';
+        }
     }
 }
 
