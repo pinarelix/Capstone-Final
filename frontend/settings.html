@@ -598,7 +598,7 @@
                 <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
                 <span>Settings</span>
             </a>
-            <a href="setup.html" class="nav-item admin-only">
+            <a href="settings.html#db-connection" class="nav-item admin-only">
                 <span class="nav-icon"><i class="fa-solid fa-plug"></i></span>
                 <span>Connection</span>
             </a>
@@ -635,6 +635,9 @@
             </button>
             <button class="tab-btn admin-only" data-tab="archive">
                 <i class="fa-solid fa-box-archive"></i> Archive
+            </button>
+            <button class="tab-btn admin-only" data-tab="db-connection">
+                <i class="fa-solid fa-plug"></i> Database
             </button>
         </div>
 
@@ -990,6 +993,61 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </section>
+        </div>
+
+        <!-- =========================================================
+             TAB 5: DATABASE CONNECTION (admin only)
+        ========================================================== -->
+        <div id="tab-db-connection" class="tab-content">
+        <section class="settings-grid">
+            <div class="settings-card full-width">
+                <div class="card-header">
+                    <div class="icon blue">
+                        <i class="fa-solid fa-plug-circle-bolt"></i>
+                    </div>
+                    <div>
+                        <h2>Database Connection</h2>
+                        <p>Configure the MySQL connection. Test first before saving.</p>
+                    </div>
+                </div>
+
+                <form class="settings-form" autocomplete="off" onsubmit="return false;" style="max-width:600px;margin-top:8px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+                        <div class="form-group">
+                            <label>Host <span style="color:#ef4444;">*</span></label>
+                            <input type="text" id="cfgHost" placeholder="localhost" value="localhost">
+                        </div>
+                        <div class="form-group">
+                            <label>Port <span style="color:#ef4444;">*</span></label>
+                            <input type="number" id="cfgPort" placeholder="3306" value="3306" min="1" max="65535">
+                        </div>
+                        <div class="form-group">
+                            <label>Username <span style="color:#ef4444;">*</span></label>
+                            <input type="text" id="cfgUser" placeholder="root" value="root">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="cfgPassword" placeholder="(leave blank if none)">
+                        </div>
+                        <div class="form-group" style="grid-column:1/-1;">
+                            <label>Database Name <span style="color:#ef4444;">*</span></label>
+                            <input type="text" id="cfgDbName" placeholder="brgydata" value="brgydata">
+                        </div>
+                    </div>
+
+                    <div id="cfgStatusArea" style="display:none;margin:4px 0 16px;padding:12px 16px;border-radius:8px;font-size:0.84rem;"></div>
+
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <button type="button" id="cfgTestBtn" class="btn-save" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">
+                            <i class="fa-solid fa-vial"></i> Test Connection
+                        </button>
+                        <button type="button" id="cfgSaveBtn" class="btn-save" disabled>
+                            <i class="fa-solid fa-floppy-disk"></i> Save Configuration
+                        </button>
+                    </div>
+                </form>
             </div>
         </section>
         </div>
@@ -2437,7 +2495,144 @@ async function loadLoginHistory() {
         });
 
         loadCartWeights();
+
+        // Auto-open db-connection tab if navigated here via hash
+        if (window.location.hash === '#db-connection') {
+            document.querySelector('.tab-btn[data-tab="db-connection"]')?.click();
+        }
     });
+
+    // =========================================================
+    // DATABASE CONNECTION TAB
+    // =========================================================
+    (function () {
+        let cfgTestPassed = false;
+        let cfgLoaded     = false;
+
+        function cfgStatus(type, msg) {
+            const el = document.getElementById('cfgStatusArea');
+            if (!el) return;
+            el.style.display = 'block';
+            const colors = {
+                success: { bg: '#dcfce7', color: '#15803d' },
+                error:   { bg: '#fee2e2', color: '#dc2626' },
+                info:    { bg: '#f1f5f9', color: '#334155' }
+            }[type] || { bg: '#f1f5f9', color: '#334155' };
+            el.style.background = colors.bg;
+            el.style.color = colors.color;
+            el.innerHTML = msg;
+        }
+
+        function cfgHideStatus() {
+            const el = document.getElementById('cfgStatusArea');
+            if (el) el.style.display = 'none';
+        }
+
+        function cfgGetFields() {
+            const pw = document.getElementById('cfgPassword');
+            const isMasked = pw?.getAttribute('data-masked') === 'true';
+            return {
+                host:     document.getElementById('cfgHost')?.value.trim()   || 'localhost',
+                port:     parseInt(document.getElementById('cfgPort')?.value, 10) || 3306,
+                user:     document.getElementById('cfgUser')?.value.trim()   || 'root',
+                password: isMasked ? '__USE_SAVED__' : (pw?.value ?? ''),
+                database: document.getElementById('cfgDbName')?.value.trim() || 'brgydata'
+            };
+        }
+
+        async function cfgLoadConfig() {
+            try {
+                const res = await apiFetch('/setup/config');
+                if (!res.ok) return;
+                const data = await res.json();
+                const cfg = data.db || data;
+                if (cfg.host) document.getElementById('cfgHost').value = cfg.host;
+                if (cfg.port) document.getElementById('cfgPort').value = cfg.port;
+                if (cfg.user) document.getElementById('cfgUser').value = cfg.user;
+                if (cfg.password) {
+                    document.getElementById('cfgPassword').value = cfg.password;
+                    document.getElementById('cfgPassword').setAttribute('data-masked', 'true');
+                }
+                if (cfg.name || cfg.database)
+                    document.getElementById('cfgDbName').value = cfg.name || cfg.database;
+            } catch (_) { /* no saved config — keep defaults */ }
+        }
+
+        async function cfgTest() {
+            const btn     = document.getElementById('cfgTestBtn');
+            const saveBtn = document.getElementById('cfgSaveBtn');
+            cfgTestPassed = false;
+            saveBtn.disabled = true;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
+            cfgStatus('info', '<i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Testing connection...');
+            try {
+                const res  = await apiFetch('/setup/test', { method: 'POST', body: JSON.stringify(cfgGetFields()) });
+                const data = await res.json();
+                if (data.ok) {
+                    cfgTestPassed = true;
+                    saveBtn.disabled = false;
+                    let detail = '';
+                    if (data.version) detail += `MySQL ${data.version}`;
+                    if (data.tables !== undefined) detail += ` &bull; ${data.tables} tables`;
+                    cfgStatus('success', `<i class="fa-solid fa-circle-check"></i>&nbsp; Connection successful${detail ? ' — ' + detail : ''}`);
+                } else {
+                    cfgStatus('error', `<i class="fa-solid fa-circle-xmark"></i>&nbsp; ${data.error || 'Could not connect'}`);
+                }
+            } catch (e) {
+                cfgStatus('error', `<i class="fa-solid fa-circle-xmark"></i>&nbsp; ${e.message || 'Request failed'}`);
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-vial"></i> Test Connection';
+        }
+
+        async function cfgSave() {
+            if (!cfgTestPassed) return;
+            const btn = document.getElementById('cfgSaveBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+            try {
+                const fields = cfgGetFields();
+                const res  = await apiFetch('/setup/save', {
+                    method: 'POST',
+                    body: JSON.stringify({ db: { host: fields.host, port: fields.port, user: fields.user, password: fields.password, name: fields.database } })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showToast('Database configuration saved.', 'success');
+                    cfgHideStatus();
+                    cfgTestPassed = false;
+                    btn.disabled = true;
+                } else {
+                    cfgStatus('error', `<i class="fa-solid fa-circle-xmark"></i>&nbsp; ${data.error || 'Save failed'}`);
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                cfgStatus('error', `<i class="fa-solid fa-circle-xmark"></i>&nbsp; ${e.message || 'Save failed'}`);
+                btn.disabled = false;
+            }
+            if (!document.getElementById('cfgSaveBtn').disabled)
+                document.getElementById('cfgSaveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Configuration';
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('cfgTestBtn')?.addEventListener('click', cfgTest);
+            document.getElementById('cfgSaveBtn')?.addEventListener('click', cfgSave);
+
+            ['cfgHost','cfgPort','cfgUser','cfgPassword','cfgDbName'].forEach(id => {
+                document.getElementById(id)?.addEventListener('input', function () {
+                    if (id === 'cfgPassword') this.removeAttribute('data-masked');
+                    cfgTestPassed = false;
+                    document.getElementById('cfgSaveBtn').disabled = true;
+                    cfgHideStatus();
+                });
+            });
+
+            document.querySelector('.tab-btn[data-tab="db-connection"]')?.addEventListener('click', function () {
+                if (!cfgLoaded) { cfgLoaded = true; cfgLoadConfig(); }
+            });
+        });
+    })();
 </script>
 
 </body>
