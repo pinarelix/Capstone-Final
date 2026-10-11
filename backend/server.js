@@ -333,21 +333,21 @@ async function testConnection() {
 
 // Incident Schema
 const incidentSchema = Joi.object({
-    incident_type: Joi.string().required(),
+    incident_type: Joi.string().max(100).required(),
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
     street_name: Joi.string().valid(...BARANGAY_LOCATIONS).allow('', null),
     address: Joi.string().max(255).allow('', null),
-    reporter_id: Joi.number().integer().positive().allow(null),
+    // reporter_id is always derived from the session (req.userId) server-side — never trusted from the client
     status: Joi.string().valid('Open', 'Monitoring', 'Resolved').default('Open'),
-    description: Joi.string().allow('', null),
-    recommended_action: Joi.string().allow('', null),
+    description: Joi.string().max(2000).allow('', null),
+    recommended_action: Joi.string().max(1000).allow('', null),
     blotter_number: Joi.string().max(50).allow('', null),
     reported_by_name: Joi.string().max(150).allow('', null),
-    statement: Joi.string().allow('', null),
-    persons_involved: Joi.string().allow('', null),
+    statement: Joi.string().max(3000).allow('', null),
+    persons_involved: Joi.string().max(1000).allow('', null),
     priority: Joi.string().valid('Normal', 'Urgent').default('Normal')
 });
 
@@ -374,12 +374,12 @@ const reportExportSchema = Joi.object({
 
 // User Schema
 const userSchema = Joi.object({
-    name: Joi.string().required(),
-    username: Joi.string().min(3).required(),
-    password: Joi.string().min(8).required(),
+    name: Joi.string().max(100).required(),
+    username: Joi.string().min(3).max(50).required(),
+    password: Joi.string().min(8).max(128).required(),
     role: Joi.string().valid('Administrator', 'Decision-Maker', 'Desk Officer').required(),
-    contact_no: Joi.string().allow('', null),
-    email: Joi.string().email({ tlds: false }).required()
+    contact_no: Joi.string().max(20).allow('', null),
+    email: Joi.string().email({ tlds: false }).max(100).required()
 });
 
 const userEmailSchema = Joi.object({
@@ -388,23 +388,23 @@ const userEmailSchema = Joi.object({
 
 // Login Schema
 const loginSchema = Joi.object({
-    username: Joi.string().required(),
-    password: Joi.string().required()
+    username: Joi.string().max(50).required(),
+    password: Joi.string().max(128).required()
 });
 
 const forgotPasswordSchema = Joi.object({
-    username: Joi.string().required()
+    username: Joi.string().max(50).required()
 });
 
 const changePasswordSchema = Joi.object({
-    current_password: Joi.string().required(),
-    new_password: Joi.string().min(8).required()
+    current_password: Joi.string().max(128).required(),
+    new_password: Joi.string().min(8).max(128).required()
 });
 
 const resetPasswordSchema = Joi.object({
-    username: Joi.string().required(),
-    reset_token: Joi.string().required(),
-    new_password: Joi.string().min(8).required()
+    username: Joi.string().max(50).required(),
+    reset_token: Joi.string().pattern(/^\d{6}$/).required(),
+    new_password: Joi.string().min(8).max(128).required()
 });
 
 // Tanod Schema
@@ -413,10 +413,10 @@ const resetPasswordSchema = Joi.object({
 const TANOD_POSITIONS = ['Dispatcher', 'Team Leader', 'Assistant Team Leader', 'Head Tanod / EXO'];
 
 const tanodSchema = Joi.object({
-    name: Joi.string().required(),
+    name: Joi.string().max(100).required(),
     position: Joi.string().valid(...TANOD_POSITIONS).required(),
-    contact_no: Joi.string().allow('', null),
-    username: Joi.string().min(3).required(),
+    contact_no: Joi.string().max(20).allow('', null),
+    username: Joi.string().min(3).max(50).required(),
     // Optional here (not required) so PUT can omit it to leave the PIN
     // unchanged; POST enforces "must set a PIN on create" in the route
     // handler itself, since Joi can't make a field conditionally required
@@ -427,7 +427,7 @@ const tanodSchema = Joi.object({
 
 // Tanod Login Schema
 const tanodLoginSchema = Joi.object({
-    username: Joi.string().required(),
+    username: Joi.string().max(50).required(),
     pin_code: Joi.string().pattern(/^\d{4}$/).required()
 });
 
@@ -438,12 +438,12 @@ const tanodLoginSchema = Joi.object({
 // supplies a GPS fix, the route handler uses that instead of falling
 // back to a generic pin for the location.
 const tanodIncidentSchema = Joi.object({
-    incident_type: Joi.string().required(),
+    incident_type: Joi.string().max(100).required(),
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
     address: Joi.string().max(255).allow('', null),
-    description: Joi.string().allow('', null),
+    description: Joi.string().max(2000).allow('', null),
     latitude: Joi.number().min(-90).max(90).allow(null),
     longitude: Joi.number().min(-180).max(180).allow(null)
 });
@@ -451,7 +451,7 @@ const tanodIncidentSchema = Joi.object({
 // Tanod Patrol Log Schema (tanod_id comes from the session, not the client)
 const tanodLogSchema = Joi.object({
     schedule_id: Joi.number().integer().positive().required(),
-    report: Joi.string().allow('', null),
+    report: Joi.string().max(2000).allow('', null),
     status: Joi.string().valid('Completed', 'Partial', 'Failed').default('Completed'),
     patrol_date: Joi.date().required()
 });
@@ -470,7 +470,7 @@ const scheduleSchema = Joi.object({
     // incidents at this location inherit real coordinates instead of NULL.
     latitude: Joi.number().min(-90).max(90).allow(null),
     longitude: Joi.number().min(-180).max(180).allow(null),
-    reason: Joi.string().allow('', null),
+    reason: Joi.string().max(1000).allow('', null),
     status: Joi.string().valid('Active', 'Completed', 'Cancelled').default('Active')
 });
 
@@ -478,7 +478,7 @@ const scheduleSchema = Joi.object({
 const logSchema = Joi.object({
     schedule_id: Joi.number().integer().positive().required(),
     tanod_id: Joi.number().integer().positive().required(),
-    report: Joi.string().allow('', null),
+    report: Joi.string().max(2000).allow('', null),
     status: Joi.string().valid('Completed', 'Partial', 'Failed').default('Completed'),
     patrol_date: Joi.date().required()
 });
@@ -1629,11 +1629,11 @@ app.post('/api/users', authenticate, requireRole(['Administrator']), validate(us
 
 // Full user update (name, username, role, email, optional password)
 const userUpdateSchema = Joi.object({
-    name: Joi.string().required(),
-    username: Joi.string().min(3).required(),
+    name: Joi.string().max(100).required(),
+    username: Joi.string().min(3).max(50).required(),
     role: Joi.string().valid('Administrator', 'Decision-Maker', 'Desk Officer').required(),
-    email: Joi.string().email({ tlds: false }).required(),
-    password: Joi.string().min(8).allow('', null).optional()
+    email: Joi.string().email({ tlds: false }).max(100).required(),
+    password: Joi.string().min(8).max(128).allow('', null).optional()
 });
 
 app.put('/api/users/:id', authenticate, requireRole(['Administrator']), validate(userUpdateSchema), async (req, res) => {
@@ -1650,10 +1650,10 @@ app.put('/api/users/:id', authenticate, requireRole(['Administrator']), validate
         if (dupCheck.length > 0) return res.status(409).json({ error: 'Username already taken.' });
 
         if (password) {
-            const bcrypt = require('bcrypt');
-            const hashed = await bcrypt.hash(password, 10);
+            const bcryptjs = require('bcryptjs');
+            const hashed = await bcryptjs.hash(password, 10);
             await pool.query(
-                'UPDATE users SET name=?, username=?, role=?, email=?, password=? WHERE id=?',
+                'UPDATE users SET name=?, username=?, role=?, email=?, password_hash=? WHERE id=?',
                 [name, username, role, email, hashed, userId]
             );
         } else {
@@ -4194,6 +4194,16 @@ const cartWeightsSchema = Joi.object({
     frequency: Joi.number().integer().min(1).max(98).required()
 });
 
+const cartPredictSchema = Joi.object({
+    incident_type: Joi.string().max(100).required(),
+    time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
+    day: Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday').required(),
+    location: Joi.string().valid(...BARANGAY_LOCATIONS).allow('', null),
+    repeated: Joi.alternatives().try(Joi.number().integer().min(0), Joi.string().allow('', null)).allow(null),
+    history: Joi.string().valid('High', 'Moderate', 'Low').allow('', null),
+    frequency: Joi.string().valid('High', 'Moderate', 'Low').allow('', null)
+});
+
 app.put('/api/cart/weights', authenticate, requireRole(['Administrator']), validate(cartWeightsSchema), async (req, res) => {
     try {
         const { time, day, type, location, frequency } = req.body;
@@ -4202,7 +4212,7 @@ app.put('/api/cart/weights', authenticate, requireRole(['Administrator']), valid
             return res.status(400).json({ error: `Weights must sum to 100%. Current total: ${total}%` });
         }
 
-        const userId = req.user.id;
+        const userId = req.userId;
         const entries = { time, day, type, location, frequency };
 
         for (const [key, val] of Object.entries(entries)) {
@@ -4318,7 +4328,7 @@ app.get('/api/cart/analysis-logs', authenticate, requireRole(['Administrator', '
 // field values plus real location/frequency stats for the chosen
 // street - but never writes to incidents or cart_risk_factors.
 // ============================================================
-app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
+app.post('/api/cart/predict', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), validate(cartPredictSchema), async (req, res) => {
     const startTime = Date.now();
     try {
         const { incident_type, time, day, location, repeated, history, frequency } = req.body;
@@ -4577,6 +4587,10 @@ app.post('/api/settings', authenticate, requireRole(['Administrator']), async (r
             return res.status(400).json({ error: 'setting_key and setting_value are required' });
         }
 
+        if (!Object.prototype.hasOwnProperty.call(SETTINGS_DEFAULTS, setting_key)) {
+            return res.status(400).json({ error: `Unknown setting key: ${setting_key}` });
+        }
+
         let valueToStore = String(setting_value).trim();
 
         if (valueToStore === '' || valueToStore === 'NaN' || valueToStore === 'undefined' || valueToStore === 'null') {
@@ -4631,6 +4645,10 @@ app.put('/api/settings/:key', authenticate, requireRole(['Administrator']), asyn
 
         if (setting_value === undefined || setting_value === null) {
             return res.status(400).json({ error: 'setting_value is required' });
+        }
+
+        if (!Object.prototype.hasOwnProperty.call(SETTINGS_DEFAULTS, key)) {
+            return res.status(400).json({ error: `Unknown setting key: ${key}` });
         }
 
         let valueToStore = String(setting_value).trim();
