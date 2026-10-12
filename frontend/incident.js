@@ -88,9 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupModalMapClose();
     setupTabs();
 
-    // Refresh only on SSE push (new_incident / incident_updated broadcast)
-    // — no background timer poll so the table doesn't flicker every 15s.
-    startLivePolling(loadIncidents, 0);
+    // SSE push for same-device instant refresh; 10s poll covers cross-device
+    // updates (Device B won't receive Device A's SSE broadcast directly).
+    startLivePolling(loadIncidents, 10000);
 
     // Deep link from the View page's "Update" button (incident.html?edit=123) -
     // opens straight into the edit popup for that record. editIncident()
@@ -650,65 +650,56 @@ function renderTable(dataToRender) {
         countSpan.textContent = `${dataToRender.length} total record${dataToRender.length !== 1 ? 's' : ''}`;
     }
 
-    // ✅ Clear table first
-    tbody.innerHTML = '';
+    const isAdminUser = isAdmin();
+    const isDeskOfficerUser = isDeskOfficer();
+
+    // Build all rows in a fragment first, then swap atomically — no blank flash.
+    const fragment = document.createDocumentFragment();
 
     if (dataToRender.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="10" style="text-align: center; padding: 30px; color: #94a3b8;">
-                    <i class="fa-regular fa-circle" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
-                    No incident records found.
-                </td>
-            </tr>
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = `
+            <td colspan="10" style="text-align: center; padding: 30px; color: #94a3b8;">
+                <i class="fa-regular fa-circle" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
+                No incident records found.
+            </td>
         `;
-        console.log('✅ Table rendered: empty state');
-        return;
+        fragment.appendChild(emptyRow);
+    } else {
+        for (let i = 0; i < dataToRender.length; i++) {
+            const item = dataToRender[i];
+            if (!item.id) continue;
+
+            const formattedDate = formatDate(item.date);
+            const formattedTime = formatTime(item.time);
+            const locationDisplay = item.street_name || `${item.latitude || 'N/A'}, ${item.longitude || 'N/A'}`;
+
+            const actionButtons = (isAdminUser || isDeskOfficerUser) ? `
+                <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Update</button>
+            ` : `<span style="color: #94a3b8; font-size: 0.7rem;">View Only</span>`;
+
+            const reportedByDisplay = item.reported_by_name || item.reporter_name || 'N/A';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="font-bold">${formatIncidentId(item.id, item.incident_type)}</td>
+                <td>${escapeHTML(item.incident_type || 'N/A')}</td>
+                <td class="text-secondary">${formattedDate} ${formattedTime}</td>
+                <td>${escapeHTML(locationDisplay)}</td>
+                <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
+                <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
+                <td><span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span></td>
+                <td class="cart-only">${item.cart_score != null ? parseFloat(item.cart_score).toFixed(0) : 'N/A'}</td>
+                <td class="text-secondary" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(item.recommended_action || '')}">${escapeHTML(item.recommended_action || 'N/A')}</td>
+                <td>${actionButtons}</td>
+            `;
+            fragment.appendChild(row);
+        }
     }
 
-    const isAdminUser = isAdmin(); // mula sa apiHelper.js
-    const isDeskOfficerUser = isDeskOfficer(); // mula sa apiHelper.js
-    console.log('👑 Is Admin:', isAdminUser);
-
-    // ✅ Use for loop with DOM manipulation para sigurado
-    let rowCount = 0;
-    
-    for (let i = 0; i < dataToRender.length; i++) {
-        const item = dataToRender[i];
-        
-        if (!item.id) continue;
-        
-        const formattedDate = formatDate(item.date);
-        const formattedTime = formatTime(item.time);
-        const locationDisplay = item.street_name || `${item.latitude || 'N/A'}, ${item.longitude || 'N/A'}`;
-        
-        const actionButtons = (isAdminUser || isDeskOfficerUser) ? `
-            <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Update</button>
-        ` : `<span style="color: #94a3b8; font-size: 0.7rem;">View Only</span>`;
-        
-        const reportedByDisplay = item.reported_by_name || item.reporter_name || 'N/A';
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="font-bold">${formatIncidentId(item.id, item.incident_type)}</td>
-            <td>${escapeHTML(item.incident_type || 'N/A')}</td>
-            <td class="text-secondary">${formattedDate} ${formattedTime}</td>
-            <td>${escapeHTML(locationDisplay)}</td>
-            <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
-            <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
-            <td><span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span></td>
-            <td class="cart-only">${item.cart_score != null ? parseFloat(item.cart_score).toFixed(0) : 'N/A'}</td>
-            <td class="text-secondary" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(item.recommended_action || '')}">${escapeHTML(item.recommended_action || 'N/A')}</td>
-            <td>${actionButtons}</td>
-        `;
-        
-        tbody.appendChild(row);
-        rowCount++;
-    }
-    
-    console.log('✅ Table rendered with', rowCount, 'rows');
-    console.log('📋 tbody innerHTML length:', tbody.innerHTML.length);
-    console.log('📋 First row HTML:', tbody.querySelector('tr') ? tbody.querySelector('tr').outerHTML : 'No rows');
+    // Single atomic swap — the table is never visibly empty between renders.
+    tbody.replaceChildren(fragment);
+    console.log('✅ Table rendered with', dataToRender.length, 'rows');
 }
 
 /* ============================================================
