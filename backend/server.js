@@ -2441,6 +2441,15 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Off
             );
         }
 
+        broadcastNotification({
+            type: 'new_incident',
+            incidentId: result.insertId,
+            incidentType: incident_type,
+            location: finalStreetName || address || 'unknown location',
+            tanodName: 'Staff',
+            timestamp: new Date().toISOString()
+        });
+
         res.status(201).json({
             message: 'Incident saved successfully.',
             id: result.insertId
@@ -2513,6 +2522,12 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk 
                 req
             );
         }
+
+        broadcastNotification({
+            type: 'incident_updated',
+            incidentId: id,
+            timestamp: new Date().toISOString()
+        });
 
         res.json({ message: 'Incident updated successfully.' });
 

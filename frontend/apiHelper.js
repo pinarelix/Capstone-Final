@@ -410,6 +410,10 @@ function initLiveNotifications() {
                     _livePollCallbacks.forEach(fn => {
                         try { fn(); } catch (refreshError) { console.error('Live-refresh callback failed:', refreshError); }
                     });
+                } else if (data.type === 'incident_updated') {
+                    _livePollCallbacks.forEach(fn => {
+                        try { fn(); } catch (refreshError) { console.error('Live-refresh callback failed:', refreshError); }
+                    });
                 }
             } catch (e) {
                 console.error('Failed to parse live notification:', e);
