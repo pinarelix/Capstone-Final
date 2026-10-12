@@ -839,6 +839,7 @@ function setupForm() {
                 try {
                     const errorData = await response.json();
                     if (errorData.error) errorMsg = errorData.error;
+                    if (errorData.details && errorData.details.length) errorMsg += ': ' + errorData.details.join(', ');
                 } catch (e) {}
                 throw new Error(errorMsg);
             }

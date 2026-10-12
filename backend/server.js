@@ -516,7 +516,7 @@ function removeUploadedFiles(req) {
 
 function validate(schema) {
     return (req, res, next) => {
-        const { error, value } = schema.validate(req.body, { abortEarly: false });
+        const { error, value } = schema.validate(req.body, { abortEarly: false, allowUnknown: true, stripUnknown: true });
         if (error) {
             // On multipart routes multer has already saved the upload by
             // now - don't leave it orphaned on disk when the form is rejected.
