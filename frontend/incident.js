@@ -88,9 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupModalMapClose();
     setupTabs();
 
-    // Keeps this list current with incidents reported from the field
-    // (e.g. a tanod's phone) without the admin needing to re-login.
-    startLivePolling(loadIncidents, 15000);
+    // Refresh only on SSE push (new_incident / incident_updated broadcast)
+    // — no background timer poll so the table doesn't flicker every 15s.
+    startLivePolling(loadIncidents, 0);
 
     // Deep link from the View page's "Update" button (incident.html?edit=123) -
     // opens straight into the edit popup for that record. editIncident()

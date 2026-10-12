@@ -706,9 +706,9 @@ const _livePollCallbacks = [];
 function startLivePolling(fn, intervalMs = 15000) {
     _livePollCallbacks.push(fn);
 
-    const timer = setInterval(() => {
+    const timer = intervalMs > 0 ? setInterval(() => {
         if (document.visibilityState === 'visible') fn();
-    }, intervalMs);
+    }, intervalMs) : null;
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') fn();
