@@ -795,6 +795,30 @@ function setupForm() {
         // reporter_id), and tanod-filed incidents have none - requiring one
         // here made those impossible to update.
         const isEdit = !!document.getElementById('editIndex').value;
+
+        // If editing, check if anything actually changed before submitting
+        if (isEdit && window._incidentEditSnapshot) {
+            const snap = window._incidentEditSnapshot;
+            const nothingChanged =
+                snap.type === type &&
+                snap.date === date &&
+                snap.time === time &&
+                snap.street === street &&
+                snap.address === address &&
+                snap.status === status &&
+                snap.desc === desc &&
+                snap.action === action &&
+                snap.blotter === blotter &&
+                snap.reportedByName === reportedByName &&
+                snap.personsInvolved === personsInvolved &&
+                snap.statement === statement &&
+                snap.priority === priority;
+            if (nothingChanged) {
+                showErrorModal('No Changes Detected', 'You haven\'t made any changes. Please update the details first before saving.');
+                return;
+            }
+        }
+
         const parsedRepId = parseInt(reporterIdRaw, 10);
         const repId = Number.isInteger(parsedRepId) && parsedRepId > 0 ? parsedRepId : null;
         if (!isEdit && repId === null) {
@@ -1050,6 +1074,7 @@ function clearForm() {
     const form = document.getElementById('incidentForm');
     if (form) form.reset();
     document.getElementById('editIndex').value = '';
+    window._incidentEditSnapshot = null;
     document.getElementById('formTitle').textContent = "Add New Incident";
     document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Incident`;
     const archiveBtn = document.getElementById('archiveIncidentBtn');
@@ -1182,6 +1207,23 @@ window.editIncident = async (id) => {
 
         document.getElementById('formTitle').textContent = `Edit Incident (${formatIncidentId(record.id, record.incident_type)})`;
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;
+
+        // Snapshot original values to detect if user actually changed anything
+        window._incidentEditSnapshot = {
+            type: record.incident_type || '',
+            date: record.date ? record.date.split('T')[0] : '',
+            time: record.time ? record.time.substring(0, 5) : '',
+            street: record.street_name || '',
+            address: record.address || '',
+            status: record.status || 'Open',
+            desc: record.description || '',
+            action: record.recommended_action || '',
+            blotter: record.blotter_number || '',
+            reportedByName: record.reported_by_name || '',
+            personsInvolved: record.persons_involved || '',
+            statement: record.statement || '',
+            priority: record.priority || 'Normal'
+        };
 
         const archiveBtn = document.getElementById('archiveIncidentBtn');
         if (archiveBtn && isAdmin()) {
