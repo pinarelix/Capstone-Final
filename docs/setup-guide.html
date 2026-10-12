@@ -1,0 +1,733 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Device Setup Guide</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: centered single-column wizard, role pick → steps */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface2: #f0f2f5;
+  --border: #e2e5ea;
+  --fg: #111827;
+  --fg2: #4b5563;
+  --fg3: #9ca3af;
+  --accent: #1d4ed8;
+  --accent-bg: #eff4ff;
+  --accent-border: #bfcfff;
+  --server: #0e7490;
+  --server-bg: #ecfeff;
+  --server-border: #a5f3fc;
+  --client: #7c3aed;
+  --client-bg: #f5f3ff;
+  --client-border: #c4b5fd;
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  --warn: #d97706;
+  --warn-bg: #fffbeb;
+  --step-num: #1d4ed8;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2d3348;
+    --fg: #f1f3f9;
+    --fg2: #9ba3b8;
+    --fg3: #5c6480;
+    --accent: #4f80f7;
+    --accent-bg: #151b35;
+    --accent-border: #2a3b7a;
+    --server: #22d3ee;
+    --server-bg: #0a1f24;
+    --server-border: #164e5a;
+    --client: #a78bfa;
+    --client-bg: #150f2a;
+    --client-border: #3b2a6e;
+    --success: #4ade80;
+    --success-bg: #052e16;
+    --warn: #fbbf24;
+    --warn-bg: #1c1106;
+    --step-num: #4f80f7;
+    --shadow: 0 1px 3px rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+  --border: #2d3348; --fg: #f1f3f9; --fg2: #9ba3b8; --fg3: #5c6480;
+  --accent: #4f80f7; --accent-bg: #151b35; --accent-border: #2a3b7a;
+  --server: #22d3ee; --server-bg: #0a1f24; --server-border: #164e5a;
+  --client: #a78bfa; --client-bg: #150f2a; --client-border: #3b2a6e;
+  --success: #4ade80; --success-bg: #052e16; --warn: #fbbf24; --warn-bg: #1c1106;
+  --step-num: #4f80f7; --shadow: 0 1px 3px rgba(0,0,0,.4); color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1.6;
+  padding-inline: 16px;
+  padding-block: 32px;
+  min-height: 100%;
+}
+.wrapper {
+  max-width: 640px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Header */
+.header { text-align: center; padding-block: 8px; }
+.brgy-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--fg3);
+  margin-bottom: 8px;
+}
+.header h1 { font-size: 22px; font-weight: 700; text-wrap: balance; color: var(--fg); }
+.header p { color: var(--fg2); margin-top: 6px; font-size: 13px; }
+
+/* Role picker */
+.picker-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+.picker-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--fg3);
+  margin-bottom: 14px;
+}
+.role-btns { display: flex; gap: 12px; }
+.role-btn {
+  flex: 1;
+  padding: 16px 12px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s, background .15s, transform .1s;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.role-btn:hover { transform: translateY(-1px); }
+.role-btn .icon { font-size: 26px; }
+.role-btn .name { font-weight: 700; font-size: 15px; color: var(--fg); }
+.role-btn .desc { font-size: 12px; color: var(--fg2); line-height: 1.4; text-wrap: balance; }
+.role-btn.server.active { border-color: var(--server); background: var(--server-bg); }
+.role-btn.client.active { border-color: var(--client); background: var(--client-bg); }
+.role-btn.server:hover { border-color: var(--server); }
+.role-btn.client:hover { border-color: var(--client); }
+
+/* Section toggle */
+.section-tabs { display: flex; gap: 8px; }
+.tab-btn {
+  flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 600;
+  color: var(--fg2); transition: all .15s; letter-spacing: .03em;
+}
+.tab-btn.active-server { background: var(--server-bg); border-color: var(--server); color: var(--server); }
+.tab-btn.active-client { background: var(--client-bg); border-color: var(--client); color: var(--client); }
+
+/* Steps panel */
+.panel { display: none; flex-direction: column; gap: 12px; }
+.panel.visible { display: flex; }
+
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.section-header {
+  padding: 14px 18px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .03em;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.section-header .badge {
+  font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 20px;
+}
+.server-badge { background: var(--server-bg); color: var(--server); border: 1px solid var(--server-border); }
+.client-badge { background: var(--client-bg); color: var(--client); border: 1px solid var(--client-border); }
+.one-time-badge { background: var(--warn-bg); color: var(--warn); border: 1px solid #fde68a; }
+.daily-badge { background: var(--success-bg); color: var(--success); border: 1px solid #bbf7d0; }
+.section-header .chevron { margin-left: auto; font-size: 12px; color: var(--fg3); transition: transform .2s; }
+.section-header.open .chevron { transform: rotate(180deg); }
+.section-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.section-body[hidden] { display: none; }
+
+/* Steps */
+.step { display: flex; gap: 14px; align-items: flex-start; }
+.step-num {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--step-num);
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--accent-border);
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+.step-num.done { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
+.step-content { flex: 1; min-width: 0; }
+.step-title { font-weight: 600; font-size: 13px; color: var(--fg); margin-bottom: 4px; }
+.step-body { color: var(--fg2); font-size: 13px; }
+.step-body p { margin-bottom: 6px; }
+.step-body p:last-child { margin-bottom: 0; }
+
+/* Code blocks */
+code {
+  font-family: 'Cascadia Code', 'Fira Mono', 'Consolas', monospace;
+  font-size: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--fg);
+  word-break: break-all;
+}
+pre {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin-top: 8px;
+  font-family: 'Cascadia Code', 'Fira Mono', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--fg);
+}
+.copy-wrap { position: relative; }
+.copy-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 600;
+  color: var(--fg2); cursor: pointer; transition: background .15s;
+}
+.copy-btn:hover { background: var(--surface2); }
+
+/* Warn / info boxes */
+.note {
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 12px; display: flex; gap: 8px; align-items: flex-start;
+}
+.note.warn { background: var(--warn-bg); border: 1px solid #fde68a; color: var(--warn); }
+.note.info { background: var(--accent-bg); border: 1px solid var(--accent-border); color: var(--accent); }
+.note.success { background: var(--success-bg); border: 1px solid #bbf7d0; color: var(--success); }
+
+/* Checklist */
+.checklist { display: flex; flex-direction: column; gap: 8px; }
+.check-item {
+  display: flex; gap: 10px; align-items: center;
+  padding: 10px 14px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface2);
+  cursor: pointer; transition: background .1s;
+}
+.check-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.check-item label { font-size: 13px; color: var(--fg); cursor: pointer; flex: 1; }
+.check-item:has(input:checked) { background: var(--success-bg); border-color: #bbf7d0; }
+.check-item:has(input:checked) label { color: var(--success); text-decoration: line-through; text-decoration-color: var(--success); }
+
+/* Progress bar */
+.progress-wrap { display: flex; flex-direction: column; gap: 6px; }
+.progress-label { font-size: 12px; color: var(--fg2); font-weight: 500; display: flex; justify-content: space-between; }
+.progress-bar { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 99px; background: var(--success); transition: width .3s; }
+
+/* Divider */
+.step-divider { border: none; border-top: 1px dashed var(--border); }
+
+/* IP highlight */
+.ip-box {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px;
+}
+.ip-label { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--fg3); }
+.ip-val { font-family: 'Cascadia Code', monospace; font-size: 15px; font-weight: 700; color: var(--fg); flex: 1; }
+
+@media (max-width: 480px) {
+  .role-btns { flex-direction: column; }
+}
+</style>
+
+<div class="wrapper">
+  <div class="header">
+    <span class="brgy-label">Barangay 179 Crime BI</span>
+    <h1>Device Setup Guide</h1>
+    <p>Follow the steps for your device's role in the LAN setup.</p>
+  </div>
+
+  <!-- Role Picker -->
+  <div class="picker-card">
+    <div class="picker-label">What is this device?</div>
+    <div class="role-btns">
+      <button class="role-btn server" onclick="selectRole('server')">
+        <span class="icon">🖥️</span>
+        <span class="name">Server PC</span>
+        <span class="desc">Hosts MySQL database. The "main" machine that must be on first.</span>
+      </button>
+      <button class="role-btn client" onclick="selectRole('client')">
+        <span class="icon">💻</span>
+        <span class="name">Client Laptop</span>
+        <span class="desc">Runs the app only. Connects to the Server PC's database over WiFi.</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Server Panel -->
+  <div class="panel" id="serverPanel">
+
+    <!-- One-time setup -->
+    <div class="section-card">
+      <div class="section-header open" onclick="toggleSection(this)">
+        <span>⚙️</span>
+        <span>One-Time Setup</span>
+        <span class="badge one-time-badge">Do once</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Allow remote MySQL connections</div>
+            <div class="step-body">
+              <p>Open <strong>MySQL Workbench</strong> → connect to <em>Local instance MySQL80</em> → run these queries one by one:</p>
+              <div class="copy-wrap">
+                <pre id="sql1">CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'your_mysql_password';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;</pre>
+                <button class="copy-btn" onclick="copyCode('sql1',this)">Copy</button>
+              </div>
+              <p style="margin-top:10px">Verify it worked:</p>
+              <div class="copy-wrap">
+                <pre id="sql2">SELECT user, host FROM mysql.user WHERE user = 'root';</pre>
+                <button class="copy-btn" onclick="copyCode('sql2',this)">Copy</button>
+              </div>
+              <div class="note success" style="margin-top:8px">✅ Should show two rows: <code>root | localhost</code> and <code>root | %</code></div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="step-divider">
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Open firewall ports</div>
+            <div class="step-body">
+              <p>Open <strong>Command Prompt as Administrator</strong> and run both commands:</p>
+              <div class="copy-wrap">
+                <pre id="fw1">netsh advfirewall firewall add rule name="Capstone Port 3000" dir=in action=allow protocol=TCP localport=3000</pre>
+                <button class="copy-btn" onclick="copyCode('fw1',this)">Copy</button>
+              </div>
+              <div class="copy-wrap" style="margin-top:6px">
+                <pre id="fw2">netsh advfirewall firewall add rule name="MySQL Port 3306" dir=in action=allow protocol=TCP localport=3306</pre>
+                <button class="copy-btn" onclick="copyCode('fw2',this)">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="step-divider">
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Find your LAN IP and share it with Device B</div>
+            <div class="step-body">
+              <div class="copy-wrap">
+                <pre id="ipconfig">ipconfig</pre>
+                <button class="copy-btn" onclick="copyCode('ipconfig',this)">Copy</button>
+              </div>
+              <p style="margin-top:8px">Look for <strong>IPv4 Address</strong> under your Wi-Fi adapter.</p>
+              <div class="ip-box">
+                <div>
+                  <div class="ip-label">Your LAN IP</div>
+                  <div class="ip-val" id="serverIpDisplay">192.168.x.x</div>
+                </div>
+                <input type="text" id="serverIpInput" placeholder="Enter your IP…" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--fg); font-size:13px;" oninput="updateIp(this.value)">
+              </div>
+              <div class="note info" style="margin-top:8px">ℹ️ Give this IP to the Client Laptop — they need it to connect.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Daily startup -->
+    <div class="section-card">
+      <div class="section-header open" onclick="toggleSection(this)">
+        <span>▶️</span>
+        <span>Daily Startup</span>
+        <span class="badge daily-badge">Every session</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Check MySQL80 service is running</div>
+            <div class="step-body">
+              <p>Press <code>Win + R</code> → type <code>services.msc</code> → Enter</p>
+              <p>Find <strong>MySQL80</strong> in the list. Status must be <strong>Running</strong>.</p>
+              <p>If not → right-click → <strong>Start</strong></p>
+            </div>
+          </div>
+        </div>
+
+        <hr class="step-divider">
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Open the Electron app</div>
+            <div class="step-body">
+              <p>In the project folder, run:</p>
+              <div class="copy-wrap">
+                <pre id="npmstart">npm start</pre>
+                <button class="copy-btn" onclick="copyCode('npmstart',this)">Copy</button>
+              </div>
+              <p style="margin-top:8px">Wait for both lines to appear:</p>
+              <div class="note success">✅ Database connected successfully!<br>🚀 Server running on http://localhost:3000</div>
+              <div class="note warn" style="margin-top:6px">⚠️ Keep the app open the entire session — closing it disconnects Device B.</div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="step-divider">
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Log in and start working</div>
+            <div class="step-body">
+              <p>Log in as your role (Administrator, Decision-Maker, or Desk Officer). Device B can now connect.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="section-card">
+      <div class="section-header open" onclick="toggleSection(this)">
+        <span>✅</span>
+        <span>Session Checklist</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Progress</span>
+            <span id="serverProgress">0 / 4</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="serverBar" style="width:0%"></div></div>
+        </div>
+        <div class="checklist" id="serverChecklist">
+          <label class="check-item"><input type="checkbox" onchange="updateProgress('server')"><label>MySQL80 Windows service is <strong>Running</strong></label></label>
+          <label class="check-item"><input type="checkbox" onchange="updateProgress('server')"><label>Electron app is open and shows <em>Database connected</em></label></label>
+          <label class="check-item"><input type="checkbox" onchange="updateProgress('server')"><label>Both devices on the same WiFi/router</label></label>
+          <label class="check-item"><input type="checkbox" onchange="updateProgress('server')"><label>Logged in to the app on this device</label></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="section-card">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span>🔧</span>
+        <span>Troubleshooting</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body" hidden>
+        <div class="step">
+          <div class="step-content">
+            <div class="step-title">Port 3000 already in use</div>
+            <div class="step-body">
+              <div class="copy-wrap"><pre id="port3000">netstat -ano | findstr :3000</pre><button class="copy-btn" onclick="copyCode('port3000',this)">Copy</button></div>
+              <p style="margin-top:6px">Note the PID, then:</p>
+              <div class="copy-wrap"><pre id="taskkill">taskkill /PID [number] /F</pre><button class="copy-btn" onclick="copyCode('taskkill',this)">Copy</button></div>
+            </div>
+          </div>
+        </div>
+        <hr class="step-divider">
+        <div class="step">
+          <div class="step-content">
+            <div class="step-title">Access denied for root@%</div>
+            <div class="step-body"><p>Re-run the MySQL grant queries in One-Time Setup Step 1. Make sure you run all 3 lines.</p></div>
+          </div>
+        </div>
+        <hr class="step-divider">
+        <div class="step">
+          <div class="step-content">
+            <div class="step-title">Device B can't see shared data</div>
+            <div class="step-body"><p>On Device B → Settings → Database tab → confirm Host is <em>this PC's IP</em>, not <code>localhost</code>. Click Test Connection.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Client Panel -->
+  <div class="panel" id="clientPanel">
+
+    <!-- One-time setup -->
+    <div class="section-card">
+      <div class="section-header open" onclick="toggleSection(this)">
+        <span>⚙️</span>
+        <span>One-Time Setup</span>
+        <span class="badge one-time-badge">Do once</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Copy the .env file</div>
+            <div class="step-body">
+              <p>Open <strong>Command Prompt</strong> in the project's <code>backend</code> folder and run:</p>
+              <div class="copy-wrap">
+                <pre id="copyenv">copy .env.migrated .env</pre>
+                <button class="copy-btn" onclick="copyCode('copyenv',this)">Copy</button>
+              </div>
+              <p style="margin-top:6px">If it asks "Overwrite?" → type <code>yes</code> and press Enter.</p>
+            </div>
+          </div>
+        </div>
+
+        <hr class="step-divider">
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Point the app to the Server PC's database</div>
+            <div class="step-body">
+              <p>Open the Electron app → <strong>Settings → Database tab</strong> → fill in:</p>
+              <div style="margin-top:8px; border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                  <tr style="background:var(--surface2)"><td style="padding:8px 12px; font-weight:600; color:var(--fg3); width:100px; border-bottom:1px solid var(--border)">Host</td><td style="padding:8px 12px; border-bottom:1px solid var(--border)"><code id="clientIpDisplay">192.168.x.x</code> <span style="font-size:11px;color:var(--fg3)">(Server PC's IP)</span></td></tr>
+                  <tr><td style="padding:8px 12px; font-weight:600; color:var(--fg3); border-bottom:1px solid var(--border)">Port</td><td style="padding:8px 12px; border-bottom:1px solid var(--border)"><code>3306</code></td></tr>
+                  <tr style="background:var(--surface2)"><td style="padding:8px 12px; font-weight:600; color:var(--fg3); border-bottom:1px solid var(--border)">Username</td><td style="padding:8px 12px; border-bottom:1px solid var(--border)"><code>root</code></td></tr>
+                  <tr><td style="padding:8px 12px; font-weight:600; color:var(--fg3); border-bottom:1px solid var(--border)">Password</td><td style="padding:8px 12px; border-bottom:1px solid var(--border)"><code>your_mysql_password</code></td></tr>
+                  <tr style="background:var(--surface2)"><td style="padding:8px 12px; font-weight:600; color:var(--fg3)">Database</td><td style="padding:8px 12px;"><code>brgydata</code></td></tr>
+                </table>
+              </div>
+              <div style="margin-top:10px; display:flex; gap:8px;">
+                <div style="flex:1; padding:8px 12px; background:var(--surface2); border-radius:6px; font-size:12px; color:var(--fg2)">
+                  <strong>Server PC's IP:</strong>
+                  <input type="text" id="clientIpInput" placeholder="Ask the Server PC operator" style="width:100%; margin-top:4px; padding:5px 8px; border-radius:5px; border:1px solid var(--border); background:var(--surface); color:var(--fg); font-size:13px;" oninput="updateClientIp(this.value)">
+                </div>
+              </div>
+              <p style="margin-top:10px">Click <strong>Test Connection</strong> → should say success.<br>Click <strong>Save</strong> → app restarts with the new connection.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Daily startup -->
+    <div class="section-card">
+      <div class="section-header open" onclick="toggleSection(this)">
+        <span>▶️</span>
+        <span>Daily Startup</span>
+        <span class="badge daily-badge">Every session</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="note warn">⚠️ The Server PC must be started first. Wait for it to show "Database connected" before continuing.</div>
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Connect to the same WiFi as the Server PC</div>
+            <div class="step-body"><p>Both devices must be on the same router/WiFi network.</p></div>
+          </div>
+        </div>
+
+        <hr class="step-divider">
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Open the Electron app</div>
+            <div class="step-body">
+              <p>In the project folder, run:</p>
+              <div class="copy-wrap">
+                <pre id="npmstart2">npm start</pre>
+                <button class="copy-btn" onclick="copyCode('npmstart2',this)">Copy</button>
+              </div>
+              <p style="margin-top:8px">Wait for:</p>
+              <div class="note success">✅ Database connected successfully!<br>🚀 Server running on http://localhost:3000</div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="step-divider">
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Log in</div>
+            <div class="step-body"><p>Use your account (Administrator, Decision-Maker, or Desk Officer). You will see the same data as the Server PC.</p></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="section-card">
+      <div class="section-header open" onclick="toggleSection(this)">
+        <span>✅</span>
+        <span>Session Checklist</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body">
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Progress</span>
+            <span id="clientProgress">0 / 4</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="clientBar" style="width:0%"></div></div>
+        </div>
+        <div class="checklist" id="clientChecklist">
+          <label class="check-item"><input type="checkbox" onchange="updateProgress('client')"><label>Server PC is on and app is running</label></label>
+          <label class="check-item"><input type="checkbox" onchange="updateProgress('client')"><label>Connected to the same WiFi as Server PC</label></label>
+          <label class="check-item"><input type="checkbox" onchange="updateProgress('client')"><label>Electron app started and shows <em>Database connected</em></label></label>
+          <label class="check-item"><input type="checkbox" onchange="updateProgress('client')"><label>Logged in and data matches Server PC</label></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="section-card">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span>🔧</span>
+        <span>Troubleshooting</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="section-body" hidden>
+        <div class="step">
+          <div class="step-content">
+            <div class="step-title">Data doesn't match Server PC</div>
+            <div class="step-body"><p>Settings → Database tab → confirm <strong>Host</strong> is the Server PC's IP, not <code>localhost</code>. Click Test Connection → Save → restart.</p></div>
+          </div>
+        </div>
+        <hr class="step-divider">
+        <div class="step">
+          <div class="step-content">
+            <div class="step-title">Can't connect to database</div>
+            <div class="step-body"><p>Make sure the Server PC is fully started first. Check both devices are on the same WiFi. The Server PC's IP may have changed — ask them to re-run <code>ipconfig</code>.</p></div>
+          </div>
+        </div>
+        <hr class="step-divider">
+        <div class="step">
+          <div class="step-content">
+            <div class="step-title">Port 3000 already in use on this laptop</div>
+            <div class="step-body">
+              <div class="copy-wrap"><pre id="port3000c">netstat -ano | findstr :3000</pre><button class="copy-btn" onclick="copyCode('port3000c',this)">Copy</button></div>
+              <p style="margin-top:6px">Note the PID, then kill it:</p>
+              <div class="copy-wrap"><pre id="taskkillc">taskkill /PID [number] /F</pre><button class="copy-btn" onclick="copyCode('taskkillc',this)">Copy</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function selectRole(role) {
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.role-btn.' + role).classList.add('active');
+  document.getElementById('serverPanel').classList.toggle('visible', role === 'server');
+  document.getElementById('clientPanel').classList.toggle('visible', role === 'client');
+  try { localStorage.setItem('setupRole', role); } catch(e) {}
+}
+
+function toggleSection(header) {
+  header.classList.toggle('open');
+  const body = header.nextElementSibling;
+  body.hidden = !header.classList.contains('open');
+}
+
+function copyCode(id, btn) {
+  const text = document.getElementById(id).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }).catch(() => {
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById(id));
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+}
+
+function updateProgress(role) {
+  const checks = document.querySelectorAll('#' + role + 'Checklist input[type=checkbox]');
+  const done = [...checks].filter(c => c.checked).length;
+  const total = checks.length;
+  document.getElementById(role + 'Progress').textContent = done + ' / ' + total;
+  document.getElementById(role + 'Bar').style.width = (done / total * 100) + '%';
+}
+
+function updateIp(val) {
+  document.getElementById('serverIpDisplay').textContent = val || '192.168.x.x';
+  try { localStorage.setItem('serverIp', val); } catch(e) {}
+}
+
+function updateClientIp(val) {
+  document.getElementById('clientIpDisplay').textContent = val || '192.168.x.x';
+  try { localStorage.setItem('clientIp', val); } catch(e) {}
+}
+
+// Restore state
+try {
+  const role = localStorage.getItem('setupRole');
+  if (role) selectRole(role);
+  const sip = localStorage.getItem('serverIp');
+  if (sip) { document.getElementById('serverIpInput').value = sip; updateIp(sip); }
+  const cip = localStorage.getItem('clientIp');
+  if (cip) { document.getElementById('clientIpInput').value = cip; updateClientIp(cip); }
+} catch(e) {}
+</script>
+
+</body></html>
