@@ -184,7 +184,7 @@ DROP TABLE IF EXISTS `incidents`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `incidents` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `incident_type` varchar(50) NOT NULL,
+  `incident_type` varchar(150) NOT NULL,
   `date` date NOT NULL,
   `time` time NOT NULL,
   `latitude` decimal(10,8) DEFAULT NULL,
