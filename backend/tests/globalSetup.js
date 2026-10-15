@@ -9,6 +9,7 @@ const { findBinary } = require('./mysqlBin');
 const { createArchive } = require('../archive');
 
 const DB_HOST = process.env.DB_HOST || 'localhost';
+const DB_PORT = process.env.DB_PORT || 3306;
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const SOURCE_DB = process.env.DB_NAME || 'brgydata';
@@ -17,6 +18,7 @@ const TEST_DB = 'brgydata_test';
 module.exports = async function globalSetup() {
     const connection = await mysql.createConnection({
         host: DB_HOST,
+        port: DB_PORT,
         user: DB_USER,
         password: DB_PASSWORD
     });
@@ -38,7 +40,7 @@ module.exports = async function globalSetup() {
     // makes mysqldump fail entirely if left in. Not touched in the real
     // database; only skipped for this throwaway schema clone.
     execSync(
-        `"${mysqldumpBin}" --no-data --ignore-table=${SOURCE_DB}.vw_incident_details -h ${DB_HOST} -u ${DB_USER} ${SOURCE_DB} | "${mysqlBin}" -h ${DB_HOST} -u ${DB_USER} ${TEST_DB}`,
+        `"${mysqldumpBin}" --no-data --ignore-table=${SOURCE_DB}.vw_incident_details -h ${DB_HOST} -P ${DB_PORT} -u ${DB_USER} ${SOURCE_DB} | "${mysqlBin}" -h ${DB_HOST} -P ${DB_PORT} -u ${DB_USER} ${TEST_DB}`,
         { shell: true, env, stdio: 'pipe' }
     );
 
