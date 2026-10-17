@@ -436,16 +436,16 @@ async function loadIncidents() {
         const params = new URLSearchParams({ page: currentPage, limit: incidentsPerPage, include_resolved: '1' });
 
         const searchRaw = document.getElementById('searchInput')?.value.trim();
+        // Strip category prefix (e.g. "VC-175" → "175") so the backend
+        // can match by numeric ID when user types the formatted display ID.
         const prefixMatch = searchRaw && searchRaw.match(/^[A-Za-z]{2}-(\d+)$/);
         const searchVal = prefixMatch ? prefixMatch[1] : searchRaw;
         const typeVal = document.getElementById('filterType')?.value;
-        const statusVal = document.getElementById('filterStatus')?.value;
         const dangerVal = document.getElementById('filterDanger')?.value;
         const dateVal = document.getElementById('filterDate')?.value;
 
         if (searchVal) params.set('search', searchVal);
         if (typeVal) params.set('type', typeVal);
-        if (statusVal) params.set('status', statusVal);
         if (dangerVal) params.set('danger', dangerVal);
         if (dateVal) params.set('date', dateVal);
 
@@ -470,10 +470,10 @@ async function loadIncidents() {
             countSpan.textContent = `${totalRecords} total record${totalRecords !== 1 ? 's' : ''}`;
         }
 
+        // ✅ Render table
         renderTable(incidents);
         renderIncidentPagination();
         updateRecordRangeText();
-        loadNewIncidentCount();
 
     } catch (error) {
         console.error('❌ Error loading incidents:', error);
@@ -489,23 +489,6 @@ async function loadIncidents() {
             `;
         }
         showErrorModal('Error', 'Failed to load incidents. Please check your connection.');
-    }
-}
-
-async function loadNewIncidentCount() {
-    try {
-        const res = await apiFetch('/incidents?status=New&limit=1&page=1');
-        if (!res.ok) return;
-        const data = await res.json();
-        const count = data.total || 0;
-        const box = document.getElementById('newIncidentsBox');
-        const countEl = document.getElementById('newIncidentCount');
-        const pluralEl = document.getElementById('newIncidentPlural');
-        if (box) box.style.display = count > 0 ? '' : 'none';
-        if (countEl) countEl.textContent = count;
-        if (pluralEl) pluralEl.textContent = count === 1 ? '' : 's';
-    } catch (e) {
-        console.error('Failed to load new incident count:', e);
     }
 }
 
@@ -592,7 +575,6 @@ function updateRecordRangeText() {
 ============================================================ */
 
 const getStatusClass = (status) => {
-    if (status === 'New') return 'badge-new';
     if (status === 'Open') return 'badge-open';
     if (status === 'Monitoring') return 'badge-monitoring';
     return 'badge-resolved';
@@ -1277,11 +1259,12 @@ window.editIncident = async (id) => {
 function setupSearchAndFilters() {
     const searchInput = document.getElementById('searchInput');
     const filterType = document.getElementById('filterType');
-    const filterStatus = document.getElementById('filterStatus');
     const filterDanger = document.getElementById('filterDanger');
     const filterDate = document.getElementById('filterDate');
-    const filterNewBtn = document.getElementById('filterNewBtn');
 
+    // Search/filter now happens server-side (see loadIncidents()) so it
+    // searches the whole dataset, not just whichever page is currently
+    // loaded in memory — any change resets back to page 1 and re-fetches.
     const filterFunction = () => {
         currentPage = 1;
         loadIncidents();
@@ -1289,16 +1272,8 @@ function setupSearchAndFilters() {
 
     if (searchInput) searchInput.addEventListener('input', filterFunction);
     if (filterType) filterType.addEventListener('change', filterFunction);
-    if (filterStatus) filterStatus.addEventListener('change', filterFunction);
     if (filterDanger) filterDanger.addEventListener('change', filterFunction);
     if (filterDate) filterDate.addEventListener('change', filterFunction);
-
-    if (filterNewBtn) {
-        filterNewBtn.addEventListener('click', () => {
-            if (filterStatus) filterStatus.value = 'New';
-            filterFunction();
-        });
-    }
 }
 
 /* ============================================================

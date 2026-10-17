@@ -266,8 +266,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         tableBody.innerHTML = incidents.map((incident, index) => {
+            // Status badge class - matches the real DB values (Open,
+            // Monitoring, Resolved) and dashboard.css's shared badge colors
             const statusClass = {
-                'New': 'badge-new',
                 'Open': 'badge-open',
                 'Monitoring': 'badge-monitoring',
                 'Resolved': 'badge-resolved'
@@ -468,7 +469,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const statusClass = {
-                'New': 'badge-new',
                 'Open': 'badge-open',
                 'Monitoring': 'badge-monitoring',
                 'Resolved': 'badge-resolved'

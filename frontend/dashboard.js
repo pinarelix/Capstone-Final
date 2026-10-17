@@ -362,7 +362,6 @@ function renderTable(rows) {
 
     recentRows.forEach((row, index) => {
         let statusClass = "badge-resolved";
-        if (row.status === "New") statusClass = "badge-new";
         if (row.status === "Open") statusClass = "badge-open";
         if (row.status === "Monitoring") statusClass = "badge-monitoring";
 
