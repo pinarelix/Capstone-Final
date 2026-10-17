@@ -711,10 +711,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     console.log("🚀 Grid Heatmap page loaded");
     initializeMap();
-
-    // Keeps the heatmap current with incidents reported from the field
-    // (e.g. a tanod's phone) without needing to re-login.
-    startLivePolling(loadRealData, 15000);
 });
 
 console.log('✅ grid-heatmap.js loaded successfully');
