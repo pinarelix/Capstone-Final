@@ -710,6 +710,15 @@ function setupForm() {
     const form = document.getElementById('incidentForm');
     if (!form) return;
 
+    const typeSelect = document.getElementById('incidentType');
+    const typeOtherInput = document.getElementById('incidentTypeOther');
+    if (typeSelect && typeOtherInput) {
+        typeSelect.addEventListener('change', () => {
+            typeOtherInput.style.display = typeSelect.value === '__other__' ? '' : 'none';
+            if (typeSelect.value !== '__other__') typeOtherInput.value = '';
+        });
+    }
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -720,7 +729,9 @@ function setupForm() {
             return;
         }
 
-        const type = document.getElementById('incidentType').value;
+        const typeSelect = document.getElementById('incidentType');
+        const typeOtherInput = document.getElementById('incidentTypeOther');
+        const type = typeSelect.value === '__other__' ? (typeOtherInput?.value.trim() || '') : typeSelect.value;
         const date = document.getElementById('incidentDate').value;
         const time = document.getElementById('incidentTime').value;
         const lat = document.getElementById('incidentLat').value;
@@ -756,6 +767,9 @@ function setupForm() {
         document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));
 
         const missingFields = requiredFields.filter(f => !document.getElementById(f.id)?.value);
+        if (typeSelect.value === '__other__' && !type) {
+            missingFields.unshift({ id: 'incidentTypeOther', label: 'Custom Incident Type' });
+        }
         if (missingFields.length > 0) {
             missingFields.forEach(f => document.getElementById(f.id)?.classList.add('field-missing'));
             document.getElementById(missingFields[0].id)?.focus();
@@ -1093,6 +1107,9 @@ function clearForm() {
     const fileCount = document.getElementById('evidenceFileCount');
     if (fileCount) fileCount.textContent = 'No file chosen';
 
+    const typeOther = document.getElementById('incidentTypeOther');
+    if (typeOther) { typeOther.value = ''; typeOther.style.display = 'none'; }
+
     if (marker) {
         mapPicker.removeLayer(marker);
         marker = null;
@@ -1178,7 +1195,15 @@ window.editIncident = async (id) => {
         openEditModal();
 
         document.getElementById('editIndex').value = record.id;
-        document.getElementById('incidentType').value = record.incident_type || '';
+        const typeEl = document.getElementById('incidentType');
+        const typeOtherEl = document.getElementById('incidentTypeOther');
+        typeEl.value = record.incident_type || '';
+        if (typeEl.value !== (record.incident_type || '')) {
+            typeEl.value = '__other__';
+            if (typeOtherEl) { typeOtherEl.value = record.incident_type || ''; typeOtherEl.style.display = ''; }
+        } else {
+            if (typeOtherEl) { typeOtherEl.value = ''; typeOtherEl.style.display = 'none'; }
+        }
         document.getElementById('incidentDate').value = record.date ? record.date.split('T')[0] : '';
         document.getElementById('incidentTime').value = record.time ? record.time.substring(0, 5) : '';
         document.getElementById('incidentLat').value = record.latitude || '';
