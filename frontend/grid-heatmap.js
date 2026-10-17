@@ -94,18 +94,31 @@ function startMapAnimationLoop() {
     }, 50);
 }
 
-// Density thresholds for a single grid cell (100m x 100m), based on the
-// raw number of incidents recorded in that cell. Calibrated to Barangay
-// 179's population (~48,600) and per-cell scale (roughly a city block) -
-// low enough to differentiate real hotspots as data accumulates, without
-// requiring an unrealistic concentration of citywide-scale crime in one cell.
-const DENSITY_MODERATE_MIN = 4;
-const DENSITY_HIGH_MIN = 10;
+// Severity thresholds for heatmap cell coloring — aligned with the CART
+// engine's danger level boundaries (Level 3 ≥67, Level 2 ≥34, Level 1 <34).
+// Each cell's color is determined by the average CART risk score of its
+// incidents, NOT by how many incidents it has.
+const SEVERITY_HIGH_MIN = 67;
+const SEVERITY_MODERATE_MIN = 34;
 
-function getDensityColor(count) {
-    if (count >= DENSITY_HIGH_MIN) return '#ef4444';
-    if (count >= DENSITY_MODERATE_MIN) return '#f59e0b';
+function getSeverityColor(avgScore) {
+    if (avgScore >= SEVERITY_HIGH_MIN) return '#ef4444';
+    if (avgScore >= SEVERITY_MODERATE_MIN) return '#f59e0b';
     return '#10b981';
+}
+
+function getSeverityLabel(avgScore) {
+    if (avgScore >= SEVERITY_HIGH_MIN) return 'High Risk';
+    if (avgScore >= SEVERITY_MODERATE_MIN) return 'Moderate Risk';
+    return 'Low Risk';
+}
+
+function getCellAvgSeverity(incidents) {
+    const scores = incidents
+        .map(i => i.cart_score != null ? parseFloat(i.cart_score) : null)
+        .filter(s => s !== null && !isNaN(s));
+    if (scores.length === 0) return 30;
+    return scores.reduce((sum, s) => sum + s, 0) / scores.length;
 }
 
 /* ============================================================
@@ -435,18 +448,19 @@ function renderGrid(incidents) {
     cells.forEach(cell => {
         const count = cell.count;
         const cellIncidents = cell.incidents;
+        const avgSeverity = getCellAvgSeverity(cellIncidents);
 
         totalIncidents += count;
         if (count > 0) activeCells++;
         if (count > peakCount) peakCount = count;
-        if (count >= DENSITY_HIGH_MIN) highRiskCells++;
+        if (avgSeverity >= SEVERITY_HIGH_MIN) highRiskCells++;
 
-        const color = getDensityColor(count);
+        const color = getSeverityColor(avgSeverity);
 
         const baseRadius = 100;
         const targetRadius = baseRadius + (count * 8);
         const targetGlowRadius = targetRadius * 1.8;
-        const tier = count >= DENSITY_HIGH_MIN ? 'high' : count >= DENSITY_MODERATE_MIN ? 'moderate' : 'none';
+        const tier = avgSeverity >= SEVERITY_HIGH_MIN ? 'high' : avgSeverity >= SEVERITY_MODERATE_MIN ? 'moderate' : 'none';
 
         // Circles start collapsed/invisible and grow in via the
         // animation loop below (see ENTRANCE_DURATION_MS), instead of
@@ -480,7 +494,7 @@ function renderGrid(incidents) {
             pingRings: []
         });
 
-        circle.bindTooltip(`${count} incident${count > 1 ? 's' : ''}`, {
+        circle.bindTooltip(`${getSeverityLabel(avgSeverity)} (Score: ${avgSeverity.toFixed(1)}) — ${count} incident${count > 1 ? 's' : ''}`, {
             permanent: false,
             direction: 'center',
             className: 'cell-tooltip'

@@ -691,7 +691,7 @@
         <header class="top-header">
             <div class="header-titles">
                 <h1>Grid-Based Risk Map (Quadrat Analysis)</h1>
-                <p>Scientific heatmap using 100m x 100m quadrat cells to analyze incident density.</p>
+                <p>Scientific heatmap using 100m x 100m quadrat cells to analyze incident severity.</p>
             </div>
         </header>
 
@@ -726,8 +726,8 @@
                     <i class="fa-solid fa-triangle-exclamation heatmap-flat-icon heatmap-flat-icon--red"></i>
                     <span class="heatmap-metric-flat-value" id="kpi-high">0</span>
                 </div>
-                <span class="heatmap-metric-label">High Risk Cells</span>
-                <p class="heatmap-metric-flat-desc">Cells with 10 or more incidents.</p>
+                <span class="heatmap-metric-label">High Severity Cells</span>
+                <p class="heatmap-metric-flat-desc">Cells with avg CART score ≥ 67.</p>
             </div>
             <div class="heatmap-metric-flat heatmap-metric-flat--wide">
                 <div class="heatmap-metric-flat-top">
@@ -775,10 +775,10 @@
             <div id="mapWrap">
                 <div id="map"></div>
                 <div class="grid-legend">
-                    <strong>INCIDENT DENSITY</strong>
-                    <div class="legend-row"><span class="legend-square high"></span> High (10+)</div>
-                    <div class="legend-row"><span class="legend-square moderate"></span> Moderate (4-9)</div>
-                    <div class="legend-row"><span class="legend-square low"></span> Low (1-3)</div>
+                    <strong>INCIDENT SEVERITY</strong>
+                    <div class="legend-row"><span class="legend-square high"></span> High (Score ≥ 67)</div>
+                    <div class="legend-row"><span class="legend-square moderate"></span> Moderate (Score ≥ 34)</div>
+                    <div class="legend-row"><span class="legend-square low"></span> Low (Score &lt; 34)</div>
                     <div class="legend-row"><span class="legend-square no-data"></span> No Data</div>
                 </div>
             </div>
