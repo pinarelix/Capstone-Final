@@ -51,7 +51,14 @@ describe('Incident CRUD + role enforcement', () => {
         longitude: 121.07,
         street_name: 'Balite Street',
         status: 'Open',
-        description: 'created by an automated test'
+        description: 'created by an automated test',
+        address: 'House 5, Balite Street',
+        blotter_number: 'BLT-TEST-001',
+        reported_by_name: 'Test Reporter',
+        persons_involved: 'Suspect: John Doe',
+        statement: 'Saw the incident happen',
+        recommended_action: 'Scheduled patrol and monitoring',
+        priority: 'Normal'
     };
 
     test('Administrator can create an incident, and it appears in the list', async () => {

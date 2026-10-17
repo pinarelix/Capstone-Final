@@ -224,24 +224,66 @@ class CARTEngine {
     }
 
     // ============================================================
-    // 5. CALCULATION METHODS
+    // 5. SEVERITY-ADAPTIVE WEIGHT SYSTEM
     // ============================================================
 
     /**
-     * Calculate total risk score using weighted average
+     * Determine severity tier from the raw incident-type score.
+     * Higher-severity crimes make the type factor weigh MORE in the
+     * final score; lower-severity crimes let contextual factors
+     * (location, frequency, time) dominate instead.
+     */
+    getSeverityTier(typeScore) {
+        if (typeScore >= 85) return { label: 'Critical', typeWeight: 0.40 };
+        if (typeScore >= 65) return { label: 'High',     typeWeight: 0.35 };
+        if (typeScore >= 45) return { label: 'Moderate', typeWeight: 0.30 };
+        return                       { label: 'Low',      typeWeight: 0.20 };
+    }
+
+    /**
+     * Build effective weights that adapt to the incident's severity.
+     * The type weight shifts per tier; the remaining 4 factors share
+     * whatever is left, keeping their original proportions.
+     */
+    getAdaptiveWeights(typeScore) {
+        const tier = this.getSeverityTier(typeScore);
+        const remaining = 1 - tier.typeWeight;
+
+        const baseOther = this.weights.time + this.weights.day +
+                          this.weights.location + this.weights.frequency;
+
+        return {
+            type:      tier.typeWeight,
+            time:      remaining * (this.weights.time      / baseOther),
+            day:       remaining * (this.weights.day       / baseOther),
+            location:  remaining * (this.weights.location  / baseOther),
+            frequency: remaining * (this.weights.frequency / baseOther),
+            tier:      tier.label
+        };
+    }
+
+    // ============================================================
+    // 6. CALCULATION METHODS
+    // ============================================================
+
+    /**
+     * Calculate total risk score using severity-adaptive weights
      * @param {Object} scores - Individual scores
-     * @returns {number} Total score (0-100)
+     * @returns {{ total: number, effectiveWeights: Object }}
      */
     calculateTotalScore(scores) {
         const { time, day, type, location, frequency } = scores;
-        
-        return (
-            (time * this.weights.time) +
-            (day * this.weights.day) +
-            (type * this.weights.type) +
-            (location * this.weights.location) +
-            (frequency * this.weights.frequency)
-        );
+
+        const ew = this.getAdaptiveWeights(type);
+
+        const total =
+            (type      * ew.type) +
+            (time      * ew.time) +
+            (day       * ew.day) +
+            (location  * ew.location) +
+            (frequency * ew.frequency);
+
+        return { total, effectiveWeights: ew };
     }
 
     /**
@@ -274,7 +316,7 @@ class CARTEngine {
     }
 
     // ============================================================
-    // 6. MAIN ANALYSIS METHOD
+    // 7. MAIN ANALYSIS METHOD
     // ============================================================
 
     /**
@@ -301,8 +343,8 @@ class CARTEngine {
             frequency: frequencyScore
         };
 
-        const totalScore = this.calculateTotalScore(scores);
-        const roundedTotal = Math.round(totalScore * 100) / 100;
+        const { total: rawTotal, effectiveWeights } = this.calculateTotalScore(scores);
+        const roundedTotal = Math.round(rawTotal * 100) / 100;
         const dangerLevel = this.getDangerLevel(roundedTotal);
         const dangerDescription = this.getDangerLevelDescription(dangerLevel);
 
@@ -313,7 +355,8 @@ class CARTEngine {
             frequencyData,
             scores,
             roundedTotal,
-            dangerDescription
+            dangerDescription,
+            effectiveWeights
         );
 
         // 4. Generate decision path
@@ -323,7 +366,8 @@ class CARTEngine {
             frequencyData,
             scores,
             roundedTotal,
-            dangerDescription
+            dangerDescription,
+            effectiveWeights
         );
 
         return {
@@ -332,18 +376,19 @@ class CARTEngine {
             dangerLevel: dangerLevel,
             dangerDescription: dangerDescription,
             explanation: explanation,
-            decisionPath: decisionPath
+            decisionPath: decisionPath,
+            effectiveWeights: effectiveWeights
         };
     }
 
     // ============================================================
-    // 7. EXPLANATION GENERATORS
+    // 8. EXPLANATION GENERATORS
     // ============================================================
 
     /**
      * Generate human-readable explanation
      */
-    generateExplanation(incident, locationData, frequencyData, scores, totalScore, dangerDescription) {
+    generateExplanation(incident, locationData, frequencyData, scores, totalScore, dangerDescription, effectiveWeights) {
         const timeDesc = incident.time_of_day || 'Unknown Time';
         const dayDesc = incident.is_weekend ? 'Weekend' : 'Weekday';
         const typeDesc = incident.incident_type || 'Unknown Type';
@@ -351,19 +396,22 @@ class CARTEngine {
         const frequencyCount = frequencyData?.recent_count || 0;
         const locationName = incident.street_name || 'unknown location';
 
-        return `The CART engine evaluated ${typeDesc} incident at ${locationName} with ${locationCount} total and ${frequencyCount} recent incidents (30 days). 
-Time: ${timeDesc} (${scores.time} pts, ${this.weights.time * 100}% weight), 
-Day: ${dayDesc} (${scores.day} pts, ${this.weights.day * 100}% weight), 
-Type: ${typeDesc} (${scores.type} pts, ${this.weights.type * 100}% weight), 
-Location: ${locationCount} incidents (${scores.location} pts, ${this.weights.location * 100}% weight), 
-Frequency: ${frequencyCount} recent (${scores.frequency} pts, ${this.weights.frequency * 100}% weight). 
+        const ew = effectiveWeights || this.getAdaptiveWeights(scores.type);
+        const pct = v => Math.round(v * 100);
+
+        return `The CART engine evaluated ${typeDesc} incident (${ew.tier} severity) at ${locationName} with ${locationCount} total and ${frequencyCount} recent incidents (30 days).
+Type: ${typeDesc} (${scores.type} pts, ${pct(ew.type)}% weight),
+Time: ${timeDesc} (${scores.time} pts, ${pct(ew.time)}% weight),
+Day: ${dayDesc} (${scores.day} pts, ${pct(ew.day)}% weight),
+Location: ${locationCount} incidents (${scores.location} pts, ${pct(ew.location)}% weight),
+Frequency: ${frequencyCount} recent (${scores.frequency} pts, ${pct(ew.frequency)}% weight).
 Total Score: ${totalScore} → ${dangerDescription}`;
     }
 
     /**
      * Generate step-by-step decision path
      */
-    generateDecisionPath(incident, locationData, frequencyData, scores, totalScore, dangerDescription) {
+    generateDecisionPath(incident, locationData, frequencyData, scores, totalScore, dangerDescription, effectiveWeights) {
         const timeDesc = incident.time_of_day || 'Unknown Time';
         const dayDesc = incident.is_weekend ? 'Weekend' : 'Weekday';
         const typeDesc = incident.incident_type || 'Unknown Type';
@@ -371,19 +419,23 @@ Total Score: ${totalScore} → ${dangerDescription}`;
         const frequencyCount = frequencyData?.recent_count || 0;
         const locationName = incident.street_name || 'unknown location';
 
+        const ew = effectiveWeights || this.getAdaptiveWeights(scores.type);
+        const pct = v => Math.round(v * 100);
+
         return [
-            `1. Incident Type: ${typeDesc} → ${scores.type} points (${this.weights.type * 100}% weight)`,
-            `2. Time of Day: ${timeDesc} → ${scores.time} points (${this.weights.time * 100}% weight)`,
-            `3. Day Type: ${dayDesc} → ${scores.day} points (${this.weights.day * 100}% weight)`,
-            `4. Location: ${locationName} (${locationCount} total incidents) → ${scores.location} points (${this.weights.location * 100}% weight)`,
-            `5. Recent Frequency: ${frequencyCount} incidents in 30 days → ${scores.frequency} points (${this.weights.frequency * 100}% weight)`,
+            `0. Severity Tier: ${typeDesc} → ${ew.tier} severity (type weight adjusted to ${pct(ew.type)}%)`,
+            `1. Incident Type: ${typeDesc} → ${scores.type} points (${pct(ew.type)}% weight)`,
+            `2. Time of Day: ${timeDesc} → ${scores.time} points (${pct(ew.time)}% weight)`,
+            `3. Day Type: ${dayDesc} → ${scores.day} points (${pct(ew.day)}% weight)`,
+            `4. Location: ${locationName} (${locationCount} total incidents) → ${scores.location} points (${pct(ew.location)}% weight)`,
+            `5. Recent Frequency: ${frequencyCount} incidents in 30 days → ${scores.frequency} points (${pct(ew.frequency)}% weight)`,
             `6. Weighted Total: ${totalScore}`,
             `7. Final Classification: ${dangerDescription}`
         ];
     }
 
     // ============================================================
-    // 8. UTILITY METHODS
+    // 9. UTILITY METHODS
     // ============================================================
 
     /**
@@ -423,7 +475,7 @@ Total Score: ${totalScore} → ${dangerDescription}`;
 }
 
 // ============================================================
-// 9. EXPORT
+// 10. EXPORT
 // ============================================================
 
 module.exports = new CARTEngine();

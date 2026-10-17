@@ -742,7 +742,15 @@ function setupForm() {
             { id: 'incidentDate', label: 'Date' },
             { id: 'incidentTime', label: 'Time' },
             { id: 'incidentStreet', label: 'Street Name' },
-            { id: 'incidentStatus', label: 'Status' }
+            { id: 'incidentStatus', label: 'Status' },
+            { id: 'incidentPriority', label: 'Priority' },
+            { id: 'incidentAddress', label: 'Address' },
+            { id: 'incidentBlotter', label: 'Blotter Number' },
+            { id: 'incidentReportedByName', label: 'Reported By' },
+            { id: 'incidentPersonsInvolved', label: 'Person(s) Involved' },
+            { id: 'incidentDesc', label: 'Description' },
+            { id: 'incidentStatement', label: 'Statement' },
+            { id: 'recommendedAction', label: 'Resolution / Recommended Solution' }
         ];
 
         document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));

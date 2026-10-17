@@ -77,7 +77,9 @@ describe('Archive: deleted records can be listed and restored', () => {
     test('deleting an incident archives it with its evidence, and restore brings both back with the same id', async () => {
         const created = await request(app).post('/api/incidents').set('Authorization', `Bearer ${adminToken}`).send({
             incident_type: 'Theft', date: '2026-01-15', time: '21:30', latitude: 14.755, longitude: 121.077,
-            street_name: 'Balite Street', status: 'Open', description: 'archive test', blotter_number: 'BLT-ARCHIVE'
+            street_name: 'Balite Street', status: 'Open', description: 'archive test', blotter_number: 'BLT-ARCHIVE',
+            address: 'House 1, Balite Street', reported_by_name: 'Juan Dela Cruz', persons_involved: 'Suspect: Unknown',
+            statement: 'Witnessed theft', recommended_action: 'Scheduled patrol', priority: 'Normal'
         });
         const incidentId = created.body.id;
         cleanup.incidents.push(incidentId);
@@ -117,7 +119,9 @@ describe('Archive: deleted records can be listed and restored', () => {
     test('archived evidence cannot be restored while its incident is still archived', async () => {
         const created = await request(app).post('/api/incidents').set('Authorization', `Bearer ${adminToken}`).send({
             incident_type: 'Theft', date: '2026-01-16', time: '10:00', latitude: 14.755, longitude: 121.077,
-            street_name: 'Balite Street', status: 'Open'
+            street_name: 'Balite Street', status: 'Open', description: 'evidence archive test', blotter_number: 'BLT-EV-ARCHIVE',
+            address: 'House 2, Balite Street', reported_by_name: 'Maria Santos', persons_involved: 'Suspect: Unknown',
+            statement: 'Saw suspicious activity', recommended_action: 'Investigate area', priority: 'Normal'
         });
         const incidentId = created.body.id;
         cleanup.incidents.push(incidentId);

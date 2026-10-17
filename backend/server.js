@@ -348,25 +348,25 @@ async function testConnection() {
 
 // Incident Schema
 const incidentSchema = Joi.object({
-    incident_type: Joi.string().max(100).required(),
+    incident_type: Joi.string().max(150).required(),
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
-    street_name: Joi.string().valid(...BARANGAY_LOCATIONS).allow('', null),
-    address: Joi.string().max(255).allow('', null),
+    street_name: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
+    address: Joi.string().max(255).required(),
     // reporter_id is always derived from the session (req.userId) server-side — never trusted from the client.
     // Still accepted (and discarded) because the incident form sends it: rejecting
     // it made every create/edit from the UI fail with "reporter_id is not allowed".
     reporter_id: Joi.any().strip(),
-    status: Joi.string().valid('Open', 'Monitoring', 'Resolved').default('Open'),
-    description: Joi.string().max(2000).allow('', null),
-    recommended_action: Joi.string().max(1000).allow('', null),
-    blotter_number: Joi.string().max(50).allow('', null),
-    reported_by_name: Joi.string().max(150).allow('', null),
-    statement: Joi.string().max(3000).allow('', null),
-    persons_involved: Joi.string().max(1000).allow('', null),
-    priority: Joi.string().valid('Normal', 'Urgent').default('Normal')
+    status: Joi.string().valid('Open', 'Monitoring', 'Resolved').required(),
+    description: Joi.string().max(2000).required(),
+    recommended_action: Joi.string().max(1000).required(),
+    blotter_number: Joi.string().max(50).required(),
+    reported_by_name: Joi.string().max(150).required(),
+    statement: Joi.string().max(3000).required(),
+    persons_involved: Joi.string().max(1000).required(),
+    priority: Joi.string().valid('Normal', 'Urgent').required()
 });
 
 // Report Export/Print Schema - the Reports page's Print/Export CSV
