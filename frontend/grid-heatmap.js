@@ -36,6 +36,10 @@ function initializeMap() {
         loadRealData();
         loadStreetAnalysis();
     });
+
+    map.on('error', (e) => {
+        console.error('Mapbox error:', e.error || e);
+    });
 }
 
 function addMapSources() {
