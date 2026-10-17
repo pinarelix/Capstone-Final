@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barangay 179 Crime BI — Grid Risk Map</title>
 
-    <!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <!-- Mapbox GL JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mapbox-gl/2.15.0/mapbox-gl.min.css">
 
     <!-- Dashboard CSS -->
     <link rel="stylesheet" href="dashboard.css">
@@ -46,19 +46,23 @@
             z-index: 1; 
         }
 
-        /* ============================================================
-           BLUR MASK - Blur outside boundary (same as incident map)
-        ============================================================ */
-        .blur-mask {
-            pointer-events: none !important;
-            z-index: 10 !important;
+        .mapboxgl-popup-content {
+            background: rgba(15, 23, 42, 0.95) !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+            padding: 14px !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
         }
 
-        /* Boundary glow */
-        .boundary-glow {
-            filter: blur(4px);
-            pointer-events: none;
-            z-index: 5 !important;
+        .mapboxgl-popup-tip {
+            border-top-color: rgba(15, 23, 42, 0.95) !important;
+        }
+
+        .mapboxgl-popup-close-button {
+            color: #94a3b8 !important;
+            font-size: 18px !important;
+            padding: 4px 8px !important;
         }
 
         /* ============================================================
@@ -153,40 +157,33 @@
         }
 
         /* ============================================================
-           HEATMAP CIRCLE STYLES
+           STREET ANALYSIS TOGGLE
         ============================================================ */
-        .heatmap-circle {
-            transition: all 0.3s ease;
+        .gh-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #94a3b8;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: 10px;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        .heatmap-circle:hover {
-            transform: scale(1.08);
-            opacity: 0.9;
+        .gh-toggle-btn:hover {
+            background: rgba(14, 165, 233, 0.15);
+            border-color: rgba(14, 165, 233, 0.4);
+            color: #38bdf8;
         }
 
-        .heatmap-glow {
-            pointer-events: none;
-        }
-
-        /* ============================================================
-           TOOLTIP
-        ============================================================ */
-        .cell-tooltip {
-            background: rgba(0, 0, 0, 0.85) !important;
-            color: white !important;
-            font-size: 12px !important;
-            font-weight: bold !important;
-            padding: 6px 14px !important;
-            border-radius: 6px !important;
-            border: none !important;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.4) !important;
-            pointer-events: none !important;
-            font-family: 'Inter', sans-serif !important;
-        }
-
-        .leaflet-tooltip.cell-tooltip::before {
-            display: none !important;
+        .gh-toggle-btn.active {
+            background: rgba(14, 165, 233, 0.2);
+            border-color: #0ea5e9;
+            color: #38bdf8;
         }
 
         /* ============================================================
@@ -690,8 +687,8 @@
     <main class="main-content">
         <header class="top-header">
             <div class="header-titles">
-                <h1>Grid-Based Risk Map (Quadrat Analysis)</h1>
-                <p>Scientific heatmap using 100m x 100m quadrat cells to analyze incident severity.</p>
+                <h1>Geospatial Risk Map</h1>
+                <p>Severity-weighted heatmap with street-level decision tree analysis for Barangay 179, Amparo, Caloocan City.</p>
             </div>
         </header>
 
@@ -745,8 +742,8 @@
         <div class="map-card card" style="padding: 14px; min-width: 0;">
             <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
                 <div>
-                    <h2>Barangay 179 — Quadrat Grid Heatmap</h2>
-                    <span class="map-subtitle">Click on any circle to view incident details</span>
+                    <h2>Barangay 179 — Geospatial Risk Heatmap</h2>
+                    <span class="map-subtitle">CART-weighted heat radiation + street-level risk analysis</span>
                 </div>
                 <div class="gh-toolbar">
                     <div class="gh-filter-chip">
@@ -768,7 +765,10 @@
                         <span class="gh-filter-icon"><i class="fa-solid fa-calendar-days"></i></span>
                         <select id="heatmapPeriod" class="gh-select"></select>
                     </div>
-                    <span class="gh-science-badge"><i class="fa-solid fa-flask"></i> Scientific Mapping</span>
+                    <button type="button" id="toggleStreetBtn" class="gh-toggle-btn active">
+                        <i class="fa-solid fa-street-view"></i> Street Analysis
+                    </button>
+                    <span class="gh-science-badge"><i class="fa-solid fa-flask"></i> Geospatial Analysis</span>
                 </div>
             </div>
 
@@ -822,11 +822,11 @@
     </main>
 </div>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<!-- Mapbox GL JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mapbox-gl/2.15.0/mapbox-gl.min.js"></script>
 
-<!-- Shared barangay boundary map setup -->
-<script src="mapHelper.js"></script>
+<!-- Mapbox barangay boundary map setup -->
+<script src="mapboxHelper.js"></script>
 
 <!-- 2. API HELPER (IKALAWA - CRITICAL!) -->
 <script src="apiHelper.js"></script>

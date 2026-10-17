@@ -2370,6 +2370,88 @@ app.get('/api/heatmap/incidents', authenticate, requireRole(['Administrator', 'D
     }
 });
 
+// Street-level decision tree aggregation for the Geospatial Risk Map.
+// Computes a composite risk score per street from accumulated historical
+// data: avg CART score, recency-weighted scoring, incident density,
+// severity distribution, and night-time patterns.
+app.get('/api/heatmap/street-analysis', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
+    try {
+        const cached = heatmapCache.get('street-analysis');
+        if (cached) return res.json(cached);
+
+        const [rows] = await pool.query(`
+            SELECT
+                i.street_name,
+                COUNT(*) as incident_count,
+                ROUND(AVG(COALESCE(rf.total_risk_score, 30)), 2) as avg_cart_score,
+                ROUND(AVG(
+                    CASE
+                        WHEN i.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN COALESCE(rf.total_risk_score, 30) * 2.0
+                        WHEN i.date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) THEN COALESCE(rf.total_risk_score, 30) * 1.5
+                        ELSE COALESCE(rf.total_risk_score, 30) * 1.0
+                    END
+                ) / AVG(
+                    CASE
+                        WHEN i.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 2.0
+                        WHEN i.date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) THEN 1.5
+                        ELSE 1.0
+                    END
+                ), 2) as recency_score,
+                ROUND(SUM(CASE WHEN COALESCE(rf.total_risk_score, 0) >= 67 THEN 1 ELSE 0 END) / COUNT(*) * 100, 1) as high_severity_pct,
+                ROUND(SUM(CASE WHEN i.time_of_day IN ('Night', 'Late Night') THEN 1 ELSE 0 END) / COUNT(*) * 100, 1) as night_pct,
+                ROUND(AVG(i.latitude), 6) as center_lat,
+                ROUND(AVG(i.longitude), 6) as center_lng
+            FROM incidents i
+            LEFT JOIN cart_risk_factors rf ON i.id = rf.incident_id
+            WHERE i.latitude IS NOT NULL
+              AND i.longitude IS NOT NULL
+              AND i.street_name IS NOT NULL
+              AND TRIM(i.street_name) != ''
+              AND TRIM(i.status) != 'Resolved'
+            GROUP BY i.street_name
+            HAVING COUNT(*) >= 2
+            ORDER BY avg_cart_score DESC
+        `);
+
+        const maxCount = rows.length > 0 ? Math.max(...rows.map(r => r.incident_count)) : 1;
+
+        const result = rows.map(row => {
+            const densityNorm = (row.incident_count / maxCount) * 100;
+            const composite = (row.avg_cart_score || 0) * 0.35
+                + (row.recency_score || 0) * 0.25
+                + densityNorm * 0.20
+                + (row.high_severity_pct || 0) * 0.10
+                + (row.night_pct || 0) * 0.10;
+
+            let risk_tier;
+            if (composite >= 75) risk_tier = 'Critical';
+            else if (composite >= 55) risk_tier = 'High';
+            else if (composite >= 35) risk_tier = 'Moderate';
+            else risk_tier = 'Low';
+
+            return {
+                street_name: row.street_name,
+                incident_count: row.incident_count,
+                avg_cart_score: row.avg_cart_score,
+                recency_score: row.recency_score,
+                high_severity_pct: row.high_severity_pct,
+                night_pct: row.night_pct,
+                density_normalized: Math.round(densityNorm * 100) / 100,
+                composite_score: Math.round(composite * 100) / 100,
+                risk_tier,
+                center_lat: row.center_lat,
+                center_lng: row.center_lng
+            };
+        });
+
+        heatmapCache.set('street-analysis', result);
+        res.json(result);
+    } catch (error) {
+        console.error('Error computing street analysis:', error);
+        res.status(500).json({ error: 'Failed to compute street analysis' });
+    }
+});
+
 app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Officer']), validate(incidentSchema), async (req, res) => {
     try {
         const {
@@ -2420,7 +2502,7 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Off
         ]);
 
         await computeCartRiskFactors(result.insertId);
-        heatmapCache.del('incidents');
+        heatmapCache.del('incidents'); heatmapCache.del('street-analysis');
 
         // A new incident here means this street is active again - clear
         // any patrol decay so it isn't still suppressed below its real
@@ -2507,7 +2589,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk 
         }
 
         await computeCartRiskFactors(id);
-        heatmapCache.del('incidents');
+        heatmapCache.del('incidents'); heatmapCache.del('street-analysis');
 
         const userId = req.userId;
 
@@ -2593,7 +2675,7 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Administrator']), a
             );
         }
 
-        heatmapCache.del('incidents');
+        heatmapCache.del('incidents'); heatmapCache.del('street-analysis');
 
         if (userId) {
             await logAudit(
@@ -3659,7 +3741,7 @@ app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentP
         ]);
 
         await computeCartRiskFactors(result.insertId);
-        heatmapCache.del('incidents');
+        heatmapCache.del('incidents'); heatmapCache.del('street-analysis');
         await resetAreaRisk(location);
 
         await logTanodAudit(req.tanodId, 'TANOD_CREATE_INCIDENT', 'incidents', result.insertId,
@@ -4780,7 +4862,7 @@ app.post('/api/location-coordinates', authenticate, requireRole(['Administrator'
             [latitude, longitude, location]
         );
         if (backfillResult.affectedRows > 0) {
-            heatmapCache.del('incidents');
+            heatmapCache.del('incidents'); heatmapCache.del('street-analysis');
         }
 
         if (userId) {

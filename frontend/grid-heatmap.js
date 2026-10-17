@@ -1,111 +1,12 @@
 "use strict";
 
-// ✅ API_URL ay naka-define na sa apiHelper.js
-// BARANGAY_CENTER / BARANGAY_BOUNDARY_COORDS / createBarangayMap come
-// from mapHelper.js, shared with incident.js.
-
 let map;
-let boundaryLayer;
 let allIncidentsData = [];
-let heatmapLayerGroup;
+let streetAnalysisData = [];
+let activePopup = null;
 
-// Drives every cell animation: a quick grow-in when a circle first
-// appears, a slow opacity pulse for Level 2/3 cells (moderate slower
-// than high), and an expanding "radar ping" ring that repeats on top
-// of Level 3 cells only. Rebuilt on every renderGrid() call. The map
-// uses preferCanvas:true, so circles are painted on a shared <canvas>
-// with no per-shape DOM node - CSS animations/transitions can't touch
-// them, so all of this is driven here via setRadius()/setStyle().
-let animatedCircles = [];
-let mapAnimationStarted = false;
-
-const ENTRANCE_DURATION_MS = 420;
-const HIGH_RISK_PULSE_PERIOD_MS = 1200;
-const MODERATE_RISK_PULSE_PERIOD_MS = 3000;
-const PING_DURATION_MS = 1400;
-const PING_MAX_SCALE = 2.6;
-
-function easeOutCubic(t) {
-    return 1 - Math.pow(1 - t, 3);
-}
-
-function startMapAnimationLoop() {
-    if (mapAnimationStarted) return;
-    mapAnimationStarted = true;
-
-    setInterval(() => {
-        if (animatedCircles.length === 0) return;
-        const now = Date.now();
-
-        animatedCircles.forEach(entry => {
-            const entranceT = Math.min(1, (now - entry.createdAt) / ENTRANCE_DURATION_MS);
-            const eased = easeOutCubic(entranceT);
-
-            let fillOpacity = entry.baseFillOpacity;
-            let glowOpacity = entry.baseGlowOpacity;
-
-            if (entry.tier === 'high') {
-                const phase = (Math.sin((now / HIGH_RISK_PULSE_PERIOD_MS) * 2 * Math.PI) + 1) / 2;
-                fillOpacity = 0.45 + phase * 0.35;
-                glowOpacity = 0.06 + phase * 0.24;
-            } else if (entry.tier === 'moderate') {
-                const phase = (Math.sin((now / MODERATE_RISK_PULSE_PERIOD_MS) * 2 * Math.PI) + 1) / 2;
-                fillOpacity = 0.5 + phase * 0.2;
-                glowOpacity = 0.05 + phase * 0.15;
-            }
-
-            entry.circle.setRadius(entry.targetRadius * eased);
-            entry.circle.setStyle({ fillOpacity: fillOpacity * eased });
-
-            entry.glow.setRadius(entry.targetGlowRadius * eased);
-            entry.glow.setStyle({ fillOpacity: glowOpacity * eased });
-
-            // Radar ping: only once the entrance has finished, so a
-            // ring never spawns mid grow-in.
-            if (entry.tier === 'high' && entranceT >= 1) {
-                if (now - entry.lastPingSpawn >= HIGH_RISK_PULSE_PERIOD_MS) {
-                    entry.lastPingSpawn = now;
-                    entry.pingRings.push({
-                        ring: L.circle([entry.lat, entry.lng], {
-                            radius: entry.targetRadius,
-                            color: 'transparent',
-                            fillColor: entry.color,
-                            fillOpacity: 0.45,
-                            interactive: false,
-                            className: 'heatmap-ping'
-                        }).addTo(heatmapLayerGroup),
-                        createdAt: now
-                    });
-                }
-
-                entry.pingRings = entry.pingRings.filter(p => {
-                    const pingT = (now - p.createdAt) / PING_DURATION_MS;
-                    if (pingT >= 1) {
-                        heatmapLayerGroup.removeLayer(p.ring);
-                        return false;
-                    }
-                    const pingEased = easeOutCubic(pingT);
-                    p.ring.setRadius(entry.targetRadius + (entry.targetRadius * (PING_MAX_SCALE - 1)) * pingEased);
-                    p.ring.setStyle({ fillOpacity: 0.45 * (1 - pingT) });
-                    return true;
-                });
-            }
-        });
-    }, 50);
-}
-
-// Severity thresholds for heatmap cell coloring — aligned with the CART
-// engine's danger level boundaries (Level 3 ≥67, Level 2 ≥34, Level 1 <34).
-// Each cell's color is determined by the average CART risk score of its
-// incidents, NOT by how many incidents it has.
 const SEVERITY_HIGH_MIN = 67;
 const SEVERITY_MODERATE_MIN = 34;
-
-function getSeverityColor(avgScore) {
-    if (avgScore >= SEVERITY_HIGH_MIN) return '#ef4444';
-    if (avgScore >= SEVERITY_MODERATE_MIN) return '#f59e0b';
-    return '#10b981';
-}
 
 function getSeverityLabel(avgScore) {
     if (avgScore >= SEVERITY_HIGH_MIN) return 'High Risk';
@@ -122,74 +23,259 @@ function getCellAvgSeverity(incidents) {
 }
 
 /* ============================================================
-   🔥 FIXED: Gumamit ng functions mula sa apiHelper.js
-   (HINDI NA LOCAL STORAGE)
-============================================================ */
-
-// ✅ ITO NA LANG ANG KAILANGAN - WALA NANG CUSTOM FUNCTIONS
-
-/* ============================================================
-   MAP FUNCTIONS
+   MAP INITIALIZATION
 ============================================================ */
 
 function initializeMap() {
-    console.log("🚀 Initializing Map...");
+    map = createMapboxMap('map');
 
-    const created = createBarangayMap("map", {
-        zoom: 15,
-        zoomControl: true,
-        preferCanvas: true,
-        minZoom: 14,
-        maxZoom: 19,
-        fadeAnimation: true,
-        zoomAnimation: true
+    map.on('load', () => {
+        addMapSources();
+        addMapLayers();
+        setupMapInteraction();
+        loadRealData();
+        loadStreetAnalysis();
     });
-    map = created.map;
-    boundaryLayer = created.boundaryLayer;
-    heatmapLayerGroup = L.layerGroup().addTo(map);
-
-    console.log("✅ Map Initialized!");
-    loadRealData();
 }
+
+function addMapSources() {
+    map.addSource('incidents', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+
+    map.addSource('street-analysis', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+}
+
+function addMapLayers() {
+    map.addLayer({
+        id: 'incidents-heat',
+        type: 'heatmap',
+        source: 'incidents',
+        paint: {
+            'heatmap-weight': [
+                'interpolate', ['linear'], ['get', 'cart_score'],
+                0, 0.1,
+                34, 0.4,
+                67, 0.7,
+                100, 1
+            ],
+            'heatmap-intensity': [
+                'interpolate', ['linear'], ['zoom'],
+                13, 0.8,
+                16, 1.5,
+                18, 2.5
+            ],
+            'heatmap-color': [
+                'interpolate', ['linear'], ['heatmap-density'],
+                0, 'rgba(0,0,0,0)',
+                0.15, 'rgba(16,185,129,0.35)',
+                0.30, 'rgba(16,185,129,0.6)',
+                0.45, 'rgba(245,158,11,0.7)',
+                0.60, 'rgba(239,68,68,0.8)',
+                0.80, 'rgba(220,38,38,0.9)',
+                1.0, 'rgba(153,27,27,1)'
+            ],
+            'heatmap-radius': [
+                'interpolate', ['linear'], ['zoom'],
+                13, 18,
+                15, 28,
+                17, 40,
+                19, 55
+            ],
+            'heatmap-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 0.85,
+                17, 0.65,
+                19, 0.4
+            ]
+        }
+    });
+
+    map.addLayer({
+        id: 'incidents-circle',
+        type: 'circle',
+        source: 'incidents',
+        paint: {
+            'circle-color': [
+                'interpolate', ['linear'], ['get', 'cart_score'],
+                0, '#10b981',
+                34, '#f59e0b',
+                67, '#ef4444'
+            ],
+            'circle-radius': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 3,
+                16, 5,
+                18, 8
+            ],
+            'circle-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 0,
+                15.5, 0.5,
+                17, 0.85
+            ],
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 0,
+                16, 1,
+                18, 1.5
+            ],
+            'circle-stroke-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 0,
+                16, 0.6,
+                18, 0.9
+            ]
+        }
+    });
+
+    map.addLayer({
+        id: 'street-markers',
+        type: 'circle',
+        source: 'street-analysis',
+        layout: { 'visibility': 'visible' },
+        paint: {
+            'circle-color': [
+                'match', ['get', 'risk_tier'],
+                'Critical', '#dc2626',
+                'High', '#ef4444',
+                'Moderate', '#f59e0b',
+                'Low', '#10b981',
+                '#94a3b8'
+            ],
+            'circle-radius': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 6,
+                16, 9,
+                18, 12
+            ],
+            'circle-opacity': 0.9,
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2
+        }
+    });
+
+    map.addLayer({
+        id: 'street-labels',
+        type: 'symbol',
+        source: 'street-analysis',
+        layout: {
+            'visibility': 'visible',
+            'text-field': ['get', 'street_name'],
+            'text-size': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 9,
+                16, 11,
+                18, 13
+            ],
+            'text-offset': [0, -1.5],
+            'text-anchor': 'bottom',
+            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+            'text-allow-overlap': false,
+            'text-ignore-placement': false
+        },
+        paint: {
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(0,0,0,0.75)',
+            'text-halo-width': 1.5
+        }
+    });
+}
+
+function setupMapInteraction() {
+    map.on('click', 'incidents-circle', (e) => {
+        if (!e.features || e.features.length === 0) return;
+
+        const coords = e.features[0].geometry.coordinates.slice();
+        const props = e.features[0].properties;
+
+        const lat = coords[1];
+        const lng = coords[0];
+        const gridKey = `${Number(lat.toFixed(3))},${Number(lng.toFixed(3))}`;
+
+        const cellIncidents = allIncidentsData.filter(item => {
+            const iLat = Number(Number(item.latitude).toFixed(3));
+            const iLng = Number(Number(item.longitude).toFixed(3));
+            return `${iLat},${iLng}` === gridKey;
+        });
+
+        if (cellIncidents.length > 0) {
+            showIncidentDetails(cellIncidents, lat, lng);
+        }
+    });
+
+    map.on('click', 'street-markers', (e) => {
+        if (!e.features || e.features.length === 0) return;
+        const props = e.features[0].properties;
+        const coords = e.features[0].geometry.coordinates.slice();
+
+        if (activePopup) activePopup.remove();
+
+        const tierColors = { Critical: '#dc2626', High: '#ef4444', Moderate: '#f59e0b', Low: '#10b981' };
+        const tierColor = tierColors[props.risk_tier] || '#94a3b8';
+
+        activePopup = new mapboxgl.Popup({ offset: 15, maxWidth: '280px' })
+            .setLngLat(coords)
+            .setHTML(`
+                <div style="font-family: Inter, sans-serif; font-size: 13px; line-height: 1.5;">
+                    <div style="font-weight: 800; font-size: 14px; margin-bottom: 6px;">${escapeHTML(props.street_name)}</div>
+                    <div style="display: inline-block; padding: 2px 10px; border-radius: 10px; background: ${tierColor}; color: #fff; font-size: 11px; font-weight: 700; margin-bottom: 8px;">${props.risk_tier} Risk</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; color: #cbd5e1;">
+                        <span>Composite Score</span><strong style="color: #fff; text-align: right;">${props.composite_score}</strong>
+                        <span>Avg CART Score</span><strong style="color: #fff; text-align: right;">${props.avg_cart_score}</strong>
+                        <span>Incidents</span><strong style="color: #fff; text-align: right;">${props.incident_count}</strong>
+                        <span>High Severity %</span><strong style="color: #fff; text-align: right;">${props.high_severity_pct}%</strong>
+                        <span>Night Incidents %</span><strong style="color: #fff; text-align: right;">${props.night_pct}%</strong>
+                        <span>Recency Score</span><strong style="color: #fff; text-align: right;">${props.recency_score}</strong>
+                    </div>
+                </div>
+            `)
+            .addTo(map);
+    });
+
+    map.on('mouseenter', 'incidents-circle', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'incidents-circle', () => { map.getCanvas().style.cursor = ''; });
+    map.on('mouseenter', 'street-markers', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'street-markers', () => { map.getCanvas().style.cursor = ''; });
+}
+
+/* ============================================================
+   DATA LOADING
+============================================================ */
 
 async function loadRealData() {
     try {
-        const url = '/heatmap/incidents';
-        console.log(`⏳ Fetching: ${url}`);
-
-        const response = await apiFetch(url);
-        console.log(`📡 Response Status: ${response.status}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
+        const response = await apiFetch('/heatmap/incidents');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const incidents = await response.json();
-        console.log(`✅ Loaded ${incidents.length} incidents from API`);
-
         allIncidentsData = incidents;
-
-        if (incidents.length > 0) {
-            console.log("📋 INCIDENT STATUSES FROM API:");
-            incidents.forEach(item => {
-                console.log(`   ID: ${item.id} | Status: "${item.status}" | Lat: ${item.latitude} | Lng: ${item.longitude} | Street: ${item.street_name || 'N/A'}`);
-            });
-        }
-
         populateIncidentTypeOptions();
         populateHeatmapPeriodOptions();
         applyFilterAndRender();
-
     } catch (error) {
-        console.error("❌ Error:", error.message);
+        console.error('Error loading incidents:', error);
         updateKPIs(0, 0, 0, 0, null);
-        showErrorState();
+    }
+}
+
+async function loadStreetAnalysis() {
+    try {
+        const response = await apiFetch('/heatmap/street-analysis');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        streetAnalysisData = await response.json();
+        renderStreetAnalysis(streetAnalysisData);
+    } catch (error) {
+        console.error('Error loading street analysis:', error);
     }
 }
 
 /* ============================================================
    INCIDENT CATEGORY FILTER
-   (mirrors the optgroups on the Add Incident form - incident.html)
 ============================================================ */
 
 const INCIDENT_CATEGORIES = {
@@ -214,9 +300,7 @@ const INCIDENT_CATEGORIES = {
         "Intriguing Against Honor", "Unlawful Use of Means of Publication and Unlaw",
         "Prohibiting Publication of Acts Referred to in the"
     ],
-    "Special / Child-Related": [
-        "BCPC", "Child Support"
-    ],
+    "Special / Child-Related": ["BCPC", "Child Support"],
     "Other Incidents": [
         "Hit and Run", "Reckless Impudence Resulting to Damage to Property and Physical Injury",
         "Reckless Impudence Resulting Physical Injury", "Noise Complaint", "Anti Electricity Pilferage",
@@ -227,8 +311,6 @@ const INCIDENT_CATEGORIES = {
     ]
 };
 
-// Reverse lookup: incident_type -> category. Anything not listed above
-// (e.g. legacy/free-text data) falls back to "Other Incidents".
 const TYPE_TO_CATEGORY = {};
 Object.entries(INCIDENT_CATEGORIES).forEach(([category, types]) => {
     types.forEach(type => { TYPE_TO_CATEGORY[type] = category; });
@@ -241,9 +323,7 @@ function getIncidentCategory(incidentType) {
 function populateIncidentTypeOptions() {
     const typeSelect = document.getElementById('heatmapIncidentType');
     if (!typeSelect) return;
-
     const previousValue = typeSelect.value || 'all';
-
     typeSelect.innerHTML = '<option value="all">All Categories</option>';
     Object.keys(INCIDENT_CATEGORIES).forEach(category => {
         const option = document.createElement('option');
@@ -251,44 +331,35 @@ function populateIncidentTypeOptions() {
         option.textContent = category;
         typeSelect.appendChild(option);
     });
-
     typeSelect.value = Object.keys(INCIDENT_CATEGORIES).includes(previousValue) ? previousValue : 'all';
 }
 
 /* ============================================================
-   DATE FILTER (Day / Week / Month / All Time)
+   DATE FILTER
 ============================================================ */
 
-// Monday of the ISO week containing dateStr (YYYY-MM-DD), also as YYYY-MM-DD.
 function getMondayOfWeek(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
-    const day = d.getDay(); // 0=Sun..6=Sat
-    const diff = day === 0 ? -6 : 1 - day; // shift Sunday back to the prior Monday
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
     d.setDate(d.getDate() + diff);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const date = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${date}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function formatDateLabel(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function formatWeekLabel(mondayStr) {
     const start = new Date(mondayStr + 'T00:00:00');
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `Week of ${startLabel} – ${endLabel}`;
+    const end = new Date(start); end.setDate(end.getDate() + 6);
+    return `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
 function formatMonthLabel(yearMonth) {
     const [year, month] = yearMonth.split('-');
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    return `${monthNames[parseInt(month, 10) - 1]} ${year}`;
+    const names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    return `${names[parseInt(month, 10) - 1]} ${year}`;
 }
 
 function populateHeatmapPeriodOptions() {
@@ -305,28 +376,21 @@ function populateHeatmapPeriodOptions() {
         return;
     }
 
-    const datedIncidents = allIncidentsData.filter(item => item.date);
     const keySet = new Set();
-
-    datedIncidents.forEach(item => {
-        if (granularity === 'day') {
-            keySet.add(item.date);
-        } else if (granularity === 'week') {
-            keySet.add(getMondayOfWeek(item.date));
-        } else if (granularity === 'month') {
-            keySet.add(item.date.substring(0, 7));
-        }
+    allIncidentsData.filter(item => item.date).forEach(item => {
+        if (granularity === 'day') keySet.add(item.date);
+        else if (granularity === 'week') keySet.add(getMondayOfWeek(item.date));
+        else if (granularity === 'month') keySet.add(item.date.substring(0, 7));
     });
 
-    const sortedKeys = Array.from(keySet).sort((a, b) => b.localeCompare(a));
-
-    if (sortedKeys.length === 0) {
+    const sorted = Array.from(keySet).sort((a, b) => b.localeCompare(a));
+    if (sorted.length === 0) {
         periodSelect.innerHTML = '<option value="">No incidents found</option>';
         if (periodChip) periodChip.style.display = '';
         return;
     }
 
-    sortedKeys.forEach(key => {
+    sorted.forEach(key => {
         const option = document.createElement('option');
         option.value = key;
         if (granularity === 'day') option.textContent = formatDateLabel(key);
@@ -335,9 +399,13 @@ function populateHeatmapPeriodOptions() {
         periodSelect.appendChild(option);
     });
 
-    periodSelect.value = sortedKeys[0];
+    periodSelect.value = sorted[0];
     if (periodChip) periodChip.style.display = '';
 }
+
+/* ============================================================
+   FILTER + RENDER
+============================================================ */
 
 function applyFilterAndRender() {
     const granularity = document.getElementById('heatmapGranularity')?.value || 'all';
@@ -346,197 +414,131 @@ function applyFilterAndRender() {
 
     let filtered = allIncidentsData;
 
-    if (granularity === 'day') {
-        filtered = filtered.filter(item => item.date === period);
-    } else if (granularity === 'week') {
-        filtered = filtered.filter(item => item.date && getMondayOfWeek(item.date) === period);
-    } else if (granularity === 'month') {
-        filtered = filtered.filter(item => item.date && item.date.substring(0, 7) === period);
-    }
+    if (granularity === 'day') filtered = filtered.filter(i => i.date === period);
+    else if (granularity === 'week') filtered = filtered.filter(i => i.date && getMondayOfWeek(i.date) === period);
+    else if (granularity === 'month') filtered = filtered.filter(i => i.date && i.date.substring(0, 7) === period);
 
-    if (category !== 'all') {
-        filtered = filtered.filter(item => getIncidentCategory(item.incident_type) === category);
-    }
+    if (category !== 'all') filtered = filtered.filter(i => getIncidentCategory(i.incident_type) === category);
 
-    // A previously-selected circle's details no longer necessarily apply
-    // to the new filtered set - reset to the prompt state.
     const badge = document.getElementById('selectedLocationBadge');
-    if (badge) {
-        badge.textContent = 'Click a circle on the map';
-        badge.classList.remove('active');
-    }
+    if (badge) { badge.textContent = 'Click a point on the map'; badge.classList.remove('active'); }
     const tbody = document.getElementById('detailsTableBody');
     if (tbody) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7">
-                    <div class="empty-state">
-                        <i class="fa-regular fa-circle"></i>
-                        <p>Click on a heatmap circle to view incident details</p>
-                    </div>
-                </td>
-            </tr>
-        `;
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>Click on a map point to view incident details</p></div></td></tr>`;
     }
 
-    if (filtered.length === 0) {
-        console.warn("⚠️ No incidents match the current filter.");
-        heatmapLayerGroup.clearLayers();
-        updateKPIs(0, 0, 0, 0, null);
-        showEmptyState();
-        return;
-    }
-
-    renderGrid(filtered);
+    renderIncidents(filtered);
 }
 
-function renderGrid(incidents) {
-    console.log("🔄 Rendering grid with glowing circles...");
+function renderIncidents(incidents) {
+    const valid = incidents.filter(i => i.latitude && i.longitude);
 
-    heatmapLayerGroup.clearLayers();
-    animatedCircles = [];
+    const features = valid.map(item => ({
+        type: 'Feature',
+        geometry: {
+            type: 'Point',
+            coordinates: [Number(item.longitude), Number(item.latitude)]
+        },
+        properties: {
+            id: item.id,
+            cart_score: item.cart_score != null ? parseFloat(item.cart_score) : 30,
+            incident_type: item.incident_type || 'Unknown',
+            street_name: item.street_name || 'Unknown',
+            status: item.status || 'Open',
+            date: item.date || '',
+            time: item.time || ''
+        }
+    }));
 
-    let totalIncidents = 0;
+    if (map.getSource('incidents')) {
+        map.getSource('incidents').setData({
+            type: 'FeatureCollection',
+            features: features
+        });
+    }
+
+    // KPI computation
+    let totalIncidents = valid.length;
     let activeCells = 0;
     let peakCount = 0;
     let highRiskCells = 0;
 
-    const gridSize = 3;
     const locationMap = {};
-
-    const validIncidents = incidents.filter(item => {
-        if (!item.latitude || !item.longitude) {
-            console.warn(`⚠️ Skipping ID ${item.id} - missing coordinates`);
-            return false;
-        }
-        return true;
-    });
-
-    console.log(`✅ ${validIncidents.length} incidents with valid coordinates`);
-
-    if (validIncidents.length === 0) {
-        console.warn("⚠️ No valid incidents with coordinates.");
-        updateKPIs(0, 0, 0, 0, null);
-        showEmptyState();
-        return;
-    }
-
-    validIncidents.forEach(item => {
-        const lat = Number(Number(item.latitude).toFixed(gridSize));
-        const lng = Number(Number(item.longitude).toFixed(gridSize));
+    valid.forEach(item => {
+        const lat = Number(Number(item.latitude).toFixed(3));
+        const lng = Number(Number(item.longitude).toFixed(3));
         const key = `${lat},${lng}`;
-        
-        if (!locationMap[key]) {
-            locationMap[key] = { lat, lng, count: 0, incidents: [] };
-        }
-        locationMap[key].count++;
+        if (!locationMap[key]) locationMap[key] = { incidents: [] };
         locationMap[key].incidents.push(item);
     });
 
-    const cells = Object.values(locationMap);
-    console.log(`📍 ${cells.length} grid cells created`);
-
-    if (cells.length === 0) {
-        console.warn("⚠️ No cells created.");
-        updateKPIs(0, 0, 0, 0, null);
-        showEmptyState();
-        return;
-    }
-
-    clearEmptyState();
-
-    cells.forEach(cell => {
-        const count = cell.count;
-        const cellIncidents = cell.incidents;
-        const avgSeverity = getCellAvgSeverity(cellIncidents);
-
-        totalIncidents += count;
-        if (count > 0) activeCells++;
-        if (count > peakCount) peakCount = count;
-        if (avgSeverity >= SEVERITY_HIGH_MIN) highRiskCells++;
-
-        const color = getSeverityColor(avgSeverity);
-
-        const baseRadius = 100;
-        const targetRadius = baseRadius + (count * 8);
-        const targetGlowRadius = targetRadius * 1.8;
-        const tier = avgSeverity >= SEVERITY_HIGH_MIN ? 'high' : avgSeverity >= SEVERITY_MODERATE_MIN ? 'moderate' : 'none';
-
-        // Circles start collapsed/invisible and grow in via the
-        // animation loop below (see ENTRANCE_DURATION_MS), instead of
-        // just popping onto the map at full size.
-        const circle = L.circle([cell.lat, cell.lng], {
-            radius: 1,
-            color: color,
-            weight: 2,
-            fillColor: color,
-            fillOpacity: 0,
-            interactive: true,
-            className: 'heatmap-circle'
-        }).addTo(heatmapLayerGroup);
-
-        const glow = L.circle([cell.lat, cell.lng], {
-            radius: 1,
-            color: 'transparent',
-            fillColor: color,
-            fillOpacity: 0,
-            interactive: false,
-            className: 'heatmap-glow'
-        }).addTo(heatmapLayerGroup);
-
-        const now = Date.now();
-        animatedCircles.push({
-            circle, glow, tier, color,
-            lat: cell.lat, lng: cell.lng,
-            targetRadius, targetGlowRadius,
-            baseFillOpacity: 0.7, baseGlowOpacity: 0.08,
-            createdAt: now, lastPingSpawn: now,
-            pingRings: []
-        });
-
-        circle.bindTooltip(`${getSeverityLabel(avgSeverity)} (Score: ${avgSeverity.toFixed(1)}) — ${count} incident${count > 1 ? 's' : ''}`, {
-            permanent: false,
-            direction: 'center',
-            className: 'cell-tooltip'
-        });
-
-        circle.on('click', function() {
-            showIncidentDetails(cellIncidents, cell.lat, cell.lng);
-            
-            this.setStyle({
-                weight: 4,
-                opacity: 1
-            });
-            
-            setTimeout(() => {
-                this.setStyle({
-                    weight: 2,
-                    opacity: 0.7
-                });
-            }, 2000);
-        });
+    Object.values(locationMap).forEach(cell => {
+        activeCells++;
+        if (cell.incidents.length > peakCount) peakCount = cell.incidents.length;
+        if (getCellAvgSeverity(cell.incidents) >= SEVERITY_HIGH_MIN) highRiskCells++;
     });
 
     const streetTally = {};
-    validIncidents.forEach(item => {
-        const streetName = item.street_name || 'Unknown';
-        streetTally[streetName] = (streetTally[streetName] || 0) + 1;
+    valid.forEach(item => {
+        const s = item.street_name || 'Unknown';
+        streetTally[s] = (streetTally[s] || 0) + 1;
     });
-    const topStreets = Object.entries(streetTally)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3);
+    const topStreets = Object.entries(streetTally).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
     updateKPIs(totalIncidents, activeCells, peakCount, highRiskCells, topStreets);
-    console.log(`📊 KPI: Total=${totalIncidents}, Cells=${activeCells}, Peak=${peakCount}, HighRisk=${highRiskCells}, TopHotspots=${topStreets.map(s => s[0]).join(', ')}`);
-    console.log("✅ Rendering Complete!");
-
-    startMapAnimationLoop();
 }
+
+function renderStreetAnalysis(streets) {
+    const features = streets.map(s => ({
+        type: 'Feature',
+        geometry: {
+            type: 'Point',
+            coordinates: [Number(s.center_lng), Number(s.center_lat)]
+        },
+        properties: {
+            street_name: s.street_name,
+            risk_tier: s.risk_tier,
+            composite_score: s.composite_score,
+            avg_cart_score: s.avg_cart_score,
+            incident_count: s.incident_count,
+            high_severity_pct: s.high_severity_pct,
+            night_pct: s.night_pct,
+            recency_score: s.recency_score
+        }
+    }));
+
+    if (map.getSource('street-analysis')) {
+        map.getSource('street-analysis').setData({
+            type: 'FeatureCollection',
+            features: features
+        });
+    }
+}
+
+/* ============================================================
+   STREET ANALYSIS TOGGLE
+============================================================ */
+
+function toggleStreetAnalysis() {
+    if (!map) return;
+    const btn = document.getElementById('toggleStreetBtn');
+    const currentVis = map.getLayoutProperty('street-markers', 'visibility');
+    const newVis = currentVis === 'visible' ? 'none' : 'visible';
+    map.setLayoutProperty('street-markers', 'visibility', newVis);
+    map.setLayoutProperty('street-labels', 'visibility', newVis);
+
+    if (btn) {
+        btn.classList.toggle('active', newVis === 'visible');
+    }
+}
+
+/* ============================================================
+   INCIDENT DETAILS TABLE
+============================================================ */
 
 function showIncidentDetails(incidents, lat, lng) {
     const tbody = document.getElementById('detailsTableBody');
     const badge = document.getElementById('selectedLocationBadge');
-    
     if (!tbody) return;
 
     if (badge) {
@@ -545,16 +547,7 @@ function showIncidentDetails(incidents, lat, lng) {
     }
 
     if (!incidents || incidents.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7">
-                    <div class="empty-state">
-                        <i class="fa-regular fa-circle"></i>
-                        <p>No incident details available for this location</p>
-                    </div>
-                </td>
-            </tr>
-        `;
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>No incident details available</p></div></td></tr>`;
         return;
     }
 
@@ -567,32 +560,17 @@ function showIncidentDetails(incidents, lat, lng) {
 
         let dangerClass = 'badge-danger';
         const danger = item.danger_level || '';
-        if (danger.includes('Level 3') || danger.includes('High')) {
-            dangerClass += ' high';
-        } else if (danger.includes('Level 2') || danger.includes('Moderate')) {
-            dangerClass += ' moderate';
-        } else if (danger.includes('Level 1') || danger.includes('Low')) {
-            dangerClass += ' low';
-        } else {
-            dangerClass += ' calculated';
-        }
+        if (danger.includes('Level 3') || danger.includes('High')) dangerClass += ' high';
+        else if (danger.includes('Level 2') || danger.includes('Moderate')) dangerClass += ' moderate';
+        else if (danger.includes('Level 1') || danger.includes('Low')) dangerClass += ' low';
+        else dangerClass += ' calculated';
 
-        let dateStr = 'N/A';
-        let timeStr = 'N/A';
+        let dateStr = 'N/A', timeStr = 'N/A';
         if (item.date) {
             const d = new Date(item.date);
-            if (!isNaN(d.getTime())) {
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                dateStr = `${year}-${month}-${day}`;
-            }
+            if (!isNaN(d.getTime())) dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         }
-        if (item.time) {
-            timeStr = item.time.substring(0, 5);
-        }
-
-        const streetName = item.street_name || 'N/A';
+        if (item.time) timeStr = item.time.substring(0, 5);
 
         return `
             <tr>
@@ -605,112 +583,60 @@ function showIncidentDetails(incidents, lat, lng) {
                     ${item.cart_score != null ? `<div class="cart-only" style="font-size: 0.65rem; color: #64748b; margin-top: 2px;">CART Score: ${parseFloat(item.cart_score).toFixed(0)}</div>` : ''}
                 </td>
                 <td>${escapeHTML(item.recommended_action || 'Scheduled patrol and risk monitoring')}</td>
-                <td><strong>${escapeHTML(streetName)}</strong></td>
+                <td><strong>${escapeHTML(item.street_name || 'N/A')}</strong></td>
             </tr>
         `;
     }).join('');
 }
 
-function showEmptyState() {
-    const tbody = document.getElementById('detailsTableBody');
-    if (tbody) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7">
-                    <div class="empty-state">
-                        <i class="fa-regular fa-circle"></i>
-                        <p>No incident records found in the database.</p>
-                        <p style="font-size: 0.8rem; margin-top: 4px; color: #94a3b8;">Add an incident to see it on the map.</p>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }
-    
-    const badge = document.getElementById('selectedLocationBadge');
-    if (badge) {
-        badge.textContent = 'No data available';
-        badge.classList.remove('active');
-    }
-}
-
-function showErrorState() {
-    const tbody = document.getElementById('detailsTableBody');
-    if (tbody) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7">
-                    <div class="empty-state" style="color: #ef4444;">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <p>Failed to load incident data.</p>
-                        <p style="font-size: 0.8rem; margin-top: 4px; color: #94a3b8;">Please check your connection and try again.</p>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }
-}
-
-function clearEmptyState() {}
+/* ============================================================
+   KPIs
+============================================================ */
 
 function updateKPIs(total, cells, peak, high, topStreets) {
-    document.getElementById("kpi-incidents").textContent = total;
-    document.getElementById("kpi-cells").textContent = cells;
-    document.getElementById("kpi-peak").textContent = peak;
-    document.getElementById("kpi-high").textContent = high;
+    const el = (id) => document.getElementById(id);
+    if (el("kpi-incidents")) el("kpi-incidents").textContent = total;
+    if (el("kpi-cells")) el("kpi-cells").textContent = cells;
+    if (el("kpi-peak")) el("kpi-peak").textContent = peak;
+    if (el("kpi-high")) el("kpi-high").textContent = high;
 
-    const hotspotList = document.getElementById("kpi-hotspot");
-    if (topStreets && topStreets.length > 0) {
-        hotspotList.innerHTML = topStreets
-            .map(([streetName, count], index) => `
+    const hotspotList = el("kpi-hotspot");
+    if (hotspotList) {
+        if (topStreets && topStreets.length > 0) {
+            hotspotList.innerHTML = topStreets.map(([name, count], i) => `
                 <div class="hotspot-rank-row">
-                    <span class="hotspot-rank-badge">${index + 1}</span>
-                    <span class="hotspot-rank-name">${escapeHTML(streetName)}</span>
+                    <span class="hotspot-rank-badge">${i + 1}</span>
+                    <span class="hotspot-rank-name">${escapeHTML(name)}</span>
                     <span class="hotspot-rank-count">${count}</span>
                 </div>
-            `)
-            .join('');
-    } else {
-        hotspotList.innerHTML = '<div class="hotspot-rank-row"><span class="hotspot-rank-name">N/A</span></div>';
+            `).join('');
+        } else {
+            hotspotList.innerHTML = '<div class="hotspot-rank-row"><span class="hotspot-rank-name">N/A</span></div>';
+        }
     }
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-    // ✅ Apply role-based UI gamit ang apiHelper
+/* ============================================================
+   DOM READY
+============================================================ */
+
+document.addEventListener("DOMContentLoaded", function () {
     const user = getCurrentUser();
-    
     if (!user && !window.location.pathname.includes('login.html')) {
         window.location.href = 'login.html';
         return;
     }
-    
-    applyRoleBasedUI(); // mula sa apiHelper.js
+    applyRoleBasedUI();
 
     const granularitySelect = document.getElementById('heatmapGranularity');
     const periodSelect = document.getElementById('heatmapPeriod');
     const incidentTypeSelect = document.getElementById('heatmapIncidentType');
+    const streetToggle = document.getElementById('toggleStreetBtn');
 
-    if (incidentTypeSelect) {
-        incidentTypeSelect.addEventListener('change', function() {
-            applyFilterAndRender();
-        });
-    }
+    if (incidentTypeSelect) incidentTypeSelect.addEventListener('change', applyFilterAndRender);
+    if (granularitySelect) granularitySelect.addEventListener('change', () => { populateHeatmapPeriodOptions(); applyFilterAndRender(); });
+    if (periodSelect) periodSelect.addEventListener('change', applyFilterAndRender);
+    if (streetToggle) streetToggle.addEventListener('click', toggleStreetAnalysis);
 
-    if (granularitySelect) {
-        granularitySelect.addEventListener('change', function() {
-            populateHeatmapPeriodOptions();
-            applyFilterAndRender();
-        });
-    }
-
-    if (periodSelect) {
-        periodSelect.addEventListener('change', function() {
-            applyFilterAndRender();
-        });
-    }
-
-    console.log("🚀 Grid Heatmap page loaded");
     initializeMap();
 });
-
-console.log('✅ grid-heatmap.js loaded successfully');
