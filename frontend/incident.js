@@ -706,16 +706,72 @@ function renderTable(dataToRender) {
    SETUP FORM - ✅ FIXED: Lowercase latitude/longitude
 ============================================================ */
 
+const RECOMMENDED_ACTIONS = {
+    'Homicide': 'Secure the crime scene immediately. Notify PNP and request SOCO. Document witnesses and preserve evidence.',
+    'Attempted Murder': 'Ensure victim safety and medical attention. Notify PNP for case filing. Secure witness statements.',
+    'Kidnapping': 'Alert PNP Anti-Kidnapping Group immediately. Coordinate barangay-wide search. Secure CCTV footage.',
+    'Child Abuse': 'Report to DSWD and PNP Women and Children Protection Desk. Ensure child safety. Provide psychosocial support.',
+    'VAWC': 'Issue Barangay Protection Order (BPO). Refer victim to DSWD and PNP WCPD. Document injuries and statements.',
+    'Illegal Release of Fire Arms': 'Notify PNP immediately. Secure the area. Identify source of gunfire and collect witness accounts.',
+    'Attempted Arson': 'Alert BFP and PNP. Secure affected area. Identify suspect and preserve evidence of accelerants.',
+    'Robbery': 'Conduct immediate investigation. File report with PNP. Secure CCTV footage and witness statements.',
+    'Grave Threat': 'Document threat details. Issue summon to respondent. Mediate if possible, escalate to PNP if threat persists.',
+    'Act of Lasciviousness': 'Refer to PNP WCPD. Ensure victim safety and provide psychosocial support. File complaint.',
+    'Physical Injury': 'Ensure medical attention for victim. Document injuries. Summon parties for mediation or refer to PNP.',
+    'Threats': 'Document threat details. Summon respondent for mediation. Monitor situation and escalate if needed.',
+    'Less Serious Physical Injuries': 'Provide medical referral. Document injuries and witness statements. Schedule mediation.',
+    'Falsification of Documents': 'Refer to PNP for investigation. Preserve original documents as evidence.',
+    'Slight Physical Injuries and Maltreatment': 'Document injuries. Attempt barangay mediation. Refer to PNP if unresolved.',
+    'Light Threats': 'Record incident in blotter. Summon respondent for mediation. Monitor for escalation.',
+    'Arson': 'Alert BFP and PNP immediately. Evacuate affected area. Investigate cause and identify suspect.',
+    'Theft': 'Investigate immediately. Secure CCTV footage and witness statements. File report with PNP for case build-up.',
+    'Fencing of Stolen Properties': 'Coordinate with PNP for investigation. Identify and document stolen property chain.',
+    'Qualified Trespass to Dwelling': 'Document incident and identify suspect. Summon parties. File complaint with PNP if needed.',
+    'Trespassing': 'Warn trespasser and document incident. Issue summon for repeat offenders.',
+    'Vandalism': 'Document damage with photos. Identify suspect. File complaint and recommend restitution.',
+    'Scam': 'Gather evidence of fraudulent activity. Refer to PNP Anti-Cybercrime if online. Advise victim on filing complaint.',
+    'Swindling of Estafa': 'Collect documentary evidence. Refer to PNP for investigation and case filing.',
+    'Estafa': 'Collect documentary evidence. Refer to PNP for investigation and case filing.',
+    'Cybercrime Prevention Act 2012 (RA 10175)': 'Refer to PNP Anti-Cybercrime Group. Preserve digital evidence. Assist victim with complaint filing.',
+    'Cyber Bullying': 'Document online evidence (screenshots). Refer to PNP Anti-Cybercrime. Provide counseling referral.',
+    'Voyeurism Act': 'Ensure victim safety. Refer to PNP WCPD. Preserve digital evidence.',
+    'Alarms and Scandals': 'Record incident. Issue warning to respondent. Schedule mediation for repeat offenders.',
+    'Oral Defamation': 'Document statements and witnesses. Schedule barangay mediation between parties.',
+    'Harassment': 'Document incident details. Issue summon to respondent. Mediate or escalate to PNP.',
+    'Intriguing Against Honor': 'Record complaint. Summon parties for mediation. Escalate to court if unresolved.',
+    'BCPC': 'Refer to BCPC committee for assessment. Coordinate with DSWD for child welfare intervention.',
+    'Child Support': 'Schedule mediation between parties. Refer to DSWD or court for legal enforcement if needed.',
+    'Hit and Run': 'Secure CCTV footage immediately. File report with PNP-HPG. Ensure victim receives medical attention.',
+    'Noise Complaint': 'Issue verbal warning to violator. Document repeat offenses. Enforce local noise ordinance.',
+    'Suspicious Activity': 'Increase patrol frequency in the area. Document details and monitor for escalation.',
+    'Traffic Obstruction': 'Issue warning to violator. Coordinate with MMDA/traffic enforcers. Document for repeat offenses.',
+    'Curfew Violation': 'Apprehend minor and contact parents/guardians. Document violation. Refer to BCPC for repeat offenders.',
+    'Missing': 'Coordinate barangay-wide search. File missing person report with PNP. Post alerts in the community.',
+    'Suicide': 'Ensure immediate medical response. Notify PNP for documentation. Refer family to crisis support services.',
+    'Animal Welfare Acts': 'Document the incident. Coordinate with local animal welfare office. Issue warning or file complaint.',
+};
+
+function getRecommendedAction(incidentType) {
+    return RECOMMENDED_ACTIONS[incidentType] || 'Scheduled patrol and risk monitoring';
+}
+
 function setupForm() {
     const form = document.getElementById('incidentForm');
     if (!form) return;
 
     const typeSelect = document.getElementById('incidentType');
     const typeOtherInput = document.getElementById('incidentTypeOther');
-    if (typeSelect && typeOtherInput) {
+    const actionField = document.getElementById('recommendedAction');
+    if (typeSelect) {
         typeSelect.addEventListener('change', () => {
-            typeOtherInput.style.display = typeSelect.value === '__other__' ? '' : 'none';
-            if (typeSelect.value !== '__other__') typeOtherInput.value = '';
+            if (typeOtherInput) {
+                typeOtherInput.style.display = typeSelect.value === '__other__' ? '' : 'none';
+                if (typeSelect.value !== '__other__') typeOtherInput.value = '';
+            }
+            if (actionField && typeSelect.value && typeSelect.value !== '__other__') {
+                const isEditing = !!document.getElementById('editIndex').value;
+                if (!isEditing) actionField.value = getRecommendedAction(typeSelect.value);
+            }
         });
     }
 
