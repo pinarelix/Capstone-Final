@@ -932,7 +932,7 @@ function fullIncidentListHtml(incidents) {
         return '<p style="color: #94a3b8; font-size: 0.8rem; text-align: center; padding: 16px 0;">No incidents recorded.</p>';
     }
 
-    const statusClassMap = { Open: 'badge-open', Monitoring: 'badge-monitoring', Resolved: 'badge-resolved' };
+    const statusClassMap = { New: 'badge-new', Open: 'badge-open', Monitoring: 'badge-monitoring', Resolved: 'badge-resolved' };
     const sorted = [...incidents].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     const rows = sorted.map(inc => {
@@ -1379,7 +1379,7 @@ function riskDistBadgeHtml(riskDist) {
 function incidentListItemsHtml(incidents, maxShown = 4) {
     if (!incidents || incidents.length === 0) return '';
 
-    const statusClassMap = { Open: 'badge-open', Monitoring: 'badge-monitoring', Resolved: 'badge-resolved' };
+    const statusClassMap = { New: 'badge-new', Open: 'badge-open', Monitoring: 'badge-monitoring', Resolved: 'badge-resolved' };
     const sorted = [...incidents].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     const shown = sorted.slice(0, maxShown);
     const remaining = sorted.length - shown.length;

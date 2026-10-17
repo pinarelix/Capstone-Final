@@ -1557,6 +1557,11 @@ body {
 }
 
 
+.badge-new {
+    background: #fce7f3;
+    color: #db2777;
+}
+
 .badge-open {
     background: #dbeafe;
     color: #1d4ed8;

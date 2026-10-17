@@ -2487,7 +2487,7 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Off
             finalStreetName,
             finalAddress,
             finalReporterId,
-            status || 'Open',
+            status || 'New',
             'Calculated by System',
             description || '',
             recommended_action || '',
