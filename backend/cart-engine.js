@@ -224,29 +224,24 @@ class CARTEngine {
     }
 
     // ============================================================
-    // 5. SEVERITY-ADAPTIVE WEIGHT SYSTEM
+    // 5. SEVERITY-BASED WEIGHT SYSTEM
+    // The user selects severity (High/Medium/Low) when creating
+    // the incident. This directly controls the type factor's weight:
+    //   High   = 30%
+    //   Medium = 20%
+    //   Low    = 10%
+    // The remaining 4 factors share whatever is left,
+    // keeping their original proportions.
     // ============================================================
 
-    /**
-     * Determine severity tier from the raw incident-type score.
-     * Higher-severity crimes make the type factor weigh MORE in the
-     * final score; lower-severity crimes let contextual factors
-     * (location, frequency, time) dominate instead.
-     */
-    getSeverityTier(typeScore) {
-        if (typeScore >= 85) return { label: 'Critical', typeWeight: 0.40 };
-        if (typeScore >= 65) return { label: 'High',     typeWeight: 0.35 };
-        if (typeScore >= 45) return { label: 'Moderate', typeWeight: 0.30 };
-        return                       { label: 'Low',      typeWeight: 0.20 };
+    getSeverityWeight(severity) {
+        if (severity === 'High')   return { label: 'High',   typeWeight: 0.30 };
+        if (severity === 'Medium') return { label: 'Medium', typeWeight: 0.20 };
+        return                             { label: 'Low',    typeWeight: 0.10 };
     }
 
-    /**
-     * Build effective weights that adapt to the incident's severity.
-     * The type weight shifts per tier; the remaining 4 factors share
-     * whatever is left, keeping their original proportions.
-     */
-    getAdaptiveWeights(typeScore) {
-        const tier = this.getSeverityTier(typeScore);
+    getAdaptiveWeights(typeScore, severity) {
+        const tier = this.getSeverityWeight(severity || 'Low');
         const remaining = 1 - tier.typeWeight;
 
         const baseOther = this.weights.time + this.weights.day +
@@ -271,10 +266,10 @@ class CARTEngine {
      * @param {Object} scores - Individual scores
      * @returns {{ total: number, effectiveWeights: Object }}
      */
-    calculateTotalScore(scores) {
+    calculateTotalScore(scores, severity) {
         const { time, day, type, location, frequency } = scores;
 
-        const ew = this.getAdaptiveWeights(type);
+        const ew = this.getAdaptiveWeights(type, severity);
 
         const total =
             (type      * ew.type) +
@@ -334,6 +329,8 @@ class CARTEngine {
         const locationScore = this.getLocationScore(locationData?.street_count || 0);
         const frequencyScore = this.getFrequencyScore(frequencyData?.recent_count || 0);
 
+        const severity = incident.severity || 'Low';
+
         // 2. Calculate total
         const scores = {
             time: timeScore,
@@ -343,7 +340,7 @@ class CARTEngine {
             frequency: frequencyScore
         };
 
-        const { total: rawTotal, effectiveWeights } = this.calculateTotalScore(scores);
+        const { total: rawTotal, effectiveWeights } = this.calculateTotalScore(scores, severity);
         const roundedTotal = Math.round(rawTotal * 100) / 100;
         const dangerLevel = this.getDangerLevel(roundedTotal);
         const dangerDescription = this.getDangerLevelDescription(dangerLevel);
@@ -396,7 +393,7 @@ class CARTEngine {
         const frequencyCount = frequencyData?.recent_count || 0;
         const locationName = incident.street_name || 'unknown location';
 
-        const ew = effectiveWeights || this.getAdaptiveWeights(scores.type);
+        const ew = effectiveWeights || this.getAdaptiveWeights(scores.type, incident.severity);
         const pct = v => Math.round(v * 100);
 
         return `The CART engine evaluated ${typeDesc} incident (${ew.tier} severity) at ${locationName} with ${locationCount} total and ${frequencyCount} recent incidents (30 days).
@@ -419,11 +416,11 @@ Total Score: ${totalScore} → ${dangerDescription}`;
         const frequencyCount = frequencyData?.recent_count || 0;
         const locationName = incident.street_name || 'unknown location';
 
-        const ew = effectiveWeights || this.getAdaptiveWeights(scores.type);
+        const ew = effectiveWeights || this.getAdaptiveWeights(scores.type, incident.severity);
         const pct = v => Math.round(v * 100);
 
         return [
-            `0. Severity Tier: ${typeDesc} → ${ew.tier} severity (type weight adjusted to ${pct(ew.type)}%)`,
+            `0. Severity: ${incident.severity || 'Low'} → type weight ${pct(ew.type)}%`,
             `1. Incident Type: ${typeDesc} → ${scores.type} points (${pct(ew.type)}% weight)`,
             `2. Time of Day: ${timeDesc} → ${scores.time} points (${pct(ew.time)}% weight)`,
             `3. Day Type: ${dayDesc} → ${scores.day} points (${pct(ew.day)}% weight)`,

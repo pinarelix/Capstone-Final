@@ -1179,7 +1179,7 @@ async function computeCartRiskFactors(incidentId) {
         
         // 1. Get incident data
         const [incidents] = await pool.query(`
-            SELECT id, incident_type, time_of_day, is_weekend, street_name 
+            SELECT id, incident_type, time_of_day, is_weekend, street_name, severity
             FROM incidents WHERE id = ?
         `, [incidentId]);
 
@@ -1291,7 +1291,7 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
         // imported rows - derive it from `time` instead of skipping them,
         // since the old risk rows are wiped below.
         const [rawIncidents] = await pool.query(`
-            SELECT id, incident_type, time, time_of_day, is_weekend, street_name, date
+            SELECT id, incident_type, time, time_of_day, is_weekend, street_name, date, severity
             FROM incidents
             WHERE id IS NOT NULL
             AND incident_type IS NOT NULL
