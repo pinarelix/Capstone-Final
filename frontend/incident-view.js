@@ -496,6 +496,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="incident-hero-badges">
                             <span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span>
                             <span class="badge ${modalDangerClass}">${escapeHTML(incident.danger_level || 'Not assessed')}</span>
+                            ${incident.severity ? `<span class="badge ${incident.severity === 'High' ? 'badge-danger-high' : incident.severity === 'Medium' ? 'badge-danger-mod' : 'badge-danger-low'}">Severity: ${escapeHTML(incident.severity)}</span>` : ''}
                             ${incident.priority === 'Urgent' ? `<span class="badge badge-priority-urgent"><i class="fa-solid fa-bolt"></i> Urgent</span>` : ''}
                             ${incident.cart_score != null ? `<span class="badge badge-danger-${dangerTier} cart-only" title="Weighted CART risk score (0-100)">CART Score: ${parseFloat(incident.cart_score).toFixed(0)}</span>` : ''}
                         </div>
@@ -569,25 +570,18 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="incident-text-card-header"><i class="fa-solid fa-align-left"></i> Description</div>
                             <div class="incident-text-card-body">${escapeHTML(incident.description || 'No description provided.')}</div>
                         </div>
-                        ${incident.statement ? `
-                        <div class="incident-text-card accent-statement">
-                            <div class="incident-text-card-header"><i class="fa-solid fa-quote-left"></i> Statement</div>
-                            <div class="incident-text-card-body">${escapeHTML(incident.statement)}</div>
-                        </div>` : ''}
-                        ${incident.persons_involved ? `
+                        ${incident.respondent_name ? `
                         <div class="incident-text-card accent-people">
-                            <div class="incident-text-card-header"><i class="fa-solid fa-people-group"></i> Person(s) Involved</div>
-                            <div class="incident-text-card-body">${escapeHTML(incident.persons_involved)}</div>
+                            <div class="incident-text-card-header"><i class="fa-solid fa-user"></i> Respondent</div>
+                            <div class="incident-text-card-body">
+                                ${escapeHTML(incident.respondent_name)}${incident.age != null ? ` (Age: ${incident.age})` : ''}${incident.respondent_address ? `<br>Address: ${escapeHTML(incident.respondent_address)}` : ''}
+                            </div>
                         </div>` : ''}
                         ${incident.cart_decision_path ? `
                         <div class="incident-text-card accent-cart cart-only">
                             <div class="incident-text-card-header"><i class="fa-solid fa-chart-line"></i> CART Risk Breakdown</div>
                             <div class="incident-text-card-body" style="line-height: 1.7;">${escapeHTML(incident.cart_decision_path).replace(/\n/g, '<br>')}</div>
                         </div>` : ''}
-                        <div class="incident-text-card accent-resolution">
-                            <div class="incident-text-card-header"><i class="fa-solid fa-shield-halved"></i> Resolution / Recommended Solution</div>
-                            <div class="incident-text-card-body">${escapeHTML(incident.recommended_action || 'No action recommended.')}</div>
-                        </div>
                         ${incident.evidence && incident.evidence.length > 0 ? `
                         <div class="incident-text-card accent-evidence">
                             <div class="incident-text-card-header"><i class="fa-solid fa-file-image"></i> Evidence</div>

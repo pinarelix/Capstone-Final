@@ -337,6 +337,17 @@ async function testConnection() {
         `);
     }
 
+    // New blotter-logbook fields (severity, respondent info, age).
+    for (const col of [
+        "ADD COLUMN severity ENUM('High','Medium','Low') DEFAULT 'Low'",
+        "ADD COLUMN respondent_name VARCHAR(255) DEFAULT NULL",
+        "ADD COLUMN respondent_address VARCHAR(500) DEFAULT NULL",
+        "ADD COLUMN age INT DEFAULT NULL"
+    ]) {
+        try { await pool.query(`ALTER TABLE incidents ${col}`); }
+        catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+    }
+
     // Archive of everything deleted (see archive.js) - created here too so
     // existing databases get it without a manual migration.
     await archive.ensureArchiveTable();
@@ -355,18 +366,19 @@ const incidentSchema = Joi.object({
     longitude: Joi.number().min(-180).max(180).required(),
     street_name: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
     address: Joi.string().max(255).required(),
-    // reporter_id is always derived from the session (req.userId) server-side — never trusted from the client.
-    // Still accepted (and discarded) because the incident form sends it: rejecting
-    // it made every create/edit from the UI fail with "reporter_id is not allowed".
     reporter_id: Joi.any().strip(),
     status: Joi.string().valid('Open', 'Monitoring', 'Resolved').required(),
     description: Joi.string().max(2000).required(),
-    recommended_action: Joi.string().max(1000).required(),
+    recommended_action: Joi.string().max(1000).allow('', null),
     blotter_number: Joi.string().max(50).required(),
     reported_by_name: Joi.string().max(150).required(),
-    statement: Joi.string().max(3000).required(),
-    persons_involved: Joi.string().max(1000).required(),
-    priority: Joi.string().valid('Normal', 'Urgent').required()
+    statement: Joi.string().max(3000).allow('', null),
+    persons_involved: Joi.string().max(1000).allow('', null),
+    priority: Joi.string().valid('Normal', 'Urgent').required(),
+    severity: Joi.string().valid('High', 'Medium', 'Low').required(),
+    respondent_name: Joi.string().max(255).allow('', null),
+    respondent_address: Joi.string().max(500).allow('', null),
+    age: Joi.number().integer().min(0).max(150).allow(null)
 });
 
 // Report Export/Print Schema - the Reports page's Print/Export CSV
@@ -2457,14 +2469,12 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Off
         const {
             incident_type, date, time, latitude, longitude, street_name, address,
             status, description, recommended_action,
-            blotter_number, reported_by_name, statement, persons_involved, priority
+            blotter_number, reported_by_name, statement, persons_involved, priority,
+            severity, respondent_name, respondent_address, age
         } = req.body;
 
         const finalStreetName = street_name || null;
         const finalAddress = address || null;
-        // Always the authenticated submitter - never trust a client-supplied
-        // reporter_id here, since nothing used to stop one staff account
-        // from attributing a report to another.
         const finalReporterId = req.userId || null;
 
         const timeOfDay = computeTimeOfDay(time);
@@ -2476,8 +2486,9 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Off
             (incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
              status, danger_level, description, recommended_action,
              time_of_day, day_of_week, is_weekend,
-             blotter_number, reported_by_name, statement, persons_involved, priority)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             blotter_number, reported_by_name, statement, persons_involved, priority,
+             severity, respondent_name, respondent_address, age)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             incident_type,
             date,
@@ -2498,7 +2509,11 @@ app.post('/api/incidents', authenticate, requireRole(['Administrator', 'Desk Off
             reported_by_name || null,
             statement || null,
             persons_involved || null,
-            priority || 'Normal'
+            priority || 'Normal',
+            severity || 'Low',
+            respondent_name || null,
+            respondent_address || null,
+            age != null ? age : null
         ]);
 
         await computeCartRiskFactors(result.insertId);
@@ -2548,7 +2563,8 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk 
         const {
             incident_type, date, time, latitude, longitude, street_name, address,
             status, description, recommended_action,
-            blotter_number, reported_by_name, statement, persons_involved, priority
+            blotter_number, reported_by_name, statement, persons_involved, priority,
+            severity, respondent_name, respondent_address, age
         } = req.body;
         const id = req.params.id;
 
@@ -2556,8 +2572,6 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk 
 
         const finalStreetName = street_name || null;
         const finalAddress = address || null;
-        // Editing an incident never changes who originally reported it -
-        // always keep the existing value, regardless of what the client sent.
         const finalReporterId = oldData[0]?.reporter_id ?? null;
 
         const timeOfDay = computeTimeOfDay(time);
@@ -2572,7 +2586,8 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk 
                 description = ?, recommended_action = ?,
                 time_of_day = ?, day_of_week = ?, is_weekend = ?,
                 blotter_number = ?, reported_by_name = ?, statement = ?, persons_involved = ?,
-                priority = ?
+                priority = ?,
+                severity = ?, respondent_name = ?, respondent_address = ?, age = ?
             WHERE id = ?
         `, [
             incident_type, date, time, latitude, longitude,
@@ -2581,6 +2596,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Administrator', 'Desk 
             timeOfDay, dayOfWeek, isWeekend,
             blotter_number || null, reported_by_name || null, statement || null, persons_involved || null,
             priority || 'Normal',
+            severity || 'Low', respondent_name || null, respondent_address || null, age != null ? age : null,
             id
         ]);
 

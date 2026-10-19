@@ -15,8 +15,6 @@
     <!-- Font Awesome (standard icons, replacing emoji) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-    <!-- Leaflet CSS for Map Picker -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 
     <style>
         /* ============================================================
@@ -299,37 +297,36 @@
                         </div>
 
                         <!-- ==========================================================
-                             ROW 2: Map (flex:2) + Reported By & Status (flex:1)
+                             ROW 2: Severity, Priority, Status (status hidden for new)
                         ========================================================== -->
-                        <div class="form-row map-outer-row">
-
-                            <div class="form-group flex-2 map-group">
-                                <label>Incident Location <span style="font-weight: 400; color: #64748b;">(set by Street Name below)</span></label>
-                                <div id="mapPicker" style="height: 280px; width: 100%; border-radius: 8px; border: 1px solid #94a3b8; z-index: 1; position: relative; cursor: pointer;"></div>
-                                <input type="hidden" id="incidentLat" required>
-                                <input type="hidden" id="incidentLng" required>
-                                <small id="locationPrompt" style="color: #64748b; margin-top: 4px;">Select a street above to set the incident location.</small>
+                        <div class="form-row">
+                            <input type="hidden" id="reportedBy">
+                            <input type="hidden" id="incidentLat" required>
+                            <input type="hidden" id="incidentLng" required>
+                            <div class="form-group">
+                                <label>Severity Level <span class="req">*</span></label>
+                                <select id="incidentSeverity" class="form-select" required>
+                                    <option value="" disabled selected>Select Severity</option>
+                                    <option value="High">High</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Low">Low</option>
+                                </select>
                             </div>
-
-                            <div class="form-group flex-1 right-side-fields">
-                                <input type="hidden" id="reportedBy">
-                                <div class="side-field">
-                                    <label>Status <span class="req">*</span></label>
-                                    <select id="incidentStatus" class="form-select" required>
-                                        <option value="Open">Open</option>
-                                        <option value="Monitoring">Monitoring</option>
-                                        <option value="Resolved">Resolved</option>
-                                    </select>
-                                </div>
-                                <div class="side-field">
-                                    <label>Priority <span class="req">*</span></label>
-                                    <select id="incidentPriority" class="form-select" required>
-                                        <option value="Normal">Normal</option>
-                                        <option value="Urgent">Urgent — needs immediate resolution</option>
-                                    </select>
-                                </div>
+                            <div class="form-group">
+                                <label>Priority <span class="req">*</span></label>
+                                <select id="incidentPriority" class="form-select" required>
+                                    <option value="Normal">Normal</option>
+                                    <option value="Urgent">Urgent — needs immediate resolution</option>
+                                </select>
                             </div>
-
+                            <div class="form-group" id="statusGroup" style="display:none;">
+                                <label>Status <span class="req">*</span></label>
+                                <select id="incidentStatus" class="form-select" required>
+                                    <option value="Open">Open</option>
+                                    <option value="Monitoring">Monitoring</option>
+                                    <option value="Resolved">Resolved</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="form-section-header"><i class="fa-solid fa-location-dot"></i> Location Details</div>
@@ -428,35 +425,41 @@
                         <div class="form-section-header"><i class="fa-solid fa-users"></i> People Involved</div>
 
                         <!-- ==========================================================
-                             ROW 3b: Reported By (Person) & Persons Involved
+                             ROW 3b: Complainant / Reported By
                         ========================================================== -->
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Reported By <span class="req">*</span></label>
-                                <input type="text" id="incidentReportedByName" class="form-control" placeholder="e.g. Juan Dela Cruz, resident" maxlength="150" required>
+                                <label>Name of Complainant <span class="req">*</span></label>
+                                <input type="text" id="incidentReportedByName" class="form-control" placeholder="e.g. Juan Dela Cruz" maxlength="150" required>
+                            </div>
+                        </div>
+
+                        <!-- ==========================================================
+                             ROW 3c: Respondent details
+                        ========================================================== -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Name of Respondent</label>
+                                <input type="text" id="respondentName" class="form-control" placeholder="e.g. Pedro Santos" maxlength="255">
                             </div>
                             <div class="form-group">
-                                <label>Person(s) Involved <span class="req">*</span></label>
-                                <input type="text" id="incidentPersonsInvolved" class="form-control" placeholder="e.g. Suspect: ..., Victim: ..., Witness: ..." maxlength="255" required>
+                                <label>Address of Respondent</label>
+                                <input type="text" id="respondentAddress" class="form-control" placeholder="e.g. Blk 5 Lot 3, Acacia St." maxlength="500">
+                            </div>
+                            <div class="form-group" style="max-width: 120px;">
+                                <label>Age</label>
+                                <input type="number" id="respondentAge" class="form-control" placeholder="e.g. 25" min="0" max="150">
                             </div>
                         </div>
 
-                        <div class="form-section-header"><i class="fa-solid fa-file-lines"></i> Description &amp; Documentation</div>
+                        <div class="form-section-header"><i class="fa-solid fa-file-lines"></i> Salaysay / Description</div>
 
                         <!-- ==========================================================
-                             ROW 4: Description
+                             ROW 4: Salaysay / Description
                         ========================================================== -->
                         <div class="form-group">
-                            <label>Description <span class="req">*</span></label>
-                            <textarea id="incidentDesc" class="form-control textarea" placeholder="Describe the incident pattern or report details." rows="2" maxlength="2000" required></textarea>
-                        </div>
-
-                        <!-- ==========================================================
-                             ROW 4b: Statement
-                        ========================================================== -->
-                        <div class="form-group">
-                            <label>Statement <span class="req">*</span></label>
-                            <textarea id="incidentStatement" class="form-control textarea" placeholder="Direct account/statement from the reporter or witness." rows="2" maxlength="2000" required></textarea>
+                            <label>Salaysay / Description <span class="req">*</span></label>
+                            <textarea id="incidentDesc" class="form-control textarea" placeholder="Ilagay ang detalyadong salaysay ng insidente." rows="4" maxlength="2000" required></textarea>
                         </div>
 
                         <!-- ==========================================================
@@ -475,15 +478,7 @@
                         </div>
 
                         <!-- ==========================================================
-                             ROW 5: Recommended Action
-                        ========================================================== -->
-                        <div class="form-group">
-                            <label>Resolution / Recommended Solution <span class="req">*</span></label>
-                            <textarea id="recommendedAction" class="form-control textarea" placeholder="Action required by patrol or admin" rows="2" maxlength="1000" required>Scheduled patrol and risk monitoring</textarea>
-                        </div>
-
-                        <!-- ==========================================================
-                             ROW 6: Buttons
+                             ROW 5: Buttons
                         ========================================================== -->
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary" id="saveBtn"><i class="fa-solid fa-floppy-disk"></i> Save Incident</button>
@@ -619,10 +614,10 @@
                                     <th>DATE / TIME</th>
                                     <th>LOCATION</th>
                                     <th>REPORTED BY</th>
+                                    <th>SEVERITY</th>
                                     <th>STATUS</th>
                                     <th>DANGER LEVEL</th>
                                     <th class="cart-only">CART SCORE</th>
-                                    <th>RECOMMENDED ACTION</th>
                                     <th>ACTIONS</th>
                                 </tr>
                             </thead>
@@ -903,111 +898,12 @@
         </div>
     </div>
 
-    <!-- =========================================================
-         🗺️ MAP EXPAND MODAL
-    ============================================================ -->
-    <div id="mapModal" style="
-        position: fixed;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.85);
-        backdrop-filter: blur(8px);
-        z-index: 999999;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 30px;
-    ">
-        <div style="
-            background: white;
-            border-radius: 16px;
-            max-width: 900px;
-            width: 100%;
-            max-height: 90vh;
-            padding: 24px;
-            position: relative;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
-            animation: modalPop 0.3s ease;
-        ">
-            <!-- Header -->
-            <div style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 16px;
-            ">
-                <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">
-                    <i class="fa-solid fa-location-dot"></i> Incident Location
-                </h3>
-                <button id="closeMapModal" aria-label="Close" style="
-                    background: none;
-                    border: none;
-                    font-size: 1.8rem;
-                    cursor: pointer;
-                    color: #94a3b8;
-                    transition: color 0.2s ease;
-                    padding: 0 8px;
-                    line-height: 1;
-                " onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#94a3b8'">
-                    &times;
-                </button>
-            </div>
-
-            <!-- Map Container -->
-            <div id="mapModalContainer" style="
-                width: 100%;
-                height: 500px;
-                border-radius: 10px;
-                border: 1px solid #e2e8f0;
-                overflow: hidden;
-                position: relative;
-                background: #dbe5ee;
-            ">
-                <!-- The map will be moved here -->
-            </div>
-
-            <!-- Instructions -->
-            <p style="
-                margin-top: 12px;
-                font-size: 0.8rem;
-                color: #94a3b8;
-                text-align: center;
-            ">
-                Location is set by the Street Name field - this map is a preview.
-            </p>
-
-            <!-- Close Button -->
-            <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
-                <button id="closeMapModalBtn" style="
-                    padding: 8px 24px;
-                    border: none;
-                    border-radius: 8px;
-                    background: #0f172a;
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                ">
-                    Close Map
-                </button>
-            </div>
-        </div>
-    </div>
-
     <style>
         @keyframes modalPop {
             0% { transform: scale(0.9) translateY(20px); opacity: 0; }
             100% { transform: scale(1) translateY(0); opacity: 1; }
         }
     </style>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-
-    <!-- Turf.js - real point-in-polygon check for the barangay boundary -->
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
-
-    <!-- Shared barangay boundary map setup -->
-    <script src="mapHelper.js"></script>
 
     <!-- ✅ API HELPER - IMPORTANT: ITO AY DAPAT NASA TAAS NG INCIDENT.JS -->
     <script src="apiHelper.js"></script>
@@ -1153,7 +1049,6 @@
                 document.getElementById('successModal').style.display = 'none';
                 document.getElementById('errorModal').style.display = 'none';
                 document.getElementById('deleteModal').style.display = 'none';
-                closeMapModal();
             }
         });
     </script>

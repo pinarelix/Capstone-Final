@@ -11,17 +11,6 @@ let currentPage = 1;
 let totalPages = 0;
 let totalRecords = 0;
 const incidentsPerPage = 25;
-let mapPicker;
-let marker;
-let modalMap = null;
-let modalMarker = null;
-let isMapModalOpen = false;
-
-// Street -> {latitude, longitude} for every barangay street, fetched
-// once. The map used to require a manual click to set coordinates,
-// duplicating the Street Name dropdown right below it (every street
-// already has a fixed pin here) - now the street selection alone
-// drives the marker, and the map is a preview, not an input.
 let locationCoordsMap = new Map();
 
 async function loadLocationCoordinates() {
@@ -66,12 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (note) note.textContent = 'Desk Officers can add and update incident records, including evidence, but cannot delete them. Decision-Makers and Field Users have view-only access to their allowed modules.';
     }
 
-    // Fire-and-forget here - the list table itself has no images, only
-    // the evidence gallery (shown when editing an incident) needs the
-    // token, and editIncident() awaits it fresh before rendering.
     ensureFileToken();
 
-    initMapPicker();
     loadLocationCoordinates();
     setDefaultReporter();
     setupStreetLocationSync();
@@ -85,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupForm();
     setupSearchAndFilters();
     setupRippleEffect();
-    setupModalMapClose();
     setupTabs();
 
     // SSE push for same-device instant refresh; 10s poll covers cross-device
@@ -102,30 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
         history.replaceState({}, '', window.location.pathname);
     }
 });
-
-/* ============================================================
-   MAP PICKER SETUP
-============================================================ */
-
-// BARANGAY_CENTER / BARANGAY_BOUNDARY_COORDS / createBarangayMap come
-// from mapHelper.js, shared with grid-heatmap.js.
-
-function initMapPicker() {
-    const container = document.getElementById('mapPicker');
-    if (container) {
-        container.innerHTML = '';
-    }
-
-    const created = createBarangayMap('mapPicker', {
-        zoom: 16,
-        zoomControl: false,
-        minZoom: 13.5,
-        maxZoom: 19
-    });
-    mapPicker = created.map;
-
-    setupMapExpand();
-}
 
 /* ============================================================
    TABS: Incident Records / New Incident
@@ -150,12 +110,6 @@ function setupTabs() {
             const tabId = this.getAttribute('data-tab');
             document.getElementById(`tab-${tabId}`).classList.add('active');
 
-            // The map picker initializes while its tab is still
-            // display:none (0-size container to Leaflet) - force a
-            // recalculation now that switching here has made it visible.
-            if (tabId === 'new-incident' && mapPicker) {
-                setTimeout(() => mapPicker.invalidateSize(), 50);
-            }
         });
     });
 
@@ -186,40 +140,22 @@ function openEditModal() {
     if (!host) return;
     host.classList.add('edit-modal-mode');
 
-    // Modal width differs from the tab's normal width, and the map
-    // was sized for whichever context it was last visible in.
-    if (mapPicker) {
-        setTimeout(() => mapPicker.invalidateSize(), 50);
-    }
+    document.getElementById('statusGroup').style.display = '';
 }
 
 function closeEditModal() {
     clearForm();
 }
 
-function makeMarkerIcon() {
-    return L.divIcon({
-        className: 'custom-marker',
-        html: '<div style="background: #dc2626; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-    });
-}
-
-// Selecting a street already has a fixed pin (see locationCoordsMap) -
-// this is now the only way the location fields and map marker get set.
 function setupStreetLocationSync() {
     const streetSelect = document.getElementById('incidentStreet');
     if (!streetSelect) return;
 
     streetSelect.addEventListener('change', () => {
         const street = streetSelect.value;
-        const prompt = document.getElementById('locationPrompt');
         if (!street) {
             document.getElementById('incidentLat').value = '';
             document.getElementById('incidentLng').value = '';
-            if (marker) { mapPicker.removeLayer(marker); marker = null; }
-            if (prompt) prompt.textContent = 'Select a street above to set the incident location.';
             return;
         }
 
@@ -227,178 +163,12 @@ function setupStreetLocationSync() {
         if (!pin || pin.latitude == null || pin.longitude == null) {
             document.getElementById('incidentLat').value = '';
             document.getElementById('incidentLng').value = '';
-            if (marker) { mapPicker.removeLayer(marker); marker = null; }
-            if (prompt) prompt.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> No pinned coordinates for this street yet.';
             return;
         }
 
-        const lat = parseFloat(pin.latitude);
-        const lng = parseFloat(pin.longitude);
-        document.getElementById('incidentLat').value = lat;
-        document.getElementById('incidentLng').value = lng;
-
-        if (marker) mapPicker.removeLayer(marker);
-        marker = L.marker([lat, lng], { icon: makeMarkerIcon() }).addTo(mapPicker);
-        mapPicker.setView([lat, lng], 16);
-
-        if (prompt) prompt.innerHTML = `<i class="fa-solid fa-location-dot"></i> Showing: ${street}`;
-
-        if (isMapModalOpen && modalMap) {
-            updateModalMarker(lat, lng);
-        }
+        document.getElementById('incidentLat').value = parseFloat(pin.latitude);
+        document.getElementById('incidentLng').value = parseFloat(pin.longitude);
     });
-}
-
-/* ============================================================
-   🗺️ MAP EXPAND / MODAL FUNCTIONALITY
-============================================================ */
-
-function createModalMap() {
-    const container = document.getElementById('mapModalContainer');
-    if (!container) return;
-    
-    container.innerHTML = '';
-
-    const created = createBarangayMap(container, {
-        center: mapPicker.getCenter(),
-        zoom: mapPicker.getZoom(),
-        zoomControl: true,
-        minZoom: 13.5,
-        maxZoom: 19
-    });
-    modalMap = created.map;
-
-    // View-only, like the small preview map - the street dropdown is the
-    // only thing that sets the location now (see setupStreetLocationSync).
-
-    const lat = document.getElementById('incidentLat').value;
-    const lng = document.getElementById('incidentLng').value;
-    if (lat && lng) {
-        updateModalMarker(parseFloat(lat), parseFloat(lng));
-    }
-}
-
-function updateModalMarker(lat, lng) {
-    if (!modalMap) return;
-    
-    if (modalMarker) {
-        modalMap.removeLayer(modalMarker);
-    }
-    
-    const customIcon = L.divIcon({
-        className: 'custom-marker',
-        html: '<div style="background: #dc2626; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-    });
-    
-    modalMarker = L.marker([lat, lng], { icon: customIcon }).addTo(modalMap);
-    modalMap.setView([lat, lng], 16);
-}
-
-function openMapModal() {
-    const modal = document.getElementById('mapModal');
-    if (!modal) return;
-    
-    modal.style.display = 'flex';
-    isMapModalOpen = true;
-    document.body.style.overflow = 'hidden';
-    
-    setTimeout(() => {
-        createModalMap();
-    }, 100);
-}
-
-function closeMapModal() {
-    const modal = document.getElementById('mapModal');
-    if (!modal) return;
-    
-    modal.style.display = 'none';
-    isMapModalOpen = false;
-    document.body.style.overflow = '';
-    
-    if (modalMap) {
-        modalMap.remove();
-        modalMap = null;
-        modalMarker = null;
-    }
-}
-
-function setupMapExpand() {
-    const mapContainer = document.getElementById('mapPicker');
-    if (!mapContainer) return;
-    
-    mapContainer.addEventListener('click', function(e) {
-        if (e.target.closest('.leaflet-marker-pane') || 
-            e.target.closest('.leaflet-popup') ||
-            e.target.closest('.leaflet-control') ||
-            e.target.closest('.leaflet-control-zoom')) {
-            return;
-        }
-        openMapModal();
-    });
-    
-    mapContainer.style.cursor = 'pointer';
-    mapContainer.style.position = 'relative';
-    
-    const oldHint = mapContainer.querySelector('.map-expand-hint');
-    if (oldHint) oldHint.remove();
-    
-    const hint = document.createElement('div');
-    hint.className = 'map-expand-hint';
-    hint.style.cssText = `
-        position: absolute;
-        bottom: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(15, 23, 42, 0.8);
-        color: white;
-        font-size: 0.65rem;
-        padding: 4px 12px;
-        border-radius: 20px;
-        backdrop-filter: blur(4px);
-        z-index: 1000;
-        pointer-events: none;
-        opacity: 0.8;
-        transition: opacity 0.5s ease;
-        white-space: nowrap;
-    `;
-    hint.innerHTML = '<i class="fa-solid fa-arrow-pointer"></i> Click to expand map';
-    mapContainer.appendChild(hint);
-    
-    setTimeout(() => {
-        hint.style.opacity = '0';
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 500);
-    }, 5000);
-}
-
-function setupModalMapClose() {
-    const closeBtns = [
-        document.getElementById('closeMapModal'),
-        document.getElementById('closeMapModalBtn')
-    ];
-    
-    closeBtns.forEach(btn => {
-        if (btn) {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                closeMapModal();
-            });
-        }
-    });
-    
-    const modal = document.getElementById('mapModal');
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeMapModal();
-            }
-        });
-    }
 }
 
 /* ============================================================
@@ -680,6 +450,8 @@ function renderTable(dataToRender) {
 
             const reportedByDisplay = item.reported_by_name || item.reporter_name || 'N/A';
 
+            const severityClass = item.severity === 'High' ? 'badge-danger-high' : item.severity === 'Medium' ? 'badge-danger-mod' : 'badge-danger-low';
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="font-bold">${formatIncidentId(item.id, item.incident_type)}</td>
@@ -687,10 +459,10 @@ function renderTable(dataToRender) {
                 <td class="text-secondary">${formattedDate} ${formattedTime}</td>
                 <td>${escapeHTML(locationDisplay)}</td>
                 <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
+                <td><span class="badge ${severityClass}">${escapeHTML(item.severity || 'N/A')}</span></td>
                 <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
                 <td><span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span></td>
                 <td class="cart-only">${item.cart_score != null ? parseFloat(item.cart_score).toFixed(0) : 'N/A'}</td>
-                <td class="text-secondary" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(item.recommended_action || '')}">${escapeHTML(item.recommended_action || 'N/A')}</td>
                 <td>${actionButtons}</td>
             `;
             fragment.appendChild(row);
@@ -706,71 +478,17 @@ function renderTable(dataToRender) {
    SETUP FORM - ✅ FIXED: Lowercase latitude/longitude
 ============================================================ */
 
-const RECOMMENDED_ACTIONS = {
-    'Homicide': 'Secure the crime scene immediately. Notify PNP and request SOCO. Document witnesses and preserve evidence.',
-    'Attempted Murder': 'Ensure victim safety and medical attention. Notify PNP for case filing. Secure witness statements.',
-    'Kidnapping': 'Alert PNP Anti-Kidnapping Group immediately. Coordinate barangay-wide search. Secure CCTV footage.',
-    'Child Abuse': 'Report to DSWD and PNP Women and Children Protection Desk. Ensure child safety. Provide psychosocial support.',
-    'VAWC': 'Issue Barangay Protection Order (BPO). Refer victim to DSWD and PNP WCPD. Document injuries and statements.',
-    'Illegal Release of Fire Arms': 'Notify PNP immediately. Secure the area. Identify source of gunfire and collect witness accounts.',
-    'Attempted Arson': 'Alert BFP and PNP. Secure affected area. Identify suspect and preserve evidence of accelerants.',
-    'Robbery': 'Conduct immediate investigation. File report with PNP. Secure CCTV footage and witness statements.',
-    'Grave Threat': 'Document threat details. Issue summon to respondent. Mediate if possible, escalate to PNP if threat persists.',
-    'Act of Lasciviousness': 'Refer to PNP WCPD. Ensure victim safety and provide psychosocial support. File complaint.',
-    'Physical Injury': 'Ensure medical attention for victim. Document injuries. Summon parties for mediation or refer to PNP.',
-    'Threats': 'Document threat details. Summon respondent for mediation. Monitor situation and escalate if needed.',
-    'Less Serious Physical Injuries': 'Provide medical referral. Document injuries and witness statements. Schedule mediation.',
-    'Falsification of Documents': 'Refer to PNP for investigation. Preserve original documents as evidence.',
-    'Slight Physical Injuries and Maltreatment': 'Document injuries. Attempt barangay mediation. Refer to PNP if unresolved.',
-    'Light Threats': 'Record incident in blotter. Summon respondent for mediation. Monitor for escalation.',
-    'Arson': 'Alert BFP and PNP immediately. Evacuate affected area. Investigate cause and identify suspect.',
-    'Theft': 'Investigate immediately. Secure CCTV footage and witness statements. File report with PNP for case build-up.',
-    'Fencing of Stolen Properties': 'Coordinate with PNP for investigation. Identify and document stolen property chain.',
-    'Qualified Trespass to Dwelling': 'Document incident and identify suspect. Summon parties. File complaint with PNP if needed.',
-    'Trespassing': 'Warn trespasser and document incident. Issue summon for repeat offenders.',
-    'Vandalism': 'Document damage with photos. Identify suspect. File complaint and recommend restitution.',
-    'Scam': 'Gather evidence of fraudulent activity. Refer to PNP Anti-Cybercrime if online. Advise victim on filing complaint.',
-    'Swindling of Estafa': 'Collect documentary evidence. Refer to PNP for investigation and case filing.',
-    'Estafa': 'Collect documentary evidence. Refer to PNP for investigation and case filing.',
-    'Cybercrime Prevention Act 2012 (RA 10175)': 'Refer to PNP Anti-Cybercrime Group. Preserve digital evidence. Assist victim with complaint filing.',
-    'Cyber Bullying': 'Document online evidence (screenshots). Refer to PNP Anti-Cybercrime. Provide counseling referral.',
-    'Voyeurism Act': 'Ensure victim safety. Refer to PNP WCPD. Preserve digital evidence.',
-    'Alarms and Scandals': 'Record incident. Issue warning to respondent. Schedule mediation for repeat offenders.',
-    'Oral Defamation': 'Document statements and witnesses. Schedule barangay mediation between parties.',
-    'Harassment': 'Document incident details. Issue summon to respondent. Mediate or escalate to PNP.',
-    'Intriguing Against Honor': 'Record complaint. Summon parties for mediation. Escalate to court if unresolved.',
-    'BCPC': 'Refer to BCPC committee for assessment. Coordinate with DSWD for child welfare intervention.',
-    'Child Support': 'Schedule mediation between parties. Refer to DSWD or court for legal enforcement if needed.',
-    'Hit and Run': 'Secure CCTV footage immediately. File report with PNP-HPG. Ensure victim receives medical attention.',
-    'Noise Complaint': 'Issue verbal warning to violator. Document repeat offenses. Enforce local noise ordinance.',
-    'Suspicious Activity': 'Increase patrol frequency in the area. Document details and monitor for escalation.',
-    'Traffic Obstruction': 'Issue warning to violator. Coordinate with MMDA/traffic enforcers. Document for repeat offenses.',
-    'Curfew Violation': 'Apprehend minor and contact parents/guardians. Document violation. Refer to BCPC for repeat offenders.',
-    'Missing': 'Coordinate barangay-wide search. File missing person report with PNP. Post alerts in the community.',
-    'Suicide': 'Ensure immediate medical response. Notify PNP for documentation. Refer family to crisis support services.',
-    'Animal Welfare Acts': 'Document the incident. Coordinate with local animal welfare office. Issue warning or file complaint.',
-};
-
-function getRecommendedAction(incidentType) {
-    return RECOMMENDED_ACTIONS[incidentType] || 'Scheduled patrol and risk monitoring';
-}
-
 function setupForm() {
     const form = document.getElementById('incidentForm');
     if (!form) return;
 
     const typeSelect = document.getElementById('incidentType');
     const typeOtherInput = document.getElementById('incidentTypeOther');
-    const actionField = document.getElementById('recommendedAction');
     if (typeSelect) {
         typeSelect.addEventListener('change', () => {
             if (typeOtherInput) {
                 typeOtherInput.style.display = typeSelect.value === '__other__' ? '' : 'none';
                 if (typeSelect.value !== '__other__') typeOtherInput.value = '';
-            }
-            if (actionField && typeSelect.value && typeSelect.value !== '__other__') {
-                const isEditing = !!document.getElementById('editIndex').value;
-                if (!isEditing) actionField.value = getRecommendedAction(typeSelect.value);
             }
         });
     }
@@ -795,29 +513,29 @@ function setupForm() {
         const street = document.getElementById('incidentStreet').value;
         const address = document.getElementById('incidentAddress').value.trim();
         const reporterIdRaw = document.getElementById('reportedBy').value;
-        const status = document.getElementById('incidentStatus').value;
+        const isEdit = !!document.getElementById('editIndex').value;
+        const status = isEdit ? document.getElementById('incidentStatus').value : 'Open';
         const desc = document.getElementById('incidentDesc').value;
-        const action = document.getElementById('recommendedAction').value;
         const blotter = document.getElementById('incidentBlotter').value.trim();
         const reportedByName = document.getElementById('incidentReportedByName').value.trim();
-        const personsInvolved = document.getElementById('incidentPersonsInvolved').value.trim();
-        const statement = document.getElementById('incidentStatement').value.trim();
         const priority = document.getElementById('incidentPriority').value;
+        const severity = document.getElementById('incidentSeverity').value;
+        const respondentName = document.getElementById('respondentName').value.trim();
+        const respondentAddress = document.getElementById('respondentAddress').value.trim();
+        const ageRaw = document.getElementById('respondentAge').value;
+        const age = ageRaw ? parseInt(ageRaw, 10) : null;
 
         const requiredFields = [
             { id: 'incidentType', label: 'Incident Type' },
             { id: 'incidentDate', label: 'Date' },
             { id: 'incidentTime', label: 'Time' },
             { id: 'incidentStreet', label: 'Street Name' },
-            { id: 'incidentStatus', label: 'Status' },
+            { id: 'incidentSeverity', label: 'Severity Level' },
             { id: 'incidentPriority', label: 'Priority' },
             { id: 'incidentAddress', label: 'Address' },
             { id: 'incidentBlotter', label: 'Blotter Number' },
-            { id: 'incidentReportedByName', label: 'Reported By' },
-            { id: 'incidentPersonsInvolved', label: 'Person(s) Involved' },
-            { id: 'incidentDesc', label: 'Description' },
-            { id: 'incidentStatement', label: 'Statement' },
-            { id: 'recommendedAction', label: 'Resolution / Recommended Solution' }
+            { id: 'incidentReportedByName', label: 'Name of Complainant' },
+            { id: 'incidentDesc', label: 'Salaysay / Description' }
         ];
 
         document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));
@@ -859,13 +577,7 @@ function setupForm() {
             return;
         }
 
-        // A new incident's reporter is the logged-in user, so it must be
-        // known. An edit keeps the stored reporter (the PUT route ignores
-        // reporter_id), and tanod-filed incidents have none - requiring one
-        // here made those impossible to update.
-        const isEdit = !!document.getElementById('editIndex').value;
 
-        // If editing, check if anything actually changed before submitting
         if (isEdit && window._incidentEditSnapshot) {
             const snap = window._incidentEditSnapshot;
             const nothingChanged =
@@ -876,12 +588,13 @@ function setupForm() {
                 snap.address === address &&
                 snap.status === status &&
                 snap.desc === desc &&
-                snap.action === action &&
                 snap.blotter === blotter &&
                 snap.reportedByName === reportedByName &&
-                snap.personsInvolved === personsInvolved &&
-                snap.statement === statement &&
-                snap.priority === priority;
+                snap.priority === priority &&
+                snap.severity === severity &&
+                snap.respondentName === respondentName &&
+                snap.respondentAddress === respondentAddress &&
+                snap.age === age;
             if (nothingChanged) {
                 showErrorModal('No Changes Detected', 'You haven\'t made any changes. Please update the details first before saving.');
                 return;
@@ -900,24 +613,27 @@ function setupForm() {
             const method = incidentId ? 'PUT' : 'POST';
             const url = incidentId ? `/incidents/${incidentId}` : '/incidents';
 
-            // ✅ FIXED: lowercase latitude at longitude
             const payload = {
-                incident_type: type, 
-                date, 
-                time, 
-                latitude: latNum,      // ✅ lowercase
-                longitude: lngNum,     // ✅ lowercase
+                incident_type: type,
+                date,
+                time,
+                latitude: latNum,
+                longitude: lngNum,
                 street_name: street,
                 address: address,
                 reporter_id: repId,
                 status,
                 description: desc,
-                recommended_action: action,
+                recommended_action: '',
                 blotter_number: blotter,
                 reported_by_name: reportedByName,
-                persons_involved: personsInvolved,
-                statement: statement,
-                priority: priority
+                persons_involved: '',
+                statement: '',
+                priority: priority,
+                severity: severity,
+                respondent_name: respondentName,
+                respondent_address: respondentAddress,
+                age: age
             };
 
             console.log('📤 Sending payload:', payload);
@@ -955,18 +671,11 @@ function setupForm() {
             }
 
             clearForm();
-            
-            // ✅ FORCE REFRESH: Clear and reload incidents
+
             incidents = [];
-            console.log('🔄 Reloading incidents after save...');
-            
-            // ✅ Use timeout to ensure DOM is ready
             setTimeout(async () => {
                 await loadIncidents();
-                console.log('✅ Incidents reloaded after save');
             }, 200);
-            
-            closeMapModal();
             
             if (evidenceError) {
                 showErrorModal('Incident Saved - Evidence Not Uploaded', `The incident was saved, but the evidence upload failed: ${evidenceError}
@@ -990,7 +699,7 @@ Open the incident with Edit to attach the evidence again.`);
 
     // Clear the red "missing" highlight on a field as soon as the user
     // fills it in, instead of waiting for the next submit attempt.
-    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus'].forEach(id => {
+    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus', 'incidentSeverity'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', function () {
             if (this.value) this.classList.remove('field-missing');
         });
@@ -1152,24 +861,28 @@ function clearForm() {
     document.getElementById('incidentStreet').value = '';
     document.getElementById('incidentLat').value = '';
     document.getElementById('incidentLng').value = '';
-    document.getElementById('locationPrompt').textContent = "Select a street above to set the incident location.";
 
     const evidencePreview = document.getElementById('evidencePreviewList');
     if (evidencePreview) evidencePreview.innerHTML = '';
     currentExistingEvidence = [];
 
-    // form.reset() above clears the file input's value but doesn't fire
-    // its 'change' event, so the custom count label needs resetting too.
     const fileCount = document.getElementById('evidenceFileCount');
     if (fileCount) fileCount.textContent = 'No file chosen';
 
     const typeOther = document.getElementById('incidentTypeOther');
     if (typeOther) { typeOther.value = ''; typeOther.style.display = 'none'; }
 
-    if (marker) {
-        mapPicker.removeLayer(marker);
-        marker = null;
-    }
+    document.getElementById('statusGroup').style.display = 'none';
+    document.getElementById('incidentStatus').value = 'Open';
+
+    const respondentNameEl = document.getElementById('respondentName');
+    if (respondentNameEl) respondentNameEl.value = '';
+    const respondentAddressEl = document.getElementById('respondentAddress');
+    if (respondentAddressEl) respondentAddressEl.value = '';
+    const respondentAgeEl = document.getElementById('respondentAge');
+    if (respondentAgeEl) respondentAgeEl.value = '';
+    const severityEl = document.getElementById('incidentSeverity');
+    if (severityEl) severityEl.value = '';
 }
 
 document.getElementById('clearBtn').addEventListener('click', clearForm);
@@ -1267,28 +980,20 @@ window.editIncident = async (id) => {
         document.getElementById('incidentStreet').value = record.street_name || '';
         document.getElementById('incidentAddress').value = record.address || '';
 
-        if (record.latitude && record.longitude) {
-            if (marker) mapPicker.removeLayer(marker);
-            marker = L.marker([record.latitude, record.longitude], { icon: makeMarkerIcon() }).addTo(mapPicker);
-            mapPicker.setView([record.latitude, record.longitude], 16);
-            const prompt = document.getElementById('locationPrompt');
-            if (prompt) prompt.innerHTML = `<i class="fa-solid fa-location-dot"></i> Showing: ${record.street_name || 'saved location'}`;
-        }
-
         document.getElementById('reportedBy').value = record.reporter_id || '';
         document.getElementById('incidentStatus').value = record.status || 'Open';
         document.getElementById('incidentDesc').value = record.description || '';
-        document.getElementById('recommendedAction').value = record.recommended_action || '';
         document.getElementById('incidentBlotter').value = record.blotter_number || '';
         document.getElementById('incidentReportedByName').value = record.reported_by_name || '';
-        document.getElementById('incidentPersonsInvolved').value = record.persons_involved || '';
-        document.getElementById('incidentStatement').value = record.statement || '';
         document.getElementById('incidentPriority').value = record.priority || 'Normal';
+        document.getElementById('incidentSeverity').value = record.severity || 'Low';
+        document.getElementById('respondentName').value = record.respondent_name || '';
+        document.getElementById('respondentAddress').value = record.respondent_address || '';
+        document.getElementById('respondentAge').value = record.age != null ? record.age : '';
 
         document.getElementById('formTitle').textContent = `Edit Incident (${formatIncidentId(record.id, record.incident_type)})`;
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;
 
-        // Snapshot original values to detect if user actually changed anything
         window._incidentEditSnapshot = {
             type: record.incident_type || '',
             date: record.date ? record.date.split('T')[0] : '',
@@ -1297,12 +1002,13 @@ window.editIncident = async (id) => {
             address: record.address || '',
             status: record.status || 'Open',
             desc: record.description || '',
-            action: record.recommended_action || '',
             blotter: record.blotter_number || '',
             reportedByName: record.reported_by_name || '',
-            personsInvolved: record.persons_involved || '',
-            statement: record.statement || '',
-            priority: record.priority || 'Normal'
+            priority: record.priority || 'Normal',
+            severity: record.severity || 'Low',
+            respondentName: record.respondent_name || '',
+            respondentAddress: record.respondent_address || '',
+            age: record.age != null ? record.age : null
         };
 
         const archiveBtn = document.getElementById('archiveIncidentBtn');
@@ -1417,13 +1123,11 @@ function showDeleteModal(message, id) {
     modal.style.display = 'flex';
 }
 
-// Close modals on Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         document.getElementById('successModal').style.display = 'none';
         document.getElementById('errorModal').style.display = 'none';
         document.getElementById('deleteModal').style.display = 'none';
-        closeMapModal();
     }
 });
 
