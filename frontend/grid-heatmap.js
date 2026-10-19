@@ -432,6 +432,13 @@ function applyFilterAndRender() {
     }
 
     renderIncidents(filtered);
+
+    const isFiltered = granularity !== 'all' || category !== 'all';
+    if (isFiltered) {
+        renderStreetAnalysisFromIncidents(filtered);
+    } else {
+        renderStreetAnalysis(streetAnalysisData);
+    }
 }
 
 function renderIncidents(incidents) {
@@ -517,6 +524,62 @@ function renderStreetAnalysis(streets) {
             features: features
         });
     }
+}
+
+function renderStreetAnalysisFromIncidents(incidents) {
+    const valid = incidents.filter(i => i.latitude && i.longitude && i.street_name && i.street_name.trim());
+
+    const streetMap = {};
+    valid.forEach(item => {
+        const name = item.street_name.trim();
+        if (!streetMap[name]) streetMap[name] = [];
+        streetMap[name].push(item);
+    });
+
+    const streets = Object.entries(streetMap)
+        .filter(([, items]) => items.length >= 1)
+        .map(([name, items]) => {
+            const scores = items.map(i => i.cart_score != null ? parseFloat(i.cart_score) : 30);
+            const avgCart = scores.reduce((a, b) => a + b, 0) / scores.length;
+            const highCount = scores.filter(s => s >= SEVERITY_HIGH_MIN).length;
+            const highPct = Math.round(highCount / items.length * 1000) / 10;
+
+            const nightItems = items.filter(i => {
+                if (i.time_of_day === 'Night' || i.time_of_day === 'Late Night') return true;
+                if (i.time) {
+                    const h = parseInt(i.time.substring(0, 2), 10);
+                    return h >= 18 || h < 6;
+                }
+                return false;
+            });
+            const nightPct = Math.round(nightItems.length / items.length * 1000) / 10;
+
+            const centerLat = items.reduce((s, i) => s + Number(i.latitude), 0) / items.length;
+            const centerLng = items.reduce((s, i) => s + Number(i.longitude), 0) / items.length;
+
+            return { street_name: name, incident_count: items.length, avg_cart_score: avgCart,
+                     high_severity_pct: highPct, night_pct: nightPct,
+                     center_lat: centerLat, center_lng: centerLng };
+        });
+
+    const maxCount = streets.length > 0 ? Math.max(...streets.map(s => s.incident_count)) : 1;
+
+    streets.forEach(s => {
+        const densityNorm = (s.incident_count / maxCount) * 100;
+        const composite = (s.avg_cart_score || 0) * 0.35
+            + (s.avg_cart_score || 0) * 0.25
+            + densityNorm * 0.20
+            + (s.high_severity_pct || 0) * 0.10
+            + (s.night_pct || 0) * 0.10;
+        s.composite_score = Math.round(composite * 100) / 100;
+        if (composite >= 75) s.risk_tier = 'Critical';
+        else if (composite >= 55) s.risk_tier = 'High';
+        else if (composite >= 35) s.risk_tier = 'Moderate';
+        else s.risk_tier = 'Low';
+        s.recency_score = s.avg_cart_score;
+    });
+
+    renderStreetAnalysis(streets);
 }
 
 /* ============================================================
