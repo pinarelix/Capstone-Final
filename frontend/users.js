@@ -504,13 +504,13 @@ async function addTanod() {
     const teamSelect = document.getElementById('tanodTeam').value;
     const team_id = teamSelect ? parseInt(teamSelect, 10) : null;
 
-    if (!name || !username) {
-        showToast('Please enter tanod name and username.', 'error');
+    if (!name || !username || !contact_no || !position) {
+        showToast('Please fill in all required fields.', 'error');
         return;
     }
 
-    if (!position) {
-        showToast('Please select a position.', 'error');
+    if (!team_id) {
+        showToast('Please select a team.', 'error');
         return;
     }
 
