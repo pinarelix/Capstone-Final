@@ -510,8 +510,8 @@ function setupForm() {
         const desc = document.getElementById('incidentDesc').value;
         const blotter = document.getElementById('incidentBlotter').value.trim();
         const reportedByName = document.getElementById('incidentReportedByName').value.trim();
-        const priority = document.getElementById('incidentPriority').value;
         const severity = document.getElementById('incidentSeverity').value;
+        const priority = severity === 'High' ? 'Urgent' : 'Normal';
         const respondentName = document.getElementById('respondentName').value.trim();
         const respondentAddress = document.getElementById('respondentAddress').value.trim();
         const ageRaw = document.getElementById('respondentAge').value;
@@ -523,7 +523,6 @@ function setupForm() {
             { id: 'incidentTime', label: 'Time' },
             { id: 'incidentStreet', label: 'Street Name' },
             { id: 'incidentSeverity', label: 'Severity Level' },
-            { id: 'incidentPriority', label: 'Priority' },
             { id: 'incidentAddress', label: 'Address' },
             { id: 'incidentBlotter', label: 'Blotter Number' },
             { id: 'incidentReportedByName', label: 'Name of Complainant' },
@@ -582,7 +581,6 @@ function setupForm() {
                 snap.desc === desc &&
                 snap.blotter === blotter &&
                 snap.reportedByName === reportedByName &&
-                snap.priority === priority &&
                 snap.severity === severity &&
                 snap.respondentName === respondentName &&
                 snap.respondentAddress === respondentAddress &&
@@ -977,7 +975,6 @@ window.editIncident = async (id) => {
         document.getElementById('incidentDesc').value = record.description || '';
         document.getElementById('incidentBlotter').value = record.blotter_number || '';
         document.getElementById('incidentReportedByName').value = record.reported_by_name || '';
-        document.getElementById('incidentPriority').value = record.priority || 'Normal';
         document.getElementById('incidentSeverity').value = record.severity || 'Low';
         document.getElementById('respondentName').value = record.respondent_name || '';
         document.getElementById('respondentAddress').value = record.respondent_address || '';
@@ -996,7 +993,6 @@ window.editIncident = async (id) => {
             desc: record.description || '',
             blotter: record.blotter_number || '',
             reportedByName: record.reported_by_name || '',
-            priority: record.priority || 'Normal',
             severity: record.severity || 'Low',
             respondentName: record.respondent_name || '',
             respondentAddress: record.respondent_address || '',
