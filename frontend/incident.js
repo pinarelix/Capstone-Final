@@ -47,14 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     applyRoleBasedUI(); // mula sa apiHelper.js
 
-    if (isDeskOfficer()) {
-        const badge = document.getElementById('formAccessBadge');
-        if (badge) badge.textContent = 'Desk Officer Access';
-
-        const note = document.getElementById('formAccessNote');
-        if (note) note.textContent = 'Desk Officers can add and update incident records, including evidence, but cannot delete them. Decision-Makers and Field Users have view-only access to their allowed modules.';
-    }
-
     ensureFileToken();
 
     loadLocationCoordinates();
