@@ -37,11 +37,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     if (roleEl) {
-        let roleDisplay = '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
-        if (user?.role === 'Administrator') {
-            roleDisplay = '<i class="fa-solid fa-crown"></i> Administrator — Full System Access';
-        } else if (user?.role === 'Desk Officer') {
-            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Records & Patrol Access';
+        let roleDisplay = '<i class="fa-solid fa-chart-column"></i> Kagawad — View & Analytics Access';
+        if (user?.role === 'Deputy Officer') {
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Deputy Officer — Full System Access';
+        } else if (user?.role === 'Team Leader') {
+            roleDisplay = '<i class="fa-solid fa-headset"></i> Team Leader — Records & Patrol Access';
         }
         roleEl.innerHTML = roleDisplay || 'User';
     }

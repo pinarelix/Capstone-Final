@@ -447,34 +447,34 @@ function isLoggedIn() {
  */
 function isAdmin() {
     const user = getCurrentUser();
-    return user && user.role === 'Administrator';
+    return user && user.role === 'Deputy Officer';
 }
 
 /**
- * Check if user is Captain
+ * Check if user is Kagawad
  * @returns {boolean}
  */
 function isCaptain() {
     const user = getCurrentUser();
-    return user && user.role === 'Captain';
+    return user && user.role === 'Kagawad';
 }
 
 /**
- * Check if user is Decision-Maker
+ * Check if user is Kagawad
  * @returns {boolean}
  */
 function isDecisionMaker() {
     const user = getCurrentUser();
-    return user && user.role === 'Decision-Maker';
+    return user && user.role === 'Kagawad';
 }
 
 /**
- * Check if user is Desk Officer
+ * Check if user is Team Leader
  * @returns {boolean}
  */
 function isDeskOfficer() {
     const user = getCurrentUser();
-    return user && user.role === 'Desk Officer';
+    return user && user.role === 'Team Leader';
 }
 
 // ============================================================
@@ -497,15 +497,15 @@ function applyRoleBasedUI() {
     console.log('👤 Current user role:', user.role);
     
     // Add role class to body
-    if (user.role === 'Decision-Maker' || user.role === 'Captain') {
+    if (user.role === 'Kagawad') {
         document.body.classList.add('role-decision-maker');
-        console.log('🔒 Decision-Maker/Captain mode enabled');
-    } else if (user.role === 'Desk Officer') {
+        console.log('🔒 Kagawad mode enabled');
+    } else if (user.role === 'Team Leader') {
         document.body.classList.add('role-desk-officer');
-        console.log('🗂️ Desk Officer mode enabled');
-    } else if (user.role === 'Administrator') {
+        console.log('🗂️ Team Leader mode enabled');
+    } else if (user.role === 'Deputy Officer') {
         document.body.classList.add('role-admin');
-        console.log('👑 Admin mode enabled');
+        console.log('👑 Deputy Officer mode enabled');
     }
 
     // Hide admin-only elements for non-admin users. Desk Officer gets the
@@ -514,7 +514,7 @@ function applyRoleBasedUI() {
     // editing (not deleting) a patrol schedule - via a body.role-desk-officer
     // override, since the backend already allows both roles to PUT a
     // schedule and only the Edit button's visibility was ever Admin-only.
-    if (user.role === 'Decision-Maker' || user.role === 'Captain' || user.role === 'Desk Officer') {
+    if (user.role === 'Kagawad' || user.role === 'Team Leader') {
         document.querySelectorAll('.admin-only').forEach(el => {
             el.style.display = 'none';
         });
@@ -537,14 +537,12 @@ function applyRoleBasedUI() {
     
     if (roleEl) {
         let roleDisplay = 'User';
-        if (user.role === 'Administrator') {
-            roleDisplay = '<i class="fa-solid fa-crown"></i> Administrator — Full System Access';
-        } else if (user.role === 'Decision-Maker') {
-            roleDisplay = '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
-        } else if (user.role === 'Captain') {
-            roleDisplay = '<i class="fa-solid fa-chart-column"></i> Captain — View & Analytics Access';
-        } else if (user.role === 'Desk Officer') {
-            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Records & Patrol Access';
+        if (user.role === 'Deputy Officer') {
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Deputy Officer — Full System Access';
+        } else if (user.role === 'Kagawad') {
+            roleDisplay = '<i class="fa-solid fa-chart-column"></i> Kagawad — View & Analytics Access';
+        } else if (user.role === 'Team Leader') {
+            roleDisplay = '<i class="fa-solid fa-headset"></i> Team Leader — Records & Patrol Access';
         }
         roleEl.innerHTML = roleDisplay;
     }

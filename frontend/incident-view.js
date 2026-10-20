@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Check role - allow Captain, Administrator, Decision-Maker, Desk Officer
-    const allowedRoles = ['Captain', 'Administrator', 'Decision-Maker', 'Desk Officer'];
+    const allowedRoles = ['Kagawad', 'Deputy Officer', 'Kagawad', 'Team Leader'];
     if (!allowedRoles.includes(user.role)) {
         console.log(`❌ Access denied. User role: ${user.role}`);
         alert('Access denied. This page is for Captain and above.');
@@ -59,16 +59,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const userRoleDisplay = document.getElementById('userRoleDisplay');
     
     if (userNameDisplay) {
-        userNameDisplay.textContent = user.name || user.username || 'Captain';
+        userNameDisplay.textContent = user.name || user.username || 'Kagawad';
     }
     
     if (userRoleDisplay) {
         const roleMap = {
-            'Administrator': 'Administrator — Full Access',
-            'Decision-Maker': 'Decision-Maker — View & Analytics Access',
-            'Captain': 'Captain — View & Analytics Access'
+            'Deputy Officer': 'Administrator — Full Access',
+            'Kagawad': 'Decision-Maker — View & Analytics Access',
+            'Kagawad': 'Captain — View & Analytics Access'
         };
-        userRoleDisplay.textContent = roleMap[user.role] || user.role || 'Captain';
+        userRoleDisplay.textContent = roleMap[user.role] || user.role || 'Kagawad';
     }
 
     // Adds the role-* class to <body> that dashboard.css's

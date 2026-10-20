@@ -906,9 +906,9 @@ window.requestDeleteIncident = function(id) {
     }
     
     if (typeof showDeleteModal === 'function') {
-        showDeleteModal(`Are you sure you want to archive incident #${id}? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`, id);
+        showDeleteModal(`Are you sure you want to archive incident #${id}? It will be moved to the Archive (Settings > Archive), where a Deputy Officer can restore it.`, id);
     } else {
-        if (confirm(`Are you sure you want to delete incident record #${id}? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`)) {
+        if (confirm(`Are you sure you want to delete incident record #${id}? It will be moved to the Archive (Settings > Archive), where a Deputy Officer can restore it.`)) {
             confirmDeleteIncident(id);
         }
     }

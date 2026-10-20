@@ -33,13 +33,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const usernameInput = document.getElementById('username');
             const passwordField = document.getElementById('password');
 
-            if (role === 'admin') {
+            if (role === 'deputy') {
                 usernameInput.value = 'admin';
                 passwordField.value = 'admin123';
-            } else if (role === 'captain') {
+            } else if (role === 'kagawad') {
                 usernameInput.value = 'captain';
                 passwordField.value = 'captain123';
-            } else if (role === 'deskofficer') {
+            } else if (role === 'teamleader') {
                 usernameInput.value = 'deskofficer';
                 passwordField.value = 'deskofficer123';
             }

@@ -42,11 +42,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     if (roleEl) {
-        let roleDisplay = '<i class="fa-solid fa-chart-column"></i> Decision-Maker — View & Analytics Access';
-        if (user?.role === 'Administrator') {
-            roleDisplay = '<i class="fa-solid fa-crown"></i> Administrator — Full System Access';
-        } else if (user?.role === 'Desk Officer') {
-            roleDisplay = '<i class="fa-solid fa-headset"></i> Desk Officer — Records & Patrol Access';
+        let roleDisplay = '<i class="fa-solid fa-chart-column"></i> Kagawad — View & Analytics Access';
+        if (user?.role === 'Deputy Officer') {
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Deputy Officer — Full System Access';
+        } else if (user?.role === 'Team Leader') {
+            roleDisplay = '<i class="fa-solid fa-headset"></i> Team Leader — Records & Patrol Access';
         }
         roleEl.innerHTML = roleDisplay || 'User';
     }
@@ -653,11 +653,11 @@ function renderUsers(filteredUsers = users) {
         let roleClass = 'role-badge role-field-user';
         let roleDisplay = users.role || 'User';
         
-        if (users.role === 'Administrator') {
+        if (users.role === 'Deputy Officer') {
             roleClass = 'role-badge role-admin';
-        } else if (users.role === 'Decision-Maker') {
+        } else if (users.role === 'Kagawad') {
             roleClass = 'role-badge role-decision-maker';
-        } else if (users.role === 'Desk Officer') {
+        } else if (users.role === 'Team Leader') {
             roleClass = 'role-badge role-desk-officer';
         }
 
@@ -763,7 +763,7 @@ function openEditUserModal(userId) {
     document.getElementById('editUserId').value = userId;
     document.getElementById('editUserName').value = user.name || '';
     document.getElementById('editUserUsername').value = user.username || '';
-    document.getElementById('editUserRole').value = user.role || 'Desk Officer';
+    document.getElementById('editUserRole').value = user.role || 'Team Leader';
     document.getElementById('editUserEmail').value = user.email || '';
     document.getElementById('editUserPassword').value = '';
 
