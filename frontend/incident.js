@@ -561,9 +561,8 @@ function setupForm() {
         let address;
         if (formType === 'blotter') {
             const hbl = document.getElementById('incidentHouseBlkLot').value.trim();
-            const purok = document.getElementById('incidentPurok').value.trim();
             const landmark = document.getElementById('incidentLandmark').value.trim();
-            address = [hbl, purok, landmark].filter(Boolean).join(', ');
+            address = [hbl, landmark].filter(Boolean).join(', ');
         } else {
             address = document.getElementById('incidentAddress').value.trim();
         }
@@ -921,8 +920,6 @@ function clearForm() {
     document.getElementById('incidentLng').value = '';
     const hblEl = document.getElementById('incidentHouseBlkLot');
     if (hblEl) hblEl.value = '';
-    const purokEl = document.getElementById('incidentPurok');
-    if (purokEl) purokEl.value = '';
     const landmarkEl = document.getElementById('incidentLandmark');
     if (landmarkEl) landmarkEl.value = '';
 
@@ -1086,8 +1083,7 @@ window.editIncident = async (id) => {
         if (editFormType === 'blotter' && record.address) {
             const parts = record.address.split(', ');
             document.getElementById('incidentHouseBlkLot').value = parts[0] || '';
-            document.getElementById('incidentPurok').value = parts[1] || '';
-            document.getElementById('incidentLandmark').value = parts.slice(2).join(', ') || '';
+            document.getElementById('incidentLandmark').value = parts.slice(1).join(', ') || '';
         }
         const formTypeSelector = document.querySelector('.form-type-selector');
         if (formTypeSelector) formTypeSelector.style.display = '';
