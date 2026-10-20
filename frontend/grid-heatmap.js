@@ -444,7 +444,7 @@ function applyFilterAndRender() {
     if (badge) { badge.textContent = 'Click a point on the map'; badge.classList.remove('active'); }
     const tbody = document.getElementById('detailsTableBody');
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>Click on a map point to view incident details</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>Click on a map point to view incident details</p></div></td></tr>`;
     }
 
     renderIncidents(filtered);
@@ -630,7 +630,7 @@ function showIncidentDetails(incidents, lat, lng) {
     }
 
     if (!incidents || incidents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>No incident details available</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>No incident details available</p></div></td></tr>`;
         return;
     }
 
@@ -667,6 +667,7 @@ function showIncidentDetails(incidents, lat, lng) {
                 </td>
                 <td>${escapeHTML(item.recommended_action || 'Scheduled patrol and risk monitoring')}</td>
                 <td><strong>${escapeHTML(item.street_name || 'N/A')}</strong></td>
+                <td>${escapeHTML(item.address || 'N/A')}</td>
             </tr>
         `;
     }).join('');
