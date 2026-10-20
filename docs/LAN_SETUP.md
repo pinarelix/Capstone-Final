@@ -14,7 +14,6 @@
 - **Device A** owns the database. Both devices read and write to it.
 - **Device B** runs the same Electron app but points its DB connection to Device A's IP.
 - Both devices can log in as Administrator, Decision-Maker, or Desk Officer.
-- Tanod Portal is browser-only — any device on the same network opens `http://[Device A IP]:3000/tanod-login.html`.
 
 ---
 
@@ -136,16 +135,6 @@ Click **Save** → app restarts with the new connection.
 | 3 | Electron app is open and shows `Database connected` | Device A |
 | 4 | Device A's Electron app is open **before** starting Device B | Device A |
 | 5 | Electron app on Device B opens and logs in successfully | Device B |
-
----
-
-## TANOD PORTAL
-
-Any device on the same network (phone, tablet, another laptop) can open the Tanod Portal in a browser:
-```
-http://192.168.x.x:3000/tanod-login.html
-```
-Replace `192.168.x.x` with Device A's LAN IP. No installation needed.
 
 ---
 

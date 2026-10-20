@@ -143,8 +143,8 @@
                     <div class="metric-card">
                         <div class="metric-icon"><i class="fa-solid fa-user"></i></div>
                         <div class="metric-info">
-                            <span class="metric-label">Tanods Needed</span>
-                            <h4 id="topTanods">Loading...</h4>
+                            <span class="metric-label">Personnel Needed</span>
+                            <h4 id="topPersonnel">Loading...</h4>
                             <p>Suggested manpower</p>
                         </div>
                     </div>
@@ -185,7 +185,7 @@
                     <div class="form-header">
                         <div>
                             <h3 id="scheduleFormTitle"><i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule</h3>
-                            <p>Create a new patrol schedule for tanod deployment.</p>
+                            <p>Create a new patrol schedule for deployment.</p>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <span class="badge-subtle admin-badge">Admin Only</span>
@@ -215,7 +215,7 @@
                             <div id="scheduleMapPicker" style="height: 220px; width: 100%; border-radius: 8px; border: 1px solid #94a3b8; cursor: pointer;"></div>
                             <input type="hidden" id="scheduleLat">
                             <input type="hidden" id="scheduleLng">
-                            <small id="scheduleMapPrompt" style="color: #64748b; margin-top: 4px; display: block;">Click the map to pin this location — incidents tanods report here will inherit this exact point on the risk map.</small>
+                            <small id="scheduleMapPrompt" style="color: #64748b; margin-top: 4px; display: block;">Click the map to pin this location — incidents reported here will inherit this exact point on the risk map.</small>
                         </div>
 
                         <div class="form-group">
@@ -242,19 +242,6 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="scheduleTeamSelect">Assign by Team</label>
-                            <select id="scheduleTeamSelect" class="form-select">
-                                <option value="">— Select a team to auto-check its members —</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Assigned Tanods</label>
-                            <div id="scheduleTanodsChecklist" class="tanod-checklist">
-                                <!-- JavaScript generated: one checkbox per active tanod -->
-                            </div>
-                        </div>
 
                         <div class="form-group">
                             <label for="scheduleStatus">Status</label>
@@ -307,7 +294,6 @@
                                     <th>Location</th>
                                     <th>Day</th>
                                     <th>Time</th>
-                                    <th>Tanods</th>
                                     <th>Incident Types</th>
                                     <th>Status</th>
                                     <th>Actions</th>
@@ -336,19 +322,11 @@
                     <form id="logForm">
                         <input type="hidden" id="editLogId">
 
-                        <div class="form-grid-2">
-                            <div class="form-group">
-                                <label for="logSchedule">Schedule</label>
-                                <select id="logSchedule" class="form-select" required>
-                                    <option value="">Select Schedule</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="logTanod">Tanod</label>
-                                <select id="logTanod" class="form-select" required>
-                                    <option value="">Select Tanod</option>
-                                </select>
-                            </div>
+                        <div class="form-group">
+                            <label for="logSchedule">Schedule</label>
+                            <select id="logSchedule" class="form-select" required>
+                                <option value="">Select Schedule</option>
+                            </select>
                         </div>
 
                         <div class="form-grid-2">
@@ -389,7 +367,6 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Schedule</th>
-                                    <th>Tanod</th>
                                     <th>Date</th>
                                     <th>Incident Types</th>
                                     <th>Status</th>

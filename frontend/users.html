@@ -20,84 +20,6 @@
 
     <style>
         /* ============================================================
-           TABS
-        ============================================================ */
-        .tab-navigation {
-            display: flex;
-            gap: 4px;
-            background: #e2e8f0;
-            border-radius: 10px;
-            padding: 4px;
-            margin-bottom: 20px;
-            border: 1px solid #94a3b8;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 10px 16px;
-            border: none;
-            border-radius: 8px;
-            background: transparent;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #475569;
-            cursor: pointer;
-            transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                        color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                        box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                        transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .tab-btn:hover:not(.active) {
-            background: rgba(59, 130, 246, 0.1);
-            color: #1d4ed8;
-            transform: translateY(-1px);
-        }
-
-        .tab-btn.active {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.05);
-        }
-
-        .tab-btn.active i {
-            color: #38bdf8;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ============================================================
-           TANOD FORM ROW
-        ============================================================ */
-        .tanod-form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-        }
-
-        @media (max-width: 640px) {
-            .tanod-form-row {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* ============================================================
            DELETE MODAL STYLES
         ============================================================ */
         .delete-modal-overlay {
@@ -271,29 +193,15 @@
         ====================================================== -->
         <header class="top-header">
             <div class="header-titles">
-                <h1>User & Tanod Management</h1>
-                <p>Administrator-only module for managing system users and barangay tanods.</p>
+                <h1>User Management</h1>
+                <p>Administrator-only module for managing system users.</p>
             </div>
         </header>
 
         <!-- =====================================================
-             TABS
+             SYSTEM USERS
         ====================================================== -->
-        <div class="tab-navigation">
-            <button class="tab-btn active" data-tab="system-users">
-                <i class="fa-solid fa-users"></i> System Users
-            </button>
-            <button class="tab-btn" data-tab="tanod-list">
-                <i class="fa-solid fa-shield-halved"></i> Tanod List
-            </button>
-        </div>
-
-        <!-- =====================================================
-             TAB 1: SYSTEM USERS
-        ====================================================== -->
-        <div id="tab-system-users" class="tab-content active">
-
-            <section class="management-grid">
+        <section class="management-grid">
 
                 <!-- ADD SYSTEM USER -->
                 <div class="card add-user-card">
@@ -421,127 +329,7 @@
                         </tbody>
                     </table>
                 </div>
-            </section>
-
-        </div>
-
-        <!-- =====================================================
-             TAB 2: TANOD LIST
-        ====================================================== -->
-        <div id="tab-tanod-list" class="tab-content">
-
-            <!-- ADD TANOD -->
-            <div class="card add-user-card" style="margin-bottom: 20px;">
-                <div class="card-title-bar">
-                    <div>
-                        <h2 id="tanodFormTitle">Add New Tanod</h2>
-                        <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Barangay tanod personnel — area &amp; shift come from Patrol Decision Support schedules</p>
-                    </div>
-                    <span class="section-label">Barangay Personnel</span>
-                </div>
-
-                <form id="tanodForm" autocomplete="off">
-                    <input type="hidden" id="editTanodId" value="">
-
-                    <div class="form-group">
-                        <label for="tanodName">Full Name</label>
-                        <input type="text" id="tanodName" class="form-input" placeholder="Enter full name" required maxlength="100">
-                    </div>
-
-                    <div class="tanod-form-row">
-                        <div class="form-group">
-                            <label for="tanodPosition">Position</label>
-                            <select id="tanodPosition" class="form-select-full" required>
-                                <option value="" disabled selected>Select position</option>
-                                <option value="Dispatcher">Dispatcher</option>
-                                <option value="Team Leader">Team Leader</option>
-                                <option value="Assistant Team Leader">Assistant Team Leader</option>
-                                <option value="Head Tanod / EXO">Head Tanod / EXO</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="tanodContact">Contact Number</label>
-                            <input type="text" id="tanodContact" class="form-input" placeholder="09xxxxxxxxx" maxlength="20" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="tanodTeam">Team</label>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <select id="tanodTeam" class="form-select-full" style="flex: 1;" required>
-                                <option value="">Select team</option>
-                            </select>
-                            <button type="button" id="manageTeamsBtn" class="btn btn-secondary" style="white-space: nowrap; padding: 10px 14px;">
-                                <i class="fa-solid fa-users-gear"></i> Manage Teams
-                            </button>
-                        </div>
-
-                        <div id="teamManagePanel" style="display: none; margin-top: 12px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
-                            <div style="display: flex; gap: 8px;">
-                                <input type="text" id="newTeamName" class="form-input" placeholder="New team name" style="flex: 1;" maxlength="100">
-                                <button type="button" id="addTeamBtn" class="btn btn-add" style="white-space: nowrap;">
-                                    <i class="fa-solid fa-plus"></i> Add
-                                </button>
-                            </div>
-                            <div id="teamChipList" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;"></div>
-                        </div>
-                    </div>
-
-                    <div class="tanod-form-row">
-                        <div class="form-group">
-                            <label for="tanodUsername">Username</label>
-                            <input type="text" id="tanodUsername" class="form-input" placeholder="Login username" required maxlength="50">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="tanodPin">4-Digit PIN</label>
-                            <input type="text" id="tanodPin" class="form-input" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="\d{4}" autocomplete="new-password">
-                            <p class="form-hint" id="tanodPinHint" style="font-size: 0.68rem; color: #64748b; margin-top: 4px; display: none;">Leave blank to keep the current PIN.</p>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-add" id="tanodSubmitBtn">
-                        <i class="fa-solid fa-user-plus"></i> Add Tanod
-                    </button>
-                </form>
-            </div>
-
-            <!-- TANOD TABLE -->
-            <section class="card users-card">
-                <div class="card-title-bar users-header">
-                    <div>
-                        <h2>Tanod Records</h2>
-                        <p class="table-description">Manage barangay tanod personnel. Assign them to patrol schedules from Patrol Decision Support.</p>
-                    </div>
-                    <span class="badge-subtle" id="tanodCount">0 tanods</span>
-                </div>
-
-                <div id="unassignedTanodBanner" style="display: none; margin: 16px 20px; padding: 10px 14px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; color: #92400e; font-size: 0.8rem; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span id="unassignedTanodText"></span>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>NAME</th>
-                                <th>POSITION</th>
-                                <th>TEAM</th>
-                                <th>CONTACT</th>
-                                <th>USERNAME</th>
-                                <th>ACTIONS</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tanodTableBody">
-                            <!-- JavaScript generated -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-        </div>
+        </section>
 
         <!-- =====================================================
              SECURITY NOTICE
@@ -778,12 +566,12 @@
     // DELETE CONFIRMATION MODAL (NEW)
     // =========================================================
     let pendingDeleteId = null;
-    let pendingDeleteType = null; // 'user' or 'tanod'
+    let pendingDeleteType = null;
 
     function showDeleteModal(message, id, type) {
         const deleteModal = document.getElementById('deleteModal');
         const deleteMessage = document.getElementById('deleteMessage');
-        
+
         deleteMessage.textContent = message;
         pendingDeleteId = id;
         pendingDeleteType = type;
@@ -805,8 +593,6 @@
         if (pendingDeleteId !== null) {
             if (pendingDeleteType === 'user' && typeof confirmDeleteUser === 'function') {
                 confirmDeleteUser(pendingDeleteId);
-            } else if (pendingDeleteType === 'tanod' && typeof confirmDeleteTanod === 'function') {
-                confirmDeleteTanod(pendingDeleteId);
             }
             closeDeleteModal();
         }

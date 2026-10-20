@@ -864,7 +864,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                     <div>
                         <h2><i class="fa-solid fa-shield-halved" style="color: #2563eb; margin-right: 8px;"></i> Patrol Log Filters</h2>
-                        <p>Filter patrol log entries by date, status, tanod, or location.</p>
+                        <p>Filter patrol log entries by date, status, or location.</p>
                     </div>
                 </div>
 
@@ -892,12 +892,6 @@
                         </select>
                     </div>
                     <div class="report-filter-field">
-                        <label for="filterPatrolTanod">Tanod</label>
-                        <select id="filterPatrolTanod">
-                            <option value="">All Tanods</option>
-                        </select>
-                    </div>
-                    <div class="report-filter-field">
                         <label for="filterPatrolLocation">Location</label>
                         <select id="filterPatrolLocation">
                             <option value="">All Locations</option>
@@ -913,7 +907,7 @@
                         <i class="fa-solid fa-print"></i>
                     </div>
                     <h3>Printable Patrol Log Summary</h3>
-                    <p>Formal report listing patrol log entries with tanod, location, date, status, and report notes.</p>
+                    <p>Formal report listing patrol log entries with location, date, status, and report notes.</p>
                     <button id="printPatrolLogBtn" class="btn-report primary">
                         <i class="fa-solid fa-print"></i> Print / Export PDF
                     </button>
@@ -952,7 +946,6 @@
                         <thead>
                             <tr>
                                 <th>LOG ID</th>
-                                <th>TANOD</th>
                                 <th>LOCATION</th>
                                 <th>PATROL DATE</th>
                                 <th>STATUS</th>

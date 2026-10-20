@@ -71,7 +71,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const filterPatrolDateFrom = document.getElementById("filterPatrolDateFrom");
     const filterPatrolDateTo = document.getElementById("filterPatrolDateTo");
     const filterPatrolStatus = document.getElementById("filterPatrolStatus");
-    const filterPatrolTanod = document.getElementById("filterPatrolTanod");
     const filterPatrolLocation = document.getElementById("filterPatrolLocation");
     const clearPatrolFiltersBtn = document.getElementById("clearPatrolFiltersBtn");
 
@@ -190,26 +189,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (error) {
             console.error('Error loading patrol logs:', error);
             if (patrolLogTableBody) {
-                patrolLogTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #ef4444;">Error loading patrol logs from server.</td></tr>`;
+                patrolLogTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 24px; color: #ef4444;">Error loading patrol logs from server.</td></tr>`;
             }
         }
     }
 
-    // Tanod/location options aren't a fixed list the way BARANGAY_LOCATIONS
-    // is for incidents - derived from whichever tanods/locations actually
-    // have a logged patrol, so an empty dropdown never shows a name with
+    // Patrol locations aren't a fixed list the way BARANGAY_LOCATIONS is
+    // for incidents - derived from whichever locations actually have a
+    // logged patrol, so an empty dropdown never shows a location with
     // zero matching records.
     function populatePatrolFilterDropdowns(data) {
-        if (filterPatrolTanod && filterPatrolTanod.options.length <= 1) {
-            const tanods = [...new Set(data.map(d => d.tanod_name).filter(Boolean))].sort();
-            tanods.forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                filterPatrolTanod.appendChild(option);
-            });
-        }
-
         if (filterPatrolLocation && filterPatrolLocation.options.length <= 1) {
             const locations = [...new Set(data.map(d => d.schedule_location).filter(Boolean))].sort();
             locations.forEach(loc => {
@@ -227,14 +216,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dateFrom = filterPatrolDateFrom?.value || '';
         const dateTo = filterPatrolDateTo?.value || '';
         const status = filterPatrolStatus?.value || '';
-        const tanod = filterPatrolTanod?.value || '';
         const location = filterPatrolLocation?.value || '';
 
         return allData.filter(item => {
             if (dateFrom && item.patrol_date < dateFrom) return false;
             if (dateTo && item.patrol_date > dateTo) return false;
             if (status && item.status !== status) return false;
-            if (tanod && item.tanod_name !== tanod) return false;
             if (location && item.schedule_location !== location) return false;
             return true;
         });
@@ -260,7 +247,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         patrolLogTableBody.innerHTML = "";
         if (filtered.length === 0) {
-            patrolLogTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">No patrol log records match the selected filters.</td></tr>`;
+            patrolLogTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 24px; color: #94a3b8;">No patrol log records match the selected filters.</td></tr>`;
             return;
         }
 
@@ -270,7 +257,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             tr.innerHTML = `
                 <td class="font-bold">${item.id || 'N/A'}</td>
-                <td>${escapeHTML(item.tanod_name || 'N/A')}</td>
                 <td>${escapeHTML(item.schedule_location || 'N/A')}</td>
                 <td>${formatDate(item.patrol_date)}</td>
                 <td><span class="${statusClass}">${escapeHTML(item.status || 'Completed')}</span></td>
@@ -293,7 +279,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         dateFrom: filterPatrolDateFrom?.value || '',
                         dateTo: filterPatrolDateTo?.value || '',
                         status: filterPatrolStatus?.value || '',
-                        tanod: filterPatrolTanod?.value || '',
                         location: filterPatrolLocation?.value || ''
                     },
                     recordCount: applyPatrolLogFilters(currentPatrolLogData).length
@@ -390,7 +375,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const danger = item.danger_level || '';
         if (danger.includes('Level 3') || danger.includes('High')) {
-            return 'PRIORITY: Deploy additional tanods, increase patrol frequency, and coordinate with barangay officials.';
+            return 'PRIORITY: Deploy additional personnel, increase patrol frequency, and coordinate with barangay officials.';
         } else if (danger.includes('Level 2') || danger.includes('Moderate')) {
             return 'Deploy targeted patrols, conduct periodic spot checks, and monitor for escalation.';
         } else if (danger.includes('Level 1') || danger.includes('Low')) {
@@ -527,19 +512,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         let summary = "Routine patrol schedule in effect.";
-        let directives = ["Maintain routine tanod roving patrol."];
+        let directives = ["Maintain routine roving patrol."];
         
         if (highRiskCount > 2) {
-            summary = `High crime intensity detected. Heavy tanod deployment advised across ${hotspots}.`;
+            summary = `High crime intensity detected. Heavy patrol deployment advised across ${hotspots}.`;
             directives = [
-                `Deploy stationary Tanod Outpost in ${topLocationName || 'Priority Zones'} between 7:00 PM and 11:00 PM.`,
+                `Deploy a stationary Patrol Outpost in ${topLocationName || 'Priority Zones'} between 7:00 PM and 11:00 PM.`,
                 "Mobile motorcycle patrol every 30 minutes.",
                 "Mandatory coordination with Caloocan Police Station 12 for high-risk zones."
             ];
         } else if (moderateRiskCount > 2) {
             summary = `Moderate disturbance risk. Increase evening foot patrols around ${hotspots}.`;
             directives = [
-                `Deploy 4 Barangay Tanods at ${topLocationName || 'designated areas'} during closing hours (6 PM - 9 PM).`,
+                `Deploy 4 barangay personnel at ${topLocationName || 'designated areas'} during closing hours (6 PM - 9 PM).`,
                 "Regular patrol drive for traffic decongestion.",
                 "Maintain active presence to prevent late-night altercations."
             ];
@@ -640,7 +625,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Patrol Logs tab filters - every change re-renders, same as the
     // Incident Reports tab above.
-    [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolTanod, filterPatrolLocation]
+    [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolLocation]
         .filter(Boolean)
         .forEach(field => {
             field.addEventListener("change", updatePatrolLogView);
@@ -648,7 +633,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (clearPatrolFiltersBtn) {
         clearPatrolFiltersBtn.addEventListener("click", () => {
-            [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolTanod, filterPatrolLocation]
+            [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolLocation]
                 .filter(Boolean)
                 .forEach(field => { field.value = ""; });
             updatePatrolLogView();
@@ -678,11 +663,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return `"${str.replace(/"/g, '""')}"`;
             };
 
-            let csvContent = "Log ID,Tanod,Location,Patrol Date,Status,Report\n";
+            let csvContent = "Log ID,Location,Patrol Date,Status,Report\n";
 
             filteredData.forEach(item => {
                 csvContent += [
-                    item.id || '', item.tanod_name || '', item.schedule_location || '',
+                    item.id || '', item.schedule_location || '',
                     item.patrol_date || '', item.status || '', item.report || ''
                 ].map(csvField).join(',') + '\n';
             });
@@ -808,7 +793,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadPatrolLogs();
 
     // Keeps the report current with incidents reported from the field
-    // (e.g. a tanod's phone) without needing to re-login.
+    // without needing to re-login.
     startLivePolling(loadIncidents, 15000);
     startLivePolling(loadPatrolLogs, 15000);
 });

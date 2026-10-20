@@ -184,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadCharts();
 
     // Keeps the dashboard current with incidents reported from the
-    // field (e.g. a tanod's phone) without needing to re-login.
+    // field without needing to re-login.
     startLivePolling(() => {
         loadDashboardStats();
         loadIncidentsTable();
@@ -853,8 +853,7 @@ async function loadSystemHealth() {
             dbText.textContent = 'DB';
 
             const staff  = data.active_staff_sessions ?? 0;
-            const tanods = data.active_tanod_sessions ?? 0;
-            sessions.textContent = `${staff + tanods} online`;
+            sessions.textContent = `${staff} online`;
 
             const secs = data.uptime_seconds ?? 0;
             const h = Math.floor(secs / 3600);

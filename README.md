@@ -48,11 +48,8 @@ It runs as a native Windows desktop app (built with Electron) backed by a local 
 ### 🛡️ Patrol Decision Support
 - CART-based patrol recommendations
 - Priority area identification
-- Suggested tanod deployment
+- Suggested personnel deployment
 - Patrol scheduling and logging
-- Separate Tanod-facing login and dashboard (`tanod-login.html` / `tanod-dashboard.html`) —
-  field tanods view their own assigned schedules and file incident reports from a
-  simplified interface, independent of the Admin/Decision-Maker desktop views
 
 ### 📄 Reports Module
 - Printable incident summaries
@@ -60,12 +57,9 @@ It runs as a native Windows desktop app (built with Electron) backed by a local 
 - Monthly report generation
 
 ### 👥 User Management
-- Role-based access control — three roles: **Administrator** (full CRUD access),
-  **Decision-Maker** (barangay captain; read-focused oversight views), and **Tanod**
-  (field patrol staff; separate PIN-based login, own dashboard, no access to the
-  admin desktop views)
-- Secure authentication with session management (separate session systems for
-  Admin/Decision-Maker vs. Tanod)
+- Role-based access control — two roles: **Administrator** (full CRUD access) and
+  **Decision-Maker** (barangay captain; read-focused oversight views)
+- Secure authentication with session management
 - Password reset functionality
 
 ### ⚙️ System Settings
@@ -139,8 +133,6 @@ Capstone Final/
 │   ├── report.html           # Reports Module
 │   ├── users.html            # User Management
 │   ├── settings.html
-│   ├── tanod-login.html      # Tanod field-staff login (separate from admin login)
-│   ├── tanod-dashboard.html  # Tanod field-staff dashboard
 │   ├── apiHelper.js          # Shared API/session/role helper functions
 │   ├── locationList.js       # Canonical street/area list (see backend/locationList.js)
 │   └── ...                   # Page-specific JS, CSS, images
@@ -210,9 +202,6 @@ This launches the desktop app: it starts the Express/MySQL backend in-process, t
 - Admin — `admin` / `admin123`
 - Barangay Captain (Decision-Maker) — `captain` / `captain123`
 
-No demo Tanod account is seeded — create one from the Admin desktop's User Management
-page (Tanods use a username + 4-digit PIN, not a password).
-
 ### Running tests
 
 The backend has a Jest + Supertest suite that runs against a throwaway `brgydata_test`
@@ -267,7 +256,7 @@ at this stage of deployment.
 
 - `backend/.env` holds real database credentials and is **git-ignored** — never commit it.
 - Passwords are hashed with `bcryptjs`; sessions use server-issued tokens with expiry.
-- Role-based UI restrictions (Administrator vs. Decision-Maker vs. Tanod) are enforced both in the frontend nav and on the backend API routes.
+- Role-based UI restrictions (Administrator vs. Decision-Maker) are enforced both in the frontend nav and on the backend API routes.
 
 ---
 

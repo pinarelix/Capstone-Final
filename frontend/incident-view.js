@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Prefers the free-text "who actually reported it" field over
-            // the system staff/tanod attribution, same as Incident Records.
+            // the system attribution, same as Incident Records.
             const reporterName = incident.reported_by_name || incident.reporter_name || 'N/A';
             
             // Get location - FIXED: gumamit ng street_name
@@ -747,7 +747,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadStats();
 
     // Keeps this view current with incidents reported from the field
-    // (e.g. a tanod's phone) without the Captain needing to re-login.
+    // without the Captain needing to re-login.
     startLivePolling(() => {
         loadIncidents();
         loadStats();

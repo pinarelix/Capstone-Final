@@ -860,10 +860,6 @@
                         <option value="DELETE_INCIDENT_EVIDENCE">Delete Incident Evidence</option>
                         <option value="CREATE_USER">Create User</option>
                         <option value="DELETE_USER">Delete User</option>
-                        <option value="CREATE_TANOD">Create Tanod</option>
-                        <option value="UPDATE_TANOD">Update Tanod</option>
-                        <option value="DELETE_TANOD">Delete Tanod</option>
-                        <option value="DELETE_TANOD_TEAM">Delete Tanod Team</option>
                         <option value="CREATE_SCHEDULE">Create Schedule</option>
                         <option value="UPDATE_SCHEDULE">Update Schedule</option>
                         <option value="DELETE_SCHEDULE">Delete Schedule</option>
@@ -873,9 +869,6 @@
                         <option value="RESTORE_RECORD">Restore From Archive</option>
                         <option value="RUN_CART_ANALYSIS">Run CART Analysis</option>
                         <option value="UPDATE_SETTINGS">Update Settings</option>
-                        <option value="TANOD_LOGIN">Tanod Login</option>
-                        <option value="TANOD_CREATE_INCIDENT">Tanod Report Incident</option>
-                        <option value="TANOD_CREATE_PATROL_LOG">Tanod Add Patrol Log</option>
                         <option value="PRINT_REPORT">Print Report</option>
                         <option value="EXPORT_CSV_REPORT">Export CSV Report</option>
                         <option value="PRINT_PATROL_REPORT">Print Patrol Report</option>
@@ -887,7 +880,6 @@
                         <option value="">All Entities</option>
                         <option value="incidents">Incidents</option>
                         <option value="users">Users</option>
-                        <option value="tanod_record">Tanods</option>
                         <option value="patrol_schedules">Schedules</option>
                         <option value="patrol_logs">Logs</option>
                         <option value="cart_analysis_log">CART Analysis</option>
@@ -953,8 +945,6 @@
                         <option value="incident_evidence">Evidence Files</option>
                         <option value="patrol_schedule">Patrol Schedules</option>
                         <option value="patrol_log">Patrol Logs</option>
-                        <option value="tanod_team">Tanod Teams</option>
-                        <option value="tanod">Tanods</option>
                         <option value="user">Users</option>
                     </select>
 
@@ -1908,7 +1898,7 @@ async function loadLoginHistory() {
 
         let html = `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:16px;">
             ${metaRow('Action', entry.action)}
-            ${metaRow('Performed by', (entry.user_name || entry.username || 'System') + (entry.actor_type === 'tanod' ? ' (Tanod)' : ''))}
+            ${metaRow('Performed by', entry.user_name || entry.username || 'System')}
             ${metaRow('Entity', (entry.entity_type || '—') + (entry.entity_id ? ' #' + entry.entity_id : ''))}
             ${metaRow('Timestamp', formattedDate)}
             ${metaRow('IP Address', entry.ip_address)}
@@ -1940,8 +1930,6 @@ async function loadLoginHistory() {
         incident_evidence: 'Evidence File',
         patrol_schedule: 'Patrol Schedule',
         patrol_log: 'Patrol Log',
-        tanod_team: 'Tanod Team',
-        tanod: 'Tanod',
         user: 'User'
     };
     let archiveEntriesById = {};
@@ -2029,12 +2017,6 @@ async function loadLoginHistory() {
 
         if ((data.evidence || []).length) {
             html += `<p style="margin: 16px 0 6px; font-size: 0.75rem; font-weight: 700; color: #64748b;">EVIDENCE (${data.evidence.length})</p>`;
-        }
-        if (data.tanod_ids) {
-            html += `<p style="margin: 12px 0 0; font-size: 0.78rem; color: #475569;">Assigned tanods: ${data.tanod_ids.length} · linked patrol logs: ${(data.log_ids || []).length}</p>`;
-        }
-        if (data.member_ids) {
-            html += `<p style="margin: 12px 0 0; font-size: 0.78rem; color: #475569;">Team members at deletion: ${data.member_ids.length}</p>`;
         }
 
         // Archived photos/evidence are still viewable (kept under uploads/archive/).
@@ -2149,14 +2131,9 @@ async function loadLoginHistory() {
                 else if (action.includes('VIEW')) badgeClass = 'view';
                 else if (action.includes('PRINT') || action.includes('EXPORT')) badgeClass = 'export';
 
-                // Names come from user/tanod records anyone with staff
-                // access can edit - escape them before they hit innerHTML.
-                const userDisplay = escapeHTML(log.user_name || log.username || 'System') +
-                    (log.actor_type === 'tanod' ? ' <span style="color:#d97706; font-size:0.68rem; font-weight:600;">(Tanod)</span>' : '');
+                const userDisplay = escapeHTML(log.user_name || log.username || 'System');
 
-                // Staff and tanod audit rows come from two tables whose ids
-                // overlap, so key by source too or "View" can show the wrong row.
-                const detailsKey = `${log.actor_type === 'tanod' ? 'tanod' : 'staff'}-${log.id}`;
+                const detailsKey = `staff-${log.id}`;
                 auditLogDataById[detailsKey] = log;
                 const hasDetails = log.old_data || log.new_data;
 

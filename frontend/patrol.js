@@ -33,11 +33,6 @@ window.logoutUser = function() {
 
 let allIncidents = [];
 let allRiskFactors = []; // 🔥 NEW: CART risk factors
-let allTanods = [];
-// Includes deactivated tanods - only for showing names on older patrol
-// logs; pickers keep using allTanods (active only).
-let allTanodsForLookup = [];
-let allTeams = [];
 let allSchedules = [];
 let allLogs = [];
 // Per-street risk decay from completed patrols - {location: decay_amount},
@@ -53,9 +48,9 @@ let currentRecommendations = [];
 
 // Client-side table pagination — allSchedules/allLogs stay fully loaded
 // (other features on this page need the complete list: the "Select
-// Schedule" dropdown on the log form, getScheduleName()/getTanodName()
-// cross-reference lookups, and the CART recommendations tab), only the
-// rendered table rows are paginated.
+// Schedule" dropdown on the log form, getScheduleName() cross-reference
+// lookups, and the CART recommendations tab), only the rendered table
+// rows are paginated.
 let schedulePage = 1;
 let logPage = 1;
 const rowsPerPage = 10;
@@ -91,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function () {
     setupLogForm();
 
     // Keeps all three tabs current without the admin needing to
-    // re-login: logs submitted from a tanod's phone, schedules added by
+    // re-login: logs submitted from the field, schedules added by
     // another admin, and recommendations reacting to new incidents or a
     // CART re-run triggered elsewhere.
     startLivePolling(refreshPatrolLogsOnly, 15000);
@@ -250,7 +245,7 @@ function resetScheduleMapPicker() {
         scheduleMarker = null;
     }
     const prompt = document.getElementById('scheduleMapPrompt');
-    if (prompt) prompt.textContent = 'Click the map to pin this location — incidents tanods report here will inherit this exact point on the risk map.';
+    if (prompt) prompt.textContent = 'Click the map to pin this location - incidents reported here will inherit this exact point on the risk map.';
 }
 
 // ============================================================
@@ -277,27 +272,6 @@ async function loadAllData() {
         // 🔥 IMPROVED: Load CART risk factors with better error handling
         await loadAreaDecay();
         await loadCartDataOnly();
-
-        // Load tanods
-        const tanodResponse = await window.apiFetch('/tanods');
-        if (tanodResponse.ok) {
-            allTanods = await tanodResponse.json();
-            console.log('✅ Tanods loaded:', allTanods.length);
-            const allTanodResponse = await window.apiFetch('/tanods/all');
-            allTanodsForLookup = allTanodResponse.ok ? await allTanodResponse.json() : allTanods;
-        } else {
-            console.warn('⚠️ Failed to load tanods:', tanodResponse.status);
-            allTanods = [];
-        }
-
-        // Load tanod teams (for the Schedules tab's "Assign by Team" picker)
-        const teamResponse = await window.apiFetch('/tanod-teams');
-        if (teamResponse.ok) {
-            allTeams = await teamResponse.json();
-        } else {
-            console.warn('⚠️ Failed to load tanod teams:', teamResponse.status);
-            allTeams = [];
-        }
 
         // Load schedules
         // /all, not /patrol-schedules (Active only) - otherwise a schedule
@@ -333,9 +307,6 @@ async function loadAllData() {
         renderLogs(allLogs);
         
         populateScheduleDropdown();
-        populateTanodDropdown();
-        populateTeamSelect();
-        renderTanodChecklist();
 
         updateCounts();
         
@@ -350,8 +321,8 @@ async function loadAllData() {
 // ============================================================
 // 5a2. 🔥 NEW: Refresh only the Patrol Logs list
 // Used for live polling — reloading everything via loadAllData()
-// would also rebuild the tanod checklist and schedule/tanod dropdowns,
-// wiping out any in-progress selection on the Add Schedule form.
+// would also rebuild the schedule dropdown, wiping out any in-progress
+// selection on the Add Schedule form.
 // ============================================================
 
 async function refreshPatrolLogsOnly() {
@@ -368,7 +339,7 @@ async function refreshPatrolLogsOnly() {
 }
 
 // Same idea as refreshPatrolLogsOnly() above - only re-renders the
-// Schedules table, not populateScheduleDropdown()/renderTanodChecklist()
+// Schedules table, not populateScheduleDropdown()
 // (those wipe whatever's currently selected on the Add Log/Add Schedule
 // forms since they rebuild <option>/checkbox lists from scratch).
 async function refreshSchedulesOnly() {
@@ -537,7 +508,7 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             time: 'N/A',
             reason: 'Please run CART analysis from the CART Analytics page first.',
             pattern: 'No CART data available',
-            tanods: 1,
+            personnel: 1,
             action: 'Run CART analysis to generate recommendations.',
             avgRisk: 0,
             maxRisk: 0,
@@ -564,7 +535,7 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             time: 'N/A',
             reason: month === 'all' ? 'No incidents recorded yet.' : 'No incidents recorded for this month.',
             pattern: 'No incidents to analyze',
-            tanods: 0,
+            personnel: 0,
             action: 'No patrol recommendations available.',
             avgRisk: 0,
             maxRisk: 0,
@@ -681,26 +652,26 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
         let priority = 'low';
         let levelText = 'Level 1 — Low Danger / Stable Area';
         let action = 'Maintain standard routine patrols and community visibility.';
-        let tanods = Math.max(1, Math.ceil(count / 3));
+        let personnel = Math.max(1, Math.ceil(count / 3));
         let riskBadgeColor = '#10b981';
-        
+
         if (dominantLevel === 'Level 3' || maxRisk >= 67) {
             priority = 'high';
             levelText = 'Level 3 — High Crime / Considerable Danger';
-            action = 'PRIORITY: Deploy additional tanods, increase patrol frequency, and coordinate with barangay officials.';
-            tanods = Math.min(Math.ceil(count / 1.5) + 2, 8);
+            action = 'PRIORITY: Deploy additional personnel, increase patrol frequency, and coordinate with barangay officials.';
+            personnel = Math.min(Math.ceil(count / 1.5) + 2, 8);
             riskBadgeColor = '#dc2626';
         } else if (dominantLevel === 'Level 2' || maxRisk >= 34) {
             priority = 'medium';
             levelText = 'Level 2 — Moderate Danger / Caution Area';
             action = 'Deploy targeted patrols, conduct periodic spot checks, and monitor for escalation.';
-            tanods = Math.min(Math.ceil(count / 2) + 1, 5);
+            personnel = Math.min(Math.ceil(count / 2) + 1, 5);
             riskBadgeColor = '#f59e0b';
         } else {
             priority = 'low';
             levelText = 'Level 1 — Low Danger / Stable Area';
             action = 'Maintain standard routine patrols and community visibility.';
-            tanods = Math.max(1, Math.ceil(count / 3));
+            personnel = Math.max(1, Math.ceil(count / 3));
             riskBadgeColor = '#10b981';
         }
         
@@ -738,7 +709,7 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             reason: `CART analysis detected ${dominantLevel} risk with ${count} incident${count > 1 ? 's' : ''} (avg risk score: ${avgRisk.toFixed(1)})`,
             pattern: `${count} incident${count > 1 ? 's' : ''} recorded in this area. Risk distribution: ${riskSummary || 'No risk data available'}`,
             riskDist: riskDist,
-            tanods: tanods,
+            personnel: personnel,
             action: action,
             avgRisk: avgRisk,
             maxRisk: maxRisk,
@@ -790,7 +761,7 @@ function updateDashboardWithCartData(selectedMonth) {
         const topRec = recommendations[0];
         document.getElementById('topArea').textContent = topRec.area;
         document.getElementById('topTime').textContent = topRec.time;
-        document.getElementById('topTanods').textContent = topRec.tanods;
+        document.getElementById('topPersonnel').textContent = topRec.personnel;
         
         // 🔥 NEW: Show CART risk score in metrics
         const riskBadge = document.getElementById('topRiskBadge');
@@ -813,7 +784,7 @@ function updateDashboardWithCartData(selectedMonth) {
         if (recommendations.length > 0 && recommendations[0].area === 'No CART Data Available') {
             document.getElementById('topArea').textContent = 'Run CART Analysis First';
             document.getElementById('topTime').textContent = 'N/A';
-            document.getElementById('topTanods').textContent = '0';
+            document.getElementById('topPersonnel').textContent = '0';
             const riskBadge = document.getElementById('topRiskBadge');
             if (riskBadge) {
                 riskBadge.textContent = 'No CART Data';
@@ -834,7 +805,7 @@ function updateDashboardWithCartData(selectedMonth) {
 function updateMetricsEmptyState() {
     document.getElementById('topArea').textContent = 'No Data';
     document.getElementById('topTime').textContent = 'N/A';
-    document.getElementById('topTanods').textContent = '0';
+    document.getElementById('topPersonnel').textContent = '0';
     const riskBadge = document.getElementById('topRiskBadge');
     const riskScoreEl = document.getElementById('topRiskScore');
     if (riskBadge) {
@@ -911,7 +882,7 @@ function renderCartRecommendationCards(recs, container) {
                     ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 4)}
                 </div>
                 ${incidentListItemsHtml(rec.incidents, 4)}
-                <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
+                <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
                 <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
             </div>
             <div class="rec-card-view-hint"><i class="fa-solid fa-expand"></i> Click for full street details</div>
@@ -984,7 +955,7 @@ function showStreetDetailModal(rec) {
             <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
             <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
             ${riskDistBadgeHtml(rec.riskDist)}
-            <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
+            <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
             <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
         </div>
         <div class="street-modal-section-label"><i class="fa-solid fa-list-ul"></i> All Incidents at This Location (${rec.incidents?.length || 0})</div>
@@ -1065,7 +1036,7 @@ function renderScheduleSuggestions(recs) {
                 <div style="margin-top: 4px;"><strong>Incidents Here:</strong><br>
                     ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 2)}
                 </div>
-                <div><strong>Suggested Tanods:</strong> ${escapeHTML(rec.tanods)}</div>
+                <div><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
             </div>
             <button type="button" class="use-this-btn" onclick="applyRecommendationToScheduleForm(${idx})">
                 <i class="fa-solid fa-arrow-turn-down"></i> Use This
@@ -1077,8 +1048,8 @@ function renderScheduleSuggestions(recs) {
 
 // Prefills the Add Patrol Schedule form from a recommendation card.
 // Only location, time, and reason are inferable from CART's monthly
-// aggregate — day of week and which tanods to assign are still a human
-// call, so those fields are left for the admin to set.
+// aggregate — day of week is still a human call, so that field is left
+// for the admin to set.
 function applyRecommendationToScheduleForm(idx) {
     const rec = currentRecommendations[idx];
     if (!rec) return;
@@ -1106,7 +1077,7 @@ function applyRecommendationToScheduleForm(idx) {
         `Suggested from CART priority recommendation: ${rec.reason}. ${rec.action}`;
 
     document.getElementById('scheduleFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showToast(`Prefilled from "${rec.area}" — suggested ${rec.tanods} tanod(s). Review day and assignment before saving.`, 'info');
+    showToast(`Prefilled from "${rec.area}" — suggested ${rec.personnel} personnel. Review the day before saving.`, 'info');
 }
 
 // ============================================================
@@ -1172,14 +1143,6 @@ function setupScheduleForm() {
         locationSelect.addEventListener('change', updateScheduleLocationIncidents);
     }
 
-    const teamSelect = document.getElementById('scheduleTeamSelect');
-    if (teamSelect) {
-        teamSelect.addEventListener('change', () => {
-            applyTeamToChecklist(teamSelect.value);
-            teamSelect.value = '';
-        });
-    }
-
     const closeBtn = document.getElementById('closeScheduleModalBtn');
     if (closeBtn) closeBtn.addEventListener('click', closeScheduleModal);
 
@@ -1199,7 +1162,6 @@ async function saveSchedule() {
     const day_of_week = document.getElementById('scheduleDay').value;
     const start_time = document.getElementById('scheduleStart').value;
     const end_time = document.getElementById('scheduleEnd').value;
-    const tanod_ids = getCheckedTanodIds();
     const reason = document.getElementById('scheduleReason').value.trim();
     const status = document.getElementById('scheduleStatus').value;
     const latRaw = document.getElementById('scheduleLat').value;
@@ -1215,7 +1177,6 @@ async function saveSchedule() {
         start_time,
         end_time,
         day_of_week,
-        tanod_ids,
         latitude: latRaw ? parseFloat(latRaw) : null,
         longitude: lngRaw ? parseFloat(lngRaw) : null,
         reason,
@@ -1467,7 +1428,7 @@ function renderSchedules(schedules) {
 
     if (visible.length === 0) {
         const filter = document.getElementById('scheduleStatusFilter')?.value;
-        tbody.innerHTML = emptyTableRow(8, 'fa-calendar-times', filter ? `No ${filter.toLowerCase()} patrol schedules.` : 'No patrol schedules found.');
+        tbody.innerHTML = emptyTableRow(7, 'fa-calendar-times', filter ? `No ${filter.toLowerCase()} patrol schedules.` : 'No patrol schedules found.');
         document.getElementById('schedulePaginationControls').innerHTML = '';
         return;
     }
@@ -1500,7 +1461,6 @@ function renderSchedules(schedules) {
                 <td>${escapeHTML(schedule.location)}</td>
                 <td>${escapeHTML(schedule.day_of_week)}</td>
                 <td>${timeDisplay}</td>
-                <td>${schedule.assigned_tanods || 0}</td>
                 <td>${renderIncidentTypeBadges(schedule.location)}</td>
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
@@ -1524,7 +1484,6 @@ window.editSchedule = async function(id) {
         document.getElementById('scheduleDay').value = schedule.day_of_week || 'Monday';
         document.getElementById('scheduleStart').value = schedule.start_time ? schedule.start_time.substring(0,5) : '';
         document.getElementById('scheduleEnd').value = schedule.end_time ? schedule.end_time.substring(0,5) : '';
-        renderTanodChecklist(schedule.tanod_ids || []);
         document.getElementById('scheduleStatus').value = schedule.status || 'Active';
         document.getElementById('scheduleReason').value = schedule.reason || '';
 
@@ -1578,19 +1537,17 @@ function setupLogForm() {
 async function saveLog() {
     const id = document.getElementById('editLogId').value;
     const schedule_id = parseInt(document.getElementById('logSchedule').value);
-    const tanod_id = parseInt(document.getElementById('logTanod').value);
     const patrol_date = document.getElementById('logDate').value;
     const status = document.getElementById('logStatus').value;
     const report = document.getElementById('logReport').value.trim();
 
-    if (!schedule_id || !tanod_id || !patrol_date) {
+    if (!schedule_id || !patrol_date) {
         showToast('Please fill in all required fields.', 'error');
         return;
     }
 
     const payload = { 
         schedule_id, 
-        tanod_id, 
         patrol_date, 
         status, 
         report
@@ -1625,7 +1582,7 @@ function renderLogs(logs) {
     if (!tbody) return;
 
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = emptyTableRow(8, 'fa-clipboard-list', 'No patrol logs found.');
+        tbody.innerHTML = emptyTableRow(7, 'fa-clipboard-list', 'No patrol logs found.');
         document.getElementById('logPaginationControls').innerHTML = '';
         return;
     }
@@ -1639,13 +1596,11 @@ function renderLogs(logs) {
         const statusClass = log.status === 'Completed' ? 'badge-open' :
                            log.status === 'Partial' ? 'badge-monitoring' : 'badge-resolved';
         const scheduleName = getScheduleName(log.schedule_id);
-        const tanodName = getTanodName(log.tanod_id);
 
         return `
             <tr>
                 <td class="font-bold">${log.id}</td>
                 <td>${escapeHTML(scheduleName)}</td>
-                <td>${escapeHTML(tanodName)}</td>
                 <td>${log.patrol_date || 'N/A'}</td>
                 <td>${renderIncidentTypeBadges(scheduleName)}</td>
                 <td><span class="badge ${statusClass}">${log.status || 'Completed'}</span></td>
@@ -1664,12 +1619,6 @@ function getScheduleName(id) {
     return schedule ? schedule.location : 'Unknown Schedule';
 }
 
-function getTanodName(id) {
-    if (!id) return 'N/A';
-    const tanod = allTanodsForLookup.find(t => t.id === id) || allTanods.find(t => t.id === id);
-    return tanod ? tanod.name : 'Unknown Tanod';
-}
-
 window.editLog = async function(id) {
     try {
         const response = await window.apiFetch(`/patrol-logs/${id}`);
@@ -1679,7 +1628,6 @@ window.editLog = async function(id) {
         
         document.getElementById('editLogId').value = log.id;
         document.getElementById('logSchedule').value = log.schedule_id || '';
-        document.getElementById('logTanod').value = log.tanod_id || '';
         document.getElementById('logDate').value = log.patrol_date || '';
         document.getElementById('logStatus').value = log.status || 'Completed';
         document.getElementById('logReport').value = log.report || '';
@@ -1697,7 +1645,7 @@ window.editLog = async function(id) {
 window.requestDeleteLog = function(id) {
     const log = allLogs.find(l => l.id === id);
     const message = log
-        ? `Are you sure you want to delete the patrol log for "${getScheduleName(log.schedule_id)}" (${getTanodName(log.tanod_id)})? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`
+        ? `Are you sure you want to delete the patrol log for "${getScheduleName(log.schedule_id)}" (${log.patrol_date || 'no date'})? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`
         : 'Are you sure you want to delete this log? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.';
     requestDelete(message, id, 'log', confirmDeleteLog);
 };
@@ -1735,84 +1683,6 @@ function populateScheduleDropdown() {
         option.textContent = `${schedule.location} (${schedule.day_of_week} ${timeDisplay})${statusTag}`;
         select.appendChild(option);
     });
-}
-
-function populateTanodDropdown() {
-    const select = document.getElementById('logTanod');
-    if (!select) return;
-
-    select.innerHTML = '<option value="">Select Tanod</option>';
-    
-    if (!allTanods || allTanods.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = "";
-        opt.textContent = "No tanods available";
-        opt.disabled = true;
-        select.appendChild(opt);
-        return;
-    }
-    
-    allTanods.forEach(tanod => {
-        const option = document.createElement('option');
-        option.value = tanod.id;
-        option.textContent = tanod.name;
-        select.appendChild(option);
-    });
-}
-
-// Populates the "Assign by Team" dropdown above the tanod checklist -
-// choosing a team checks all of its members' boxes in one click instead
-// of finding each one individually. Managed from User & Tanod
-// Management's Tanod List tab (frontend/users.js).
-function populateTeamSelect() {
-    const select = document.getElementById('scheduleTeamSelect');
-    if (!select) return;
-
-    select.innerHTML = '<option value="">— Select a team to auto-check its members —</option>' +
-        allTeams.map(team => `<option value="${team.id}">${escapeHTML(team.name)} (${team.member_count})</option>`).join('');
-}
-
-// Checks (doesn't uncheck) every tanod belonging to the selected team,
-// leaving the admin free to add/remove individuals afterward rather
-// than forcing the checklist to exactly match the team roster.
-function applyTeamToChecklist(teamId) {
-    if (!teamId) return;
-
-    const memberIds = new Set(
-        allTanods.filter(t => String(t.team_id) === String(teamId)).map(t => String(t.id))
-    );
-
-    document.querySelectorAll('#scheduleTanodsChecklist input[type="checkbox"]').forEach(checkbox => {
-        if (memberIds.has(checkbox.value)) {
-            checkbox.checked = true;
-        }
-    });
-}
-
-function renderTanodChecklist(checkedIds = []) {
-    const container = document.getElementById('scheduleTanodsChecklist');
-    if (!container) return;
-
-    if (!allTanods || allTanods.length === 0) {
-        container.innerHTML = '<p class="tanod-checklist-empty">No active tanods available. Add tanods in User Management first.</p>';
-        return;
-    }
-
-    const checkedSet = new Set(checkedIds.map(id => String(id)));
-
-    container.innerHTML = allTanods.map(tanod => `
-        <label class="tanod-checklist-item">
-            <input type="checkbox" value="${tanod.id}" ${checkedSet.has(String(tanod.id)) ? 'checked' : ''}>
-            <span>${escapeHTML(tanod.name)}${tanod.position ? ` <span style="color:#64748b;">(${escapeHTML(tanod.position)})</span>` : ''}</span>
-        </label>
-    `).join('');
-}
-
-function getCheckedTanodIds() {
-    const container = document.getElementById('scheduleTanodsChecklist');
-    if (!container) return [];
-    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(cb => parseInt(cb.value, 10));
 }
 
 // ============================================================

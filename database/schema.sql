@@ -201,7 +201,6 @@ CREATE TABLE `incidents` (
   `time_of_day` varchar(20) DEFAULT NULL,
   `day_of_week` varchar(15) DEFAULT NULL,
   `is_weekend` tinyint(1) DEFAULT '0',
-  `reporter_tanod_id` int DEFAULT NULL,
   `photo_path` varchar(255) DEFAULT NULL,
   `blotter_number` varchar(50) DEFAULT NULL,
   `reported_by_name` varchar(150) DEFAULT NULL,
@@ -210,11 +209,9 @@ CREATE TABLE `incidents` (
   `priority` varchar(20) DEFAULT 'Normal',
   PRIMARY KEY (`id`),
   KEY `reporter_id` (`reporter_id`),
-  KEY `fk_incidents_reporter_tanod` (`reporter_tanod_id`),
   KEY `idx_street_name` (`street_name`),
   KEY `idx_date` (`date`),
   KEY `idx_status` (`status`),
-  CONSTRAINT `fk_incidents_reporter_tanod` FOREIGN KEY (`reporter_tanod_id`) REFERENCES `tanod_record` (`id`),
   CONSTRAINT `incidents_ibfk_1` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=103 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -248,7 +245,7 @@ CREATE TABLE `incident_evidence` (
 --
 -- A one-time fixed pin per canonical barangay location (see
 -- backend/locationList.js), so an incident reported at that location -
--- by a tanod or an admin - always has coordinates to plot on the Risk
+-- by any staff member - always has coordinates to plot on the Risk
 -- Map heatmap, even when no patrol schedule happens to have pinned
 -- that exact spot. Set once by an admin via Settings > Location
 -- Coordinates; getAnyPinForLocation() in server.js falls back to it
@@ -424,7 +421,6 @@ DROP TABLE IF EXISTS `patrol_logs`;
 CREATE TABLE `patrol_logs` (
   `id` int NOT NULL AUTO_INCREMENT,
   `schedule_id` int DEFAULT NULL,
-  `tanod_id` int DEFAULT NULL,
   `report` text,
   `status` varchar(20) DEFAULT 'Completed',
   `patrol_date` date DEFAULT NULL,
@@ -432,30 +428,9 @@ CREATE TABLE `patrol_logs` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `schedule_id` (`schedule_id`),
-  KEY `tanod_id` (`tanod_id`),
   KEY `idx_patrol_date` (`patrol_date`),
-  CONSTRAINT `patrol_logs_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `patrol_schedules` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `patrol_logs_ibfk_2` FOREIGN KEY (`tanod_id`) REFERENCES `tanod_record` (`id`) ON DELETE SET NULL
+  CONSTRAINT `patrol_logs_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `patrol_schedules` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `patrol_schedule_tanods`
---
-
-DROP TABLE IF EXISTS `patrol_schedule_tanods`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `patrol_schedule_tanods` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `schedule_id` int NOT NULL,
-  `tanod_id` int NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_schedule_tanod` (`schedule_id`,`tanod_id`),
-  KEY `tanod_id` (`tanod_id`),
-  CONSTRAINT `patrol_schedule_tanods_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `patrol_schedules` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `patrol_schedule_tanods_ibfk_2` FOREIGN KEY (`tanod_id`) REFERENCES `tanod_record` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -471,7 +446,6 @@ CREATE TABLE `patrol_schedules` (
   `start_time` time NOT NULL,
   `end_time` time NOT NULL,
   `day_of_week` varchar(15) NOT NULL,
-  `assigned_tanods` int DEFAULT '0',
   `reason` text,
   `status` varchar(20) DEFAULT 'Active',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
@@ -503,115 +477,6 @@ CREATE TABLE `system_settings` (
   KEY `idx_setting_key` (`setting_key`),
   CONSTRAINT `system_settings_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `tanod_audit_logs`
---
-
-DROP TABLE IF EXISTS `tanod_audit_logs`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tanod_audit_logs` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `tanod_id` int NOT NULL,
-  `action` varchar(100) NOT NULL,
-  `entity_type` varchar(50) DEFAULT NULL,
-  `entity_id` int DEFAULT NULL,
-  `new_data` json DEFAULT NULL,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `user_agent` text,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `tanod_id` (`tanod_id`),
-  CONSTRAINT `tanod_audit_logs_ibfk_1` FOREIGN KEY (`tanod_id`) REFERENCES `tanod_record` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `tanod_login_attempts`
---
-
-DROP TABLE IF EXISTS `tanod_login_attempts`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tanod_login_attempts` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) DEFAULT NULL,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `attempt_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `success` tinyint(1) DEFAULT '0',
-  PRIMARY KEY (`id`),
-  KEY `idx_username` (`username`),
-  KEY `idx_attempt_time` (`attempt_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `tanod_record`
---
-
-DROP TABLE IF EXISTS `tanod_record`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tanod_record` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL,
-  `position` varchar(50) DEFAULT 'Tanod',
-  `profile_picture` varchar(255) DEFAULT NULL,
-  `contact_no` varchar(20) DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT '1',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `user_id` int DEFAULT NULL,
-  `username` varchar(50) NOT NULL,
-  `pin_code_hash` varchar(255) DEFAULT NULL,
-  `team_id` int DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_tanod_username` (`username`),
-  KEY `user_id` (`user_id`),
-  KEY `team_id` (`team_id`),
-  CONSTRAINT `tanod_record_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_tanod_record_team` FOREIGN KEY (`team_id`) REFERENCES `tanod_teams` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `tanod_teams`
---
-
-DROP TABLE IF EXISTS `tanod_teams`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tanod_teams` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `tanod_sessions`
---
-
-DROP TABLE IF EXISTS `tanod_sessions`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tanod_sessions` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `tanod_id` int NOT NULL,
-  `session_token` varchar(64) NOT NULL,
-  `login_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `last_activity` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `logout_time` timestamp NULL DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT '1',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `session_token` (`session_token`),
-  KEY `tanod_id` (`tanod_id`),
-  CONSTRAINT `tanod_sessions_ibfk_1` FOREIGN KEY (`tanod_id`) REFERENCES `tanod_record` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

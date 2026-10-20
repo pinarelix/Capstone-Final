@@ -306,7 +306,7 @@ function showToast(message, type = 'success') {
 
 // ============================================================
 // 4b. LIVE NOTIFICATIONS (Server-Sent Events)
-// A heads-up popup for staff when a tanod reports a new incident,
+// A heads-up popup for staff when a new incident is reported,
 // pushed from the server instead of waiting for a page refresh or
 // manual poll. Separate from showToast() above - this is clickable
 // (jumps to Incident Records), stacks instead of replacing, and stays
@@ -362,7 +362,7 @@ function showIncidentNotification(data) {
         <div style="flex: 1; min-width: 0;">
             <strong style="display: block; font-size: 0.82rem; color: #0f172a; margin-bottom: 2px;">New Incident Reported</strong>
             <p style="margin: 0; font-size: 0.78rem; color: #475569; line-height: 1.4;">
-                <strong>${escapeHTML(data.tanodName || 'A tanod')}</strong> reported <strong>${escapeHTML(data.incidentType || 'an incident')}</strong> at ${escapeHTML(data.location || 'an unknown location')}.
+                <strong>${escapeHTML(data.incidentType || 'An incident')}</strong> reported at ${escapeHTML(data.location || 'an unknown location')}.
             </p>
         </div>
         <button type="button" aria-label="Dismiss" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; flex-shrink: 0;">&times;</button>
@@ -595,23 +595,9 @@ const UsersAPI = {
 };
 
 /**
- * API para sa Tanod & Patrol
+ * API para sa Patrol
  */
 const PatrolAPI = {
-    getTanods: () => apiFetch('/tanods'),
-    getTanodsAll: () => apiFetch('/tanods/all'),
-    getTanodById: (id) => apiFetch(`/tanods/${id}`),
-    createTanod: (payload) => apiFetch('/tanods', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    }),
-    updateTanod: (id, payload) => apiFetch(`/tanods/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload)
-    }),
-    deleteTanod: (id) => apiFetch(`/tanods/${id}`, {
-        method: 'DELETE'
-    }),
     getSchedules: () => apiFetch('/patrol-schedules'),
     getSchedulesAll: () => apiFetch('/patrol-schedules/all'),
     getScheduleById: (id) => apiFetch(`/patrol-schedules/${id}`),
@@ -688,15 +674,13 @@ const LoginHistoryAPI = {
 // ============================================================
 // 6b. LIVE POLLING HELPER
 // Periodically re-runs fn() so admin/captain views pick up incidents
-// and patrol logs submitted from a tanod's phone without needing to
-// log out and back in. Skips ticks while the tab is in the background
-// (no point burning requests on a page nobody's looking at) and
-// refreshes immediately the moment it's visible again.
+// and patrol logs without needing to re-login. Skips ticks while the
+// tab is in the background (no point burning requests on a page
+// nobody's looking at) and refreshes immediately when visible again.
 //
 // Every fn registered here also gets fired instantly the moment the SSE
-// notification stream below reports a new tanod-submitted incident -
-// so whatever page is open refreshes right away instead of waiting out
-// its own 15-30s poll interval.
+// notification stream reports a new incident - so whatever page is
+// open refreshes right away instead of waiting out its 15-30s poll.
 // ============================================================
 
 const _livePollCallbacks = [];

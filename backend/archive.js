@@ -3,14 +3,14 @@
 //
 // Every delete route snapshots what it removes into `archived_records`
 // (the row plus anything that would otherwise be lost with it - e.g. an
-// incident's evidence rows, a schedule's assigned tanods) and moves any
-// uploaded files into <uploads>/archive/ instead of unlinking them. An
-// Administrator can browse the archive in Settings > Archive and restore
-// a record exactly as it was.
+// incident's evidence rows) and moves any uploaded files into
+// <uploads>/archive/ instead of unlinking them. An Administrator can
+// browse the archive in Settings > Archive and restore a record exactly
+// as it was.
 //
-// Users and tanods were already soft-deleted (is_active = 0); they get an
-// archive row too so the Archive is the one place to find anything
-// removed, and "restore" for them simply reactivates the account.
+// Users were already soft-deleted (is_active = 0); they get an archive
+// row too so the Archive is the one place to find anything removed, and
+// "restore" for them simply reactivates the account.
 // ============================================================
 const fs = require('fs');
 const path = require('path');
@@ -20,9 +20,7 @@ const ENTITY_TABLES = {
     incident_evidence: 'incident_evidence',
     patrol_schedule: 'patrol_schedules',
     patrol_log: 'patrol_logs',
-    tanod_team: 'tanod_teams',
-    user: 'users',
-    tanod: 'tanod_record'
+    user: 'users'
 };
 
 function createArchive({ pool, uploadsRoot }) {
@@ -48,8 +46,8 @@ function createArchive({ pool, uploadsRoot }) {
             )
         `);
 
-        // Users/tanods deactivated before the archive existed - give each
-        // one an entry so they show up (and can be reactivated) there too.
+        // Users deactivated before the archive existed - give each one an
+        // entry so they show up (and can be reactivated) there too.
         await pool.query(`
             INSERT INTO archived_records (entity_type, entity_id, label, data, deleted_at)
             SELECT 'user', u.id, CONCAT('User: ', u.name, ' (', u.role, ')'),
@@ -59,16 +57,6 @@ function createArchive({ pool, uploadsRoot }) {
             FROM users u
             WHERE u.is_active = 0 AND NOT EXISTS (
                 SELECT 1 FROM archived_records a WHERE a.entity_type = 'user' AND a.entity_id = u.id AND a.restored_at IS NULL)
-        `);
-        await pool.query(`
-            INSERT INTO archived_records (entity_type, entity_id, label, data, deleted_at)
-            SELECT 'tanod', t.id, CONCAT('Tanod: ', t.name, IF(t.position IS NULL, '', CONCAT(' (', t.position, ')'))),
-                   JSON_OBJECT('row', JSON_OBJECT('id', t.id, 'name', t.name, 'username', t.username, 'position', t.position,
-                                                  'contact_no', t.contact_no, 'team_id', t.team_id)),
-                   t.updated_at
-            FROM tanod_record t
-            WHERE t.is_active = 0 AND NOT EXISTS (
-                SELECT 1 FROM archived_records a WHERE a.entity_type = 'tanod' AND a.entity_id = t.id AND a.restored_at IS NULL)
         `);
     }
 
@@ -114,7 +102,7 @@ function createArchive({ pool, uploadsRoot }) {
         return result.insertId;
     }
 
-    // Marks the open archive entry for a user/tanod as restored - used when
+    // Marks the open archive entry for a user as restored - used when
     // the account comes back by being re-added rather than via the Archive.
     async function markEntityRestored(entityType, entityId, restoredBy) {
         await pool.query(
@@ -225,13 +213,6 @@ function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, 
                 case 'patrol_schedule': {
                     if (await exists('patrol_schedules', row.id)) throw new RestoreConflict(`Schedule #${row.id} already exists.`);
                     await insertRow(conn, 'patrol_schedules', row);
-                    const tanodIds = data.tanod_ids || [];
-                    if (tanodIds.length) {
-                        const [living] = await conn.query('SELECT id FROM tanod_record WHERE id IN (?)', [tanodIds]);
-                        const values = living.map(t => [row.id, t.id]);
-                        if (values.length) await conn.query('INSERT IGNORE INTO patrol_schedule_tanods (schedule_id, tanod_id) VALUES ?', [values]);
-                        await conn.query('UPDATE patrol_schedules SET assigned_tanods = ? WHERE id = ?', [values.length, row.id]);
-                    }
                     if ((data.log_ids || []).length) {
                         await conn.query('UPDATE patrol_logs SET schedule_id = ? WHERE id IN (?) AND schedule_id IS NULL', [row.id, data.log_ids]);
                     }
@@ -244,21 +225,8 @@ function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, 
                     await insertRow(conn, 'patrol_logs', logRow);
                     break;
                 }
-                case 'tanod_team': {
-                    if (await exists('tanod_teams', row.id)) throw new RestoreConflict(`Team #${row.id} already exists.`);
-                    const [sameName] = await conn.query('SELECT 1 FROM tanod_teams WHERE name = ?', [row.name]);
-                    if (sameName.length) throw new RestoreConflict(`A team named "${row.name}" already exists.`);
-                    await insertRow(conn, 'tanod_teams', row);
-                    if ((data.member_ids || []).length) {
-                        await conn.query('UPDATE tanod_record SET team_id = ? WHERE id IN (?) AND team_id IS NULL', [row.id, data.member_ids]);
-                    }
-                    break;
-                }
                 case 'user':
                     await conn.query('UPDATE users SET is_active = 1 WHERE id = ?', [entry.entity_id]);
-                    break;
-                case 'tanod':
-                    await conn.query('UPDATE tanod_record SET is_active = 1 WHERE id = ?', [entry.entity_id]);
                     break;
                 default:
                     throw new RestoreConflict(`Unknown archive type: ${entry.entity_type}`);

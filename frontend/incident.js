@@ -787,8 +787,7 @@ Open the incident with Edit to attach the evidence again.`);
 ============================================================ */
 
 // Raw fetch, not apiFetch - FormData needs the browser to set its own
-// multipart Content-Type (with boundary), same reasoning as the tanod
-// portal's photo/avatar uploads.
+// multipart Content-Type (with boundary).
 async function uploadEvidenceFiles(incidentId, fileList) {
     const formData = new FormData();
     Array.from(fileList).forEach(file => formData.append('evidence', file));
