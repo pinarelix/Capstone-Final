@@ -932,7 +932,15 @@
                         </optgroup>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold text-muted small">Form Type</label>
+                    <select id="filterFormType" class="form-select">
+                        <option value="">All Forms</option>
+                        <option value="blotter">Blotter</option>
+                        <option value="crime">Crime</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label fw-semibold text-muted small">Status</label>
                     <select id="filterStatus" class="form-select">
                         <option value="">All Status</option>
@@ -941,7 +949,7 @@
                         <option value="Resolved">Resolved</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-1">
                     <button class="btn-refresh" id="refreshBtn">
                         <i class="fa-solid fa-rotate me-1"></i> Refresh
                     </button>
@@ -956,6 +964,7 @@
                     <thead>
                         <tr>
                             <th>INCIDENT ID</th>
+                            <th>Form</th>
                             <th>Incident Type</th>
                             <th>Location</th>
                             <th>Date & Time</th>
@@ -968,7 +977,7 @@
                     </thead>
                     <tbody id="incidentTableBody">
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">
+                            <td colspan="10" class="text-center py-4 text-muted">
                                 <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading incidents...
                             </td>
                         </tr>

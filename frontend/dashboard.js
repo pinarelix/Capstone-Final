@@ -323,6 +323,8 @@ function updateKPIs(data) {
     setText("kpi-peak", data.peak);
     setText("kpi-risk-streets", data.riskStreets);
     setText("kpi-risk-streets-desc", `Streets with at least one Level 3 (high-risk) incident: ${data.riskStreets}.`);
+    setText("kpi-blotter-count", data.blotterCount ?? 0);
+    setText("kpi-crime-count", data.crimeCount ?? 0);
 }
 
 /* ============================================================
@@ -356,7 +358,7 @@ function renderTable(rows) {
     const recentRows = rows.slice(0, 5);
 
     if (recentRows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#888;">No incidents recorded yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#888;">No incidents recorded yet.</td></tr>`;
         return;
     }
 
@@ -378,8 +380,13 @@ function renderTable(rows) {
         const tr = document.createElement("tr");
         tr.style.animation = `tableRowIn 0.45s ease ${index * 0.08}s both`;
 
+        const formBadge = row.form_type === 'crime'
+            ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.6rem;">Crime</span>'
+            : '<span class="badge" style="background:#f59e0b;color:#fff;font-size:0.6rem;">Blotter</span>';
+
         tr.innerHTML = `
             <td class="font-bold">${row.id}</td>
+            <td>${formBadge}</td>
             <td>${escapeHTML(row.incident_type)}</td>
             <td class="text-secondary">${formatDate(row.date)} ${formatTime(row.time)}</td>
             <td>${escapeHTML(row.location || row.street_name || 'N/A')}</td>

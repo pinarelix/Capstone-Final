@@ -541,6 +541,30 @@
             </section>
         </div>
 
+        <div class="kpi-group">
+            <span class="dash-section-label">Form Type Breakdown</span>
+            <section class="kpi-group-grid kpi-group-grid--2">
+                <div class="kpi-card animated-card">
+                    <span class="kpi-label" style="color: #f59e0b;">
+                        <i class="fa-solid fa-book"></i> Blotter Records
+                    </span>
+                    <div class="kpi-value-wrapper">
+                        <span class="kpi-value" id="kpi-blotter-count">0</span>
+                    </div>
+                    <p class="kpi-desc">Active blotter form incidents.</p>
+                </div>
+                <div class="kpi-card animated-card">
+                    <span class="kpi-label" style="color: #3b82f6;">
+                        <i class="fa-solid fa-file-lines"></i> Crime Records
+                    </span>
+                    <div class="kpi-value-wrapper">
+                        <span class="kpi-value" id="kpi-crime-count">0</span>
+                    </div>
+                    <p class="kpi-desc">Active crime form incidents.</p>
+                </div>
+            </section>
+        </div>
+
         <!-- =====================================================
              TABLE + HOTSPOTS
         ====================================================== -->
@@ -578,6 +602,7 @@
 
                         <tr>
                             <th><i class="fa-solid fa-hashtag"></i>INCIDENT ID</th>
+                            <th><i class="fa-solid fa-file-lines"></i>FORM</th>
                             <th><i class="fa-solid fa-tag"></i>TYPE</th>
                             <th><i class="fa-solid fa-clock"></i>DATE / TIME</th>
                             <th><i class="fa-solid fa-location-dot"></i>LOCATION</th>

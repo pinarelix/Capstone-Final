@@ -353,6 +353,14 @@ async function testConnection() {
         catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
     }
 
+    // form_type distinguishes blotter vs crime incident records.
+    try { await pool.query("ALTER TABLE incidents ADD COLUMN form_type ENUM('blotter','crime') DEFAULT 'blotter'"); }
+    catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+
+    // Backfill: records without a blotter_number and without a description
+    // were entered through the crime form.
+    await pool.query("UPDATE incidents SET form_type = 'crime' WHERE form_type = 'blotter' AND (blotter_number IS NULL OR blotter_number = '') AND (description IS NULL OR description = '')");
+
     // Archive of everything deleted (see archive.js) - created here too so
     // existing databases get it without a manual migration.
     await archive.ensureArchiveTable();
@@ -383,7 +391,8 @@ const incidentSchema = Joi.object({
     severity: Joi.string().valid('High', 'Medium', 'Low').required(),
     respondent_name: Joi.string().max(255).allow('', null),
     respondent_address: Joi.string().max(500).allow('', null),
-    age: Joi.number().integer().min(0).max(150).allow(null)
+    age: Joi.number().integer().min(0).max(150).allow(null),
+    form_type: Joi.string().valid('blotter', 'crime').default('blotter')
 });
 
 // Report Export/Print Schema - the Reports page's Print/Export CSV
@@ -2164,7 +2173,7 @@ app.get('/api/incidents/next-blotter', authenticate, async (req, res) => {
 
 app.get('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
-        const { page = 1, limit = 25, search = '', type = '', danger = '', date = '', status = '', include_resolved = '' } = req.query;
+        const { page = 1, limit = 25, search = '', type = '', danger = '', date = '', status = '', include_resolved = '', form_type = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         // Search/filter moved server-side (was previously done client-side
@@ -2199,6 +2208,10 @@ app.get('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad'
         if (date) {
             filter.push('incidents.date = ?');
             params.push(date);
+        }
+        if (form_type) {
+            filter.push('COALESCE(incidents.form_type, \'blotter\') = ?');
+            params.push(form_type);
         }
 
         const whereClause = filter.length > 0 ? `WHERE ${filter.join(' AND ')}` : '';
@@ -2254,7 +2267,7 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
             return res.status(403).json({ error: 'Access denied. View-only for Captain and above.' });
         }
 
-        const { page = 1, limit = 10, search = '', type = '', status = '', include_resolved = '' } = req.query;
+        const { page = 1, limit = 10, search = '', type = '', status = '', include_resolved = '', form_type = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         let filter = [];
@@ -2281,6 +2294,11 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         if (status) {
             filter.push("incidents.status = ?");
             params.push(status);
+        }
+
+        if (form_type) {
+            filter.push("COALESCE(incidents.form_type, 'blotter') = ?");
+            params.push(form_type);
         }
 
         const whereClause = filter.length > 0 ? `WHERE ${filter.join(' AND ')}` : '';
@@ -2498,7 +2516,7 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
             incident_type, date, time, latitude, longitude, street_name, address,
             status, description, recommended_action,
             blotter_number, reported_by_name, statement, persons_involved, priority,
-            severity, respondent_name, respondent_address, age
+            severity, respondent_name, respondent_address, age, form_type
         } = req.body;
 
         const finalStreetName = street_name || null;
@@ -2515,8 +2533,8 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
              status, danger_level, description, recommended_action,
              time_of_day, day_of_week, is_weekend,
              blotter_number, reported_by_name, statement, persons_involved, priority,
-             severity, respondent_name, respondent_address, age)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             severity, respondent_name, respondent_address, age, form_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             incident_type,
             date,
@@ -2541,7 +2559,8 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
             severity || 'Low',
             respondent_name || null,
             respondent_address || null,
-            age != null ? age : null
+            age != null ? age : null,
+            form_type || 'blotter'
         ]);
 
         await computeCartRiskFactors(result.insertId);
@@ -2592,7 +2611,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
             incident_type, date, time, latitude, longitude, street_name, address,
             status, description, recommended_action,
             blotter_number, reported_by_name, statement, persons_involved, priority,
-            severity, respondent_name, respondent_address, age
+            severity, respondent_name, respondent_address, age, form_type
         } = req.body;
         const id = req.params.id;
 
@@ -2615,7 +2634,8 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
                 time_of_day = ?, day_of_week = ?, is_weekend = ?,
                 blotter_number = ?, reported_by_name = ?, statement = ?, persons_involved = ?,
                 priority = ?,
-                severity = ?, respondent_name = ?, respondent_address = ?, age = ?
+                severity = ?, respondent_name = ?, respondent_address = ?, age = ?,
+                form_type = ?
             WHERE id = ?
         `, [
             incident_type, date, time, latitude, longitude,
@@ -2625,6 +2645,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
             blotter_number || null, reported_by_name || null, statement || null, persons_involved || null,
             priority || 'Normal',
             severity || 'Low', respondent_name || null, respondent_address || null, age != null ? age : null,
+            form_type || 'blotter',
             id
         ]);
 
@@ -3066,6 +3087,12 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
         );
         const riskStreets = riskStreetsResult[0].riskStreets;
 
+        const [formTypeCounts] = await pool.query(
+            "SELECT COALESCE(form_type, 'blotter') as form_type, COUNT(*) as count FROM incidents WHERE TRIM(status) != 'Resolved' GROUP BY COALESCE(form_type, 'blotter')"
+        );
+        const blotterCount = formTypeCounts.find(r => r.form_type === 'blotter')?.count || 0;
+        const crimeCount = formTypeCounts.find(r => r.form_type === 'crime')?.count || 0;
+
         res.json({
             incidents: totalIncidents,
             todayIncidents: todayIncidents,
@@ -3074,7 +3101,9 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
             common: common,
             area: area,
             peak: peak,
-            riskStreets: riskStreets
+            riskStreets: riskStreets,
+            blotterCount: blotterCount,
+            crimeCount: crimeCount
         });
 
     } catch (error) {

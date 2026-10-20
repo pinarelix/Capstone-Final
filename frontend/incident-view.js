@@ -96,6 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchIncident');
     const filterType = document.getElementById('filterType');
     const filterStatus = document.getElementById('filterStatus');
+    const filterFormType = document.getElementById('filterFormType');
     const paginationControls = document.getElementById('paginationControls');
     const refreshBtn = document.getElementById('refreshBtn');
     const recordCount = document.getElementById('recordCount');
@@ -178,20 +179,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const search = searchInput.value.trim();
         const type = filterType.value;
         const status = filterStatus.value;
-        
+        const formType = filterFormType ? filterFormType.value : '';
+
         // include_resolved: "All Status" really means all - resolved cases
         // stay listed so their details can still be opened and reviewed.
         let url = `${API_URL}/incidents/view-only?page=${currentPage}&limit=${limit}&include_resolved=1`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (type) url += `&type=${encodeURIComponent(type)}`;
         if (status) url += `&status=${encodeURIComponent(status)}`;
+        if (formType) url += `&form_type=${encodeURIComponent(formType)}`;
         
         console.log('📡 Fetching:', url);
         
         // Show loading state
         tableBody.innerHTML = `
             <tr>
-                <td colspan="9" class="text-center py-4 text-muted">
+                <td colspan="10" class="text-center py-4 text-muted">
                     <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading incidents...
                 </td>
             </tr>
@@ -253,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!incidents || incidents.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="text-center py-5">
+                    <td colspan="10" class="text-center py-5">
                         <div class="empty-state">
                             <i class="fa-regular fa-inbox"></i>
                             <h4>No Incidents Found</h4>
@@ -311,9 +314,14 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // ✅ FIXED: gumamit ng incident.id (hindi _id)
             // ✅ FIXED: gumamit ng incident.incident_type (hindi type)
+            const formBadge = incident.form_type === 'crime'
+                ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Crime</span>'
+                : '<span class="badge" style="background:#f59e0b;color:#fff;font-size:0.65rem;">Blotter</span>';
+
             return `
                 <tr>
                     <td><strong>${formatIncidentId(incident.id, incident.incident_type)}</strong></td>
+                    <td>${formBadge}</td>
                     <td><strong>${escapeHTML(incident.incident_type || 'N/A')}</strong></td>
                     <td>${escapeHTML(location)}</td>
                     <td>${formattedDate}</td>
@@ -494,6 +502,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p class="incident-hero-id">CASE #${String(incident.id).padStart(5, '0')}</p>
                         <h3 class="incident-hero-title">${escapeHTML(incident.incident_type || 'N/A')}</h3>
                         <div class="incident-hero-badges">
+                            <span class="badge" style="background:${incident.form_type === 'crime' ? '#3b82f6' : '#f59e0b'};color:#fff;">${incident.form_type === 'crime' ? 'Crime Form' : 'Blotter Form'}</span>
                             <span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span>
                             <span class="badge ${modalDangerClass}">${escapeHTML(incident.danger_level || 'Not assessed')}</span>
                             ${incident.severity ? `<span class="badge ${incident.severity === 'High' ? 'badge-danger-high' : incident.severity === 'Medium' ? 'badge-danger-mod' : 'badge-danger-low'}">Severity: ${escapeHTML(incident.severity)}</span>` : ''}
@@ -717,7 +726,14 @@ document.addEventListener('DOMContentLoaded', function() {
         currentPage = 1;
         loadIncidents();
     });
-    
+
+    if (filterFormType) {
+        filterFormType.addEventListener('change', () => {
+            currentPage = 1;
+            loadIncidents();
+        });
+    }
+
     refreshBtn.addEventListener('click', () => {
         loadIncidents();
         loadStats();

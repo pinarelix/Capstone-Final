@@ -444,7 +444,7 @@ function applyFilterAndRender() {
     if (badge) { badge.textContent = 'Click a point on the map'; badge.classList.remove('active'); }
     const tbody = document.getElementById('detailsTableBody');
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>Click on a map point to view incident details</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>Click on a map point to view incident details</p></div></td></tr>`;
     }
 
     renderIncidents(filtered);
@@ -635,7 +635,7 @@ function showIncidentDetails(incidents, lat, lng) {
     }
 
     if (!incidents || incidents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>No incident details available</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>No incident details available</p></div></td></tr>`;
         return;
     }
 
@@ -664,9 +664,14 @@ function renderIncidentRows(incidents, tbody) {
         }
         if (item.time) timeStr = item.time.substring(0, 5);
 
+        const formBadge = item.form_type === 'crime'
+            ? '<span style="background:#3b82f6;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:4px;">Crime</span>'
+            : '<span style="background:#f59e0b;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:4px;">Blotter</span>';
+
         return `
             <tr>
                 <td>${escapeHTML(item.blotter_number || '—')}</td>
+                <td>${formBadge}</td>
                 <td class="font-bold">${item.id || 'N/A'}</td>
                 <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                 <td>${dateStr} ${timeStr}</td>
@@ -690,7 +695,7 @@ function renderFilteredDetails(filterText) {
     const tbody = document.getElementById('detailsTableBody');
     if (!tbody) return;
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="fa-regular fa-filter-circle-xmark"></i><p>No incidents match blotter number "${escapeHTML(filterText)}"</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><i class="fa-regular fa-filter-circle-xmark"></i><p>No incidents match blotter number "${escapeHTML(filterText)}"</p></div></td></tr>`;
         return;
     }
     renderIncidentRows(filtered, tbody);

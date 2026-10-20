@@ -265,11 +265,13 @@ async function loadIncidents() {
         const typeVal = document.getElementById('filterType')?.value;
         const dangerVal = document.getElementById('filterDanger')?.value;
         const dateVal = document.getElementById('filterDate')?.value;
+        const formTypeVal = document.getElementById('filterFormType')?.value;
 
         if (searchVal) params.set('search', searchVal);
         if (typeVal) params.set('type', typeVal);
         if (dangerVal) params.set('danger', dangerVal);
         if (dateVal) params.set('date', dateVal);
+        if (formTypeVal) params.set('form_type', formTypeVal);
 
         console.log('🔄 Fetching incidents from /incidents?' + params.toString());
         const response = await apiFetch(`/incidents?${params.toString()}`);
@@ -481,7 +483,7 @@ function renderTable(dataToRender) {
     if (dataToRender.length === 0) {
         const emptyRow = document.createElement('tr');
         emptyRow.innerHTML = `
-            <td colspan="10" style="text-align: center; padding: 30px; color: #94a3b8;">
+            <td colspan="11" style="text-align: center; padding: 30px; color: #94a3b8;">
                 <i class="fa-regular fa-circle" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
                 No incident records found.
             </td>
@@ -505,8 +507,13 @@ function renderTable(dataToRender) {
             const severityClass = item.severity === 'High' ? 'badge-danger-high' : item.severity === 'Medium' ? 'badge-danger-mod' : 'badge-danger-low';
 
             const row = document.createElement('tr');
+            const formBadge = item.form_type === 'crime'
+                ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Crime</span>'
+                : '<span class="badge" style="background:#f59e0b;color:#fff;font-size:0.65rem;">Blotter</span>';
+
             row.innerHTML = `
                 <td class="font-bold">${formatIncidentId(item.id, item.incident_type)}</td>
+                <td>${formBadge}</td>
                 <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                 <td class="text-secondary">${formattedDate} ${formattedTime}</td>
                 <td>${escapeHTML(locationDisplay)}</td>
@@ -697,7 +704,8 @@ function setupForm() {
                 priority: priority,
                 severity: severity,
                 respondent_name: respondentName,
-                respondent_address: respondentAddress
+                respondent_address: respondentAddress,
+                form_type: formType
             };
 
             console.log('📤 Sending payload:', payload);
@@ -1080,8 +1088,7 @@ window.editIncident = async (id) => {
         document.getElementById('respondentName').value = record.respondent_name || '';
         document.getElementById('respondentAddress').value = record.respondent_address || '';
 
-        const hasCrimeData = !record.blotter_number && !record.description;
-        const editFormType = hasCrimeData ? 'crime' : 'blotter';
+        const editFormType = record.form_type || (!record.blotter_number && !record.description ? 'crime' : 'blotter');
         const formTypeRadio = document.querySelector(`input[name="formType"][value="${editFormType}"]`);
         if (formTypeRadio) {
             formTypeRadio.checked = true;
@@ -1165,6 +1172,7 @@ function setupSearchAndFilters() {
     const filterType = document.getElementById('filterType');
     const filterDanger = document.getElementById('filterDanger');
     const filterDate = document.getElementById('filterDate');
+    const filterFormType = document.getElementById('filterFormType');
 
     // Search/filter now happens server-side (see loadIncidents()) so it
     // searches the whole dataset, not just whichever page is currently
@@ -1178,6 +1186,7 @@ function setupSearchAndFilters() {
     if (filterType) filterType.addEventListener('change', filterFunction);
     if (filterDanger) filterDanger.addEventListener('change', filterFunction);
     if (filterDate) filterDate.addEventListener('change', filterFunction);
+    if (filterFormType) filterFormType.addEventListener('change', filterFunction);
 }
 
 /* ============================================================

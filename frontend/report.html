@@ -679,6 +679,14 @@
                     <input type="date" id="filterDateTo">
                 </div>
                 <div class="report-filter-field">
+                    <label for="filterFormType">Form Type</label>
+                    <select id="filterFormType">
+                        <option value="">All Forms</option>
+                        <option value="blotter">Blotter</option>
+                        <option value="crime">Crime</option>
+                    </select>
+                </div>
+                <div class="report-filter-field">
                     <label for="filterStatus">Status</label>
                     <select id="filterStatus">
                         <option value="">All Status</option>
@@ -833,6 +841,7 @@
                     <thead>
                         <tr>
                             <th>INCIDENT ID</th>
+                            <th>FORM</th>
                             <th>TYPE</th>
                             <th>DATE / TIME</th>
                             <th>LOCATION</th>

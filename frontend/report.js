@@ -59,6 +59,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const filterDateTo = document.getElementById("filterDateTo");
     const filterStatus = document.getElementById("filterStatus");
     const filterType = document.getElementById("filterType");
+    const filterFormType = document.getElementById("filterFormType");
     const filterLocation = document.getElementById("filterLocation");
     const clearFiltersBtn = document.getElementById("clearFiltersBtn");
 
@@ -333,6 +334,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dateTo = filterDateTo?.value || '';
         const status = filterStatus?.value || '';
         const type = filterType?.value || '';
+        const formType = filterFormType?.value || '';
         const location = filterLocation?.value || '';
 
         return allData.filter(item => {
@@ -342,6 +344,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (status && item.status !== status) return false;
             if (type && item.incident_type !== type) return false;
+            if (formType && (item.form_type || 'blotter') !== formType) return false;
             if (location && item.street_name !== location) return false;
 
             return true;
@@ -410,7 +413,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (tableBody) {
             tableBody.innerHTML = "";
             if (filteredIncidents.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: #94a3b8;">No incident records match the selected filters.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 24px; color: #94a3b8;">No incident records match the selected filters.</td></tr>`;
             } else {
                 filteredIncidents.forEach(item => {
                     const tr = document.createElement("tr");
@@ -423,8 +426,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                     
                     const location = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
 
+                    const formBadge = item.form_type === 'crime'
+                        ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Crime</span>'
+                        : '<span class="badge" style="background:#f59e0b;color:#fff;font-size:0.65rem;">Blotter</span>';
+
                     tr.innerHTML = `
                         <td class="font-bold">${item.id || 'N/A'}</td>
+                        <td>${formBadge}</td>
                         <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                         <td>${formattedDate} ${formattedTime}</td>
                         <td>${escapeHTML(location)}</td>
@@ -590,6 +598,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         dateTo: filterDateTo?.value || '',
                         status: filterStatus?.value || '',
                         incidentType: filterType?.value || '',
+                        formType: filterFormType?.value || '',
                         location: filterLocation?.value || ''
                     },
                     recordCount: applyFilters(monthSelect?.value, currentIncidentData).length
@@ -612,7 +621,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Every refine-within-month filter re-renders the same table on
     // change - no separate "Apply" step.
-    [filterDateFrom, filterDateTo, filterStatus, filterType, filterLocation]
+    [filterDateFrom, filterDateTo, filterStatus, filterType, filterFormType, filterLocation]
         .filter(Boolean)
         .forEach(field => {
             field.addEventListener("change", () => {
@@ -622,7 +631,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (clearFiltersBtn) {
         clearFiltersBtn.addEventListener("click", () => {
-            [filterDateFrom, filterDateTo, filterStatus, filterType, filterLocation]
+            [filterDateFrom, filterDateTo, filterStatus, filterType, filterFormType, filterLocation]
                 .filter(Boolean)
                 .forEach(field => { field.value = ""; });
             updateReportView(monthSelect.value, currentIncidentData);
@@ -729,7 +738,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return `"${str.replace(/"/g, '""')}"`;
             };
 
-            let csvContent = "Incident ID,Type,Date,Time,Location,Address,Status,Danger Level,Recommended Action,Reporter Name,Reporter Contact\n";
+            let csvContent = "Incident ID,Form Type,Type,Date,Time,Location,Address,Status,Danger Level,Recommended Action,Reporter Name,Reporter Contact\n";
 
             filteredData.forEach(item => {
                 const location = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
@@ -738,7 +747,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const reporterContact = item.reporter_contact_no || 'N/A';
 
                 csvContent += [
-                    item.id || '', item.incident_type || '', item.date || '', item.time || '',
+                    item.id || '', item.form_type || 'blotter', item.incident_type || '', item.date || '', item.time || '',
                     location, item.address || '', item.status || '', item.danger_level || '',
                     getRecommendedAction(item), reporterName, reporterContact
                 ].map(csvField).join(',') + '\n';

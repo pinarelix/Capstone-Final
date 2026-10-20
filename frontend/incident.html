@@ -686,6 +686,13 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <select id="filterFormType" class="form-select">
+                                <option value="">All Form Types</option>
+                                <option value="blotter">Blotter Form</option>
+                                <option value="crime">Crime Form</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <select id="filterDanger" class="form-select">
                                 <option value="">All Danger Levels</option>
                                 <option value="Level 1">Level 1 — Low Danger</option>
@@ -709,6 +716,7 @@
                             <thead>
                                 <tr>
                                     <th>INCIDENT ID</th>
+                                    <th>FORM</th>
                                     <th>TYPE</th>
                                     <th>DATE / TIME</th>
                                     <th>LOCATION</th>
