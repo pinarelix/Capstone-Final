@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 300);
 
     generateBlotterNumber();
+    setupFormTypeToggle();
     setupForm();
     setupSearchAndFilters();
     setupRippleEffect();
@@ -94,6 +95,32 @@ document.addEventListener('DOMContentLoaded', () => {
         history.replaceState({}, '', window.location.pathname);
     }
 });
+
+/* ============================================================
+   FORM TYPE TOGGLE (Blotter vs Crime)
+============================================================ */
+
+function getFormType() {
+    return document.querySelector('input[name="formType"]:checked')?.value || 'blotter';
+}
+
+function setupFormTypeToggle() {
+    const radios = document.querySelectorAll('input[name="formType"]');
+    const crimeSections = document.getElementById('crimeFormSections');
+    if (!crimeSections) return;
+
+    function applyFormType() {
+        const type = getFormType();
+        if (type === 'blotter') {
+            crimeSections.classList.add('hidden-section');
+        } else {
+            crimeSections.classList.remove('hidden-section');
+        }
+    }
+
+    radios.forEach(r => r.addEventListener('change', applyFormType));
+    applyFormType();
+}
 
 /* ============================================================
    TABS: Incident Records / New Incident
@@ -531,6 +558,7 @@ function setupForm() {
         const respondentName = document.getElementById('respondentName').value.trim();
         const respondentAddress = document.getElementById('respondentAddress').value.trim();
 
+        const formType = getFormType();
         const requiredFields = [
             { id: 'incidentType', label: 'Incident Type' },
             { id: 'incidentDate', label: 'Date' },
@@ -538,9 +566,13 @@ function setupForm() {
             { id: 'incidentStreet', label: 'Street Name' },
             { id: 'incidentSeverity', label: 'Severity Level' },
             { id: 'incidentAddress', label: 'Address' },
-            { id: 'incidentReportedByName', label: 'Name of Complainant' },
-            { id: 'incidentDesc', label: 'Salaysay / Description' }
         ];
+        if (formType === 'crime') {
+            requiredFields.push(
+                { id: 'incidentReportedByName', label: 'Name of Complainant' },
+                { id: 'incidentDesc', label: 'Salaysay / Description' }
+            );
+        }
 
         document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));
 
@@ -884,6 +916,16 @@ function clearForm() {
     const severityEl = document.getElementById('incidentSeverity');
     if (severityEl) severityEl.value = '';
 
+    const blotterRadio = document.querySelector('input[name="formType"][value="blotter"]');
+    if (blotterRadio) {
+        blotterRadio.checked = true;
+        const crimeSections = document.getElementById('crimeFormSections');
+        if (crimeSections) crimeSections.classList.add('hidden-section');
+    }
+
+    const formTypeSelector = document.querySelector('.form-type-selector');
+    if (formTypeSelector) formTypeSelector.style.display = '';
+
     generateBlotterNumber();
 }
 
@@ -990,6 +1032,17 @@ window.editIncident = async (id) => {
         document.getElementById('incidentSeverity').value = record.severity || 'Low';
         document.getElementById('respondentName').value = record.respondent_name || '';
         document.getElementById('respondentAddress').value = record.respondent_address || '';
+
+        const hasCrimeData = !!(record.reported_by_name || record.respondent_name || record.description);
+        const editFormType = hasCrimeData ? 'crime' : 'blotter';
+        const formTypeRadio = document.querySelector(`input[name="formType"][value="${editFormType}"]`);
+        if (formTypeRadio) {
+            formTypeRadio.checked = true;
+            const crimeSections = document.getElementById('crimeFormSections');
+            if (crimeSections) crimeSections.classList[editFormType === 'crime' ? 'remove' : 'add']('hidden-section');
+        }
+        const formTypeSelector = document.querySelector('.form-type-selector');
+        if (formTypeSelector) formTypeSelector.style.display = '';
 
         document.getElementById('formTitle').textContent = `Edit Incident (${formatIncidentId(record.id, record.incident_type)})`;
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;

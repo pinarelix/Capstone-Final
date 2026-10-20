@@ -94,6 +94,78 @@
 
         .req { color: #ef4444; margin-left: 2px; font-weight: 700; }
         .form-required-note { font-size: 0.75rem; color: #94a3b8; margin-bottom: 12px; }
+
+        /* Form Type Selector */
+        .form-type-selector {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .form-type-option {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .form-type-option input[type="radio"] {
+            display: none;
+        }
+
+        .form-type-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            background: #f8fafc;
+            transition: all 0.25s ease;
+        }
+
+        .form-type-card i {
+            font-size: 1.4rem;
+            color: #94a3b8;
+            transition: color 0.25s ease;
+        }
+
+        .form-type-card strong {
+            display: block;
+            font-size: 0.85rem;
+            color: #334155;
+        }
+
+        .form-type-card span {
+            display: block;
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        .form-type-option input[type="radio"]:checked + .form-type-card {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .form-type-option input[type="radio"]:checked + .form-type-card i {
+            color: #3b82f6;
+        }
+
+        .form-type-option input[type="radio"]:checked + .form-type-card strong {
+            color: #1e40af;
+        }
+
+        .form-type-card:hover {
+            border-color: #93c5fd;
+            background: #f0f7ff;
+        }
+
+        #crimeFormSections {
+            transition: opacity 0.3s ease, max-height 0.3s ease;
+        }
+
+        #crimeFormSections.hidden-section {
+            display: none;
+        }
     </style>
 </head>
 
@@ -192,6 +264,30 @@
                     <form id="incidentForm" novalidate>
                         <input type="hidden" id="editIndex" value="">
                         <p class="form-required-note"><span class="req">*</span> Required fields</p>
+
+                        <!-- Form Type Selector -->
+                        <div class="form-type-selector">
+                            <label class="form-type-option">
+                                <input type="radio" name="formType" value="blotter" checked>
+                                <div class="form-type-card">
+                                    <i class="fa-solid fa-file-alt"></i>
+                                    <div>
+                                        <strong>Blotter Form</strong>
+                                        <span>Incident & Location details only</span>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="form-type-option">
+                                <input type="radio" name="formType" value="crime">
+                                <div class="form-type-card">
+                                    <i class="fa-solid fa-scale-balanced"></i>
+                                    <div>
+                                        <strong>Crime Form</strong>
+                                        <span>Full report with persons & salaysay</span>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
 
                         <div class="form-section-header"><i class="fa-solid fa-clipboard-list"></i> Incident Details</div>
 
@@ -412,6 +508,8 @@
                             </div>
                         </div>
 
+                        <div id="crimeFormSections">
+
                         <div class="form-section-header"><i class="fa-solid fa-users"></i> People Involved</div>
 
                         <!-- ==========================================================
@@ -420,7 +518,7 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Name of Complainant <span class="req">*</span></label>
-                                <input type="text" id="incidentReportedByName" class="form-control" placeholder="e.g. Juan Dela Cruz" maxlength="150" required>
+                                <input type="text" id="incidentReportedByName" class="form-control" placeholder="e.g. Juan Dela Cruz" maxlength="150">
                             </div>
                         </div>
 
@@ -445,8 +543,10 @@
                         ========================================================== -->
                         <div class="form-group">
                             <label>Salaysay / Description <span class="req">*</span></label>
-                            <textarea id="incidentDesc" class="form-control textarea" placeholder="Ilagay ang detalyadong salaysay ng insidente." rows="4" maxlength="2000" required></textarea>
+                            <textarea id="incidentDesc" class="form-control textarea" placeholder="Ilagay ang detalyadong salaysay ng insidente." rows="4" maxlength="2000"></textarea>
                         </div>
+
+                        </div><!-- /crimeFormSections -->
 
                         <!-- ==========================================================
                              ROW 4c: Evidence
