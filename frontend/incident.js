@@ -30,6 +30,21 @@ async function loadLocationCoordinates() {
 
 // ✅ ITO NA LANG ANG KAILANGAN - WALA NANG CUSTOM FUNCTIONS
 
+async function generateBlotterNumber() {
+    const el = document.getElementById('incidentBlotter');
+    if (!el) return;
+    try {
+        const res = await apiFetch('/incidents/next-blotter');
+        const data = await res.json();
+        el.value = data.blotter_number;
+    } catch {
+        const now = new Date();
+        const y = now.getFullYear();
+        const seq = String(Math.floor(Math.random() * 9000) + 1000);
+        el.value = `BLT-${y}-${seq}`;
+    }
+}
+
 /* ============================================================
    DOM READY
 ============================================================ */
@@ -59,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadIncidents();
     }, 300);
 
+    generateBlotterNumber();
     setupForm();
     setupSearchAndFilters();
     setupRippleEffect();
@@ -514,8 +530,6 @@ function setupForm() {
         const priority = severity === 'High' ? 'Urgent' : 'Normal';
         const respondentName = document.getElementById('respondentName').value.trim();
         const respondentAddress = document.getElementById('respondentAddress').value.trim();
-        const ageRaw = document.getElementById('respondentAge').value;
-        const age = ageRaw ? parseInt(ageRaw, 10) : null;
 
         const requiredFields = [
             { id: 'incidentType', label: 'Incident Type' },
@@ -524,7 +538,6 @@ function setupForm() {
             { id: 'incidentStreet', label: 'Street Name' },
             { id: 'incidentSeverity', label: 'Severity Level' },
             { id: 'incidentAddress', label: 'Address' },
-            { id: 'incidentBlotter', label: 'Blotter Number' },
             { id: 'incidentReportedByName', label: 'Name of Complainant' },
             { id: 'incidentDesc', label: 'Salaysay / Description' }
         ];
@@ -622,8 +635,7 @@ function setupForm() {
                 priority: priority,
                 severity: severity,
                 respondent_name: respondentName,
-                respondent_address: respondentAddress,
-                age: age
+                respondent_address: respondentAddress
             };
 
             console.log('📤 Sending payload:', payload);
@@ -869,10 +881,10 @@ function clearForm() {
     if (respondentNameEl) respondentNameEl.value = '';
     const respondentAddressEl = document.getElementById('respondentAddress');
     if (respondentAddressEl) respondentAddressEl.value = '';
-    const respondentAgeEl = document.getElementById('respondentAge');
-    if (respondentAgeEl) respondentAgeEl.value = '';
     const severityEl = document.getElementById('incidentSeverity');
     if (severityEl) severityEl.value = '';
+
+    generateBlotterNumber();
 }
 
 document.getElementById('clearBtn').addEventListener('click', clearForm);
@@ -978,7 +990,6 @@ window.editIncident = async (id) => {
         document.getElementById('incidentSeverity').value = record.severity || 'Low';
         document.getElementById('respondentName').value = record.respondent_name || '';
         document.getElementById('respondentAddress').value = record.respondent_address || '';
-        document.getElementById('respondentAge').value = record.age != null ? record.age : '';
 
         document.getElementById('formTitle').textContent = `Edit Incident (${formatIncidentId(record.id, record.incident_type)})`;
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;

@@ -574,7 +574,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="incident-text-card accent-people">
                             <div class="incident-text-card-header"><i class="fa-solid fa-user"></i> Respondent</div>
                             <div class="incident-text-card-body">
-                                ${escapeHTML(incident.respondent_name)}${incident.age != null ? ` (Age: ${incident.age})` : ''}${incident.respondent_address ? `<br>Address: ${escapeHTML(incident.respondent_address)}` : ''}
+                                ${escapeHTML(incident.respondent_name)}${incident.respondent_address ? `<br>Address: ${escapeHTML(incident.respondent_address)}` : ''}
                             </div>
                         </div>` : ''}
                         ${incident.cart_decision_path ? `

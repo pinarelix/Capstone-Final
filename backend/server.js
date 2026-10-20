@@ -2134,6 +2134,29 @@ app.post('/api/auth/logout', async (req, res) => {
 // ✅ FIXED: INCIDENT MANAGEMENT API ROUTES
 // ============================================================
 
+app.get('/api/incidents/next-blotter', authenticate, async (req, res) => {
+    try {
+        const year = new Date().getFullYear();
+        const [rows] = await pool.query(
+            `SELECT blotter_number FROM incidents
+             WHERE blotter_number LIKE ?
+             ORDER BY id DESC LIMIT 1`,
+            [`BLT-${year}-%`]
+        );
+        let seq = 1;
+        if (rows.length > 0) {
+            const last = rows[0].blotter_number;
+            const parts = last.split('-');
+            const lastSeq = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(lastSeq)) seq = lastSeq + 1;
+        }
+        res.json({ blotter_number: `BLT-${year}-${String(seq).padStart(4, '0')}` });
+    } catch (error) {
+        console.error('Error generating blotter number:', error);
+        res.status(500).json({ error: 'Failed to generate blotter number' });
+    }
+});
+
 app.get('/api/incidents', authenticate, requireRole(['Administrator', 'Decision-Maker', 'Desk Officer']), async (req, res) => {
     try {
         const { page = 1, limit = 25, search = '', type = '', danger = '', date = '', status = '', include_resolved = '' } = req.query;
