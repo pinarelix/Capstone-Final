@@ -39,14 +39,22 @@ This is our updated review for the current build. The Tanod accounts, pages, rou
 
 ---
 
+## Additional Security Features (Optional)
+
+These two controls were proposed in the previous review and are now already implemented in the current build, so we marked them as **RETAIN**.
+
+| # | Security feature / control | Student decision<br>(Retain / Remove / Add) | Reason / justification for the decision | Planned live test or evidence reference |
+|---|----------------------------|---------------------------------------------|------------------------------------------|----------------------------------------|
+| A1 | Content-Security-Policy (CSP) response header | **RETAIN** | We already added this. It tells the browser to load scripts and styles only from allowed sources, which gives another layer of protection against injected scripts. The current policy still allows inline scripts and styles, so it can be made stricter. | Open the browser developer tools and check the response headers for the security policy. Try entering a script in a form; it should not run. |
+| A2 | File upload magic-byte verification | **RETAIN** | We already added this. The system now checks the actual content of the file, not just the file extension or declared type, so a renamed malicious file is rejected. | Rename an HTML or text file to `.jpg` and upload it; it should be rejected. Upload a real image; it should be accepted. |
+
+---
+
 ## Summary
 
-**Totals: 19 RETAIN, 2 REMOVE, 0 ADD.**
+**Totals: 21 RETAIN, 2 REMOVE, 0 ADD.**
 
-The two optional features from the previous review are now already implemented, so they are included in the main list instead of being separate ADD items:
-
-- **Browser security header** — now added to the server (covered in #10).
-- **File content check** — now used for uploads (covered in #12).
+The two optional controls from the previous review are now implemented and listed in the additional section above. They are also related to #10 and #12.
 
 ### Remaining fixes
 
