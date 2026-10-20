@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT403-P Pre-Examination Security Feature Review</title>
+<style>
+  @page {
+    size: landscape;
+    margin: 0.5in;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    line-height: 1.35;
+    color: #1a1a1a;
+    background: #fff;
+    padding: 0.5in;
+  }
+
+  h1 {
+    font-size: 13pt;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  h2 {
+    font-size: 11pt;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .header-block {
+    margin-bottom: 12px;
+  }
+
+  .capstone-label {
+    font-size: 9pt;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 8px;
+  }
+
+  /* Info boxes */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1.5px solid #000;
+    margin-bottom: 10px;
+  }
+
+  .info-grid .cell {
+    padding: 5px 8px;
+    border: 0.5px solid #000;
+    font-size: 8.5pt;
+  }
+
+  .info-grid .cell-label {
+    font-weight: 600;
+    font-size: 7.5pt;
+    color: #333;
+  }
+
+  .info-grid .cell-value {
+    min-height: 18px;
+  }
+
+  /* Instructions */
+  .instructions {
+    margin-bottom: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .instructions p {
+    margin-bottom: 3px;
+    font-size: 8.5pt;
+  }
+
+  .instructions strong {
+    font-size: 8.5pt;
+  }
+
+  .section-note {
+    font-size: 8pt;
+    color: #555;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+
+  /* Main table */
+  table.features {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+    page-break-inside: auto;
+  }
+
+  table.features th,
+  table.features td {
+    border: 1px solid #000;
+    padding: 4px 5px;
+    vertical-align: top;
+    font-size: 8pt;
+    line-height: 1.3;
+  }
+
+  table.features th {
+    background: #e8e8e8;
+    font-weight: 700;
+    text-align: center;
+    font-size: 7.5pt;
+  }
+
+  table.features td:nth-child(1) { width: 3%; text-align: center; font-weight: 700; }
+  table.features td:nth-child(2) { width: 18%; }
+  table.features td:nth-child(3) { width: 7%; text-align: center; font-weight: 700; }
+  table.features td:nth-child(4) { width: 32%; }
+  table.features td:nth-child(5) { width: 28%; }
+  table.features td:nth-child(6) { width: 7%; text-align: center; }
+  table.features td:nth-child(7) { width: 5%; text-align: center; }
+
+  .section-header td {
+    background: #d4d4d4;
+    font-weight: 700 !important;
+    font-size: 8.5pt !important;
+    text-align: left !important;
+    padding: 5px 8px !important;
+  }
+
+  .decision-retain { color: #166534; font-weight: 700; }
+  .decision-remove { color: #991b1b; font-weight: 700; }
+  .decision-add { color: #1e40af; font-weight: 700; }
+
+  tr { page-break-inside: avoid; }
+
+  /* Footer */
+  .review-flags {
+    font-size: 7.5pt;
+    color: #555;
+    margin: 8px 0;
+    padding: 5px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+  }
+
+  .rubric {
+    margin-top: 12px;
+    page-break-before: auto;
+  }
+
+  .rubric h3 {
+    font-size: 10pt;
+    margin-bottom: 4px;
+  }
+
+  table.rubric-table {
+    width: 60%;
+    border-collapse: collapse;
+  }
+
+  table.rubric-table th,
+  table.rubric-table td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    font-size: 8pt;
+    vertical-align: top;
+  }
+
+  table.rubric-table th {
+    background: #e8e8e8;
+    font-weight: 700;
+  }
+
+  .summary-box {
+    margin-top: 14px;
+    padding: 8px 10px;
+    border: 1.5px solid #000;
+    background: #f5f5f5;
+    page-break-inside: avoid;
+  }
+
+  .summary-box h3 {
+    font-size: 10pt;
+    margin-bottom: 6px;
+  }
+
+  table.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table.summary-table th,
+  table.summary-table td {
+    border: 1px solid #999;
+    padding: 3px 5px;
+    font-size: 7.5pt;
+    vertical-align: top;
+  }
+
+  table.summary-table th {
+    background: #e0e0e0;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  table.summary-table td:nth-child(1) { text-align: center; width: 4%; }
+  table.summary-table td:nth-child(3) { text-align: center; width: 8%; }
+
+  @media print {
+    body { padding: 0; font-size: 8pt; }
+    table.features th, table.features td { font-size: 7pt; padding: 3px 4px; }
+    .summary-box { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header-block">
+  <h1>IT403-P | GROUP PRE-EXAMINATION ACTIVITY | 30 POINTS</h1>
+  <h2>Security Feature Finalization &amp; Change Review</h2>
+  <p class="capstone-label">CAPSTONE 04 OF 38 — Barangay 179 Crime CART</p>
+</div>
+
+<div class="info-grid">
+  <div class="cell">
+    <div class="cell-label">Capstone information</div>
+    <div class="cell-value"><strong>Capstone title:</strong> An Application-Based Business Intelligence System Using CART Decision Tree Analytics for Crime Prediction and Prevention, Heatmap-Based Risk Mapping, and Patrol Decision Support in Barangay 179, Amparo, Caloocan City</div>
+  </div>
+  <div class="cell">
+    <div class="cell-label">Group information</div>
+    <div class="cell-value">Group / Section: ___________________________________</div>
+  </div>
+  <div class="cell">
+    <div class="cell-value">Date: ________________________</div>
+  </div>
+  <div class="cell">
+    <div class="cell-value">Group leader: ______________________________________</div>
+  </div>
+</div>
+
+<div class="instructions">
+  <p><strong>Activity purpose and instructions</strong></p>
+  <p>Review the original security-feature proposal and finalize the security controls to be examined. This activity is graded separately (30 points); the final examination remains 100 points.</p>
+  <p><strong>1. List and classify.</strong> Include every originally proposed security feature and any new requested feature. Mark each as RETAIN, REMOVE, or ADD.</p>
+  <p><strong>2. Justify and verify.</strong> Give a brief reason for every decision, particularly additions and removals. Describe a practical verification test or evidence reference.</p>
+  <p><strong>3. Obtain approval.</strong> The instructor marks INCLUDE or EXCLUDE for each feature. An unapproved removal remains required; an unapproved addition is not assessed.</p>
+</div>
+
+<p class="section-note">Prelisted entries summarize previously proposed controls for review; they are NOT confirmed implemented or approved. Mark each RETAIN or REMOVE and justify the decision. Use the ADD rows for new features. Any entry marked [CONFIRM SCOPE] needs clarification before instructor approval.</p>
+
+<table class="features">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Security feature / control</th>
+      <th>Student decision<br>Retain / Remove / Add</th>
+      <th>Reason / justification for the decision</th>
+      <th>Planned live test or evidence reference</th>
+      <th>Instructor decision<br>Include / Exclude</th>
+      <th>Final exam result<br>Pass / Fail / Retest</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- LOGIN AND ACCOUNT SECURITY -->
+    <tr class="section-header"><td colspan="7">LOGIN AND ACCOUNT SECURITY</td></tr>
+
+    <tr>
+      <td>1</td>
+      <td>Account provisioning and status checks: Central authentication on the trusted local server.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. All authentication is centralized on the local Express backend (server.js). Staff login via POST /api/auth/login and tanod login via POST /api/tanod/login validate credentials against the local MySQL database. Session tokens (256-bit via crypto.randomBytes) are created server-side and stored in user_sessions / tanod_sessions tables. The authenticate middleware checks every protected request against the DB. No external auth service used.</td>
+      <td>1) Open app → attempt login → confirm auth handled by localhost:3000.<br>2) DevTools Network → confirm no external auth requests.<br>3) Call GET /api/incidents without token → confirm 401.<br>4) Code ref: server.js:730–815 (authenticate MW), :1820–1935 (login route).</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>2</td>
+      <td>Secure password handling: salted password hashing; masked password entry; disabled remember-me and default passwords.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Partially implemented. Salted hashing: bcryptjs salt rounds = 10 for all passwords/PINs. Masked entry: type="password" (login.html:108). <strong>Gaps:</strong> (a) Remember Me checkbox still present (login.html:127–132). (b) Hardcoded demo credentials in login.js:36–45 (admin/admin123, captain/captain123, deskofficer/deskofficer123) and schema.sql:681–684. Must be removed before final exam.</td>
+      <td>1) Query users table → confirm $2b$10$ bcrypt hashes.<br>2) Inspect password field → confirm type="password".<br>3) Inspect login.html → confirm Remember Me checkbox removed.<br>4) Inspect login.js → confirm no hardcoded credentials.<br>5) Attempt login with "admin"/"admin123" → confirm failure after fix.<br>6) Code ref: server.js:1877, login.html:108, login.js:36–45.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>3</td>
+      <td>Login abuse prevention: lockout.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. Two-layer protection: (1) DB-tracked lockout — login_attempts table records each attempt; 5 failures in 15 min = lockout (HTTP 429). (2) In-memory rate limiter — 8 req / 5 min per IP:path on auth endpoints. Both staff and tanod login paths have identical lockout logic.</td>
+      <td>1) Enter wrong password 5× → confirm 6th attempt returns 429 "Too many failed login attempts."<br>2) Wait 15 min → confirm unlock.<br>3) Send 9+ rapid requests → confirm rate limiter 429.<br>4) Verify message is user-friendly, no internal details leaked.<br>5) Code ref: server.js:1841–1853, :3535–3543, :568–596.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <!-- SESSION SECURITY -->
+    <tr class="section-header"><td colspan="7">SESSION SECURITY</td></tr>
+
+    <tr>
+      <td>4</td>
+      <td>Session identifiers and renewal: Session ID renewal on re-authentication.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. Each login generates a new 256-bit token via crypto.randomBytes(32). On password reset, ALL existing sessions for that user are invalidated (is_active = 0) before new password is saved, forcing re-auth. On logout, the specific token is deactivated. No token reuse across auth events.</td>
+      <td>1) Login → record token from sessionStorage.<br>2) Logout → login again → confirm different token.<br>3) Reset password → confirm all prior tokens return 401.<br>4) Code ref: server.js:1907 (randomBytes), :2045 (revoke all on reset).</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>5</td>
+      <td>Session and cookie protection: Secure and HttpOnly cookies.</td>
+      <td class="decision-remove">REMOVE</td>
+      <td>Not applicable. System uses Bearer tokens via Authorization HTTP header, not cookies. No Set-Cookie headers issued (grep: 0 matches). No cookie-parser dependency. Bearer tokens provide equivalent security: not auto-attached cross-origin (natural CSRF resistance), stored in sessionStorage (cleared on tab close). Secure/HttpOnly cookie attributes have no surface to apply to.</td>
+      <td>1) DevTools → Network → confirm no Set-Cookie on any response.<br>2) DevTools → Application → Cookies → confirm none stored.<br>3) Inspect any API request → confirm Authorization: Bearer header used.<br>4) Code ref: server.js:730–815 (reads Authorization header, not cookies).</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>6</td>
+      <td>Session expiry and revocation: periodic termination, inactivity logout and no identifiers in URLs or logs.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. Idle timeout: authenticate MW checks last_active_at vs. session_timeout_minutes (default 30 min). Exceeded → session deactivated, 401 returned. Sliding window refresh on each request. Logout sets is_active = 0. Password reset revokes all sessions. No tokens in URLs or audit logs.</td>
+      <td>1) Remain idle past timeout → confirm 401 on next call.<br>2) Change timeout to 1 min via Settings → confirm it applies.<br>3) Check audit_logs → confirm no session tokens stored.<br>4) Check API URLs → confirm no tokens in query strings.<br>5) Code ref: server.js:710–724, :750–760, :2108–2140, :2045.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <!-- ACCESS CONTROL -->
+    <tr class="section-header"><td colspan="7">ACCESS CONTROL</td></tr>
+
+    <tr>
+      <td>7</td>
+      <td>Role-based authorization: Least-privilege RBAC; central authorization.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. Centralized requireRole() MW (server.js:818–844) checks req.userRole on every route. Deputy Officer: full CRUD + settings + users + audit. Team Leader: CRUD on incidents/schedules only. Kagawad: read-only. Tanods: separate auth path with requireOwnTanodId for object-level access. All 80+ routes have server-side role checks.</td>
+      <td>1) Login as Kagawad → POST /api/incidents → confirm 403.<br>2) Login as Team Leader → DELETE /api/users/1 → confirm 403.<br>3) Login as Deputy Officer → confirm all ops succeed.<br>4) Auth as Tanod A → GET /api/tanod/dashboard/[B_id] → confirm 403.<br>5) Code ref: server.js:818–844 (requireRole).</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>8</td>
+      <td>Privileged actions and account governance: administrative data entry and account management separated from official view-only analytics; fail-secure decisions.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. User management (POST/PUT/DELETE /api/users) restricted to Deputy Officer only. Settings, CART weights, audit logs: Deputy Officer–only. Kagawad: view-only analytics (GET on incidents, heatmap, CART, dashboard). Fail-secure: authenticate → 401 on failure, requireRole → 403 on mismatch. Delete ops use soft-delete with archive.</td>
+      <td>1) As Kagawad → confirm no edit/delete buttons (client-side).<br>2) As Kagawad → curl POST /api/users → confirm 403 (server-side).<br>3) Inspect delete → confirm archive entry + is_active = 0.<br>4) Invalid token → confirm 401 (fail-secure).<br>5) Code ref: server.js:1525–1800, :4661–4717.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <!-- INPUT AND QUERY SECURITY -->
+    <tr class="section-header"><td colspan="7">INPUT AND QUERY SECURITY</td></tr>
+
+    <tr>
+      <td>9</td>
+      <td>Input validation and safe transaction processing: Server-side allow-list validation of coordinates and text.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. All POST/PUT endpoints use Joi validation with stripUnknown: true. Coordinates: lat min(-90) max(90), lng min(-180) max(180). Locations validated against BARANGAY_LOCATIONS allow-list via Joi.valid(). Text fields: max-length constraints (username: 50, password: 128, name: 100, description: 5000). CART weights: int min(1) max(98), sum = 100.</td>
+      <td>1) POST /api/incidents with latitude = 999 → confirm 400.<br>2) Request with location = "InvalidPlace" → confirm rejection.<br>3) Send extra fields → confirm stripped.<br>4) Username > 50 chars → confirm 400.<br>5) Code ref: server.js:372–528 (schemas), :530–540 (MW), :4891–4895.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>10</td>
+      <td>Browser output and request protections: contextual encoding for Leaflet/HTML.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. escapeHTML() (apiHelper.js:22–29) escapes &amp;, &lt;, &gt;, quotes before DOM insertion. Used 164 times across 11 files vs. 171 innerHTML assignments (near 1:1 coverage). Remaining innerHTML usages are numeric-only or static text. Server sets X-Content-Type-Options: nosniff. Note: CSP header not yet set (see A1).</td>
+      <td>1) Create incident with &lt;script&gt;alert('xss')&lt;/script&gt; in description → confirm rendered as text.<br>2) Inspect HTML in DevTools → confirm escaped entities.<br>3) Response headers → confirm X-Content-Type-Options: nosniff.<br>4) Code ref: apiHelper.js:22–29, server.js:71.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>11</td>
+      <td>Database and injection protections: parameterized queries.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. All 100+ queries use mysql2/promise parameterized queries with ? placeholders. Zero SQL string concatenation (verified via grep). Dynamic audit-log query (:4670–4708) uses parameterized ? for all user input — dynamic parts are fixed SQL fragments only. Complete SQL injection protection.</td>
+      <td>1) Login with username = admin' OR '1'='1 → confirm "Invalid username or password."<br>2) Search with SQL metacharacters → confirm no injection.<br>3) grep "pool.query" server.js → confirm all use (?, [params]).<br>4) Code ref: server.js:1862 (login), :2538 (insert).</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>12</td>
+      <td>Upload and file-processing protections: disabled execution in upload directories.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. multer with: (a) MIME allow-list (jpeg/png/gif/webp/mp4). (b) Server-generated filenames (Date.now + random). (c) 10 MB limit. (d) Files gated behind HMAC-signed tokens (60s TTL) via /api/uploads/file-token. (e) X-Content-Type-Options: nosniff. Note: MIME alone is spoofable — magic-byte check recommended (see A2).</td>
+      <td>1) Upload .txt renamed to .jpg → confirm MIME rejection.<br>2) Access /uploads/file without ftoken → confirm 403.<br>3) Access with expired ftoken (60s+) → confirm 403.<br>4) Check filenames on disk → confirm server-generated.<br>5) Code ref: server.js multer config, :1026–1061.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <!-- DATA PROTECTION AND PRIVACY -->
+    <tr class="section-header"><td colspan="7">DATA PROTECTION AND PRIVACY</td></tr>
+
+    <tr>
+      <td>13</td>
+      <td>Encrypted network communication: TLS between frontend and local server.</td>
+      <td class="decision-remove">REMOVE</td>
+      <td>Not applicable. System runs as Electron desktop app — Express backend and Chromium frontend on the same machine via localhost (127.0.0.1:3000). Traffic never leaves the loopback interface. TLS for localhost adds certificate complexity with no security benefit for single-machine deployment. If scope changes to LAN/network, TLS becomes critical — documented as accepted risk for current scope.</td>
+      <td>1) Confirm Electron loads http://localhost:3000 (main.js:79).<br>2) Confirm server binds to localhost only.<br>3) Resource Monitor → Network → confirm no external connections.<br>4) Document: "TLS required if scope changes to multi-machine."</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>14</td>
+      <td>Confidential record access and storage: least-privilege MySQL account.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Partially implemented — requires remediation. Currently connects as root (server.js:218, .env: DB_USER=root). Root has DROP/GRANT/FILE privileges far exceeding needs. App only requires SELECT/INSERT/UPDATE/DELETE on brgydata. Must create a dedicated least-privilege user before final exam. Connection infrastructure is correct — only privilege level needs to change.</td>
+      <td>1) CREATE USER 'brgyapp'@'localhost'; GRANT SELECT,INSERT,UPDATE,DELETE ON brgydata.* TO 'brgyapp'@'localhost';<br>2) Update .env: DB_USER=brgyapp. Restart → confirm all features work.<br>3) As brgyapp → DROP TABLE users → confirm "Access denied."<br>4) Code ref: .env (DB_USER), server.js:218.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>15</td>
+      <td>Sensitive data encryption and key protection: separate encrypted connection configuration.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Partially implemented. Passwords: bcrypt salt=10 (strong). Tokens: crypto.randomBytes(32) CSPRNG. File tokens: HMAC-SHA256 ephemeral secret. Config: .env in .gitignore; config-manager.js migrates to %APPDATA%. <strong>Gaps:</strong> (a) .env has DB password in plaintext. (b) Reset token is 6-digit, logged to console. (c) Email delivery not configured.</td>
+      <td>1) Confirm .env in .gitignore.<br>2) SELECT password_hash → confirm $2b$10$ prefix.<br>3) Request file, wait 60s, re-request → confirm 403 (token expired).<br>4) After fix: confirm token NOT in console logs.<br>5) Code ref: server.js:1907, :1026–1035, .env.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>16</td>
+      <td>Personal-data minimization and lifecycle: secure handling and disposal of printed patrol routes.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented at application layer. API responses exclude sensitive fields: user queries omit password_hash; tanod queries use TANOD_PUBLIC_COLUMNS (no pin_code_hash); audit old_data strips PINs. Error responses return generic messages (no stack traces). Soft-delete/archive pattern. Physical document handling is operational policy outside app scope.</td>
+      <td>1) GET /api/users → confirm no password_hash.<br>2) GET /api/tanods → confirm no pin_code_hash.<br>3) Trigger server error → confirm no stack trace.<br>4) Check audit_logs for tanod update → confirm no PIN hash.<br>5) Code ref: TANOD_PUBLIC_COLUMNS, server.js:4993–5033.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <!-- AUDIT LOGGING AND SAFE ERRORS -->
+    <tr class="section-header"><td colspan="7">AUDIT LOGGING AND SAFE ERRORS</td></tr>
+
+    <tr>
+      <td>17</td>
+      <td>Security and activity audit trail: Authentication, validation failure, record modification and security-configuration logs.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. logAudit() and logTanodAudit() cover: LOGIN/LOGOUT/FORGOT/RESET/CHANGE_PASSWORD; CREATE/UPDATE/DELETE on users/incidents/tanods/schedules/logs/settings/CART. Each entry: user_id, action, entity_type, entity_id, old_data, new_data, ip_address, user_agent, created_at. Staff + tanod trails combined via UNION ALL. Login attempts tracked in separate tables.</td>
+      <td>1) Login → create → update → delete incident → check audit_logs for all 4 actions with old/new data.<br>2) Change setting → confirm UPDATE_SETTINGS entry.<br>3) Fail login → confirm login_attempts record.<br>4) Settings → Audit Logs as Deputy Officer → confirm all events shown.<br>5) Code ref: server.js logAudit function.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>18</td>
+      <td>Log security and monitoring: access restricted to the Security Admin.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Implemented. GET /api/audit-logs requires requireRole(['Deputy Officer']). No PUT/DELETE endpoints for audit logs — append-only at application layer. Note: root DB user (see #14) could modify logs directly — mitigated by fixing #14 to restrict DELETE/UPDATE on audit_logs via GRANT.</td>
+      <td>1) As Kagawad/Team Leader → GET /api/audit-logs → confirm 403.<br>2) As Deputy Officer → confirm access works.<br>3) Confirm no API endpoint modifies/deletes audit entries.<br>4) After #14 fix: as app DB user → DELETE FROM audit_logs → confirm denied.<br>5) Code ref: server.js:4661.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <!-- AVAILABILITY BACKUP AND RECOVERY -->
+    <tr class="section-header"><td colspan="7">AVAILABILITY BACKUP AND RECOVERY</td></tr>
+
+    <tr>
+      <td>19</td>
+      <td>Service continuity and availability: Operation without external cloud connectivity.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Partially implemented — requires remediation. Core architecture correct: Electron + local Express + local MySQL. <strong>Gap:</strong> Frontend loads 10+ external CDN resources (Google Fonts, Font Awesome, Chart.js, Bootstrap, Leaflet, Mapbox GL JS, Turf.js) — UI breaks without internet. Two fallback URLs to via.placeholder.com. All must be bundled locally before final exam.</td>
+      <td>1) Disconnect internet (disable Wi-Fi/Ethernet).<br>2) Launch Electron app → confirm all pages render (fonts, icons, charts, maps).<br>3) Create incident, view dashboard, open heatmap → confirm all work offline.<br>4) Reconnect → confirm no difference.<br>5) After fix: grep HTML for "http://" → confirm 0 external CDN refs.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>20</td>
+      <td>Backup and recovery controls: routine local backups, including automated encrypted backups in the mitigation table.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Partially implemented. Backup script (backup-database.js): mysqldump --single-transaction to database/backups/; 14-file retention; password via MYSQL_PWD env var. <strong>Gaps:</strong> (a) Manual only (npm run backup) — no scheduling. (b) Plain SQL text — no encryption. (c) No restore script/procedure. Must add automation, encryption, and restore testing.</td>
+      <td>1) npm run backup → confirm .sql file created with timestamp.<br>2) Grep backup for CREATE TABLE → confirm all tables included.<br>3) After encryption: confirm backup not readable as plain SQL.<br>4) Restore test: drop test table → restore → confirm recovery.<br>5) After scheduling: confirm auto backup at configured interval.<br>6) Code ref: backend/scripts/backup-database.js.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <!-- SECURE OPERATIONS AND CONFIGURATION -->
+    <tr class="section-header"><td colspan="7">SECURE OPERATIONS AND CONFIGURATION</td></tr>
+
+    <tr>
+      <td>21</td>
+      <td>Production hardening and secrets: Removal of unnecessary functions, test code and directory listings.</td>
+      <td class="decision-retain">RETAIN</td>
+      <td>Partially implemented. Electron: contextIsolation: true, nodeIntegration: false, menu removed, single-instance lock. Custom 404/error handlers prevent stack trace leakage. <strong>Gaps:</strong> (a) 92 console.log in server.js incl. route listing on startup. (b) login.js logs user name/role to browser console. (c) Demo credentials (covered in #2). Must clean up for production.</td>
+      <td>1) NODE_ENV=production → confirm minimal startup logging.<br>2) DevTools Console after login → confirm no sensitive data.<br>3) GET /api/nonexistent → confirm {"error":"Not found"}, no stack trace.<br>4) Trigger 500 → confirm {"error":"Server error"}, no details.<br>5) Code ref: main.js:52–67, server.js:4993–5033.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <!-- ADDITIONAL SECURITY FEATURES -->
+    <tr class="section-header"><td colspan="7">ADDITIONAL SECURITY FEATURES (OPTIONAL — COMPLETE ONLY IF PROPOSING ADDITIONS)</td></tr>
+
+    <tr>
+      <td>A1</td>
+      <td>Content-Security-Policy (CSP) response header</td>
+      <td class="decision-add">ADD</td>
+      <td>Currently only X-Content-Type-Options: nosniff is set. Adding CSP restricts script/style sources to trusted origins and blocks inline injection, reducing XSS impact even if an encoding gap is found. OWASP-recommended. Straightforward: single middleware line.</td>
+      <td>1) Inspect response headers → confirm CSP present (default-src 'self'; script-src 'self' [local]; style-src 'self' 'unsafe-inline').<br>2) Inject &lt;script&gt; tag → confirm browser blocks it due to CSP.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>A2</td>
+      <td>File upload magic-byte verification</td>
+      <td class="decision-add">ADD</td>
+      <td>Current multer filter checks only client-supplied MIME type (spoofable). Magic-byte verification (file-type npm library) validates actual binary content matches declared type, closing the gap where malicious HTML could be uploaded as image/jpeg.</td>
+      <td>1) Create .html file, rename to .jpg → upload → confirm rejection "Invalid file content."<br>2) Upload genuine JPEG → confirm success.<br>3) Code ref: add file-type check after multer, before save.</td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>A3</td>
+      <td></td>
+      <td class="decision-add">ADD</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td>A4</td>
+      <td></td>
+      <td class="decision-add">ADD</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+
+  </tbody>
+</table>
+
+<div class="review-flags">
+  <strong>Instructor review flags (clarify before approval):</strong> Local operation addresses internet dependency, but does not by itself guarantee availability during hardware or power failure. Confirm the deployment layout and whether a file-upload module exists before treating upload-directory hardening as an implemented feature.
+</div>
+
+<div class="rubric">
+  <h3>Activity assessment rubric — 30 points</h3>
+  <table class="rubric-table">
+    <thead>
+      <tr>
+        <th>Criterion</th>
+        <th>Assessment standard</th>
+        <th style="width:5%">Max</th>
+        <th style="width:5%">Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Completeness and Accuracy of Feature Inventory</td>
+        <td>Lists the original controls accurately and correctly identifies retained, removed, and added features.</td>
+        <td style="text-align:center">10</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>Quality of Justifications</td>
+        <td>Provides clear and defensible reasons for each decision, especially requested additions or removals.</td>
+        <td style="text-align:center">10</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>Security Relevance and Technical Feasibility</td>
+        <td>Decisions align with capstone scope and identify controls that are appropriate and achievable.</td>
+        <td style="text-align:center">5</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>Clarity and Verification Readiness</td>
+        <td>Features are distinct, clearly described, and supported by a practical test or evidence reference.</td>
+        <td style="text-align:center">5</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>TOTAL</strong></td>
+        <td></td>
+        <td style="text-align:center"><strong>30</strong></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:7.5pt; color:#555; margin-top:4px;">Assess the quality of the review — not the quantity of feature changes. No additions or removals are required to earn full credit.</p>
+</div>
+
+<div class="summary-box">
+  <h3>Summary of Decisions — 17 Retain, 2 Remove, 2 Add</h3>
+  <table class="summary-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Feature</th>
+        <th>Decision</th>
+        <th>Key Issue (if any)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Central authentication</td><td class="decision-retain">RETAIN</td><td>Fully implemented</td></tr>
+      <tr><td>2</td><td>Password handling</td><td class="decision-retain">RETAIN</td><td>Must remove remember-me &amp; demo credentials</td></tr>
+      <tr><td>3</td><td>Login lockout</td><td class="decision-retain">RETAIN</td><td>Fully implemented (5 attempts / 15 min + rate limiter)</td></tr>
+      <tr><td>4</td><td>Session ID renewal</td><td class="decision-retain">RETAIN</td><td>Fully implemented (new token each login)</td></tr>
+      <tr><td>5</td><td>Secure/HttpOnly cookies</td><td class="decision-remove">REMOVE</td><td>System uses Bearer tokens, not cookies</td></tr>
+      <tr><td>6</td><td>Session expiry/revocation</td><td class="decision-retain">RETAIN</td><td>Fully implemented (configurable idle timeout)</td></tr>
+      <tr><td>7</td><td>RBAC</td><td class="decision-retain">RETAIN</td><td>Fully implemented (4 roles, 80+ routes)</td></tr>
+      <tr><td>8</td><td>Privileged actions</td><td class="decision-retain">RETAIN</td><td>Fully implemented (Deputy Officer gated)</td></tr>
+      <tr><td>9</td><td>Input validation</td><td class="decision-retain">RETAIN</td><td>Fully implemented (Joi schemas on all endpoints)</td></tr>
+      <tr><td>10</td><td>Output encoding</td><td class="decision-retain">RETAIN</td><td>Fully implemented (escapeHTML + nosniff)</td></tr>
+      <tr><td>11</td><td>SQL injection protection</td><td class="decision-retain">RETAIN</td><td>Fully implemented (100% parameterized queries)</td></tr>
+      <tr><td>12</td><td>Upload protections</td><td class="decision-retain">RETAIN</td><td>Implemented (MIME filter + signed tokens + size limit)</td></tr>
+      <tr><td>13</td><td>TLS/HTTPS</td><td class="decision-remove">REMOVE</td><td>Localhost Electron app — TLS not applicable</td></tr>
+      <tr><td>14</td><td>Least-privilege MySQL</td><td class="decision-retain">RETAIN</td><td>Must change from root to dedicated user</td></tr>
+      <tr><td>15</td><td>Encryption/key protection</td><td class="decision-retain">RETAIN</td><td>Must fix reset token logging &amp; email delivery</td></tr>
+      <tr><td>16</td><td>Data minimization</td><td class="decision-retain">RETAIN</td><td>Fully implemented (field exclusion + safe errors)</td></tr>
+      <tr><td>17</td><td>Audit trail</td><td class="decision-retain">RETAIN</td><td>Fully implemented (comprehensive logging)</td></tr>
+      <tr><td>18</td><td>Log security</td><td class="decision-retain">RETAIN</td><td>Implemented (Deputy Officer–only, append-only)</td></tr>
+      <tr><td>19</td><td>Offline operation</td><td class="decision-retain">RETAIN</td><td>Must bundle CDN dependencies locally</td></tr>
+      <tr><td>20</td><td>Backup/recovery</td><td class="decision-retain">RETAIN</td><td>Must add encryption, scheduling, restore procedure</td></tr>
+      <tr><td>21</td><td>Production hardening</td><td class="decision-retain">RETAIN</td><td>Must reduce console logging, remove dev artifacts</td></tr>
+      <tr><td>A1</td><td>CSP header</td><td class="decision-add">ADD</td><td>Defense-in-depth against XSS</td></tr>
+      <tr><td>A2</td><td>Magic-byte file verification</td><td class="decision-add">ADD</td><td>Closes MIME-spoofing gap in uploads</td></tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>
