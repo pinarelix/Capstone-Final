@@ -273,8 +273,8 @@
       <td>1</td>
       <td>Account provisioning and status checks: Central authentication on the trusted local server.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. All authentication is centralized on the local Express backend (server.js). Staff login via POST /api/auth/login and tanod login via POST /api/tanod/login validate credentials against the local MySQL database. Session tokens (256-bit via crypto.randomBytes) are created server-side and stored in user_sessions / tanod_sessions tables. The authenticate middleware checks every protected request against the DB. No external auth service used.</td>
-      <td>1) Open app → attempt login → confirm auth handled by localhost:3000.<br>2) DevTools Network → confirm no external auth requests.<br>3) Call GET /api/incidents without token → confirm 401.<br>4) Code ref: server.js:730–815 (authenticate MW), :1820–1935 (login route).</td>
+      <td>Working. All login goes through our local Express server. Staff and tanod each have their own login routes that check credentials against MySQL. A session token is generated server-side and stored in the DB. No external auth services involved.</td>
+      <td>1) Login → confirm it goes through localhost:3000.<br>2) DevTools Network → no external auth requests.<br>3) Access API without token → 401 Unauthorized.</td>
       <td></td>
       <td></td>
     </tr>
@@ -283,8 +283,8 @@
       <td>2</td>
       <td>Secure password handling: salted password hashing; masked password entry; disabled remember-me and default passwords.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Partially implemented. Salted hashing: bcryptjs salt rounds = 10 for all passwords/PINs. Masked entry: type="password" (login.html:108). <strong>Gaps:</strong> (a) Remember Me checkbox still present (login.html:127–132). (b) Hardcoded demo credentials in login.js:36–45 (admin/admin123, captain/captain123, deskofficer/deskofficer123) and schema.sql:681–684. Must be removed before final exam.</td>
-      <td>1) Query users table → confirm $2b$10$ bcrypt hashes.<br>2) Inspect password field → confirm type="password".<br>3) Inspect login.html → confirm Remember Me checkbox removed.<br>4) Inspect login.js → confirm no hardcoded credentials.<br>5) Attempt login with "admin"/"admin123" → confirm failure after fix.<br>6) Code ref: server.js:1877, login.html:108, login.js:36–45.</td>
+      <td>Partially done. Passwords are hashed with bcrypt (salt rounds = 10) and the password field is masked. <strong>Issues:</strong> Remember Me checkbox is still there, and there are hardcoded demo credentials in login.js. These need to be removed before the final exam.</td>
+      <td>1) Check users table → passwords show bcrypt hashes.<br>2) Password field is type="password".<br>3) Confirm Remember Me checkbox is removed.<br>4) Confirm demo credentials removed from login.js.</td>
       <td></td>
       <td></td>
     </tr>
@@ -293,8 +293,8 @@
       <td>3</td>
       <td>Login abuse prevention: lockout.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. Two-layer protection: (1) DB-tracked lockout — login_attempts table records each attempt; 5 failures in 15 min = lockout (HTTP 429). (2) In-memory rate limiter — 8 req / 5 min per IP:path on auth endpoints. Both staff and tanod login paths have identical lockout logic.</td>
-      <td>1) Enter wrong password 5× → confirm 6th attempt returns 429 "Too many failed login attempts."<br>2) Wait 15 min → confirm unlock.<br>3) Send 9+ rapid requests → confirm rate limiter 429.<br>4) Verify message is user-friendly, no internal details leaked.<br>5) Code ref: server.js:1841–1853, :3535–3543, :568–596.</td>
+      <td>Working. If you enter the wrong password 5 times in 15 minutes, the account gets locked out (429 error). There's also a rate limiter that blocks too many rapid requests. Works the same for both staff and tanod logins.</td>
+      <td>1) Wrong password 5x → 6th attempt returns 429.<br>2) Wait 15 min → account unlocks.<br>3) Send rapid requests → rate limiter blocks them.</td>
       <td></td>
       <td></td>
     </tr>
@@ -306,8 +306,8 @@
       <td>4</td>
       <td>Session identifiers and renewal: Session ID renewal on re-authentication.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. Each login generates a new 256-bit token via crypto.randomBytes(32). On password reset, ALL existing sessions for that user are invalidated (is_active = 0) before new password is saved, forcing re-auth. On logout, the specific token is deactivated. No token reuse across auth events.</td>
-      <td>1) Login → record token from sessionStorage.<br>2) Logout → login again → confirm different token.<br>3) Reset password → confirm all prior tokens return 401.<br>4) Code ref: server.js:1907 (randomBytes), :2045 (revoke all on reset).</td>
+      <td>Working. Every login creates a fresh session token. When you log out, the old token is deactivated. Password reset also kills all existing sessions so the user has to log in again.</td>
+      <td>1) Login → note the token → logout → login again → different token.<br>2) Reset password → old tokens return 401.</td>
       <td></td>
       <td></td>
     </tr>
@@ -316,8 +316,8 @@
       <td>5</td>
       <td>Session and cookie protection: Secure and HttpOnly cookies.</td>
       <td class="decision-remove">REMOVE</td>
-      <td>Not applicable. System uses Bearer tokens via Authorization HTTP header, not cookies. No Set-Cookie headers issued (grep: 0 matches). No cookie-parser dependency. Bearer tokens provide equivalent security: not auto-attached cross-origin (natural CSRF resistance), stored in sessionStorage (cleared on tab close). Secure/HttpOnly cookie attributes have no surface to apply to.</td>
-      <td>1) DevTools → Network → confirm no Set-Cookie on any response.<br>2) DevTools → Application → Cookies → confirm none stored.<br>3) Inspect any API request → confirm Authorization: Bearer header used.<br>4) Code ref: server.js:730–815 (reads Authorization header, not cookies).</td>
+      <td>Not applicable. Our system doesn't use cookies at all — it uses Bearer tokens sent through the Authorization header instead. Since there are no cookies, Secure/HttpOnly cookie settings don't apply here.</td>
+      <td>1) DevTools → Network → no Set-Cookie headers found.<br>2) DevTools → Application → Cookies tab is empty.<br>3) API requests use Authorization: Bearer header.</td>
       <td></td>
       <td></td>
     </tr>
@@ -326,8 +326,8 @@
       <td>6</td>
       <td>Session expiry and revocation: periodic termination, inactivity logout and no identifiers in URLs or logs.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. Idle timeout: authenticate MW checks last_active_at vs. session_timeout_minutes (default 30 min). Exceeded → session deactivated, 401 returned. Sliding window refresh on each request. Logout sets is_active = 0. Password reset revokes all sessions. No tokens in URLs or audit logs.</td>
-      <td>1) Remain idle past timeout → confirm 401 on next call.<br>2) Change timeout to 1 min via Settings → confirm it applies.<br>3) Check audit_logs → confirm no session tokens stored.<br>4) Check API URLs → confirm no tokens in query strings.<br>5) Code ref: server.js:710–724, :750–760, :2108–2140, :2045.</td>
+      <td>Working. Sessions expire after 30 minutes of inactivity (configurable in Settings). When expired, the user gets a 401 and has to log in again. Tokens are not stored in URLs or audit logs.</td>
+      <td>1) Stay idle past timeout → next request returns 401.<br>2) Change timeout in Settings → confirm new value applies.<br>3) Check audit_logs → no session tokens stored.</td>
       <td></td>
       <td></td>
     </tr>
@@ -339,8 +339,8 @@
       <td>7</td>
       <td>Role-based authorization: Least-privilege RBAC; central authorization.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. Centralized requireRole() MW (server.js:818–844) checks req.userRole on every route. Deputy Officer: full CRUD + settings + users + audit. Team Leader: CRUD on incidents/schedules only. Kagawad: read-only. Tanods: separate auth path with requireOwnTanodId for object-level access. All 80+ routes have server-side role checks.</td>
-      <td>1) Login as Kagawad → POST /api/incidents → confirm 403.<br>2) Login as Team Leader → DELETE /api/users/1 → confirm 403.<br>3) Login as Deputy Officer → confirm all ops succeed.<br>4) Auth as Tanod A → GET /api/tanod/dashboard/[B_id] → confirm 403.<br>5) Code ref: server.js:818–844 (requireRole).</td>
+      <td>Working. Every route has a requireRole() middleware that checks the user's role. Deputy Officer has full access, Team Leader can manage incidents/schedules, Kagawad is view-only, and Tanods can only see their own data. All 80+ routes are protected.</td>
+      <td>1) Login as Kagawad → try to create incident → 403.<br>2) Login as Team Leader → try to delete user → 403.<br>3) Login as Deputy Officer → all operations work.<br>4) Tanod A tries to access Tanod B's data → 403.</td>
       <td></td>
       <td></td>
     </tr>
@@ -349,8 +349,8 @@
       <td>8</td>
       <td>Privileged actions and account governance: administrative data entry and account management separated from official view-only analytics; fail-secure decisions.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. User management (POST/PUT/DELETE /api/users) restricted to Deputy Officer only. Settings, CART weights, audit logs: Deputy Officer–only. Kagawad: view-only analytics (GET on incidents, heatmap, CART, dashboard). Fail-secure: authenticate → 401 on failure, requireRole → 403 on mismatch. Delete ops use soft-delete with archive.</td>
-      <td>1) As Kagawad → confirm no edit/delete buttons (client-side).<br>2) As Kagawad → curl POST /api/users → confirm 403 (server-side).<br>3) Inspect delete → confirm archive entry + is_active = 0.<br>4) Invalid token → confirm 401 (fail-secure).<br>5) Code ref: server.js:1525–1800, :4661–4717.</td>
+      <td>Working. Only Deputy Officer can manage users, change settings, and view audit logs. Kagawad only gets read-only access to analytics. If auth fails, the system defaults to blocking access (fail-secure). Deletes use soft-delete so records can be restored.</td>
+      <td>1) As Kagawad → no edit/delete buttons visible.<br>2) As Kagawad → manually call POST /api/users → 403.<br>3) Delete a record → confirm it goes to archive, not permanently removed.<br>4) Invalid token → returns 401.</td>
       <td></td>
       <td></td>
     </tr>
@@ -362,8 +362,8 @@
       <td>9</td>
       <td>Input validation and safe transaction processing: Server-side allow-list validation of coordinates and text.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. All POST/PUT endpoints use Joi validation with stripUnknown: true. Coordinates: lat min(-90) max(90), lng min(-180) max(180). Locations validated against BARANGAY_LOCATIONS allow-list via Joi.valid(). Text fields: max-length constraints (username: 50, password: 128, name: 100, description: 5000). CART weights: int min(1) max(98), sum = 100.</td>
-      <td>1) POST /api/incidents with latitude = 999 → confirm 400.<br>2) Request with location = "InvalidPlace" → confirm rejection.<br>3) Send extra fields → confirm stripped.<br>4) Username > 50 chars → confirm 400.<br>5) Code ref: server.js:372–528 (schemas), :530–540 (MW), :4891–4895.</td>
+      <td>Working. All inputs are validated server-side using Joi schemas. Coordinates must be within valid ranges, locations are checked against an allow-list, and text fields have max-length limits. Extra/unknown fields are automatically stripped.</td>
+      <td>1) Submit invalid latitude (999) → returns 400.<br>2) Submit fake location → rejected.<br>3) Send extra fields → they get stripped out.<br>4) Submit username over 50 chars → returns 400.</td>
       <td></td>
       <td></td>
     </tr>
@@ -372,8 +372,8 @@
       <td>10</td>
       <td>Browser output and request protections: contextual encoding for Leaflet/HTML.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. escapeHTML() (apiHelper.js:22–29) escapes &amp;, &lt;, &gt;, quotes before DOM insertion. Used 164 times across 11 files vs. 171 innerHTML assignments (near 1:1 coverage). Remaining innerHTML usages are numeric-only or static text. Server sets X-Content-Type-Options: nosniff. Note: CSP header not yet set (see A1).</td>
-      <td>1) Create incident with &lt;script&gt;alert('xss')&lt;/script&gt; in description → confirm rendered as text.<br>2) Inspect HTML in DevTools → confirm escaped entities.<br>3) Response headers → confirm X-Content-Type-Options: nosniff.<br>4) Code ref: apiHelper.js:22–29, server.js:71.</td>
+      <td>Working. We have an escapeHTML() function that sanitizes user input before displaying it in the browser. It's used across all frontend files. The server also sets X-Content-Type-Options: nosniff to prevent MIME sniffing.</td>
+      <td>1) Create incident with &lt;script&gt;alert('xss')&lt;/script&gt; → shows as plain text, not executed.<br>2) Check response headers → X-Content-Type-Options: nosniff is present.</td>
       <td></td>
       <td></td>
     </tr>
@@ -382,8 +382,8 @@
       <td>11</td>
       <td>Database and injection protections: parameterized queries.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. All 100+ queries use mysql2/promise parameterized queries with ? placeholders. Zero SQL string concatenation (verified via grep). Dynamic audit-log query (:4670–4708) uses parameterized ? for all user input — dynamic parts are fixed SQL fragments only. Complete SQL injection protection.</td>
-      <td>1) Login with username = admin' OR '1'='1 → confirm "Invalid username or password."<br>2) Search with SQL metacharacters → confirm no injection.<br>3) grep "pool.query" server.js → confirm all use (?, [params]).<br>4) Code ref: server.js:1862 (login), :2538 (insert).</td>
+      <td>Working. All database queries use parameterized queries with ? placeholders. No SQL string concatenation anywhere in the code. This prevents SQL injection attacks completely.</td>
+      <td>1) Try SQL injection on login (admin' OR '1'='1) → returns "Invalid username or password."<br>2) Search with SQL special characters → no injection happens.</td>
       <td></td>
       <td></td>
     </tr>
@@ -392,8 +392,8 @@
       <td>12</td>
       <td>Upload and file-processing protections: disabled execution in upload directories.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. multer with: (a) MIME allow-list (jpeg/png/gif/webp/mp4). (b) Server-generated filenames (Date.now + random). (c) 10 MB limit. (d) Files gated behind HMAC-signed tokens (60s TTL) via /api/uploads/file-token. (e) X-Content-Type-Options: nosniff. Note: MIME alone is spoofable — magic-byte check recommended (see A2).</td>
-      <td>1) Upload .txt renamed to .jpg → confirm MIME rejection.<br>2) Access /uploads/file without ftoken → confirm 403.<br>3) Access with expired ftoken (60s+) → confirm 403.<br>4) Check filenames on disk → confirm server-generated.<br>5) Code ref: server.js multer config, :1026–1061.</td>
+      <td>Working. File uploads use multer with a MIME type allow-list (images and video only), server-generated filenames, and a 10 MB size limit. Uploaded files need a signed token to access them, and the token expires after 60 seconds. MIME-only check is spoofable though — see A2 for the fix.</td>
+      <td>1) Upload a .txt renamed to .jpg → gets rejected.<br>2) Access uploaded file without token → 403.<br>3) Wait 60s and try again with same token → 403 (expired).</td>
       <td></td>
       <td></td>
     </tr>
@@ -405,8 +405,8 @@
       <td>13</td>
       <td>Encrypted network communication: TLS between frontend and local server.</td>
       <td class="decision-remove">REMOVE</td>
-      <td>Not applicable. System runs as Electron desktop app — Express backend and Chromium frontend on the same machine via localhost (127.0.0.1:3000). Traffic never leaves the loopback interface. TLS for localhost adds certificate complexity with no security benefit for single-machine deployment. If scope changes to LAN/network, TLS becomes critical — documented as accepted risk for current scope.</td>
-      <td>1) Confirm Electron loads http://localhost:3000 (main.js:79).<br>2) Confirm server binds to localhost only.<br>3) Resource Monitor → Network → confirm no external connections.<br>4) Document: "TLS required if scope changes to multi-machine."</td>
+      <td>Not applicable. Our app is an Electron desktop app — everything runs on the same machine via localhost. The traffic never goes over the network, so TLS/HTTPS would just add complexity with no benefit. If the app ever goes online/LAN, then TLS would be needed.</td>
+      <td>1) App loads from http://localhost:3000.<br>2) No network traffic leaves the machine.<br>3) Documented as accepted risk for desktop-only scope.</td>
       <td></td>
       <td></td>
     </tr>
@@ -415,8 +415,8 @@
       <td>14</td>
       <td>Confidential record access and storage: least-privilege MySQL account.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Partially implemented — requires remediation. Currently connects as root (server.js:218, .env: DB_USER=root). Root has DROP/GRANT/FILE privileges far exceeding needs. App only requires SELECT/INSERT/UPDATE/DELETE on brgydata. Must create a dedicated least-privilege user before final exam. Connection infrastructure is correct — only privilege level needs to change.</td>
-      <td>1) CREATE USER 'brgyapp'@'localhost'; GRANT SELECT,INSERT,UPDATE,DELETE ON brgydata.* TO 'brgyapp'@'localhost';<br>2) Update .env: DB_USER=brgyapp. Restart → confirm all features work.<br>3) As brgyapp → DROP TABLE users → confirm "Access denied."<br>4) Code ref: .env (DB_USER), server.js:218.</td>
+      <td>Needs fix. The app currently connects to MySQL as root, which has way too many privileges. We only need SELECT, INSERT, UPDATE, DELETE. We need to create a dedicated DB user with limited permissions before the final exam.</td>
+      <td>1) Create a new MySQL user with only SELECT/INSERT/UPDATE/DELETE.<br>2) Update .env with the new user → restart → app still works.<br>3) Try DROP TABLE with the new user → "Access denied."</td>
       <td></td>
       <td></td>
     </tr>
@@ -425,8 +425,8 @@
       <td>15</td>
       <td>Sensitive data encryption and key protection: separate encrypted connection configuration.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Partially implemented. Passwords: bcrypt salt=10 (strong). Tokens: crypto.randomBytes(32) CSPRNG. File tokens: HMAC-SHA256 ephemeral secret. Config: .env in .gitignore; config-manager.js migrates to %APPDATA%. <strong>Gaps:</strong> (a) .env has DB password in plaintext. (b) Reset token is 6-digit, logged to console. (c) Email delivery not configured.</td>
-      <td>1) Confirm .env in .gitignore.<br>2) SELECT password_hash → confirm $2b$10$ prefix.<br>3) Request file, wait 60s, re-request → confirm 403 (token expired).<br>4) After fix: confirm token NOT in console logs.<br>5) Code ref: server.js:1907, :1026–1035, .env.</td>
+      <td>Partially done. Passwords use bcrypt, session tokens use crypto.randomBytes, and file tokens use HMAC-SHA256. The .env file is in .gitignore. <strong>Issues:</strong> DB password is in plaintext in .env, the reset token is only 6 digits and gets logged to the console, and email delivery isn't set up yet.</td>
+      <td>1) .env is in .gitignore.<br>2) Password hashes in DB start with $2b$10$.<br>3) File token expires after 60s.<br>4) After fix: reset token not printed to console.</td>
       <td></td>
       <td></td>
     </tr>
@@ -435,8 +435,8 @@
       <td>16</td>
       <td>Personal-data minimization and lifecycle: secure handling and disposal of printed patrol routes.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented at application layer. API responses exclude sensitive fields: user queries omit password_hash; tanod queries use TANOD_PUBLIC_COLUMNS (no pin_code_hash); audit old_data strips PINs. Error responses return generic messages (no stack traces). Soft-delete/archive pattern. Physical document handling is operational policy outside app scope.</td>
-      <td>1) GET /api/users → confirm no password_hash.<br>2) GET /api/tanods → confirm no pin_code_hash.<br>3) Trigger server error → confirm no stack trace.<br>4) Check audit_logs for tanod update → confirm no PIN hash.<br>5) Code ref: TANOD_PUBLIC_COLUMNS, server.js:4993–5033.</td>
+      <td>Working. API responses don't include sensitive fields like password hashes or PIN codes. Error messages are generic (no stack traces leaked). Deleted records go to archive instead of being permanently removed.</td>
+      <td>1) GET /api/users → no password_hash in response.<br>2) GET /api/tanods → no pin_code_hash.<br>3) Trigger a server error → generic error message, no stack trace.</td>
       <td></td>
       <td></td>
     </tr>
@@ -448,8 +448,8 @@
       <td>17</td>
       <td>Security and activity audit trail: Authentication, validation failure, record modification and security-configuration logs.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. logAudit() and logTanodAudit() cover: LOGIN/LOGOUT/FORGOT/RESET/CHANGE_PASSWORD; CREATE/UPDATE/DELETE on users/incidents/tanods/schedules/logs/settings/CART. Each entry: user_id, action, entity_type, entity_id, old_data, new_data, ip_address, user_agent, created_at. Staff + tanod trails combined via UNION ALL. Login attempts tracked in separate tables.</td>
-      <td>1) Login → create → update → delete incident → check audit_logs for all 4 actions with old/new data.<br>2) Change setting → confirm UPDATE_SETTINGS entry.<br>3) Fail login → confirm login_attempts record.<br>4) Settings → Audit Logs as Deputy Officer → confirm all events shown.<br>5) Code ref: server.js logAudit function.</td>
+      <td>Working. Every important action gets logged — logins, logouts, password changes, and all CRUD operations on records. Each log entry includes who did it, what changed (old and new data), their IP address, and timestamp.</td>
+      <td>1) Login → create → update → delete an incident → all 4 actions show in audit logs.<br>2) Change a setting → logged as UPDATE_SETTINGS.<br>3) Failed login → recorded in login_attempts table.</td>
       <td></td>
       <td></td>
     </tr>
@@ -458,8 +458,8 @@
       <td>18</td>
       <td>Log security and monitoring: access restricted to the Security Admin.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Implemented. GET /api/audit-logs requires requireRole(['Deputy Officer']). No PUT/DELETE endpoints for audit logs — append-only at application layer. Note: root DB user (see #14) could modify logs directly — mitigated by fixing #14 to restrict DELETE/UPDATE on audit_logs via GRANT.</td>
-      <td>1) As Kagawad/Team Leader → GET /api/audit-logs → confirm 403.<br>2) As Deputy Officer → confirm access works.<br>3) Confirm no API endpoint modifies/deletes audit entries.<br>4) After #14 fix: as app DB user → DELETE FROM audit_logs → confirm denied.<br>5) Code ref: server.js:4661.</td>
+      <td>Working. Only Deputy Officer can view audit logs. There's no API endpoint to edit or delete log entries — they're append-only. Once we fix #14 (DB user), even the app won't be able to delete logs directly.</td>
+      <td>1) As Kagawad or Team Leader → access audit logs → 403.<br>2) As Deputy Officer → audit logs accessible.<br>3) No API endpoint exists to modify or delete logs.</td>
       <td></td>
       <td></td>
     </tr>
@@ -471,8 +471,8 @@
       <td>19</td>
       <td>Service continuity and availability: Operation without external cloud connectivity.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Partially implemented — requires remediation. Core architecture correct: Electron + local Express + local MySQL. <strong>Gap:</strong> Frontend loads 10+ external CDN resources (Google Fonts, Font Awesome, Chart.js, Bootstrap, Leaflet, Mapbox GL JS, Turf.js) — UI breaks without internet. Two fallback URLs to via.placeholder.com. All must be bundled locally before final exam.</td>
-      <td>1) Disconnect internet (disable Wi-Fi/Ethernet).<br>2) Launch Electron app → confirm all pages render (fonts, icons, charts, maps).<br>3) Create incident, view dashboard, open heatmap → confirm all work offline.<br>4) Reconnect → confirm no difference.<br>5) After fix: grep HTML for "http://" → confirm 0 external CDN refs.</td>
+      <td>Needs fix. The core setup is correct (Electron + local server + local DB), but the frontend still loads fonts, icons, and JS libraries from external CDNs. If there's no internet, the UI breaks. We need to bundle all dependencies locally before the final exam.</td>
+      <td>1) Disconnect from internet → launch app → check if everything still loads.<br>2) After fix: all pages should render properly offline.<br>3) No more external CDN links in the HTML files.</td>
       <td></td>
       <td></td>
     </tr>
@@ -481,8 +481,8 @@
       <td>20</td>
       <td>Backup and recovery controls: routine local backups, including automated encrypted backups in the mitigation table.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Partially implemented. Backup script (backup-database.js): mysqldump --single-transaction to database/backups/; 14-file retention; password via MYSQL_PWD env var. <strong>Gaps:</strong> (a) Manual only (npm run backup) — no scheduling. (b) Plain SQL text — no encryption. (c) No restore script/procedure. Must add automation, encryption, and restore testing.</td>
-      <td>1) npm run backup → confirm .sql file created with timestamp.<br>2) Grep backup for CREATE TABLE → confirm all tables included.<br>3) After encryption: confirm backup not readable as plain SQL.<br>4) Restore test: drop test table → restore → confirm recovery.<br>5) After scheduling: confirm auto backup at configured interval.<br>6) Code ref: backend/scripts/backup-database.js.</td>
+      <td>Partially done. There's a backup script that dumps the database to SQL files and keeps the last 14 backups. <strong>Issues:</strong> It's manual only (no auto-scheduling), the backup files aren't encrypted, and there's no restore script yet. Need to add all three before final exam.</td>
+      <td>1) Run npm run backup → .sql file gets created.<br>2) After adding encryption → backup file is not readable as plain text.<br>3) Test restore → drop a table → restore from backup → table is back.</td>
       <td></td>
       <td></td>
     </tr>
@@ -494,8 +494,8 @@
       <td>21</td>
       <td>Production hardening and secrets: Removal of unnecessary functions, test code and directory listings.</td>
       <td class="decision-retain">RETAIN</td>
-      <td>Partially implemented. Electron: contextIsolation: true, nodeIntegration: false, menu removed, single-instance lock. Custom 404/error handlers prevent stack trace leakage. <strong>Gaps:</strong> (a) 92 console.log in server.js incl. route listing on startup. (b) login.js logs user name/role to browser console. (c) Demo credentials (covered in #2). Must clean up for production.</td>
-      <td>1) NODE_ENV=production → confirm minimal startup logging.<br>2) DevTools Console after login → confirm no sensitive data.<br>3) GET /api/nonexistent → confirm {"error":"Not found"}, no stack trace.<br>4) Trigger 500 → confirm {"error":"Server error"}, no details.<br>5) Code ref: main.js:52–67, server.js:4993–5033.</td>
+      <td>Partially done. Electron security settings are good (contextIsolation on, nodeIntegration off). Error handlers don't leak stack traces. <strong>Issues:</strong> There are 92 console.log statements in server.js, and login.js logs user info to the browser console. Demo credentials also need to be removed (see #2).</td>
+      <td>1) Open DevTools Console after login → no sensitive info printed.<br>2) Access a non-existent route → generic "Not found" error, no stack trace.<br>3) Trigger a server error → generic error message only.</td>
       <td></td>
       <td></td>
     </tr>
@@ -507,8 +507,8 @@
       <td>A1</td>
       <td>Content-Security-Policy (CSP) response header</td>
       <td class="decision-add">ADD</td>
-      <td>Currently only X-Content-Type-Options: nosniff is set. Adding CSP restricts script/style sources to trusted origins and blocks inline injection, reducing XSS impact even if an encoding gap is found. OWASP-recommended. Straightforward: single middleware line.</td>
-      <td>1) Inspect response headers → confirm CSP present (default-src 'self'; script-src 'self' [local]; style-src 'self' 'unsafe-inline').<br>2) Inject &lt;script&gt; tag → confirm browser blocks it due to CSP.</td>
+      <td>Right now the server only has one security header (nosniff). Adding CSP will tell the browser to only allow scripts and styles from trusted sources, which adds another layer of XSS protection. Easy to implement — just one middleware line.</td>
+      <td>1) Check response headers → CSP header is present.<br>2) Try injecting a script tag → browser blocks it because of CSP.</td>
       <td></td>
       <td></td>
     </tr>
@@ -517,8 +517,8 @@
       <td>A2</td>
       <td>File upload magic-byte verification</td>
       <td class="decision-add">ADD</td>
-      <td>Current multer filter checks only client-supplied MIME type (spoofable). Magic-byte verification (file-type npm library) validates actual binary content matches declared type, closing the gap where malicious HTML could be uploaded as image/jpeg.</td>
-      <td>1) Create .html file, rename to .jpg → upload → confirm rejection "Invalid file content."<br>2) Upload genuine JPEG → confirm success.<br>3) Code ref: add file-type check after multer, before save.</td>
+      <td>Right now uploads only check the MIME type, which can be faked. Adding magic-byte verification reads the actual file contents to make sure it's really an image and not a disguised malicious file. Uses the file-type npm library.</td>
+      <td>1) Rename an .html file to .jpg → upload → gets rejected.<br>2) Upload a real JPEG → accepted normally.</td>
       <td></td>
       <td></td>
     </tr>
