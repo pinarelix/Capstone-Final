@@ -521,11 +521,10 @@
                             </div>
                         </div>
 
+                        <!-- People Involved (blotter form only) -->
+                        <div id="blotterPeopleSection">
                         <div class="form-section-header"><i class="fa-solid fa-users"></i> People Involved</div>
 
-                        <!-- ==========================================================
-                             ROW 3b: Complainant / Reported By
-                        ========================================================== -->
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Name of Complainant <span class="req">*</span></label>
@@ -533,9 +532,6 @@
                             </div>
                         </div>
 
-                        <!-- ==========================================================
-                             ROW 3c: Respondent details
-                        ========================================================== -->
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Name of Respondent</label>
@@ -546,20 +542,27 @@
                                 <input type="text" id="respondentAddress" class="form-control" placeholder="e.g. Blk 5 Lot 3, Acacia St." maxlength="500">
                             </div>
                         </div>
+                        </div><!-- /blotterPeopleSection -->
 
-                        <div id="crimeFormSections">
+                        <!-- Reporter (crime form only) -->
+                        <div id="crimeReporterSection" style="display:none;">
+                        <div class="form-section-header"><i class="fa-solid fa-user"></i> Reporter</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Reporter Name <span class="req">*</span></label>
+                                <input type="text" id="crimeReporterName" class="form-control" placeholder="e.g. Juan Dela Cruz" maxlength="150">
+                            </div>
+                        </div>
+                        </div><!-- /crimeReporterSection -->
 
+                        <!-- Salaysay (blotter form only) -->
+                        <div id="blotterSalaysaySection">
                         <div class="form-section-header"><i class="fa-solid fa-file-lines"></i> Salaysay / Description</div>
-
-                        <!-- ==========================================================
-                             ROW 4: Salaysay / Description
-                        ========================================================== -->
                         <div class="form-group">
-                            <label>Salaysay / Description <span class="req">*</span></label>
+                            <label>Salaysay / Description</label>
                             <textarea id="incidentDesc" class="form-control textarea" placeholder="Ilagay ang detalyadong salaysay ng insidente." rows="4" maxlength="2000"></textarea>
                         </div>
-
-                        </div><!-- /crimeFormSections -->
+                        </div><!-- /blotterSalaysaySection -->
 
                         <!-- ==========================================================
                              ROW 4c: Evidence
