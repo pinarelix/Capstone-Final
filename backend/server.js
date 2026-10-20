@@ -375,7 +375,7 @@ const incidentSchema = Joi.object({
     status: Joi.string().valid('Open', 'Monitoring', 'Resolved').required(),
     description: Joi.string().max(2000).allow('', null),
     recommended_action: Joi.string().max(1000).allow('', null),
-    blotter_number: Joi.string().max(50).required(),
+    blotter_number: Joi.string().max(50).allow('', null),
     reported_by_name: Joi.string().max(150).allow('', null),
     statement: Joi.string().max(3000).allow('', null),
     persons_involved: Joi.string().max(1000).allow('', null),

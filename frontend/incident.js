@@ -107,14 +107,20 @@ function getFormType() {
 function setupFormTypeToggle() {
     const radios = document.querySelectorAll('input[name="formType"]');
     const crimeSections = document.getElementById('crimeFormSections');
+    const blotterGroup = document.getElementById('blotterGroup');
     if (!crimeSections) return;
 
     function applyFormType() {
         const type = getFormType();
         if (type === 'blotter') {
             crimeSections.classList.add('hidden-section');
+            if (blotterGroup) blotterGroup.style.display = '';
+            generateBlotterNumber();
         } else {
             crimeSections.classList.remove('hidden-section');
+            if (blotterGroup) blotterGroup.style.display = 'none';
+            const blotterInput = document.getElementById('incidentBlotter');
+            if (blotterInput) blotterInput.value = '';
         }
     }
 
@@ -566,10 +572,10 @@ function setupForm() {
             { id: 'incidentStreet', label: 'Street Name' },
             { id: 'incidentSeverity', label: 'Severity Level' },
             { id: 'incidentAddress', label: 'Address' },
+            { id: 'incidentReportedByName', label: 'Name of Complainant' },
         ];
         if (formType === 'crime') {
             requiredFields.push(
-                { id: 'incidentReportedByName', label: 'Name of Complainant' },
                 { id: 'incidentDesc', label: 'Salaysay / Description' }
             );
         }
@@ -921,6 +927,8 @@ function clearForm() {
         blotterRadio.checked = true;
         const crimeSections = document.getElementById('crimeFormSections');
         if (crimeSections) crimeSections.classList.add('hidden-section');
+        const blotterGroup = document.getElementById('blotterGroup');
+        if (blotterGroup) blotterGroup.style.display = '';
     }
 
     const formTypeSelector = document.querySelector('.form-type-selector');
@@ -1033,13 +1041,15 @@ window.editIncident = async (id) => {
         document.getElementById('respondentName').value = record.respondent_name || '';
         document.getElementById('respondentAddress').value = record.respondent_address || '';
 
-        const hasCrimeData = !!(record.reported_by_name || record.respondent_name || record.description);
+        const hasCrimeData = !!record.description;
         const editFormType = hasCrimeData ? 'crime' : 'blotter';
         const formTypeRadio = document.querySelector(`input[name="formType"][value="${editFormType}"]`);
         if (formTypeRadio) {
             formTypeRadio.checked = true;
             const crimeSections = document.getElementById('crimeFormSections');
             if (crimeSections) crimeSections.classList[editFormType === 'crime' ? 'remove' : 'add']('hidden-section');
+            const blotterGroup = document.getElementById('blotterGroup');
+            if (blotterGroup) blotterGroup.style.display = editFormType === 'blotter' ? '' : 'none';
         }
         const formTypeSelector = document.querySelector('.form-type-selector');
         if (formTypeSelector) formTypeSelector.style.display = '';
