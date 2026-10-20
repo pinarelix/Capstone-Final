@@ -97,16 +97,10 @@
             ====================================================== -->
             <div class="patrol-tabs">
                 <button class="patrol-tab active" data-tab="recommendations">
-                    <i class="fa-solid fa-shield-halved"></i> Recommendations
-                </button>
-                <button class="patrol-tab" data-tab="schedules">
-                    <i class="fa-solid fa-calendar-check"></i> Schedules
+                    <i class="fa-solid fa-shield-halved"></i> Recommendations & Schedules
                 </button>
                 <button class="patrol-tab" data-tab="schedule-list">
-                    <i class="fa-solid fa-list"></i> Patrol Schedules
-                </button>
-                <button class="patrol-tab" data-tab="logs">
-                    <i class="fa-solid fa-clipboard-list"></i> Patrol Logs
+                    <i class="fa-solid fa-list"></i> Patrol Schedules & Logs
                 </button>
             </div>
 
@@ -178,13 +172,6 @@
                         <!-- Injected by JavaScript -->
                     </div>
                 </div>
-
-            </div>
-
-            <!-- =====================================================
-                 TAB 2: SCHEDULES
-            ====================================================== -->
-            <div id="tab-schedules" class="patrol-tab-content">
 
                 <!-- Suggested From Active Priority Recommendations -->
                 <div class="patrol-recommendations" id="scheduleSuggestionsSection" style="display: none; margin-bottom: 24px;">
@@ -296,8 +283,7 @@
             </div>
 
             <!-- =====================================================
-                 TAB 3: PATROL SCHEDULES (table only - add/suggest lives
-                 in the Schedules tab; Update opens the form as a popup)
+                 TAB 2: PATROL SCHEDULES & LOGS
             ====================================================== -->
             <div id="tab-schedule-list" class="patrol-tab-content">
 
@@ -340,15 +326,8 @@
                     </div>
                 </div>
 
-            </div>
-
-            <!-- =====================================================
-                 TAB 4: PATROL LOGS
-            ====================================================== -->
-            <div id="tab-logs" class="patrol-tab-content">
-
                 <!-- Add Log Form -->
-                <div class="patrol-form-card" id="logFormCard">
+                <div class="patrol-form-card" id="logFormCard" style="margin-top: 24px;">
                     <div class="form-header">
                         <div>
                             <h3 id="logFormTitle"><i class="fa-solid fa-plus-circle"></i> Add Patrol Log</h3>

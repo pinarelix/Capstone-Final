@@ -163,7 +163,7 @@ function setupTabs() {
             // the schedule map picker is lazy-initialized the first time
             // its tab is actually shown, and re-measured on every
             // subsequent visit in case its size was stale while hidden.
-            if (tabId === 'schedules') {
+            if (tabId === 'recommendations') {
                 if (!scheduleMapPicker) {
                     initScheduleMapPicker();
                 } else {
