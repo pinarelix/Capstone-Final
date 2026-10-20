@@ -989,7 +989,22 @@ function showStreetDetailModal(rec) {
         </div>
         <div class="street-modal-section-label"><i class="fa-solid fa-list-ul"></i> All Incidents at This Location (${rec.incidents?.length || 0})</div>
         ${fullIncidentListHtml(rec.incidents)}
+        <div style="text-align: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0;">
+            <button type="button" id="modalAddScheduleBtn" class="btn btn-primary" style="padding: 10px 28px; font-size: 0.95rem; border-radius: 8px; cursor: pointer;">
+                <i class="fa-solid fa-calendar-plus"></i> Add Patrol Schedule
+            </button>
+        </div>
     `;
+
+    document.getElementById('modalAddScheduleBtn')?.addEventListener('click', () => {
+        closeStreetDetailModal();
+        const idx = currentRecommendations.indexOf(rec);
+        if (idx !== -1) {
+            applyRecommendationToScheduleForm(idx);
+        } else {
+            applyRecommendationToScheduleForm(0);
+        }
+    });
 
     modal.classList.add('active');
 }
