@@ -36,8 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Check role - allow Captain, Administrator, Decision-Maker, Desk Officer
-    const allowedRoles = ['Kagawad', 'Deputy Officer', 'Kagawad', 'Team Leader'];
+    // Check role - all three current staff roles may view incident records.
+    const allowedRoles = ['Deputy Officer', 'Kagawad', 'Team Leader'];
     if (!allowedRoles.includes(user.role)) {
         console.log(`❌ Access denied. User role: ${user.role}`);
         alert('Access denied. This page is for Captain and above.');
@@ -64,9 +64,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (userRoleDisplay) {
         const roleMap = {
-            'Deputy Officer': 'Administrator — Full Access',
-            'Kagawad': 'Decision-Maker — View & Analytics Access',
-            'Kagawad': 'Captain — View & Analytics Access'
+            'Deputy Officer': 'Deputy Officer — Full Access',
+            'Kagawad': 'Kagawad — View & Analytics Access',
+            'Team Leader': 'Team Leader — Incident & Patrol Access'
         };
         userRoleDisplay.textContent = roleMap[user.role] || user.role || 'Kagawad';
     }

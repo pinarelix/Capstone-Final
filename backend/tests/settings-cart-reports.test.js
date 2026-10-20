@@ -14,11 +14,11 @@ describe('System Settings + role enforcement', () => {
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Administrator', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Deputy Officer', 1)`,
             ['Test Admin Settings', adminUsername, hash]
         );
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Decision-Maker', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Kagawad', 1)`,
             ['Test DM Settings', dmUsername, hash]
         );
         const adminLogin = await request(app).post('/api/auth/login').send({ username: adminUsername, password });
@@ -37,12 +37,12 @@ describe('System Settings + role enforcement', () => {
         await pool.query('DELETE FROM users WHERE username IN (?, ?)', usernames);
     });
 
-    test('Decision-Maker cannot read settings (Administrator-only)', async () => {
+    test('Kagawad cannot read settings (Deputy Officer-only)', async () => {
         const res = await request(app).get('/api/settings').set('Authorization', `Bearer ${dmToken}`);
         expect(res.status).toBe(403);
     });
 
-    test('Administrator can create a new setting via POST, then update it via PUT', async () => {
+    test('Deputy Officer can create a new setting via POST, then update it via PUT', async () => {
         const createRes = await request(app)
             .post('/api/settings')
             .set('Authorization', `Bearer ${adminToken}`)
@@ -109,11 +109,11 @@ describe('Audit Logs + role enforcement', () => {
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Administrator', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Deputy Officer', 1)`,
             ['Test Admin Audit', adminUsername, hash]
         );
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Decision-Maker', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Kagawad', 1)`,
             ['Test DM Audit', dmUsername, hash]
         );
         const adminLogin = await request(app).post('/api/auth/login').send({ username: adminUsername, password });
@@ -131,7 +131,7 @@ describe('Audit Logs + role enforcement', () => {
         await pool.query('DELETE FROM users WHERE username IN (?, ?)', usernames);
     });
 
-    test('Decision-Maker cannot read the audit trail (Administrator-only)', async () => {
+    test('Kagawad cannot read the audit trail (Deputy Officer-only)', async () => {
         const res = await request(app).get('/api/audit-logs').set('Authorization', `Bearer ${dmToken}`);
         expect(res.status).toBe(403);
     });
@@ -155,7 +155,7 @@ describe('CART HTTP endpoints', () => {
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Administrator', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Deputy Officer', 1)`,
             ['Test Admin Cart Http', adminUsername, hash]
         );
         const adminLogin = await request(app).post('/api/auth/login').send({ username: adminUsername, password });
@@ -224,7 +224,7 @@ describe('Report export audit logging', () => {
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Administrator', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Deputy Officer', 1)`,
             ['Test Admin Reports', adminUsername, hash]
         );
         const adminLogin = await request(app).post('/api/auth/login').send({ username: adminUsername, password });

@@ -58,7 +58,7 @@ Weights sum to 100% (`backend/cart-engine.js`, `this.weights`). They are configu
 | ≥ 34 and < 67 | Level 2 — Moderate Risk |
 | < 34 | Level 1 — Low Risk |
 
-These are editable by an Administrator on the Settings page ("High Risk Threshold" /
+These are editable by a Deputy Officer on the Settings page ("High Risk Threshold" /
 "Moderate Risk Threshold", stored in `system_settings` as `default_danger_threshold_high` /
 `default_danger_threshold_moderate`). Every scoring call — creating/editing an incident,
 recomputing all incidents, and the CART Analytics "what-if" predictor — reads the current

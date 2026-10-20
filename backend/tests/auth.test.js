@@ -2,14 +2,14 @@ const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const { app, pool } = require('../server');
 
-describe('Admin/Decision-Maker login', () => {
+describe('Deputy Officer login', () => {
     const username = 'test_admin_auth';
     const password = 'testpass123';
 
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Administrator', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Deputy Officer', 1)`,
             ['Test Admin', username, hash]
         );
     });

@@ -18,7 +18,7 @@
 --
 -- Table structure for table `archived_records`
 -- Everything deleted in the app lands here (snapshot of the record plus
--- related rows, files moved to uploads/archive/) so an Administrator can
+-- related rows, files moved to uploads/archive/) so the Deputy Officer can
 -- review and restore it from Settings > Archive. See backend/archive.js.
 --
 
@@ -517,7 +517,7 @@ CREATE TABLE `users` (
   `name` varchar(100) NOT NULL,
   `username` varchar(50) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `role` enum('Administrator','Decision-Maker','Desk Officer') NOT NULL,
+  `role` enum('Deputy Officer','Kagawad','Team Leader') NOT NULL,
   `contact_no` varchar(20) DEFAULT NULL,
   `email` varchar(150) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
@@ -544,8 +544,8 @@ CREATE TABLE `users` (
 -- do not treat as real production credentials for anything but local dev.
 --
 INSERT INTO `users` (`name`, `username`, `password_hash`, `role`, `is_active`) VALUES
-('Demo Administrator', 'admin', '$2b$10$ip7Eo1S35tl3RKWWZ30vNeXtkGE5f5uhYJtqtPxrc2Nx4wnCB1I8.', 'Administrator', 1),
-('Demo Barangay Captain', 'captain', '$2b$10$IqJllqxbyiiznMCV5GyGPuePb1GVVryljozpbx8522ZGbyj5jadWy', 'Decision-Maker', 1),
-('Demo Desk Officer', 'deskofficer', '$2b$10$r8nAnGyPDJbCbwYkgfdZeuO4eSNlV0E40iYKZeiSZE8PPUOzP2Dae', 'Desk Officer', 1);
+('Demo Deputy Officer', 'admin', '$2b$10$ip7Eo1S35tl3RKWWZ30vNeXtkGE5f5uhYJtqtPxrc2Nx4wnCB1I8.', 'Deputy Officer', 1),
+('Demo Barangay Captain', 'captain', '$2b$10$IqJllqxbyiiznMCV5GyGPuePb1GVVryljozpbx8522ZGbyj5jadWy', 'Kagawad', 1),
+('Demo Team Leader', 'deskofficer', '$2b$10$r8nAnGyPDJbCbwYkgfdZeuO4eSNlV0E40iYKZeiSZE8PPUOzP2Dae', 'Team Leader', 1);
 
 -- Dump completed on 2026-09-04 23:11:21

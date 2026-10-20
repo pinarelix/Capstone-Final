@@ -1517,8 +1517,8 @@ window.editSchedule = async function(id) {
 window.requestDeleteSchedule = function(id) {
     const schedule = allSchedules.find(s => s.id === id);
     const message = schedule
-        ? `Are you sure you want to delete the schedule for "${schedule.location}"? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`
-        : 'Are you sure you want to delete this schedule? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.';
+        ? `Are you sure you want to delete the schedule for "${schedule.location}"? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.`
+        : 'Are you sure you want to delete this schedule? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.';
     requestDelete(message, id, 'schedule', confirmDeleteSchedule);
 };
 
@@ -1645,8 +1645,8 @@ window.editLog = async function(id) {
 window.requestDeleteLog = function(id) {
     const log = allLogs.find(l => l.id === id);
     const message = log
-        ? `Are you sure you want to delete the patrol log for "${getScheduleName(log.schedule_id)}" (${log.patrol_date || 'no date'})? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`
-        : 'Are you sure you want to delete this log? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.';
+        ? `Are you sure you want to delete the patrol log for "${getScheduleName(log.schedule_id)}" (${log.patrol_date || 'no date'})? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.`
+        : 'Are you sure you want to delete this log? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.';
     requestDelete(message, id, 'log', confirmDeleteLog);
 };
 

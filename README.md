@@ -57,8 +57,9 @@ It runs as a native Windows desktop app (built with Electron) backed by a local 
 - Monthly report generation
 
 ### 👥 User Management
-- Role-based access control — two roles: **Administrator** (full CRUD access) and
-  **Decision-Maker** (barangay captain; read-focused oversight views)
+- Role-based access control — three roles: **Deputy Officer** (full CRUD access),
+  **Kagawad** (barangay captain; read-focused oversight views), and **Team Leader**
+  (incident and patrol operations)
 - Secure authentication with session management
 - Password reset functionality
 
@@ -199,8 +200,9 @@ npm start
 This launches the desktop app: it starts the Express/MySQL backend in-process, then opens a native window loading the login screen. If MySQL isn't running, you'll get a clear error dialog instead of a silent crash — start MySQL and relaunch.
 
 **Demo accounts** (seeded by `database/schema.sql`):
-- Admin — `admin` / `admin123`
-- Barangay Captain (Decision-Maker) — `captain` / `captain123`
+- Deputy Officer — `admin` / `admin123`
+- Barangay Captain (Kagawad) — `captain` / `captain123`
+- Team Leader — `deskofficer` / `deskofficer123`
 
 ### Running tests
 
@@ -256,7 +258,7 @@ at this stage of deployment.
 
 - `backend/.env` holds real database credentials and is **git-ignored** — never commit it.
 - Passwords are hashed with `bcryptjs`; sessions use server-issued tokens with expiry.
-- Role-based UI restrictions (Administrator vs. Decision-Maker) are enforced both in the frontend nav and on the backend API routes.
+- Role-based UI restrictions (Deputy Officer vs. Kagawad vs. Team Leader) are enforced both in the frontend nav and on the backend API routes.
 
 ---
 

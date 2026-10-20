@@ -14,11 +14,11 @@ describe('Incident CRUD + role enforcement', () => {
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Administrator', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Deputy Officer', 1)`,
             ['Test Admin', adminUsername, hash]
         );
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Decision-Maker', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Kagawad', 1)`,
             ['Test Decision-Maker', dmUsername, hash]
         );
 
@@ -58,10 +58,11 @@ describe('Incident CRUD + role enforcement', () => {
         persons_involved: 'Suspect: John Doe',
         statement: 'Saw the incident happen',
         recommended_action: 'Scheduled patrol and monitoring',
-        priority: 'Normal'
+        priority: 'Normal',
+        severity: 'High'
     };
 
-    test('Administrator can create an incident, and it appears in the list', async () => {
+    test('Deputy Officer can create an incident, and it appears in the list', async () => {
         const createRes = await request(app)
             .post('/api/incidents')
             .set('Authorization', `Bearer ${adminToken}`)
@@ -78,7 +79,7 @@ describe('Incident CRUD + role enforcement', () => {
         expect(listRes.body.incidents.some(i => i.id === createdIncidentId)).toBe(true);
     });
 
-    test('Decision-Maker cannot create an incident (Administrator-only route)', async () => {
+    test('Kagawad cannot create an incident (Deputy Officer-only route)', async () => {
         const res = await request(app)
             .post('/api/incidents')
             .set('Authorization', `Bearer ${dmToken}`)
@@ -97,7 +98,7 @@ describe('Incident CRUD + role enforcement', () => {
         expect(res.status).toBe(400);
     });
 
-    test('Administrator can update and then delete an incident', async () => {
+    test('Deputy Officer can update and then delete an incident', async () => {
         const createRes = await request(app)
             .post('/api/incidents')
             .set('Authorization', `Bearer ${adminToken}`)

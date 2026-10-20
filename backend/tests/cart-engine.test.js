@@ -1,43 +1,46 @@
 // Pure unit tests for the CART risk-scoring engine — no DB, no HTTP,
 // just the exported singleton's analyze() method. The engine uses
-// severity-adaptive weights: the base type weight (30%) shifts up for
-// Critical-severity crimes (40%) and down for Low-severity ones (20%),
-// with the remaining factors redistributed proportionally.
+// severity-based weights selected from the incident's severity field:
+// the base type weight (30%) drops to 20% for Medium-severity crimes
+// and 10% for Low-severity ones, with the remaining factors
+// redistributed proportionally.
 const cartEngine = require('../cart-engine');
 
 describe('CART engine scoring', () => {
-    test('a severe, frequent, well-known-hotspot incident scores into Level 3', () => {
+    test('a severe, frequent, well-known-hotspot High-severity incident scores into Level 3', () => {
         const incident = {
-            incident_type: 'Homicide',   // type score 95 → Critical tier (40% weight)
+            incident_type: 'Homicide',   // type score 95
             time_of_day: 'Night',        // time score 90
-            is_weekend: true             // day score 70
+            is_weekend: true,            // day score 70
+            severity: 'High'             // type weight 30%
         };
         const locationData = { street_count: 6 };   // >=5 -> location 'critical' = 90
         const frequencyData = { recent_count: 6 };  // >=5 -> frequency 'very_high' = 95
 
         const result = cartEngine.analyze(incident, locationData, frequencyData);
 
-        // Critical tier: type=40%, remaining 60% split proportionally
-        // 95*.40 + 90*(0.60*25/70) + 70*(0.60*15/70) + 90*(0.60*20/70) + 95*(0.60*10/70) ≈ 89.86
-        expect(result.totalScore).toBeCloseTo(89.86, 1);
+        // High severity: type=30%, remaining 70% split proportionally
+        // 95*.30 + 90*.25 + 70*.15 + 90*.20 + 95*.10 = 89.0
+        expect(result.totalScore).toBeCloseTo(89.0, 1);
         expect(result.dangerLevel).toBe('Level 3');
         expect(result.dangerDescription).toContain('High Crime');
-        expect(result.effectiveWeights.tier).toBe('Critical');
+        expect(result.effectiveWeights.tier).toBe('High');
     });
 
-    test('a minor, rare, no-history incident scores into Level 1', () => {
+    test('a minor, rare, no-history Low-severity incident scores into Level 1', () => {
         const incident = {
-            incident_type: 'Missing',    // type score 35 → Low tier (20% weight)
+            incident_type: 'Missing',    // type score 35
             time_of_day: 'Morning',      // time score 20
-            is_weekend: false            // day score 40
+            is_weekend: false,           // day score 40
+            severity: 'Low'              // type weight 10%
         };
 
         // no prior incidents at this location / in the last 30 days
         const result = cartEngine.analyze(incident, null, null);
 
-        // Low tier: type=20%, remaining 80% split proportionally
-        // 35*.20 + 20*(0.80*25/70) + 40*(0.80*15/70) + 10*(0.80*20/70) + 5*(0.80*10/70) ≈ 22.43
-        expect(result.totalScore).toBeCloseTo(22.43, 1);
+        // Low severity: type=10%, remaining 90% split proportionally
+        // 35*.10 + 20*(0.90*25/70) + 40*(0.90*15/70) + 10*(0.90*20/70) + 5*(0.90*10/70) ≈ 20.86
+        expect(result.totalScore).toBeCloseTo(20.86, 1);
         expect(result.dangerLevel).toBe('Level 1');
         expect(result.dangerDescription).toContain('Low Danger');
         expect(result.effectiveWeights.tier).toBe('Low');
@@ -68,32 +71,30 @@ describe('CART engine scoring', () => {
         });
     });
 
-    test('severity-adaptive weights shift type weight based on crime severity', () => {
-        const critical = cartEngine.getSeverityTier(95);
-        const high     = cartEngine.getSeverityTier(70);
-        const moderate = cartEngine.getSeverityTier(50);
-        const low      = cartEngine.getSeverityTier(35);
+    test('severity-adaptive weights shift type weight based on the selected severity', () => {
+        const high   = cartEngine.getSeverityWeight('High');
+        const medium = cartEngine.getSeverityWeight('Medium');
+        const low    = cartEngine.getSeverityWeight('Low');
 
-        expect(critical.typeWeight).toBe(0.40);
-        expect(high.typeWeight).toBe(0.35);
-        expect(moderate.typeWeight).toBe(0.30);
-        expect(low.typeWeight).toBe(0.20);
+        expect(high.typeWeight).toBe(0.30);
+        expect(medium.typeWeight).toBe(0.20);
+        expect(low.typeWeight).toBe(0.10);
     });
 
     test('adaptive weights always sum to 1.0', () => {
-        for (const score of [95, 70, 50, 35]) {
-            const ew = cartEngine.getAdaptiveWeights(score);
+        for (const severity of ['High', 'Medium', 'Low']) {
+            const ew = cartEngine.getAdaptiveWeights(50, severity);
             const sum = ew.type + ew.time + ew.day + ew.location + ew.frequency;
             expect(sum).toBeCloseTo(1.0, 10);
         }
     });
 
     test('effectiveWeights are included in the analysis result', () => {
-        const incident = { incident_type: 'Robbery', time_of_day: 'Night', is_weekend: false };
+        const incident = { incident_type: 'Robbery', time_of_day: 'Night', is_weekend: false, severity: 'Medium' };
         const result = cartEngine.analyze(incident, { street_count: 3 }, { recent_count: 2 });
 
         expect(result.effectiveWeights).toBeDefined();
-        expect(result.effectiveWeights.tier).toBe('Critical');
-        expect(result.effectiveWeights.type).toBe(0.40);
+        expect(result.effectiveWeights.tier).toBe('Medium');
+        expect(result.effectiveWeights.type).toBe(0.20);
     });
 });

@@ -559,7 +559,7 @@
         <div class="user-profile">
             <div class="profile-info">
                 <h3 id="userNameDisplay">Barangay Secretary</h3>
-                <p id="userRoleDisplay">Administrator — Barangay Secretary / IT Personnel</p>
+                <p id="userRoleDisplay">Deputy Officer - Full System Access</p>
             </div>
         </div>
 
@@ -1610,17 +1610,16 @@
 
     function getRoleClass(role) {
         if (!role) return 'field-user';
-        const roleLower = role.toLowerCase();
-        if (roleLower.includes('admin')) return 'admin';
-        if (roleLower.includes('decision')) return 'decision-maker';
+        if (role === 'Deputy Officer') return 'admin';
+        if (role === 'Kagawad') return 'decision-maker';
         return 'field-user';
     }
 
     function getRoleIcon(role) {
         if (!role) return '<i class="fa-solid fa-user"></i>';
-        const roleLower = role.toLowerCase();
-        if (roleLower.includes('admin')) return '<i class="fa-solid fa-shield-halved"></i>';
-        if (roleLower.includes('decision')) return '<i class="fa-solid fa-user-tie"></i>';
+        if (role === 'Deputy Officer') return '<i class="fa-solid fa-shield-halved"></i>';
+        if (role === 'Kagawad') return '<i class="fa-solid fa-user-tie"></i>';
+        if (role === 'Team Leader') return '<i class="fa-solid fa-headset"></i>';
         return '<i class="fa-solid fa-person-walking"></i>';
     }
 
@@ -1768,10 +1767,7 @@ async function loadLoginHistory() {
                 minute: '2-digit'
             });
 
-            const roleClass = entry.user_role ? 
-                entry.user_role.toLowerCase().includes('admin') ? 'admin' : 
-                entry.user_role.toLowerCase().includes('decision') ? 'decision-maker' : 'field-user'
-                : 'field-user';
+            const roleClass = getRoleClass(entry.user_role);
 
             html += `
                 <div class="login-history-item" style="animation: fadeIn 0.3s ease ${index * 0.05}s both;">

@@ -17,15 +17,15 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Administrator', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Deputy Officer', 1)`,
             ['Test Admin Patrol', adminUsername, hash]
         );
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Decision-Maker', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Kagawad', 1)`,
             ['Test DM Patrol', dmUsername, hash]
         );
         await pool.query(
-            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Desk Officer', 1)`,
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Team Leader', 1)`,
             ['Test Desk Patrol', deskUsername, hash]
         );
 
@@ -62,7 +62,7 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         reason: 'created by an automated test'
     });
 
-    test('Administrator can create a patrol schedule', async () => {
+    test('Deputy Officer can create a patrol schedule', async () => {
         const res = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${adminToken}`)
@@ -79,9 +79,9 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(getRes.body.location).toBe('Balite Street');
     });
 
-    // Schedule create/update is Administrator + Desk Officer only (db54b1b);
-    // the Captain's Patrol page has no schedule form.
-    test('Decision-Maker (Captain) cannot create or update a schedule', async () => {
+    // Schedule create/update is Deputy Officer + Team Leader only (db54b1b);
+    // the Kagawad's Patrol page has no schedule form.
+    test('Kagawad cannot create or update a schedule', async () => {
         const dmCreateRes = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${dmToken}`)
@@ -101,7 +101,7 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(updateRes.status).toBe(403);
     });
 
-    test('Desk Officer can create and update a schedule', async () => {
+    test('Team Leader can create and update a schedule', async () => {
         const createRes = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${deskToken}`)
@@ -112,11 +112,11 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         const updateRes = await request(app)
             .put(`/api/patrol-schedules/${createdScheduleId}`)
             .set('Authorization', `Bearer ${deskToken}`)
-            .send({ ...validSchedulePayload(), reason: 'updated by Desk Officer' });
+            .send({ ...validSchedulePayload(), reason: 'updated by Team Leader' });
         expect(updateRes.status).toBe(200);
     });
 
-    test('Decision-Maker cannot delete a schedule (Administrator-only route)', async () => {
+    test('Kagawad cannot delete a schedule (Deputy Officer-only route)', async () => {
         const createRes = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${adminToken}`)
@@ -171,7 +171,7 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
     // Patrol Logs
     // ------------------------------------------------------------
 
-    test('Desk Officer can create a patrol log against a real schedule', async () => {
+    test('Team Leader can create a patrol log against a real schedule', async () => {
         const scheduleRes = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${adminToken}`)
@@ -193,8 +193,8 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         createdLogId = logRes.body.log.id;
     });
 
-    // The Captain's Patrol page has no log form, so the API rejects it too.
-    test('Decision-Maker (Captain) cannot create a patrol log', async () => {
+    // The Kagawad's Patrol page has no log form, so the API rejects it too.
+    test('Kagawad cannot create a patrol log', async () => {
         const scheduleRes = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${adminToken}`)
@@ -214,7 +214,7 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(logRes.status).toBe(403);
     });
 
-    test('Desk Officer cannot edit or delete a patrol log (Administrator-only routes)', async () => {
+    test('Team Leader cannot edit or delete a patrol log (Deputy Officer-only routes)', async () => {
         const scheduleRes = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${adminToken}`)

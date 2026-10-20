@@ -21,7 +21,7 @@ flowchart TB
     end
 
     subgraph Clients["Any Browser (same LAN)"]
-        StaffUI["Staff Web Client\nAdmin / Captain / Decision-Maker / Desk Officer"]
+        StaffUI["Staff Web Client\nDeputy Officer / Kagawad / Team Leader"]
     end
 
     subgraph Node["Single Node.js Process — backend/server.js (port 3000)"]
@@ -59,7 +59,7 @@ flowchart TB
   `user_sessions`) with a rate-limited lockout (`login_attempts`, 5 failed attempts per
   15 minutes) layered under a generic IP-based rate limiter on every auth route.
 - **Role-based access control** (`requireRole([...])` middleware) gates every route by
-  the staff roles (Administrator, Decision-Maker/Captain, Desk Officer).
+  the staff roles (Deputy Officer, Kagawad, Team Leader).
 - **File access is token-gated, not a bare static mount** — a 60-second HMAC-signed
   token (`issueFileToken`/`verifyFileToken`) is required on every `/uploads/*` request.
 - **CART is a rule-based weighted scoring engine**, not a trained machine-learning
@@ -92,7 +92,7 @@ erDiagram
         varchar name
         varchar username UK
         varchar password_hash
-        enum role "Administrator | Decision-Maker | Desk Officer"
+        enum role "Deputy Officer | Kagawad | Team Leader"
         varchar contact_no
         varchar email
         tinyint is_active
@@ -290,7 +290,7 @@ erDiagram
 `ARCHIVED_RECORDS` holds everything deleted anywhere in the app: `entity_type` +
 `entity_id` point at the original table and row, but deliberately without a foreign
 key, because the original row no longer exists (or, for users, is deactivated).
-`data` keeps a full JSON snapshot so an Administrator can restore it from
+`data` keeps a full JSON snapshot so the Deputy Officer can restore it from
 Settings > Archive (see `backend/archive.js`).
 
 `LOGIN_ATTEMPTS` is intentionally not linked by foreign key — it keys off `username`

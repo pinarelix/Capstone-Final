@@ -1,7 +1,7 @@
 /* ============================================================
    USERS.JS
    Barangay 179 Crime BI
-   User Management Module - Admin & Decision-Maker Only + Audit
+   User Management Module - Deputy Officer Only + Audit
 ============================================================ */
 
 // ✅ API_URL ay naka-define na sa apiHelper.js
@@ -287,7 +287,7 @@ function renderUsers(filteredUsers = users) {
 /* ============================================================
    INLINE EDIT: USER EMAIL
    Scoped to just this one field since there's no general "edit user"
-   endpoint yet - needed so an Administrator can set an email on
+   endpoint yet - needed so the Deputy Officer can set an email on
    existing accounts (the Add User form only covers new ones), which
    the forgot-password flow uses to actually send a reset code.
 ============================================================ */
@@ -431,7 +431,7 @@ async function deleteUser(id) {
         return;
     }
 
-    showDeleteModal(`Are you sure you want to deactivate user "${user.name}"? It will be moved to the Archive (Settings > Archive), where an Administrator can restore it.`, id, 'user');
+    showDeleteModal(`Are you sure you want to deactivate user "${user.name}"? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.`, id, 'user');
 }
 
 window.confirmDeleteUser = async function(id) {
@@ -586,18 +586,18 @@ function escapeHTML(value) {
 
 function getRoleClass(role) {
     switch (role) {
-        case "Administrator": return "admin";
-        case "Decision-Maker": return "decision-maker";
-        case "Desk Officer": return "desk-officer";
+        case "Deputy Officer": return "admin";
+        case "Kagawad": return "decision-maker";
+        case "Team Leader": return "desk-officer";
         default: return "field-user";
     }
 }
 
 function getRoleIcon(role) {
     switch (role) {
-        case "Administrator": return '<i class="fa-solid fa-user-shield"></i>';
-        case "Decision-Maker": return '<i class="fa-solid fa-user-tie"></i>';
-        case "Desk Officer": return '<i class="fa-solid fa-headset"></i>';
+        case "Deputy Officer": return '<i class="fa-solid fa-user-shield"></i>';
+        case "Kagawad": return '<i class="fa-solid fa-user-tie"></i>';
+        case "Team Leader": return '<i class="fa-solid fa-headset"></i>';
         default: return '<i class="fa-solid fa-user"></i>';
     }
 }

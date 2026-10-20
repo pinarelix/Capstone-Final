@@ -29,7 +29,7 @@ const router = express.Router();
  * ----------
  * If the request carries a Bearer token:
  *   - Try to look up a matching active session + user.
- *   - If the user is an Administrator → allow.
+ *   - If the user is a Deputy Officer → allow.
  *   - If the user is any other role  → 403 Forbidden.
  *   - If the token is invalid / expired → allow (treat as "no session",
  *     i.e. pre-login mode — the setup wizard must work before any DB is
@@ -77,13 +77,13 @@ async function setupGuard(req, res, next) {
         }
 
         const { role } = sessions[0];
-        if (role === 'Administrator') {
+        if (role === 'Deputy Officer') {
             req.userId = sessions[0].user_id;
             return next();
         }
 
         // Non-admin with a valid session — blocked.
-        return res.status(403).json({ error: 'Forbidden: only administrators can change setup.' });
+        return res.status(403).json({ error: 'Forbidden: only the Deputy Officer can change setup.' });
     } catch (_) {
         // DB query failed (e.g. tables don't exist yet) — treat as pre-login.
         return next();

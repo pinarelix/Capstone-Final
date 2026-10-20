@@ -2,7 +2,7 @@ const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const { app, pool } = require('../server');
 
-// Deletes move records into archived_records; an Administrator can list
+// Deletes move records into archived_records; the Deputy Officer can list
 // and restore them from Settings > Archive.
 describe('Archive: deleted records can be listed and restored', () => {
     const adminUsername = 'test_admin_archive';
@@ -15,9 +15,9 @@ describe('Archive: deleted records can be listed and restored', () => {
     beforeEach(async () => {
         const hash = await bcrypt.hash(password, 10);
         for (const [name, username, role] of [
-            ['Test Admin', adminUsername, 'Administrator'],
-            ['Test DM', dmUsername, 'Decision-Maker'],
-            ['Test Desk', deskUsername, 'Desk Officer']
+            ['Test Admin', adminUsername, 'Deputy Officer'],
+            ['Test DM', dmUsername, 'Kagawad'],
+            ['Test Desk', deskUsername, 'Team Leader']
         ]) {
             await pool.query(
                 'INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, ?, 1)',
@@ -59,7 +59,7 @@ describe('Archive: deleted records can be listed and restored', () => {
         return res.body.find(e => e.entity_id === id);
     };
 
-    test('only Administrators can view or restore the archive', async () => {
+    test('only the Deputy Officer can view or restore the archive', async () => {
         for (const token of [dmToken, deskToken]) {
             const list = await request(app).get('/api/archive').set('Authorization', `Bearer ${token}`);
             expect(list.status).toBe(403);
@@ -73,7 +73,7 @@ describe('Archive: deleted records can be listed and restored', () => {
             incident_type: 'Theft', date: '2026-01-15', time: '21:30', latitude: 14.755, longitude: 121.077,
             street_name: 'Balite Street', status: 'Open', description: 'archive test', blotter_number: 'BLT-ARCHIVE',
             address: 'House 1, Balite Street', reported_by_name: 'Juan Dela Cruz', persons_involved: 'Suspect: Unknown',
-            statement: 'Witnessed theft', recommended_action: 'Scheduled patrol', priority: 'Normal'
+            statement: 'Witnessed theft', recommended_action: 'Scheduled patrol', priority: 'Normal', severity: 'High'
         });
         const incidentId = created.body.id;
         cleanup.incidents.push(incidentId);
@@ -115,7 +115,7 @@ describe('Archive: deleted records can be listed and restored', () => {
             incident_type: 'Theft', date: '2026-01-16', time: '10:00', latitude: 14.755, longitude: 121.077,
             street_name: 'Balite Street', status: 'Open', description: 'evidence archive test', blotter_number: 'BLT-EV-ARCHIVE',
             address: 'House 2, Balite Street', reported_by_name: 'Maria Santos', persons_involved: 'Suspect: Unknown',
-            statement: 'Saw suspicious activity', recommended_action: 'Investigate area', priority: 'Normal'
+            statement: 'Saw suspicious activity', recommended_action: 'Investigate area', priority: 'Normal', severity: 'Medium'
         });
         const incidentId = created.body.id;
         cleanup.incidents.push(incidentId);
@@ -124,7 +124,7 @@ describe('Archive: deleted records can be listed and restored', () => {
             [incidentId]
         );
 
-        // Desk Officers may remove evidence; it is archived, not erased.
+        // Team Leaders may remove evidence; it is archived, not erased.
         const delEv = await request(app).delete(`/api/incidents/${incidentId}/evidence/${ev.insertId}`).set('Authorization', `Bearer ${deskToken}`);
         expect(delEv.status).toBe(200);
         const evEntry = await archiveEntry('incident_evidence', ev.insertId);
@@ -176,7 +176,7 @@ describe('Archive: deleted records can be listed and restored', () => {
 
     test('deactivated users are archived and restore reactivates them (no secrets in the snapshot)', async () => {
         const created = await request(app).post('/api/users').set('Authorization', `Bearer ${adminToken}`).send({
-            name: 'Archive User', username: 'test_archive_user', password: 'pass1234', role: 'Desk Officer', email: 'archive.user@example.com'
+            name: 'Archive User', username: 'test_archive_user', password: 'pass1234', role: 'Team Leader', email: 'archive.user@example.com'
         });
         const userId = created.body.user?.id || (await pool.query("SELECT id FROM users WHERE username = 'test_archive_user'"))[0][0].id;
         cleanup.users.push(userId);

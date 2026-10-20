@@ -555,10 +555,10 @@ function setupForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        // Desk Officer can both add and edit incidents (including
-        // evidence) - only deleting a record stays Administrator-only.
+        // Team Leaders can both add and edit incidents (including
+        // evidence) - only deleting a record stays Deputy Officer-only.
         if (!isAdmin() && !isDeskOfficer()) {
-            showErrorModal('Access Denied', 'Only administrators and desk officers can add incidents.');
+            showErrorModal('Access Denied', 'Only the Deputy Officer and Team Leaders can add incidents.');
             return;
         }
 
@@ -992,7 +992,7 @@ document.getElementById('clearBtn').addEventListener('click', clearForm);
 
 window.requestDeleteIncident = function(id) {
     if (!isAdmin()) { // mula sa apiHelper.js
-        showErrorModal('Access Denied', 'Only administrators can delete incidents.');
+        showErrorModal('Access Denied', 'Only the Deputy Officer can delete incidents.');
         return;
     }
 
@@ -1039,7 +1039,7 @@ window.confirmDeleteIncident = async function(id) {
 
 window.editIncident = async (id) => {
     if (!isAdmin() && !isDeskOfficer()) { // mula sa apiHelper.js
-        showErrorModal('Access Denied', 'Only administrators and desk officers can edit incidents.');
+        showErrorModal('Access Denied', 'Only the Deputy Officer and Team Leaders can edit incidents.');
         return;
     }
 

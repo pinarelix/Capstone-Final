@@ -13,7 +13,7 @@
 
 - **Device A** owns the database. Both devices read and write to it.
 - **Device B** runs the same Electron app but points its DB connection to Device A's IP.
-- Both devices can log in as Administrator, Decision-Maker, or Desk Officer.
+- Both devices can log in as Deputy Officer, Kagawad, or Team Leader.
 
 ---
 
@@ -106,7 +106,7 @@ Click **Save** → app restarts with the new connection.
    🚀 Server running on http://localhost:3000
    ```
 
-3. Log in as your role (Administrator, Decision-Maker, or Desk Officer).
+3. Log in as your role (Deputy Officer, Kagawad, or Team Leader).
 
 > ⚠️ **Keep the Electron app open** the entire session — it runs the server. Closing it disconnects Device B.
 
