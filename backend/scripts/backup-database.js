@@ -13,6 +13,7 @@
 // on their own.
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
@@ -25,6 +26,7 @@ const DB_NAME = process.env.DB_NAME || 'brgydata';
 // automatically after a successful new backup. Override with
 // BACKUP_RETENTION_COUNT in .env if 14 isn't the right number.
 const RETENTION_COUNT = parseInt(process.env.BACKUP_RETENTION_COUNT, 10) || 14;
+const BACKUP_KEY = process.env.BACKUP_ENCRYPTION_KEY || '';
 
 const BACKUP_DIR = path.join(__dirname, '..', '..', 'database', 'backups');
 
@@ -50,9 +52,21 @@ function timestamp() {
     return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
+function encryptFile(filePath) {
+    const key = crypto.scryptSync(BACKUP_KEY, 'brgydata-salt', 32);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    const data = fs.readFileSync(filePath);
+    const encrypted = Buffer.concat([iv, cipher.update(data), cipher.final()]);
+    const encPath = filePath + '.enc';
+    fs.writeFileSync(encPath, encrypted);
+    fs.unlinkSync(filePath);
+    return encPath;
+}
+
 function pruneOldBackups() {
     const files = fs.readdirSync(BACKUP_DIR)
-        .filter(f => f.endsWith('.sql'))
+        .filter(f => f.endsWith('.sql') || f.endsWith('.sql.enc'))
         .map(f => ({ name: f, time: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
         .sort((a, b) => b.time - a.time);
 
@@ -95,8 +109,14 @@ function main() {
         process.exit(1);
     }
 
-    const sizeKb = (fs.statSync(outFile).size / 1024).toFixed(1);
-    console.log(`✅ Backup saved: ${outFile} (${sizeKb} KB)`);
+    let finalFile = outFile;
+    if (BACKUP_KEY) {
+        finalFile = encryptFile(outFile);
+        console.log('🔒 Backup encrypted with AES-256-CBC');
+    }
+
+    const sizeKb = (fs.statSync(finalFile).size / 1024).toFixed(1);
+    console.log(`✅ Backup saved: ${finalFile} (${sizeKb} KB)`);
 
     pruneOldBackups();
 }

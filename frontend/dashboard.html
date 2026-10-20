@@ -6,22 +6,19 @@
 
     <title>Barangay 179 Crime BI Dashboard</title>
 
-    <!-- Google Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Fonts (bundled locally for offline use) -->
+    <link rel="stylesheet" href="vendor/css/local-fonts.css">
 
     <!-- Font Awesome -->
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="vendor/css/fontawesome-6.5.2.min.css">
 
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="vendor/js/chart-4.4.1.umd.min.js"></script>
     <!-- Datalabels plugin - shows exact counts directly on a chart (not
          just in the hover tooltip). Only wired into Incident Activity by
          Hour for now, not registered globally, so it has no effect on the
          other charts on this page unless explicitly opted into later. -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="vendor/js/chartjs-plugin-datalabels-2.2.0.min.js"></script>
 
     <!-- Dashboard CSS -->
     <link rel="stylesheet" href="dashboard.css">

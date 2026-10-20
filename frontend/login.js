@@ -33,16 +33,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const usernameInput = document.getElementById('username');
             const passwordField = document.getElementById('password');
 
-            if (role === 'deputy') {
-                usernameInput.value = 'admin';
-                passwordField.value = 'admin123';
-            } else if (role === 'kagawad') {
-                usernameInput.value = 'captain';
-                passwordField.value = 'captain123';
-            } else if (role === 'teamleader') {
-                usernameInput.value = 'deskofficer';
-                passwordField.value = 'deskofficer123';
-            }
+            usernameInput.value = '';
+            passwordField.value = '';
         });
     });
 
@@ -349,9 +341,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     localStorage.setItem('isLoggedIn', 'true');
                 } catch (e) {}
 
-                console.log('✅ User logged in:', user.name);
-                console.log('📋 Role:', user.role);
-                console.log('🔑 Session Token Saved to sessionStorage');
 
                 window.location.href = 'dashboard.html';
 

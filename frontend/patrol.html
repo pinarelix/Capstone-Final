@@ -9,12 +9,12 @@
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="incident.css">
     <link rel="stylesheet" href="patrol.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Fonts (bundled locally for offline use) -->
+    <link rel="stylesheet" href="vendor/css/local-fonts.css">
     <!-- Font Awesome (standard icons, replacing emoji) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="vendor/css/fontawesome-6.5.2.min.css">
     <!-- Leaflet CSS (for the schedule location map picker) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <link rel="stylesheet" href="vendor/css/leaflet-1.9.4.css">
 </head>
 <body>
 
@@ -788,8 +788,8 @@
 
     <!-- Leaflet + turf.js + shared barangay boundary helper, for the
          schedule location map picker (same libraries incident.html uses) -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+    <script src="vendor/js/leaflet-1.9.4.js"></script>
+    <script src="vendor/js/turf-7.2.0.min.js"></script>
     <script src="mapHelper.js"></script>
     <script src="locationList.js"></script>
 

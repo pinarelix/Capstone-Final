@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const NodeCache = require('node-cache');
+const FileType = require('file-type');
 const nodemailer = require('nodemailer');
 const cartEngine = require('./cart-engine');
 const { BARANGAY_LOCATIONS } = require('./locationList');
@@ -69,6 +70,19 @@ app.use(express.json());
 // served as.
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy',
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "font-src 'self'; " +
+        "img-src 'self' data: blob: https://api.mapbox.com https://*.tiles.mapbox.com; " +
+        "connect-src 'self' https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com; " +
+        "worker-src 'self' blob:; " +
+        "frame-src 'none'"
+    );
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     next();
 });
 
@@ -119,7 +133,6 @@ app.use('/uploads', async (req, res, next) => {
                         areaIncidentPhoto = rows.length > 0;
                     }
                 } catch (error) {
-                    console.error('❌ Error checking tanod photo access:', error);
                     return res.status(500).json({ error: 'Failed to check file access' });
                 }
             }
@@ -207,6 +220,31 @@ function runMulterMiddleware(middleware) {
             next();
         });
     };
+}
+
+const ALLOWED_MAGIC_MIMES = new Set([
+    'image/jpeg', 'image/png', 'image/webp',
+    'video/mp4', 'video/webm', 'video/quicktime'
+]);
+
+async function validateMagicBytes(req, res, next) {
+    const files = req.file ? [req.file] : (req.files || []);
+    for (const file of files) {
+        try {
+            const type = await FileType.fromFile(file.path);
+            if (!type || !ALLOWED_MAGIC_MIMES.has(type.mime)) {
+                fs.unlink(file.path, () => {});
+                return res.status(400).json({
+                    error: `File "${file.originalname}" failed magic-byte verification. ` +
+                           `Expected an image or video but detected: ${type ? type.mime : 'unknown'}.`
+                });
+            }
+        } catch (err) {
+            fs.unlink(file.path, () => {});
+            return res.status(400).json({ error: `Could not verify file "${file.originalname}".` });
+        }
+    }
+    next();
 }
 
 // ============================================================
@@ -535,7 +573,7 @@ function removeUploadedFiles(req) {
     const files = [...(req.file ? [req.file] : []), ...(Array.isArray(req.files) ? req.files : [])];
     for (const file of files) {
         fs.unlink(file.path, (err) => {
-            if (err && err.code !== 'ENOENT') console.error('❌ Error removing rejected upload:', err);
+            // silently ignore cleanup errors
         });
     }
 }
@@ -614,9 +652,7 @@ if (process.env.EMAIL_USER && process.env.EMAIL_APP_PASSWORD) {
             pass: process.env.EMAIL_APP_PASSWORD
         }
     });
-    console.log('📧 Password reset emails: enabled (Gmail)');
 } else {
-    console.log('📧 Password reset emails: not configured - falling back to Audit Trail only');
 }
 
 async function sendPasswordResetEmail(toEmail, name, resetToken) {
@@ -638,7 +674,6 @@ async function sendPasswordResetEmail(toEmail, name, resetToken) {
         });
         return true;
     } catch (error) {
-        console.error('❌ Failed to send password reset email:', error.message);
         return false;
     }
 }
@@ -653,7 +688,6 @@ async function logAudit(userId, action, entityType, entityId, oldData, newData, 
         const userAgent = req.headers?.['user-agent'] || '';
 
         if (!userId) {
-            console.warn('⚠️ Audit log skipped: No userId provided');
             return;
         }
 
@@ -672,9 +706,7 @@ async function logAudit(userId, action, entityType, entityId, oldData, newData, 
             userAgent
         ]);
 
-        console.log(`✅ Audit: ${action} by user ${userId} on ${entityType} #${entityId || 'N/A'}`);
     } catch (error) {
-        console.error('❌ Audit log error:', error.message);
     }
 }
 
@@ -700,9 +732,7 @@ async function logTanodAudit(tanodId, action, entityType, entityId, newData, req
             userAgent
         ]);
 
-        console.log(`✅ Tanod Audit: ${action} by tanod ${tanodId} on ${entityType} #${entityId || 'N/A'}`);
     } catch (error) {
-        console.error('❌ Tanod audit log error:', error.message);
     }
 }
 
@@ -765,7 +795,6 @@ async function authenticate(req, res, next) {
         next();
 
     } catch (error) {
-        console.error('❌ Authentication error:', error);
         return res.status(500).json({ error: 'Server error during authentication' });
     }
 }
@@ -806,7 +835,6 @@ async function authenticateFromQueryToken(req, res, next) {
         next();
 
     } catch (error) {
-        console.error('❌ Authentication error (notification stream):', error);
         return res.status(500).json({ error: 'Server error during authentication' });
     }
 }
@@ -837,7 +865,6 @@ function requireRole(allowedRoles) {
             next();
 
         } catch (error) {
-            console.error('❌ Authorization error:', error);
             return res.status(500).json({ error: 'Server error during authorization' });
         }
     };
@@ -886,7 +913,6 @@ app.get('/api/notifications/stream', authenticateFromQueryToken, requireRole(['D
             }
             res.write(': heartbeat\n\n');
         } catch (error) {
-            console.error('❌ Notification stream session check failed:', error.message);
         }
     }, 30000);
 
@@ -946,7 +972,6 @@ async function authenticateTanod(req, res, next) {
         next();
 
     } catch (error) {
-        console.error('❌ Tanod authentication error:', error);
         return res.status(500).json({ error: 'Server error during authentication' });
     }
 }
@@ -1008,7 +1033,6 @@ async function authenticateStaffOrTanod(req, res, next) {
 
         return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
     } catch (error) {
-        console.error('❌ Authentication error (staff-or-tanod):', error);
         return res.status(500).json({ error: 'Server error during authentication' });
     }
 }
@@ -1189,7 +1213,6 @@ async function applyConfiguredWeights() {
 
 async function computeCartRiskFactors(incidentId) {
     try {
-        console.log(`🔄 Computing CART risk factors for incident ${incidentId}...`);
         
         // 1. Get incident data
         const [incidents] = await pool.query(`
@@ -1198,12 +1221,10 @@ async function computeCartRiskFactors(incidentId) {
         `, [incidentId]);
 
         if (incidents.length === 0) {
-            console.warn(`⚠️ Incident ${incidentId} not found`);
             return;
         }
 
         const incident = incidents[0];
-        console.log(`📋 Incident: ${incident.incident_type} at ${incident.street_name || 'Unknown'}`);
 
         // 2. Get location statistics
         let locationData = null;
@@ -1240,7 +1261,6 @@ async function computeCartRiskFactors(incidentId) {
             frequencyData
         );
 
-        console.log(`📊 Result: ${result.dangerLevel} (${result.totalScore})`);
 
         // 5. Delete existing risk factors
         await pool.query('DELETE FROM cart_risk_factors WHERE incident_id = ?', [incidentId]);
@@ -1281,11 +1301,8 @@ async function computeCartRiskFactors(incidentId) {
             [result.dangerDescription || 'Level 1 — Low Danger / Stable Area', incidentId]
         );
 
-        console.log(`✅ CART risk factors saved for incident ${incidentId}`);
 
     } catch (error) {
-        console.error('❌ Error computing CART risk factors:', error);
-        console.error('Stack:', error.stack);
         throw error;
     }
 }
@@ -1299,7 +1316,6 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
     const startTime = Date.now();
     let conn;
     try {
-        console.log('🔄 Starting full CART recomputation...');
 
         // 1. Get all incidents with valid data. time_of_day can be NULL on
         // imported rows - derive it from `time` instead of skipping them,
@@ -1316,7 +1332,6 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
         }));
 
         if (incidents.length === 0) {
-            console.log('ℹ️ No valid incidents found to recompute');
             await pool.query('DELETE FROM cart_risk_factors');
             const [emptyLog] = await pool.query(`
                 INSERT INTO cart_analysis_log (
@@ -1331,7 +1346,6 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
             return emptyLog.insertId;
         }
 
-        console.log(`📋 Found ${incidents.length} incidents to process`);
 
         // 2. Get location statistics for all streets (with data)
         const [locationStats] = await pool.query(`
@@ -1362,8 +1376,6 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
             frequencyMap[item.street_name] = item.recent_count;
         });
 
-        console.log(`📍 Location stats: ${Object.keys(locationMap).length} streets`);
-        console.log(`📊 Frequency stats: ${Object.keys(frequencyMap).length} streets`);
 
         // 4. Replace all existing risk factors inside one transaction, so
         // readers keep seeing the previous results until the new set is
@@ -1439,11 +1451,9 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
                 processed++;
                 
                 if (processed % 10 === 0) {
-                    console.log(`📊 Processed ${processed}/${incidents.length} incidents`);
                 }
             } catch (incidentError) {
                 errors++;
-                console.error(`❌ Error processing incident ${incident.id}:`, incidentError.message);
             }
         }
 
@@ -1488,13 +1498,9 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
             `Processed ${processed} incidents with ${errors} errors`
         ]);
 
-        console.log(`✅ All CART risk factors recomputed for ${processed} incidents (${errors} errors)`);
-        console.log(`📊 Risk distribution: High=${highRisk}, Moderate=${moderateRisk}, Low=${lowRisk}`);
         return logResult.insertId;
 
     } catch (error) {
-        console.error('❌ Error recomputing CART risk factors:', error);
-        console.error('Stack:', error.stack);
 
         if (conn) {
             try { await conn.rollback(); } catch (rollbackError) { /* already logged above */ }
@@ -1511,7 +1517,6 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
                 ) VALUES (?, ?, ?, ?)
             `, ['risk_prediction', 'failed', triggeredBy, `Error: ${error.message}`]);
         } catch (logError) {
-            console.error('❌ Failed to log error:', logError.message);
         }
 
         throw error;
@@ -1534,7 +1539,6 @@ app.get('/api/users', authenticate, requireRole(['Deputy Officer']), async (req,
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching users:', error);
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 });
@@ -1574,7 +1578,6 @@ app.get('/api/users/search', authenticate, requireRole(['Deputy Officer']), asyn
         res.json(rows);
 
     } catch (error) {
-        console.error('❌ Error searching users:', error);
         res.status(500).json({ error: 'Search failed' });
     }
 });
@@ -1595,7 +1598,6 @@ app.get('/api/users/:id', authenticate, requireRole(['Deputy Officer']), async (
 
         res.json(rows[0]);
     } catch (error) {
-        console.error('❌ Error fetching user:', error);
         res.status(500).json({ error: 'Failed to fetch user' });
     }
 });
@@ -1666,7 +1668,6 @@ app.post('/api/users', authenticate, requireRole(['Deputy Officer']), validate(u
         });
         
     } catch (error) {
-        console.error('❌ Error creating user:', error);
         res.status(500).json({ error: 'Failed to create user' });
     }
 });
@@ -1710,7 +1711,6 @@ app.put('/api/users/:id', authenticate, requireRole(['Deputy Officer']), validat
         await logAudit(req.userId, 'UPDATE_USER', 'users', userId, existing[0], { name, username, role, email }, req);
         res.json({ message: 'User updated successfully.' });
     } catch (error) {
-        console.error('❌ Error updating user:', error);
         res.status(500).json({ error: 'Failed to update user' });
     }
 });
@@ -1731,7 +1731,6 @@ app.put('/api/users/:id/email', authenticate, requireRole(['Deputy Officer']), v
 
         res.json({ message: 'Email updated successfully.' });
     } catch (error) {
-        console.error('❌ Error updating user email:', error);
         res.status(500).json({ error: 'Failed to update email' });
     }
 });
@@ -1796,7 +1795,6 @@ app.delete('/api/users/:id', authenticate, requireRole(['Deputy Officer']), asyn
         res.json({ message: 'User account moved to the Archive.' });
         
     } catch (error) {
-        console.error('❌ Error deleting user:', error);
         res.status(500).json({ error: 'Failed to delete user' });
     }
 });
@@ -1808,7 +1806,6 @@ app.get('/api/users-list', authenticate, requireRole(['Deputy Officer', 'Kagawad
         );
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching users list:', error);
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 });
@@ -1822,9 +1819,6 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
         const { username, password } = req.body;
         const ip = req.ip || req.connection?.remoteAddress || 'unknown';
         
-        console.log('🔐 ========================================');
-        console.log(`🔐 Login attempt: ${username} from IP: ${ip}`);
-        console.log('🔐 ========================================');
         
         const [attempts] = await pool.query(
             `SELECT COUNT(*) as count FROM login_attempts 
@@ -1833,10 +1827,8 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
         );
         
         const failedCount = attempts[0]?.count || 0;
-        console.log(`📊 Failed attempts: ${failedCount}`);
         
         if (failedCount >= 5) {
-            console.log(`⛔ Account locked for ${username}`);
             return res.status(429).json({
                 error: 'Too many failed login attempts. Please wait 15 minutes.',
                 locked: true
@@ -1850,7 +1842,6 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
         `, [username]);
         
         if (users.length === 0) {
-            console.log(`❌ User not found: ${username}`);
             await pool.query(
                 'INSERT INTO login_attempts (username, ip_address, success) VALUES (?, ?, ?)',
                 [username, ip, false]
@@ -1862,7 +1853,6 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
         const match = await bcrypt.compare(password, user.password_hash);
         
         if (!match) {
-            console.log(`❌ Wrong password for: ${username}`);
             await pool.query(
                 'INSERT INTO login_attempts (username, ip_address, success) VALUES (?, ?, ?)',
                 [username, ip, false]
@@ -1870,7 +1860,6 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
             return res.status(401).json({ error: 'Invalid username or password.' });
         }
         
-        console.log(`✅ Password correct for: ${username}`);
         
         await pool.query(
             'INSERT INTO login_attempts (username, ip_address, success) VALUES (?, ?, ?)',
@@ -1883,12 +1872,7 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
             (user_id, session_token, ip_address, user_agent, is_active)
             VALUES (?, ?, ?, ?, ?)
         `, [user.id, sessionToken, ip, req.headers['user-agent'] || '', true]);
-        console.log(`✅ Session token created`);
         
-        console.log('📝 ========================================');
-        console.log(`📝 Saving to login_history for user: ${user.id} (${user.username})`);
-        console.log(`📝 IP: ${ip}`);
-        console.log('📝 ========================================');
         
         try {
             const [historyResult] = await pool.query(`
@@ -1902,12 +1886,8 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
                 req.headers['user-agent'] || ''
             ]);
             
-            console.log(`✅✅✅ login_history inserted! ID: ${historyResult.insertId}`);
             
         } catch (historyError) {
-            console.error('❌❌❌ login_history ERROR:');
-            console.error('Code:', historyError.code);
-            console.error('Message:', historyError.message);
         }
         
         await pool.query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id]);
@@ -1916,9 +1896,6 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
         
         const { password_hash, ...userData } = user;
         
-        console.log('✅ ========================================');
-        console.log(`✅ Login successful for: ${user.username} (${user.role})`);
-        console.log('✅ ========================================');
         
         res.json({
             message: 'Login successful.',
@@ -1927,9 +1904,6 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
         });
         
     } catch (error) {
-        console.error('❌❌❌ FATAL LOGIN ERROR:');
-        console.error('Message:', error.message);
-        console.error('Stack:', error.stack);
         res.status(500).json({ error: 'Login failed. Please try again.' });
     }
 });
@@ -1940,7 +1914,6 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
 
 app.get('/api/login-history', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
     try {
-        console.log('📋 /api/login-history called');
         
         const [rows] = await pool.query(`
             SELECT 
@@ -1958,10 +1931,8 @@ app.get('/api/login-history', authenticate, requireRole(['Deputy Officer']), asy
             LIMIT 50
         `);
         
-        console.log(`✅ Found ${rows.length} login history records`);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching login history:', error);
         res.status(500).json({ error: 'Failed to fetch login history', details: error.message });
     }
 });
@@ -1992,8 +1963,6 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
             VALUES (?, ?, ?)
         `, [user.id, resetToken, expiresAt]);
 
-        console.log(`🔑 Password Reset Token for ${username}: ${resetToken}`);
-        console.log(`⏰ Expires at: ${expiresAt.toLocaleString()}`);
 
         // Tries email first (if configured and this user has one on
         // file); either way the token also goes to the Audit Trail as a
@@ -2011,7 +1980,6 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         });
 
     } catch (error) {
-        console.error('Error in forgot-password:', error);
         res.status(500).json({ error: 'Failed to process request' });
     }
 });
@@ -2061,7 +2029,6 @@ app.post('/api/auth/reset-password', authRateLimit, validate(resetPasswordSchema
         res.json({ message: 'Password reset successful!' });
 
     } catch (error) {
-        console.error('Error in reset-password:', error);
         res.status(500).json({ error: 'Failed to reset password' });
     }
 });
@@ -2096,7 +2063,6 @@ app.post('/api/auth/change-password', authenticate, validate(changePasswordSchem
         res.json({ message: 'Password updated successfully.' });
 
     } catch (error) {
-        console.error('Error changing password:', error);
         res.status(500).json({ error: 'Failed to update password.' });
     }
 });
@@ -2139,7 +2105,6 @@ app.post('/api/auth/logout', async (req, res) => {
 
         res.json({ message: 'Logout successful' });
     } catch (error) {
-        console.error('❌ Error during logout:', error);
         res.status(500).json({ error: 'Logout failed' });
     }
 });
@@ -2166,7 +2131,6 @@ app.get('/api/incidents/next-blotter', authenticate, async (req, res) => {
         }
         res.json({ blotter_number: `BLT-${year}-${String(seq).padStart(4, '0')}` });
     } catch (error) {
-        console.error('Error generating blotter number:', error);
         res.status(500).json({ error: 'Failed to generate blotter number' });
     }
 });
@@ -2241,7 +2205,6 @@ app.get('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad'
 
         res.json({ incidents: rows, total, totalPages, currentPage: parseInt(page) });
     } catch (error) {
-        console.error('❌ Error fetching incidents:', error);
         res.status(500).json({ error: 'Failed to fetch incidents' });
     }
 });
@@ -2249,7 +2212,6 @@ app.get('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad'
 // ✅ VIEW-ONLY INCIDENTS (FOR CAPTAIN)
 app.get('/api/incidents/view-only', authenticate, async (req, res) => {
     try {
-        console.log('📡 /api/incidents/view-only called');
         
         const [users] = await pool.query(
             'SELECT role FROM users WHERE id = ? AND is_active = 1',
@@ -2261,7 +2223,6 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         }
 
         const userRole = users[0].role;
-        console.log(`👤 User role: ${userRole}`);
 
         if (!['Kagawad', 'Deputy Officer', 'Kagawad', 'Team Leader'].includes(userRole)) {
             return res.status(403).json({ error: 'Access denied. View-only for Captain and above.' });
@@ -2330,7 +2291,6 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
             LIMIT ? OFFSET ?
         `, params);
 
-        console.log(`✅ Found ${rows.length} incidents (total: ${total})`);
 
         res.json({
             incidents: rows,
@@ -2340,7 +2300,6 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching view-only incidents:', error);
         res.status(500).json({ error: 'Failed to fetch incidents' });
     }
 });
@@ -2348,7 +2307,6 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
 // ✅ GET SINGLE INCIDENT (VIEW-ONLY)
 app.get('/api/incidents/:id', authenticate, async (req, res) => {
     try {
-        console.log(`📡 /api/incidents/${req.params.id} called`);
         
         const [users] = await pool.query(
             'SELECT role FROM users WHERE id = ? AND is_active = 1',
@@ -2392,7 +2350,6 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
         res.json({ ...rows[0], evidence });
 
     } catch (error) {
-        console.error('❌ Error fetching incident:', error);
         res.status(500).json({ error: 'Failed to fetch incident' });
     }
 });
@@ -2423,7 +2380,6 @@ app.get('/api/heatmap/incidents', authenticate, requireRole(['Deputy Officer', '
         heatmapCache.set('incidents', rows);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching heatmap incidents:', error);
         res.status(500).json({ error: 'Failed to fetch heatmap incidents' });
     }
 });
@@ -2505,7 +2461,6 @@ app.get('/api/heatmap/street-analysis', authenticate, requireRole(['Deputy Offic
         heatmapCache.set('street-analysis', result);
         res.json(result);
     } catch (error) {
-        console.error('Error computing street analysis:', error);
         res.status(500).json({ error: 'Failed to compute street analysis' });
     }
 });
@@ -2600,7 +2555,6 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
         });
 
     } catch (error) {
-        console.error('❌ Error creating incident:', error);
         res.status(500).json({ error: 'Failed to create incident' });
     }
 });
@@ -2679,7 +2633,6 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
         res.json({ message: 'Incident updated successfully.' });
 
     } catch (error) {
-        console.error('❌ Error updating incident:', error);
         res.status(500).json({ error: 'Failed to update incident' });
     }
 });
@@ -2756,7 +2709,6 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Deputy Officer']), 
 
         res.json({ message: 'Incident moved to the Archive.' });
     } catch (error) {
-        console.error('❌ Error deleting incident:', error);
         res.status(500).json({ error: 'Failed to delete incident' });
     }
 });
@@ -2780,12 +2732,11 @@ async function requireExistingIncident(req, res, next) {
         }
         next();
     } catch (error) {
-        console.error('❌ Error checking incident:', error);
         res.status(500).json({ error: 'Failed to upload evidence' });
     }
 }
 
-app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Deputy Officer', 'Team Leader']), requireExistingIncident, runMulterMiddleware(evidenceUpload.array('evidence', 5)), async (req, res) => {
+app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Deputy Officer', 'Team Leader']), requireExistingIncident, runMulterMiddleware(evidenceUpload.array('evidence', 5)), validateMagicBytes, async (req, res) => {
     try {
         const id = req.params.id;
 
@@ -2811,7 +2762,6 @@ app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Deputy Offic
 
         res.status(201).json({ message: 'Evidence uploaded successfully.', evidence: inserted });
     } catch (error) {
-        console.error('❌ Error uploading incident evidence:', error);
         res.status(500).json({ error: 'Failed to upload evidence' });
     }
 });
@@ -2851,7 +2801,6 @@ app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(
 
         res.json({ message: 'Evidence moved to the Archive.' });
     } catch (error) {
-        console.error('❌ Error deleting incident evidence:', error);
         res.status(500).json({ error: 'Failed to delete evidence' });
     }
 });
@@ -2868,7 +2817,6 @@ app.get('/api/patrol/cart-summary', authenticate, requireRole(['Deputy Officer',
             return res.status(400).json({ error: 'Month parameter required (YYYY-MM)' });
         }
         
-        console.log(`📊 Fetching CART patrol summary for month: ${month}`);
         
         // Get incidents with CART risk factors for the month
         const [results] = await pool.query(`
@@ -2896,7 +2844,6 @@ app.get('/api/patrol/cart-summary', authenticate, requireRole(['Deputy Officer',
             ORDER BY rf.total_risk_score DESC
         `, [`${month}%`]);
         
-        console.log(`📊 Found ${results.length} incidents for month ${month}`);
         
         // Group by location
         const locationMap = {};
@@ -2993,7 +2940,6 @@ app.get('/api/patrol/cart-summary', authenticate, requireRole(['Deputy Officer',
         });
         
     } catch (error) {
-        console.error('❌ Error getting CART patrol summary:', error);
         res.status(500).json({ 
             success: false,
             error: 'Failed to get CART patrol summary',
@@ -3107,7 +3053,6 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
         });
 
     } catch (error) {
-        console.error('❌ Error fetching dashboard stats:', error);
         res.status(500).json({ error: 'Failed to fetch dashboard stats' });
     }
 });
@@ -3165,7 +3110,6 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Deputy Officer', 'K
         });
 
     } catch (error) {
-        console.error('❌ Error fetching dashboard charts data:', error);
         res.status(500).json({ error: 'Failed to fetch charts data' });
     }
 });
@@ -3194,7 +3138,6 @@ app.get('/api/tanod-teams', authenticate, requireRole(['Deputy Officer', 'Kagawa
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching tanod teams:', error);
         res.status(500).json({ error: 'Failed to fetch tanod teams' });
     }
 });
@@ -3208,7 +3151,6 @@ app.post('/api/tanod-teams', authenticate, requireRole(['Deputy Officer']), vali
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ error: 'A team with that name already exists.' });
         }
-        console.error('❌ Error adding tanod team:', error);
         res.status(500).json({ error: 'Failed to add team' });
     }
 });
@@ -3225,7 +3167,6 @@ app.put('/api/tanod-teams/:id', authenticate, requireRole(['Deputy Officer']), v
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ error: 'A team with that name already exists.' });
         }
-        console.error('❌ Error updating tanod team:', error);
         res.status(500).json({ error: 'Failed to update team' });
     }
 });
@@ -3264,7 +3205,6 @@ app.delete('/api/tanod-teams/:id', authenticate, requireRole(['Deputy Officer'])
         }
         res.json({ message: 'Team moved to the Archive.' });
     } catch (error) {
-        console.error('❌ Error deleting tanod team:', error);
         res.status(500).json({ error: 'Failed to delete team' });
     }
 });
@@ -3295,7 +3235,6 @@ app.get('/api/tanods', authenticate, requireRole(['Deputy Officer', 'Kagawad', '
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching tanods:', error);
         res.status(500).json({ error: 'Failed to fetch tanods' });
     }
 });
@@ -3310,7 +3249,6 @@ app.get('/api/tanods/all', authenticate, requireRole(['Deputy Officer', 'Kagawad
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching all tanods:', error);
         res.status(500).json({ error: 'Failed to fetch tanods' });
     }
 });
@@ -3328,7 +3266,6 @@ app.get('/api/tanods/:id', authenticate, requireRole(['Deputy Officer', 'Kagawad
 
         res.json(rows[0]);
     } catch (error) {
-        console.error('❌ Error fetching tanod:', error);
         res.status(500).json({ error: 'Failed to fetch tanod' });
     }
 });
@@ -3405,7 +3342,6 @@ app.post('/api/tanods', authenticate, requireRole(['Deputy Officer']), validate(
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ error: 'That username is already taken.' });
         }
-        console.error('❌ Error adding tanod:', error);
         res.status(500).json({ error: 'Failed to add tanod' });
     }
 });
@@ -3474,7 +3410,6 @@ app.put('/api/tanods/:id', authenticate, requireRole(['Deputy Officer']), valida
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ error: 'That username is already taken.' });
         }
-        console.error('❌ Error updating tanod:', error);
         res.status(500).json({ error: 'Failed to update tanod' });
     }
 });
@@ -3520,7 +3455,6 @@ app.delete('/api/tanods/:id', authenticate, requireRole(['Deputy Officer']), asy
         
         res.json({ message: 'Tanod deactivated successfully' });
     } catch (error) {
-        console.error('❌ Error deleting tanod:', error);
         res.status(500).json({ error: 'Failed to delete tanod' });
     }
 });
@@ -3595,7 +3529,6 @@ app.post('/api/tanod/login', authRateLimit, validate(tanodLoginSchema), async (r
             session_token: sessionToken
         });
     } catch (error) {
-        console.error('❌ Error during tanod login:', error);
         res.status(500).json({ error: 'Server error during login' });
     }
 });
@@ -3612,7 +3545,6 @@ app.post('/api/tanod/logout', authenticateTanod, async (req, res) => {
         await logTanodAudit(req.tanodId, 'TANOD_LOGOUT', 'tanod_record', req.tanodId, null, req);
         res.json({ message: 'Logged out.' });
     } catch (error) {
-        console.error('❌ Error during tanod logout:', error);
         res.status(500).json({ error: 'Server error during logout' });
     }
 });
@@ -3630,12 +3562,11 @@ app.get('/api/tanod/dashboard/:tanodId', authenticateTanod, requireOwnTanodId, a
 
         res.json(tanods[0]);
     } catch (error) {
-        console.error('❌ Error fetching tanod dashboard:', error);
         res.status(500).json({ error: 'Failed to fetch dashboard' });
     }
 });
 
-app.post('/api/tanod/profile-picture', authenticateTanod, runMulterMiddleware(avatarUpload.single('avatar')), async (req, res) => {
+app.post('/api/tanod/profile-picture', authenticateTanod, runMulterMiddleware(avatarUpload.single('avatar')), validateMagicBytes, async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No image file was uploaded.' });
@@ -3662,7 +3593,6 @@ app.post('/api/tanod/profile-picture', authenticateTanod, runMulterMiddleware(av
 
         res.json({ message: 'Profile picture updated.', profile_picture: relativePath });
     } catch (error) {
-        console.error('❌ Error updating tanod profile picture:', error);
         res.status(500).json({ error: 'Failed to update profile picture' });
     }
 });
@@ -3731,7 +3661,6 @@ app.get('/api/tanod/schedules/:tanodId', authenticateTanod, requireOwnTanodId, a
 
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching tanod schedules:', error);
         res.status(500).json({ error: 'Failed to fetch schedules' });
     }
 });
@@ -3752,7 +3681,6 @@ app.get('/api/tanod/incidents/:tanodId', authenticateTanod, requireOwnTanodId, a
 
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching tanod area incidents:', error);
         res.status(500).json({ error: 'Failed to fetch incidents' });
     }
 });
@@ -3771,12 +3699,11 @@ app.get('/api/tanod/my-reports/:tanodId', authenticateTanod, requireOwnTanodId, 
 
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching tanod own reports:', error);
         res.status(500).json({ error: 'Failed to fetch report logs' });
     }
 });
 
-app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentPhotoUpload.single('photo')), validate(tanodIncidentSchema), async (req, res) => {
+app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentPhotoUpload.single('photo')), validateMagicBytes, validate(tanodIncidentSchema), async (req, res) => {
     try {
         const { incident_type, date, time, location, address, description, latitude, longitude } = req.body;
 
@@ -3833,7 +3760,6 @@ app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentP
                 timestamp: new Date().toISOString()
             });
         } catch (notifyError) {
-            console.error('❌ Error broadcasting new incident notification:', notifyError);
         }
 
         res.status(201).json({
@@ -3842,7 +3768,6 @@ app.post('/api/tanod/incident', authenticateTanod, runMulterMiddleware(incidentP
         });
     } catch (error) {
         removeUploadedFiles(req);
-        console.error('❌ Error creating tanod incident report:', error);
         res.status(500).json({ error: 'Failed to report incident' });
     }
 });
@@ -3856,7 +3781,6 @@ app.get('/api/tanod/patrol-logs/:tanodId', authenticateTanod, requireOwnTanodId,
 
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching tanod patrol logs:', error);
         res.status(500).json({ error: 'Failed to fetch patrol logs' });
     }
 });
@@ -3889,7 +3813,6 @@ app.post('/api/tanod/patrol-log', authenticateTanod, validate(tanodLogSchema), a
             log: newLog[0]
         });
     } catch (error) {
-        console.error('❌ Error adding tanod patrol log:', error);
         res.status(500).json({ error: 'Failed to add patrol log' });
     }
 });
@@ -3904,7 +3827,6 @@ app.get('/api/patrol/area-decay', authenticate, requireRole(['Deputy Officer', '
         );
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching area risk decay:', error);
         res.status(500).json({ error: 'Failed to fetch area risk decay' });
     }
 });
@@ -3920,7 +3842,6 @@ app.get('/api/patrol-schedules', authenticate, requireRole(['Deputy Officer', 'K
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching patrol schedules:', error);
         res.status(500).json({ error: 'Failed to fetch schedules' });
     }
 });
@@ -3933,7 +3854,6 @@ app.get('/api/patrol-schedules/all', authenticate, requireRole(['Deputy Officer'
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching all schedules:', error);
         res.status(500).json({ error: 'Failed to fetch schedules' });
     }
 });
@@ -3956,7 +3876,6 @@ app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer'
 
         res.json({ ...rows[0], tanod_ids: tanodRows.map(r => r.tanod_id) });
     } catch (error) {
-        console.error('❌ Error fetching schedule:', error);
         res.status(500).json({ error: 'Failed to fetch schedule' });
     }
 });
@@ -4047,7 +3966,6 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Deputy Officer', '
             schedule: { ...newSchedule[0], tanod_ids }
         });
     } catch (error) {
-        console.error('❌ Error creating patrol schedule:', error);
         res.status(500).json({ error: 'Failed to create schedule' });
     }
 });
@@ -4119,7 +4037,6 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer'
             schedule: { ...updatedSchedule[0], tanod_ids }
         });
     } catch (error) {
-        console.error('❌ Error updating patrol schedule:', error);
         res.status(500).json({ error: 'Failed to update schedule' });
     }
 });
@@ -4173,7 +4090,6 @@ app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Offic
         
         res.json({ message: 'Patrol schedule moved to the Archive.' });
     } catch (error) {
-        console.error('❌ Error deleting patrol schedule:', error);
         res.status(500).json({ error: 'Failed to delete schedule' });
     }
 });
@@ -4196,7 +4112,6 @@ app.get('/api/patrol-logs', authenticate, requireRole(['Deputy Officer', 'Kagawa
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching patrol logs:', error);
         res.status(500).json({ error: 'Failed to fetch patrol logs' });
     }
 });
@@ -4207,7 +4122,6 @@ app.get('/api/patrol-logs/:id', authenticate, requireRole(['Deputy Officer', 'Ka
         if (rows.length === 0) return res.status(404).json({ error: 'Patrol log not found' });
         res.json(rows[0]);
     } catch (error) {
-        console.error('❌ Error fetching patrol log:', error);
         res.status(500).json({ error: 'Failed to fetch patrol log' });
     }
 });
@@ -4253,7 +4167,6 @@ app.post('/api/patrol-logs', authenticate, requireRole(['Deputy Officer', 'Team 
             log: newLog[0] 
         });
     } catch (error) {
-        console.error('❌ Error saving patrol log:', error);
         res.status(500).json({ error: 'Failed to save patrol log' });
     }
 });
@@ -4299,7 +4212,6 @@ app.put('/api/patrol-logs/:id', authenticate, requireRole(['Deputy Officer']), v
             log: updatedLog[0] 
         });
     } catch (error) {
-        console.error('❌ Error updating patrol log:', error);
         res.status(500).json({ error: 'Failed to update patrol log' });
     }
 });
@@ -4347,7 +4259,6 @@ app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Deputy Officer'])
         
         res.json({ message: 'Patrol log moved to the Archive.' });
     } catch (error) {
-        console.error('❌ Error deleting patrol log:', error);
         res.status(500).json({ error: 'Failed to delete patrol log' });
     }
 });
@@ -4369,7 +4280,6 @@ app.get('/api/cart/weights', authenticate, async (req, res) => {
         });
         res.json(defaults);
     } catch (error) {
-        console.error('Error fetching CART weights:', error);
         res.status(500).json({ error: 'Failed to fetch CART weights' });
     }
 });
@@ -4420,7 +4330,6 @@ app.put('/api/cart/weights', authenticate, requireRole(['Deputy Officer']), vali
 
         res.json({ message: 'CART weights updated successfully.' });
     } catch (error) {
-        console.error('Error updating CART weights:', error);
         res.status(500).json({ error: 'Failed to update CART weights' });
     }
 });
@@ -4454,7 +4363,6 @@ app.get('/api/cart/risk-factors', authenticate, requireRole(['Deputy Officer', '
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching risk factors:', error);
         res.status(500).json({ error: 'Failed to fetch risk factors' });
     }
 });
@@ -4474,7 +4382,6 @@ app.get('/api/cart/summary', authenticate, requireRole(['Deputy Officer', 'Kagaw
         `);
         res.json(summary[0]);
     } catch (error) {
-        console.error('❌ Error fetching CART summary:', error);
         res.status(500).json({ error: 'Failed to fetch CART summary' });
     }
 });
@@ -4488,7 +4395,6 @@ app.get('/api/cart/decision-rules', authenticate, requireRole(['Deputy Officer',
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching decision rules:', error);
         res.status(500).json({ error: 'Failed to fetch decision rules' });
     }
 });
@@ -4504,7 +4410,6 @@ app.get('/api/cart/analysis-logs', authenticate, requireRole(['Deputy Officer', 
         `);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching analysis logs:', error);
         res.status(500).json({ error: 'Failed to fetch analysis logs' });
     }
 });
@@ -4587,7 +4492,6 @@ app.post('/api/cart/predict', authenticate, requireRole(['Deputy Officer', 'Kaga
                 `Simulation: ${incident_type} on ${day} at ${time}${location ? ` near ${location}` : ''}`
             ]);
         } catch (logError) {
-            console.error('❌ Error logging CART simulation run:', logError);
         }
 
         res.json({
@@ -4598,7 +4502,6 @@ app.post('/api/cart/predict', authenticate, requireRole(['Deputy Officer', 'Kaga
         });
 
     } catch (error) {
-        console.error('❌ Error running CART prediction:', error);
         res.status(500).json({ error: 'Failed to run CART prediction' });
     }
 });
@@ -4634,7 +4537,6 @@ app.post('/api/cart/analyze', authenticate, requireRole(['Deputy Officer', 'Kaga
             log_id: logResult.insertId
         });
     } catch (error) {
-        console.error('❌ Error running CART analysis:', error);
         res.status(500).json({ error: 'Failed to run CART analysis' });
     }
 });
@@ -4649,7 +4551,6 @@ app.post('/api/reports/log-export', authenticate, validate(reportExportSchema), 
         await logAudit(req.userId, action, 'reports', null, null, { month, filters, recordCount }, req);
         res.json({ message: 'Logged.' });
     } catch (error) {
-        console.error('❌ Error logging report export:', error);
         res.status(500).json({ error: 'Failed to log report export' });
     }
 });
@@ -4711,7 +4612,6 @@ app.get('/api/audit-logs', authenticate, requireRole(['Deputy Officer']), async 
         res.json(rows);
 
     } catch (error) {
-        console.error('❌ Error fetching audit logs:', error);
         res.status(500).json({ error: 'Failed to fetch audit logs' });
     }
 });
@@ -4725,7 +4625,6 @@ app.get('/api/settings', authenticate, requireRole(['Deputy Officer']), async (r
         const [rows] = await pool.query('SELECT * FROM system_settings ORDER BY setting_key');
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error fetching settings:', error);
         res.status(500).json({ error: 'Failed to fetch settings' });
     }
 });
@@ -4743,7 +4642,6 @@ app.get('/api/settings/:key', authenticate, requireRole(['Deputy Officer']), asy
 
         res.json(rows[0]);
     } catch (error) {
-        console.error('❌ Error fetching setting:', error);
         res.status(500).json({ error: 'Failed to fetch setting' });
     }
 });
@@ -4820,7 +4718,6 @@ app.post('/api/settings', authenticate, requireRole(['Deputy Officer']), async (
         res.json({ message: 'Setting saved successfully' });
 
     } catch (error) {
-        console.error('❌ Error saving setting:', error);
         res.status(500).json({ error: 'Failed to save setting: ' + error.message });
     }
 });
@@ -4875,7 +4772,6 @@ app.put('/api/settings/:key', authenticate, requireRole(['Deputy Officer']), asy
         res.json({ message: 'Setting updated successfully' });
 
     } catch (error) {
-        console.error('❌ Error updating setting:', error);
         res.status(500).json({ error: 'Failed to update setting' });
     }
 });
@@ -4907,7 +4803,6 @@ app.get('/api/location-coordinates', authenticate, requireRole(['Deputy Officer'
 
         res.json(result);
     } catch (error) {
-        console.error('❌ Error fetching location coordinates:', error);
         res.status(500).json({ error: 'Failed to fetch location coordinates' });
     }
 });
@@ -4949,7 +4844,6 @@ app.post('/api/location-coordinates', authenticate, requireRole(['Deputy Officer
             backfilled_incidents: backfillResult.affectedRows
         });
     } catch (error) {
-        console.error('❌ Error saving location coordinates:', error);
         res.status(500).json({ error: 'Failed to save location coordinates' });
     }
 });
@@ -5028,7 +4922,6 @@ app.get('/api/health', authenticate, requireRole(['Deputy Officer', 'Kagawad', '
 });
 
 app.use((err, req, res, next) => {
-    console.error('❌ Unhandled error:', err);
     res.status(err.status || err.statusCode || 500).json({ error: 'Server error' });
 });
 
@@ -5040,58 +4933,11 @@ async function startServer() {
         await testConnection();
     } catch (dbErr) {
         console.warn('⚠️  Database not reachable at startup — the setup wizard will handle it.');
-        console.warn(`   ${dbErr.message}`);
     }
 
     return new Promise((resolve, reject) => {
         const server = app.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📁 Database: brgydata`);
-    console.log(`📋 Available routes:`);
-    console.log(`\n📁 INCIDENTS:`);
-    console.log(`   GET  /api/incidents`);
-    console.log(`   GET  /api/incidents/view-only  ✅ ADDED (Captain View)`);
-    console.log(`   GET  /api/incidents/:id  ✅ ADDED (Captain View)`);
-    console.log(`   GET  /api/heatmap/incidents`);
-    console.log(`   POST /api/incidents`);
-    console.log(`   PUT  /api/incidents/:id`);
-    console.log(`   DELETE /api/incidents/:id`);
-    console.log(`\n👥 USERS:`);
-    console.log(`   GET  /api/users`);
-    console.log(`   POST /api/users`);
-    console.log(`   DELETE /api/users/:id`);
-    console.log(`   POST /api/auth/login`);
-    console.log(`   POST /api/auth/logout`);
-    console.log(`\n🔑 PASSWORD RESET:`);
-    console.log(`   POST /api/auth/forgot-password`);
-    console.log(`   POST /api/auth/reset-password`);
-    console.log(`\n📊 CART:`);
-    console.log(`   GET  /api/cart/risk-factors`);
-    console.log(`   GET  /api/cart/summary`);
-    console.log(`   GET  /api/cart/decision-rules`);
-    console.log(`   GET  /api/cart/analysis-logs`);
-    console.log(`   POST /api/cart/analyze`);
-    console.log(`\n🛡️ TANOD & PATROL:`);
-    console.log(`   GET  /api/tanods`);
-    console.log(`   POST /api/tanods`);
-    console.log(`   PUT  /api/tanods/:id`);
-    console.log(`   DELETE /api/tanods/:id`);
-    console.log(`   GET  /api/patrol-schedules  ✅ EXISTING`);
-    console.log(`   POST /api/patrol-schedules ✅ EXISTING`);
-    console.log(`   PUT  /api/patrol-schedules/:id ✅ EXISTING`);
-    console.log(`   DELETE /api/patrol-schedules/:id ✅ EXISTING`);
-    console.log(`   GET  /api/patrol-logs  ✅ EXISTING`);
-    console.log(`   POST /api/patrol-logs ✅ EXISTING`);
-    console.log(`   PUT  /api/patrol-logs/:id ✅ EXISTING`);
-    console.log(`   DELETE /api/patrol-logs/:id ✅ EXISTING`);
-    console.log(`\n🔐 AUDIT & SETTINGS:`);
-    console.log(`   GET  /api/audit-logs`);
-    console.log(`   GET  /api/settings`);
-    console.log(`   GET  /api/settings/:key`);
-    console.log(`   POST /api/settings`);
-    console.log(`   PUT  /api/settings/:key`);
-    console.log(`\n📋 LOGIN HISTORY:`);
-    console.log(`   GET  /api/login-history`);
             resolve(server);
         });
         server.on('error', reject);

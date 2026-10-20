@@ -301,17 +301,6 @@ body {
     font-size: 12px;
 }
 
-.remember-me {
-    display: flex;
-    align-items: center;
-    color: #704214;
-    cursor: pointer;
-}
-
-.remember-me input {
-    margin-right: 6px;
-    accent-color: #e67e22;
-}
 
 .forgot-link {
     color: #d35400;
