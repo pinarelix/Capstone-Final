@@ -252,12 +252,28 @@ function setupMapInteraction() {
    DATA LOADING
 ============================================================ */
 
+function isInsideBoundary(lat, lng) {
+    const poly = typeof MB_BOUNDARY !== 'undefined' ? MB_BOUNDARY : [];
+    if (poly.length === 0) return true;
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1];
+        const xj = poly[j][0], yj = poly[j][1];
+        if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi))
+            inside = !inside;
+    }
+    return inside;
+}
+
 async function loadRealData() {
     try {
         const response = await apiFetch('/heatmap/incidents');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const incidents = await response.json();
-        allIncidentsData = incidents;
+        allIncidentsData = incidents.filter(i =>
+            i.latitude != null && i.longitude != null &&
+            isInsideBoundary(parseFloat(i.latitude), parseFloat(i.longitude))
+        );
         populateIncidentTypeOptions();
         populateHeatmapPeriodOptions();
         applyFilterAndRender();
