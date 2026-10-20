@@ -498,13 +498,30 @@
                                     <option value="Zambales Street">Zambales Street</option>
                                 </select>
                             </div>
-                            <div class="form-group">
+                            <!-- Simple address (crime form) -->
+                            <div class="form-group" id="addressSimpleGroup">
                                 <label>Address <span class="req">*</span></label>
-                                <input type="text" id="incidentAddress" class="form-control" placeholder="e.g. House No. 12, near the chapel" maxlength="255" required>
+                                <input type="text" id="incidentAddress" class="form-control" placeholder="e.g. House No. 12, near the chapel" maxlength="255">
                             </div>
                             <div class="form-group" id="blotterGroup">
                                 <label>Blotter Number</label>
                                 <input type="text" id="incidentBlotter" class="form-control" readonly style="background: #f1f5f9; color: #64748b; cursor: default;">
+                            </div>
+                        </div>
+
+                        <!-- Detailed address (blotter form only) -->
+                        <div class="form-row" id="addressDetailedGroup">
+                            <div class="form-group">
+                                <label>House / Block / Lot No. <span class="req">*</span></label>
+                                <input type="text" id="incidentHouseBlkLot" class="form-control" placeholder="e.g. Blk 5 Lot 3, House No. 12" maxlength="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Purok</label>
+                                <input type="text" id="incidentPurok" class="form-control" placeholder="e.g. Purok 3" maxlength="50">
+                            </div>
+                            <div class="form-group">
+                                <label>Landmark</label>
+                                <input type="text" id="incidentLandmark" class="form-control" placeholder="e.g. Near the chapel, beside sari-sari store" maxlength="150">
                             </div>
                         </div>
 

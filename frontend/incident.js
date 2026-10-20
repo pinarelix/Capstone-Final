@@ -108,6 +108,8 @@ function setupFormTypeToggle() {
     const radios = document.querySelectorAll('input[name="formType"]');
     const crimeSections = document.getElementById('crimeFormSections');
     const blotterGroup = document.getElementById('blotterGroup');
+    const addressSimple = document.getElementById('addressSimpleGroup');
+    const addressDetailed = document.getElementById('addressDetailedGroup');
     if (!crimeSections) return;
 
     function applyFormType() {
@@ -115,10 +117,14 @@ function setupFormTypeToggle() {
         if (type === 'blotter') {
             crimeSections.classList.add('hidden-section');
             if (blotterGroup) blotterGroup.style.display = '';
+            if (addressSimple) addressSimple.style.display = 'none';
+            if (addressDetailed) addressDetailed.style.display = '';
             generateBlotterNumber();
         } else {
             crimeSections.classList.remove('hidden-section');
             if (blotterGroup) blotterGroup.style.display = 'none';
+            if (addressSimple) addressSimple.style.display = '';
+            if (addressDetailed) addressDetailed.style.display = 'none';
             const blotterInput = document.getElementById('incidentBlotter');
             if (blotterInput) blotterInput.value = '';
         }
@@ -552,7 +558,15 @@ function setupForm() {
         const lat = document.getElementById('incidentLat').value;
         const lng = document.getElementById('incidentLng').value;
         const street = document.getElementById('incidentStreet').value;
-        const address = document.getElementById('incidentAddress').value.trim();
+        let address;
+        if (formType === 'blotter') {
+            const hbl = document.getElementById('incidentHouseBlkLot').value.trim();
+            const purok = document.getElementById('incidentPurok').value.trim();
+            const landmark = document.getElementById('incidentLandmark').value.trim();
+            address = [hbl, purok, landmark].filter(Boolean).join(', ');
+        } else {
+            address = document.getElementById('incidentAddress').value.trim();
+        }
         const reporterIdRaw = document.getElementById('reportedBy').value;
         const isEdit = !!document.getElementById('editIndex').value;
         const status = isEdit ? document.getElementById('incidentStatus').value : 'Open';
@@ -571,11 +585,15 @@ function setupForm() {
             { id: 'incidentTime', label: 'Time' },
             { id: 'incidentStreet', label: 'Street Name' },
             { id: 'incidentSeverity', label: 'Severity Level' },
-            { id: 'incidentAddress', label: 'Address' },
             { id: 'incidentReportedByName', label: 'Name of Complainant' },
         ];
-        if (formType === 'crime') {
+        if (formType === 'blotter') {
             requiredFields.push(
+                { id: 'incidentHouseBlkLot', label: 'House / Block / Lot No.' }
+            );
+        } else {
+            requiredFields.push(
+                { id: 'incidentAddress', label: 'Address' },
                 { id: 'incidentDesc', label: 'Salaysay / Description' }
             );
         }
@@ -739,7 +757,7 @@ Open the incident with Edit to attach the evidence again.`);
 
     // Clear the red "missing" highlight on a field as soon as the user
     // fills it in, instead of waiting for the next submit attempt.
-    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus', 'incidentSeverity'].forEach(id => {
+    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus', 'incidentSeverity', 'incidentHouseBlkLot', 'incidentAddress'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', function () {
             if (this.value) this.classList.remove('field-missing');
         });
@@ -901,6 +919,12 @@ function clearForm() {
     document.getElementById('incidentStreet').value = '';
     document.getElementById('incidentLat').value = '';
     document.getElementById('incidentLng').value = '';
+    const hblEl = document.getElementById('incidentHouseBlkLot');
+    if (hblEl) hblEl.value = '';
+    const purokEl = document.getElementById('incidentPurok');
+    if (purokEl) purokEl.value = '';
+    const landmarkEl = document.getElementById('incidentLandmark');
+    if (landmarkEl) landmarkEl.value = '';
 
     const evidencePreview = document.getElementById('evidencePreviewList');
     if (evidencePreview) evidencePreview.innerHTML = '';
@@ -929,6 +953,10 @@ function clearForm() {
         if (crimeSections) crimeSections.classList.add('hidden-section');
         const blotterGroup = document.getElementById('blotterGroup');
         if (blotterGroup) blotterGroup.style.display = '';
+        const addressSimple = document.getElementById('addressSimpleGroup');
+        if (addressSimple) addressSimple.style.display = 'none';
+        const addressDetailed = document.getElementById('addressDetailedGroup');
+        if (addressDetailed) addressDetailed.style.display = '';
     }
 
     const formTypeSelector = document.querySelector('.form-type-selector');
@@ -1050,6 +1078,16 @@ window.editIncident = async (id) => {
             if (crimeSections) crimeSections.classList[editFormType === 'crime' ? 'remove' : 'add']('hidden-section');
             const blotterGroup = document.getElementById('blotterGroup');
             if (blotterGroup) blotterGroup.style.display = editFormType === 'blotter' ? '' : 'none';
+            const addressSimple = document.getElementById('addressSimpleGroup');
+            if (addressSimple) addressSimple.style.display = editFormType === 'crime' ? '' : 'none';
+            const addressDetailed = document.getElementById('addressDetailedGroup');
+            if (addressDetailed) addressDetailed.style.display = editFormType === 'blotter' ? '' : 'none';
+        }
+        if (editFormType === 'blotter' && record.address) {
+            const parts = record.address.split(', ');
+            document.getElementById('incidentHouseBlkLot').value = parts[0] || '';
+            document.getElementById('incidentPurok').value = parts[1] || '';
+            document.getElementById('incidentLandmark').value = parts.slice(2).join(', ') || '';
         }
         const formTypeSelector = document.querySelector('.form-type-selector');
         if (formTypeSelector) formTypeSelector.style.display = '';
