@@ -444,7 +444,7 @@ function applyFilterAndRender() {
     if (badge) { badge.textContent = 'Click a point on the map'; badge.classList.remove('active'); }
     const tbody = document.getElementById('detailsTableBody');
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>Click on a map point to view incident details</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>Click on a map point to view incident details</p></div></td></tr>`;
     }
 
     renderIncidents(filtered);
@@ -619,7 +619,12 @@ function toggleStreetAnalysis() {
    INCIDENT DETAILS TABLE
 ============================================================ */
 
+let currentDetailIncidents = [];
+
 function showIncidentDetails(incidents, lat, lng) {
+    currentDetailIncidents = incidents || [];
+    const filterInput = document.getElementById('blotterNumberFilter');
+    if (filterInput) filterInput.value = '';
     const tbody = document.getElementById('detailsTableBody');
     const badge = document.getElementById('selectedLocationBadge');
     if (!tbody) return;
@@ -630,10 +635,14 @@ function showIncidentDetails(incidents, lat, lng) {
     }
 
     if (!incidents || incidents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>No incident details available</p></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="fa-regular fa-circle"></i><p>No incident details available</p></div></td></tr>`;
         return;
     }
 
+    renderIncidentRows(incidents, tbody);
+}
+
+function renderIncidentRows(incidents, tbody) {
     tbody.innerHTML = incidents.map(item => {
         let statusClass = 'badge-status';
         if (item.status === 'Open') statusClass += ' open';
@@ -657,6 +666,7 @@ function showIncidentDetails(incidents, lat, lng) {
 
         return `
             <tr>
+                <td>${escapeHTML(item.blotter_number || '—')}</td>
                 <td class="font-bold">${item.id || 'N/A'}</td>
                 <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                 <td>${dateStr} ${timeStr}</td>
@@ -672,6 +682,26 @@ function showIncidentDetails(incidents, lat, lng) {
         `;
     }).join('');
 }
+
+function renderFilteredDetails(filterText) {
+    const filtered = filterText
+        ? currentDetailIncidents.filter(i => (i.blotter_number || '').toLowerCase().includes(filterText.toLowerCase()))
+        : currentDetailIncidents;
+    const tbody = document.getElementById('detailsTableBody');
+    if (!tbody) return;
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="fa-regular fa-filter-circle-xmark"></i><p>No incidents match blotter number "${escapeHTML(filterText)}"</p></div></td></tr>`;
+        return;
+    }
+    renderIncidentRows(filtered, tbody);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const filterInput = document.getElementById('blotterNumberFilter');
+    if (filterInput) {
+        filterInput.addEventListener('input', () => renderFilteredDetails(filterInput.value.trim()));
+    }
+});
 
 /* ============================================================
    KPIs

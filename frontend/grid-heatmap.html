@@ -786,12 +786,19 @@
         <div class="incident-details-section" id="incidentDetailsSection">
             <div class="section-header">
                 <h3><i class="fa-solid fa-location-dot"></i> Incident Details</h3>
-                <span class="location-badge" id="selectedLocationBadge">Click a circle on the map</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="gh-filter-chip" style="margin: 0;">
+                        <span class="gh-filter-icon"><i class="fa-solid fa-file-lines"></i></span>
+                        <input type="text" id="blotterNumberFilter" class="gh-select" placeholder="Search Blotter No." style="width: 160px; border: none; outline: none; background: transparent; font-size: 0.82rem;">
+                    </div>
+                    <span class="location-badge" id="selectedLocationBadge">Click a circle on the map</span>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="data-table" id="detailsTable">
                     <thead>
                         <tr>
+                            <th>BLOTTER NO.</th>
                             <th>INCIDENT ID</th>
                             <th>TYPE</th>
                             <th>DATE / TIME</th>
@@ -804,7 +811,7 @@
                     </thead>
                     <tbody id="detailsTableBody">
                         <tr>
-                            <td colspan="8">
+                            <td colspan="9">
                                 <div class="empty-state">
                                     <i class="fa-regular fa-circle"></i>
                                     <p>Click on a heatmap circle to view incident details</p>
