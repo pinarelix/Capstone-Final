@@ -562,6 +562,8 @@ function setupForm() {
             return;
         }
 
+        const formType = getFormType();
+
         const typeSelect = document.getElementById('incidentType');
         const typeOtherInput = document.getElementById('incidentTypeOther');
         const type = typeSelect.value === '__other__' ? (typeOtherInput?.value.trim() || '') : typeSelect.value;
@@ -591,7 +593,6 @@ function setupForm() {
         const respondentName = document.getElementById('respondentName').value.trim();
         const respondentAddress = document.getElementById('respondentAddress').value.trim();
 
-        const formType = getFormType();
         const requiredFields = [
             { id: 'incidentType', label: 'Incident Type' },
             { id: 'incidentDate', label: 'Date' },
