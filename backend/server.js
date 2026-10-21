@@ -237,6 +237,81 @@ async function writeDangerLevelToBase(executor, registryId, dangerLevel, timeOfD
     }
 }
 
+// Join name parts into one string (null if all empty).
+function composeName(first, middle, last) {
+    const full = [first, middle, last].map(s => (s || '').trim()).filter(Boolean).join(' ');
+    return full || null;
+}
+
+// Compose the single legacy address string from the structured parts, falling
+// back to any address string the client sent.
+function composeStructuredAddress(b) {
+    const parts = [];
+    if (b.addr_block) parts.push(`Blk ${b.addr_block}`);
+    if (b.addr_lot) parts.push(`Lot ${b.addr_lot}`);
+    if (b.addr_house_no) parts.push(`House No. ${b.addr_house_no}`);
+    if (b.addr_unit) parts.push(`Unit ${b.addr_unit}`);
+    const street = b.addr_street || b.street_name;
+    let composed = parts.join(', ');
+    if (street) composed = composed ? `${composed}, ${street}` : street;
+    return composed || b.address || null;
+}
+
+// Build the full base-table row from the request body (legacy + structured).
+// The compatibility view composes the display name from the structured columns
+// first, so reported_by_name / respondent_name are stored as a convenience
+// fallback. Draft and no-evidence flags are carried through.
+function buildIncidentFields(b, derived, typeCode, reporterId) {
+    return {
+        incident_type: b.incident_type,
+        type_code: typeCode,
+        date: b.date,
+        time: b.time,
+        latitude: b.latitude,
+        longitude: b.longitude,
+        street_name: b.street_name || null,
+        addr_block: b.addr_block || null,
+        addr_lot: b.addr_lot || null,
+        addr_house_no: b.addr_house_no || null,
+        addr_street: b.addr_street || b.street_name || null,
+        addr_unit: b.addr_unit || null,
+        address: composeStructuredAddress(b),
+        complainant_first: b.complainant_first || null,
+        complainant_middle: b.complainant_middle || null,
+        complainant_last: b.complainant_last || null,
+        complainant_contact: b.complainant_contact || null,
+        respondent_first: b.respondent_first || null,
+        respondent_middle: b.respondent_middle || null,
+        respondent_last: b.respondent_last || null,
+        respondent_address: b.respondent_address || null,
+        respondent_age: b.age != null ? b.age : null,
+        reporter_first: b.reporter_first || null,
+        reporter_middle: b.reporter_middle || null,
+        reporter_last: b.reporter_last || null,
+        reporter_address: b.reporter_address || null,
+        reporter_contact: b.reporter_contact || null,
+        reporter_id: reporterId,
+        reported_by_name: composeName(b.complainant_first, b.complainant_middle, b.complainant_last)
+            || composeName(b.reporter_first, b.reporter_middle, b.reporter_last)
+            || b.reported_by_name || null,
+        respondent_name: composeName(b.respondent_first, b.respondent_middle, b.respondent_last)
+            || b.respondent_name || null,
+        severity: b.severity || 'Low',
+        priority: b.priority || 'Normal',
+        status: b.status || 'Open',
+        is_draft: b.is_draft ? 1 : 0,
+        description: b.description || '',
+        statement: b.statement || null,
+        recommended_action: b.recommended_action || '',
+        danger_level: 'Calculated by System',
+        no_evidence: b.no_evidence ? 1 : 0,
+        no_evidence_reason: b.no_evidence_reason || null,
+        time_of_day: derived.timeOfDay,
+        day_of_week: derived.dayOfWeek,
+        is_weekend: derived.isWeekend,
+    };
+}
+
 const archive = createArchive({ pool, uploadsRoot: UPLOADS_ROOT });
 
 async function testConnection() {
@@ -343,7 +418,9 @@ const incidentSchema = Joi.object({
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
     street_name: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
-    address: Joi.string().max(255).required(),
+    // Optional: the structured address fields (addr_*) now carry the detail and
+    // the server composes this string from them when it is not sent directly.
+    address: Joi.string().max(255).allow('', null),
     reporter_id: Joi.any().strip(),
     status: Joi.string().valid('Open', 'Monitoring', 'Resolved').required(),
     description: Joi.string().max(2000).allow('', null),
@@ -357,7 +434,30 @@ const incidentSchema = Joi.object({
     respondent_name: Joi.string().max(255).allow('', null),
     respondent_address: Joi.string().max(500).allow('', null),
     age: Joi.number().integer().min(0).max(150).allow(null),
-    form_type: Joi.string().valid('blotter', 'crime').default('blotter')
+    form_type: Joi.string().valid('blotter', 'crime').default('blotter'),
+
+    // ── Phase 3 structured fields (all optional; composed into the legacy
+    // *_name / address columns so the compatibility view still reads cleanly) ──
+    complainant_first: Joi.string().max(80).allow('', null),
+    complainant_middle: Joi.string().max(80).allow('', null),
+    complainant_last: Joi.string().max(80).allow('', null),
+    complainant_contact: Joi.string().max(30).allow('', null),
+    respondent_first: Joi.string().max(80).allow('', null),
+    respondent_middle: Joi.string().max(80).allow('', null),
+    respondent_last: Joi.string().max(80).allow('', null),
+    reporter_first: Joi.string().max(80).allow('', null),
+    reporter_middle: Joi.string().max(80).allow('', null),
+    reporter_last: Joi.string().max(80).allow('', null),
+    reporter_address: Joi.string().max(255).allow('', null),
+    reporter_contact: Joi.string().max(30).allow('', null),
+    addr_block: Joi.string().max(50).allow('', null),
+    addr_lot: Joi.string().max(50).allow('', null),
+    addr_house_no: Joi.string().max(50).allow('', null),
+    addr_street: Joi.string().max(100).allow('', null),
+    addr_unit: Joi.string().max(50).allow('', null),
+    is_draft: Joi.boolean().truthy(1, '1', 'true').falsy(0, '0', 'false', '').default(false),
+    no_evidence: Joi.boolean().truthy(1, '1', 'true').falsy(0, '0', 'false', '').default(false),
+    no_evidence_reason: Joi.string().max(500).allow('', null)
 });
 
 // Report Export/Print Schema - the Reports page's Print/Export CSV
@@ -1832,25 +1932,38 @@ app.post('/api/auth/logout', async (req, res) => {
 // ✅ FIXED: INCIDENT MANAGEMENT API ROUTES
 // ============================================================
 
+// Approved Blotter / Incident type catalog for the searchable dropdown
+// (each entry carries the acronym used in the record number).
+app.get('/api/record-types', authenticate, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT record_class, type_name, type_code
+             FROM record_type_catalog WHERE is_active = 1
+             ORDER BY record_class, type_name`
+        );
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load record types' });
+    }
+});
+
+// Preview of the next public record number for a given form/type. The real
+// number is allocated atomically at save time (this does NOT consume the
+// sequence), so it is only a best-effort preview for display in the form.
 app.get('/api/incidents/next-blotter', authenticate, async (req, res) => {
     try {
-        const year = new Date().getFullYear();
+        const { form_type = 'blotter', incident_type = '' } = req.query;
+        const cls = recordClassFromFormType(form_type);
+        const prefix = prefixForClass(cls);
+        const code = codeFor(cls, incident_type);
         const [rows] = await pool.query(
-            `SELECT blotter_number FROM incidents
-             WHERE blotter_number LIKE ?
-             ORDER BY id DESC LIMIT 1`,
-            [`BLT-${year}-%`]
+            'SELECT next_seq FROM record_number_counters WHERE prefix = ? AND type_code = ?',
+            [prefix, code]
         );
-        let seq = 1;
-        if (rows.length > 0) {
-            const last = rows[0].blotter_number;
-            const parts = last.split('-');
-            const lastSeq = parseInt(parts[parts.length - 1], 10);
-            if (!isNaN(lastSeq)) seq = lastSeq + 1;
-        }
-        res.json({ blotter_number: `BLT-${year}-${String(seq).padStart(4, '0')}` });
+        const seq = rows.length ? rows[0].next_seq : 1;
+        res.json({ blotter_number: `${prefix}-${code}-${String(seq).padStart(4, '0')}`, preview: true });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to generate blotter number' });
+        res.status(500).json({ error: 'Failed to generate record number' });
     }
 });
 
@@ -2206,21 +2319,9 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
         try {
             await conn.beginTransaction();
             publicNumber = await allocPublicNumber(conn, prefixForClass(cls), typeCode);
-            const [ins] = await conn.query(`
-                INSERT INTO \`${table}\`
-                (incident_type, type_code, date, time, latitude, longitude, street_name, address, reporter_id,
-                 status, danger_level, description, recommended_action,
-                 time_of_day, day_of_week, is_weekend,
-                 reported_by_name, statement, priority,
-                 severity, respondent_name, respondent_address, respondent_age, data_origin)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'real')
-            `, [
-                incident_type, typeCode, date, time, latitude, longitude, finalStreetName, finalAddress, finalReporterId,
-                status || 'Open', 'Calculated by System', description || '', recommended_action || '',
-                timeOfDay, dayOfWeek, isWeekend,
-                reported_by_name || null, statement || null, priority || 'Normal',
-                severity || 'Low', respondent_name || null, respondent_address || null, age != null ? age : null
-            ]);
+            const baseFields = buildIncidentFields(req.body, { timeOfDay, dayOfWeek, isWeekend }, typeCode, finalReporterId);
+            baseFields.data_origin = 'real';
+            const [ins] = await conn.query(`INSERT INTO \`${table}\` SET ?`, [baseFields]);
             const [reg] = await conn.query(
                 `INSERT INTO record_registry (source, source_id, public_number, type_code) VALUES (?, ?, ?, ?)`,
                 [cls, ins.insertId, publicNumber, typeCode]
@@ -2303,25 +2404,8 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
         // fixed once created); update its fields and keep type_code in step with
         // the type. The public number does not change on edit.
         const typeCode = codeFor(reg.source, incident_type);
-        const [result] = await pool.query(`
-            UPDATE \`${reg.table}\`
-            SET incident_type = ?, type_code = ?, date = ?, time = ?, latitude = ?, longitude = ?,
-                street_name = ?, address = ?, reporter_id = ?, status = ?,
-                danger_level = 'Calculated by System',
-                description = ?, recommended_action = ?,
-                time_of_day = ?, day_of_week = ?, is_weekend = ?,
-                reported_by_name = ?, statement = ?, priority = ?,
-                severity = ?, respondent_name = ?, respondent_address = ?, respondent_age = ?
-            WHERE id = ?
-        `, [
-            incident_type, typeCode, date, time, latitude, longitude,
-            finalStreetName, finalAddress, finalReporterId, status,
-            description, recommended_action,
-            timeOfDay, dayOfWeek, isWeekend,
-            reported_by_name || null, statement || null, priority || 'Normal',
-            severity || 'Low', respondent_name || null, respondent_address || null, age != null ? age : null,
-            reg.source_id
-        ]);
+        const updFields = buildIncidentFields(req.body, { timeOfDay, dayOfWeek, isWeekend }, typeCode, finalReporterId);
+        const [result] = await pool.query(`UPDATE \`${reg.table}\` SET ? WHERE id = ?`, [updFields, reg.source_id]);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Incident not found' });
