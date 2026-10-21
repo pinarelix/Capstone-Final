@@ -412,7 +412,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const location = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
 
                     const formBadge = item.form_type === 'crime'
-                        ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Crime</span>'
+                        ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Incident</span>'
                         : '<span class="badge" style="background:#f59e0b;color:#fff;font-size:0.65rem;">Blotter</span>';
 
                     tr.innerHTML = `

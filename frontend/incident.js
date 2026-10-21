@@ -30,18 +30,52 @@ async function loadLocationCoordinates() {
 
 // ✅ ITO NA LANG ANG KAILANGAN - WALA NANG CUSTOM FUNCTIONS
 
+// ── Searchable Blotter / Incident type catalog (with acronyms) ──────────────
+let recordTypeCatalog = [];
+async function loadRecordTypes() {
+    try {
+        const res = await apiFetch('/record-types');
+        recordTypeCatalog = await res.json();
+    } catch { recordTypeCatalog = []; }
+    populateTypeDatalist(getFormType());
+}
+function typesForForm(formType) {
+    const cls = formType === 'crime' ? 'incident' : 'blotter';
+    return recordTypeCatalog.filter(t => t.record_class === cls);
+}
+// Fill the datalist with "Name (CODE)" so the native dropdown is searchable by
+// either the type name or its acronym, filtered to the current form's catalog.
+function populateTypeDatalist(formType) {
+    const dl = document.getElementById('incidentTypeList');
+    if (!dl) return;
+    dl.innerHTML = typesForForm(formType)
+        .map(t => `<option value="${t.type_name} (${t.type_code})"></option>`)
+        .join('');
+}
+// Resolve a typed/picked value ("Name (CODE)", "Name" or "CODE") to the
+// canonical catalog name for this form, or '' if it matches no approved type.
+function resolveTypeName(raw, formType) {
+    const v = (raw || '').trim();
+    if (!v) return '';
+    const list = typesForForm(formType);
+    const lower = v.toLowerCase();
+    let hit = list.find(t => `${t.type_name} (${t.type_code})`.toLowerCase() === lower)
+        || list.find(t => t.type_name.toLowerCase() === lower)
+        || list.find(t => t.type_code.toLowerCase() === lower);
+    return hit ? hit.type_name : '';
+}
+
 async function generateBlotterNumber() {
     const el = document.getElementById('incidentBlotter');
     if (!el) return;
+    const formType = getFormType();
+    const resolved = resolveTypeName(document.getElementById('incidentType')?.value, formType);
     try {
-        const res = await apiFetch('/incidents/next-blotter');
+        const res = await apiFetch(`/incidents/next-blotter?form_type=${encodeURIComponent(formType)}&incident_type=${encodeURIComponent(resolved)}`);
         const data = await res.json();
         el.value = data.blotter_number;
     } catch {
-        const now = new Date();
-        const y = now.getFullYear();
-        const seq = String(Math.floor(Math.random() * 9000) + 1000);
-        el.value = `BLT-${y}-${seq}`;
+        el.value = '(assigned on save)';
     }
 }
 
@@ -74,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadIncidents();
     }, 300);
 
+    loadRecordTypes();
     generateBlotterNumber();
     setupFormTypeToggle();
     setupForm();
@@ -115,6 +150,13 @@ function setupFormTypeToggle() {
 
     function applyFormType() {
         const type = getFormType();
+        // Different catalogs per form - repopulate the searchable list and clear
+        // any previously chosen type so it can't carry across forms.
+        populateTypeDatalist(type);
+        const typeEl = document.getElementById('incidentType');
+        const typeOtherEl = document.getElementById('incidentTypeOther');
+        if (typeEl) typeEl.value = '';
+        if (typeOtherEl) { typeOtherEl.value = ''; typeOtherEl.style.display = 'none'; }
         if (type === 'blotter') {
             if (blotterGroup) blotterGroup.style.display = '';
             if (addressSimple) addressSimple.style.display = 'none';
@@ -508,7 +550,7 @@ function renderTable(dataToRender) {
 
             const row = document.createElement('tr');
             const formBadge = item.form_type === 'crime'
-                ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Crime</span>'
+                ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Incident</span>'
                 : '<span class="badge" style="background:#f59e0b;color:#fff;font-size:0.65rem;">Blotter</span>';
 
             row.innerHTML = `
@@ -544,12 +586,17 @@ function setupForm() {
     const typeSelect = document.getElementById('incidentType');
     const typeOtherInput = document.getElementById('incidentTypeOther');
     if (typeSelect) {
-        typeSelect.addEventListener('change', () => {
+        const onTypeChange = () => {
+            const resolved = resolveTypeName(typeSelect.value, getFormType());
             if (typeOtherInput) {
-                typeOtherInput.style.display = typeSelect.value === '__other__' ? '' : 'none';
-                if (typeSelect.value !== '__other__') typeOtherInput.value = '';
+                const showOther = resolved === 'Others';
+                typeOtherInput.style.display = showOther ? '' : 'none';
+                if (!showOther) typeOtherInput.value = '';
             }
-        });
+            generateBlotterNumber();
+        };
+        typeSelect.addEventListener('change', onTypeChange);
+        typeSelect.addEventListener('input', onTypeChange);
     }
 
     form.addEventListener('submit', async (e) => {
@@ -566,7 +613,9 @@ function setupForm() {
 
         const typeSelect = document.getElementById('incidentType');
         const typeOtherInput = document.getElementById('incidentTypeOther');
-        const type = typeSelect.value === '__other__' ? (typeOtherInput?.value.trim() || '') : typeSelect.value;
+        const resolvedType = resolveTypeName(typeSelect.value, formType);
+        const isOthersType = resolvedType === 'Others';
+        const type = isOthersType ? (typeOtherInput?.value.trim() || 'Others') : resolvedType;
         const date = document.getElementById('incidentDate').value;
         const time = document.getElementById('incidentTime').value;
         const lat = document.getElementById('incidentLat').value;
@@ -615,7 +664,10 @@ function setupForm() {
         document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));
 
         const missingFields = requiredFields.filter(f => !document.getElementById(f.id)?.value);
-        if (typeSelect.value === '__other__' && !type) {
+        // Something was typed in the type box but it isn't an approved type.
+        if (typeSelect.value.trim() && !resolvedType) {
+            missingFields.unshift({ id: 'incidentType', label: 'a valid Incident Type (pick one from the list)' });
+        } else if (isOthersType && !(typeOtherInput?.value.trim())) {
             missingFields.unshift({ id: 'incidentTypeOther', label: 'Custom Incident Type' });
         }
         if (missingFields.length > 0) {
@@ -981,10 +1033,26 @@ function clearForm() {
     const formTypeSelector = document.querySelector('.form-type-selector');
     if (formTypeSelector) formTypeSelector.style.display = '';
 
+    populateTypeDatalist('blotter');
+    const typeEl = document.getElementById('incidentType');
+    if (typeEl) typeEl.value = '';
     generateBlotterNumber();
 }
 
-document.getElementById('clearBtn').addEventListener('click', clearForm);
+// Clear Form asks first, so entered information isn't wiped by a mis-click.
+document.getElementById('clearBtn').addEventListener('click', () => {
+    const hasInput = document.getElementById('incidentType')?.value
+        || document.getElementById('incidentReportedByName')?.value
+        || document.getElementById('incidentDesc')?.value
+        || document.getElementById('crimeReporterName')?.value;
+    if (hasInput && typeof showConfirmModal === 'function') {
+        showConfirmModal('Clear this form?', 'All information you have entered will be removed. This cannot be undone.', clearForm);
+    } else if (hasInput) {
+        if (window.confirm('Clear this form? All entered information will be removed.')) clearForm();
+    } else {
+        clearForm();
+    }
+});
 
 /* ============================================================
    DELETE INCIDENT
@@ -1065,12 +1133,16 @@ window.editIncident = async (id) => {
         document.getElementById('editIndex').value = record.id;
         const typeEl = document.getElementById('incidentType');
         const typeOtherEl = document.getElementById('incidentTypeOther');
-        typeEl.value = record.incident_type || '';
-        if (typeEl.value !== (record.incident_type || '')) {
-            typeEl.value = '__other__';
-            if (typeOtherEl) { typeOtherEl.value = record.incident_type || ''; typeOtherEl.style.display = ''; }
-        } else {
+        const editFormTypeEarly = record.form_type || (record.source === 'incident' ? 'crime' : 'blotter');
+        populateTypeDatalist(editFormTypeEarly);
+        const typeMatch = typesForForm(editFormTypeEarly).find(t => t.type_name === record.incident_type);
+        if (typeMatch) {
+            typeEl.value = `${typeMatch.type_name} (${typeMatch.type_code})`;
             if (typeOtherEl) { typeOtherEl.value = ''; typeOtherEl.style.display = 'none'; }
+        } else {
+            const others = typesForForm(editFormTypeEarly).find(t => t.type_name === 'Others');
+            typeEl.value = others ? `Others (${others.type_code})` : (record.incident_type || '');
+            if (typeOtherEl) { typeOtherEl.value = record.incident_type || ''; typeOtherEl.style.display = ''; }
         }
         document.getElementById('incidentDate').value = record.date ? record.date.split('T')[0] : '';
         document.getElementById('incidentTime').value = record.time ? record.time.substring(0, 5) : '';

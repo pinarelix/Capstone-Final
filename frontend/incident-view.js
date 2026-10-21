@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // ✅ FIXED: gumamit ng incident.id (hindi _id)
             // ✅ FIXED: gumamit ng incident.incident_type (hindi type)
             const formBadge = incident.form_type === 'crime'
-                ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Crime</span>'
+                ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Incident</span>'
                 : '<span class="badge" style="background:#f59e0b;color:#fff;font-size:0.65rem;">Blotter</span>';
 
             return `
@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p class="incident-hero-id">CASE #${String(incident.id).padStart(5, '0')}</p>
                         <h3 class="incident-hero-title">${escapeHTML(incident.incident_type || 'N/A')}</h3>
                         <div class="incident-hero-badges">
-                            <span class="badge" style="background:${incident.form_type === 'crime' ? '#3b82f6' : '#f59e0b'};color:#fff;">${incident.form_type === 'crime' ? 'Crime Form' : 'Blotter Form'}</span>
+                            <span class="badge" style="background:${incident.form_type === 'crime' ? '#3b82f6' : '#f59e0b'};color:#fff;">${incident.form_type === 'crime' ? 'Incident Form' : 'Blotter Form'}</span>
                             <span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span>
                             <span class="badge ${modalDangerClass}">${escapeHTML(incident.danger_level || 'Not assessed')}</span>
                             ${incident.severity ? `<span class="badge ${incident.severity === 'High' ? 'badge-danger-high' : incident.severity === 'Medium' ? 'badge-danger-mod' : 'badge-danger-low'}">Severity: ${escapeHTML(incident.severity)}</span>` : ''}
