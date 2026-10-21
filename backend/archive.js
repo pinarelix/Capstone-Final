@@ -195,8 +195,17 @@ function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, 
 
             switch (entry.entity_type) {
                 case 'incident': {
-                    if (await exists('incidents', row.id)) throw new RestoreConflict(`Incident #${row.id} already exists.`);
-                    await insertRow(conn, 'incidents', row);
+                    // Option A: rebuild the base row + registry entry with their
+                    // original ids (the `incidents` view is not insertable).
+                    const reg = data.registry, baseRow = data.baseRow, source = data.source;
+                    if (!reg || !baseRow || !source) {
+                        throw new RestoreConflict('This record predates the Blotter/Incident split and cannot be auto-restored.');
+                    }
+                    const [[regExists]] = await conn.query('SELECT 1 AS x FROM record_registry WHERE registry_id = ?', [reg.registry_id]);
+                    if (regExists) throw new RestoreConflict(`Record #${reg.registry_id} already exists.`);
+                    const baseTable = source === 'incident' ? 'incident_records' : 'blotter_records';
+                    await insertRow(conn, baseTable, baseRow);
+                    await insertRow(conn, 'record_registry', reg);
                     for (const ev of data.evidence || []) {
                         if (!(await exists('incident_evidence', ev.id))) await insertRow(conn, 'incident_evidence', ev);
                     }

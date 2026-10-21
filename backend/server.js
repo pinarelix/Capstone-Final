@@ -176,12 +176,66 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    // Pin utf8mb4 end-to-end so names/addresses with ñ, accents and other
+    // multibyte characters store and round-trip correctly.
+    charset: 'utf8mb4',
     // Return DATE columns as plain 'YYYY-MM-DD' strings instead of JS Date
     // objects. Without this, mysql2 builds the Date at local midnight and
     // res.json() serializes it as UTC, silently shifting the date back one
     // day for any timezone ahead of UTC (e.g. Asia/Manila, UTC+8).
     dateStrings: ['DATE']
 });
+
+// ── Option A record routing helpers ─────────────────────────────────────────
+// `incidents` is now a compatibility VIEW over blotter_records + incident_records
+// (joined through record_registry). Reads use the view unchanged; writes must
+// target the correct base table and keep the registry in step. The record id the
+// whole app uses (incidents.id, cart_risk_factors.incident_id,
+// incident_evidence.incident_id, audit entity_id) is the registry_id.
+const { codeFor } = require('./recordTypes');
+
+const recordClassFromFormType = ft => (ft === 'crime' ? 'incident' : 'blotter');
+const baseTableForClass = cls => (cls === 'incident' ? 'incident_records' : 'blotter_records');
+const prefixForClass = cls => (cls === 'incident' ? 'INC' : 'BLT');
+
+// registry_id -> { source, source_id, table } (null if unknown).
+async function resolveRegistry(executor, registryId) {
+    const [rows] = await executor.query('SELECT source, source_id FROM record_registry WHERE registry_id = ?', [registryId]);
+    if (!rows.length) return null;
+    return { source: rows[0].source, source_id: rows[0].source_id, table: baseTableForClass(rows[0].source) };
+}
+
+// Concurrency-safe next public number {PREFIX}-{CODE}-{NNNN}. Never MAX(id)+1:
+// an atomic INSERT ... ON DUPLICATE KEY UPDATE on record_number_counters.
+async function allocPublicNumber(conn, prefix, code) {
+    const [res] = await conn.query(
+        `INSERT INTO record_number_counters (prefix, type_code, next_seq) VALUES (?, ?, 2)
+         ON DUPLICATE KEY UPDATE next_seq = LAST_INSERT_ID(next_seq + 1)`,
+        [prefix, code]
+    );
+    let seq;
+    if (res.affectedRows === 1) {
+        seq = 1; // fresh counter row: allocated seq 1, stored next_seq 2
+    } else {
+        const [[r]] = await conn.query('SELECT LAST_INSERT_ID() AS v');
+        seq = r.v - 1; // v is the new next_seq; the allocated seq is one less
+    }
+    return `${prefix}-${code}-${String(seq).padStart(4, '0')}`;
+}
+
+// Write the computed danger level back onto the base record behind a registry_id
+// (the `incidents` view is not updatable).
+async function writeDangerLevelToBase(executor, registryId, dangerLevel, timeOfDay) {
+    const reg = await resolveRegistry(executor, registryId);
+    if (!reg) return;
+    if (timeOfDay !== undefined) {
+        await executor.query(`UPDATE \`${reg.table}\` SET danger_level = ?, time_of_day = ? WHERE id = ?`,
+            [dangerLevel, timeOfDay, reg.source_id]);
+    } else {
+        await executor.query(`UPDATE \`${reg.table}\` SET danger_level = ? WHERE id = ?`,
+            [dangerLevel, reg.source_id]);
+    }
+}
 
 const archive = createArchive({ pool, uploadsRoot: UPLOADS_ROOT });
 
@@ -244,24 +298,33 @@ async function testConnection() {
         if (err.code !== 'ER_DUP_FIELDNAME') throw err;
     }
 
-    // New blotter-logbook fields (severity, respondent info, age).
-    for (const col of [
-        "ADD COLUMN severity ENUM('High','Medium','Low') DEFAULT 'Low'",
-        "ADD COLUMN respondent_name VARCHAR(255) DEFAULT NULL",
-        "ADD COLUMN respondent_address VARCHAR(500) DEFAULT NULL",
-        "ADD COLUMN age INT DEFAULT NULL"
-    ]) {
-        try { await pool.query(`ALTER TABLE incidents ${col}`); }
+    // Legacy single-table migrations below only apply while `incidents` is still
+    // a BASE TABLE. After the Option A cutover (migrations 001-003) it is a
+    // compatibility VIEW over blotter_records / incident_records and these
+    // columns live on the base tables, so skip them rather than ALTER the view.
+    const [incMetaRows] = await pool.query(
+        "SELECT TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'incidents'"
+    );
+    if (incMetaRows[0] && incMetaRows[0].TABLE_TYPE === 'BASE TABLE') {
+        // New blotter-logbook fields (severity, respondent info, age).
+        for (const col of [
+            "ADD COLUMN severity ENUM('High','Medium','Low') DEFAULT 'Low'",
+            "ADD COLUMN respondent_name VARCHAR(255) DEFAULT NULL",
+            "ADD COLUMN respondent_address VARCHAR(500) DEFAULT NULL",
+            "ADD COLUMN age INT DEFAULT NULL"
+        ]) {
+            try { await pool.query(`ALTER TABLE incidents ${col}`); }
+            catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+        }
+
+        // form_type distinguishes blotter vs crime incident records.
+        try { await pool.query("ALTER TABLE incidents ADD COLUMN form_type ENUM('blotter','crime') DEFAULT 'blotter'"); }
         catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+
+        // Backfill: records without a blotter_number and without a description
+        // were entered through the crime form.
+        await pool.query("UPDATE incidents SET form_type = 'crime' WHERE form_type = 'blotter' AND (blotter_number IS NULL OR blotter_number = '') AND (description IS NULL OR description = '')");
     }
-
-    // form_type distinguishes blotter vs crime incident records.
-    try { await pool.query("ALTER TABLE incidents ADD COLUMN form_type ENUM('blotter','crime') DEFAULT 'blotter'"); }
-    catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
-
-    // Backfill: records without a blotter_number and without a description
-    // were entered through the crime form.
-    await pool.query("UPDATE incidents SET form_type = 'crime' WHERE form_type = 'blotter' AND (blotter_number IS NULL OR blotter_number = '') AND (description IS NULL OR description = '')");
 
     // Archive of everything deleted (see archive.js) - created here too so
     // existing databases get it without a manual migration.
@@ -952,9 +1015,9 @@ async function computeCartRiskFactors(incidentId) {
         // incidents.danger_level was otherwise left as the literal placeholder
         // 'Calculated by System' forever, even though the real Level 1/2/3
         // result was sitting in cart_risk_factors the whole time.
-        await pool.query(
-            'UPDATE incidents SET danger_level = ? WHERE id = ?',
-            [result.dangerDescription || 'Level 1 — Low Danger / Stable Area', incidentId]
+        await writeDangerLevelToBase(
+            pool, incidentId,
+            result.dangerDescription || 'Level 1 — Low Danger / Stable Area'
         );
 
 
@@ -1099,9 +1162,10 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
 
                 // Keep incidents.danger_level in sync with the real result,
                 // same as the single-incident path in computeCartRiskFactors.
-                await conn.query(
-                    'UPDATE incidents SET danger_level = ?, time_of_day = ? WHERE id = ?',
-                    [result.dangerDescription || 'Level 1 — Low Danger / Stable Area', incident.time_of_day, incident.id]
+                await writeDangerLevelToBase(
+                    conn, incident.id,
+                    result.dangerDescription || 'Level 1 — Low Danger / Stable Area',
+                    incident.time_of_day
                 );
 
                 processed++;
@@ -2129,43 +2193,48 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
         const dayOfWeek = getDayOfWeek(date);
         const isWeekend = isDateWeekend(date);
 
-        const [result] = await pool.query(`
-            INSERT INTO incidents
-            (incident_type, date, time, latitude, longitude, street_name, address, reporter_id,
-             status, danger_level, description, recommended_action,
-             time_of_day, day_of_week, is_weekend,
-             blotter_number, reported_by_name, statement, persons_involved, priority,
-             severity, respondent_name, respondent_address, age, form_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            incident_type,
-            date,
-            time,
-            latitude,
-            longitude,
-            finalStreetName,
-            finalAddress,
-            finalReporterId,
-            status || 'Open',
-            'Calculated by System',
-            description || '',
-            recommended_action || '',
-            timeOfDay,
-            dayOfWeek,
-            isWeekend,
-            blotter_number || null,
-            reported_by_name || null,
-            statement || null,
-            persons_involved || null,
-            priority || 'Normal',
-            severity || 'Low',
-            respondent_name || null,
-            respondent_address || null,
-            age != null ? age : null,
-            form_type || 'blotter'
-        ]);
+        // Route to the correct operational table and allocate a
+        // {PREFIX}-{TYPE}-{NNNN} number, all in one transaction so the base row,
+        // its registry entry and its public number are created together. Any
+        // client-sent blotter_number is ignored - the number is server-assigned.
+        const cls = recordClassFromFormType(form_type);
+        const table = baseTableForClass(cls);
+        const typeCode = codeFor(cls, incident_type);
 
-        await computeCartRiskFactors(result.insertId);
+        let registryId, publicNumber;
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            publicNumber = await allocPublicNumber(conn, prefixForClass(cls), typeCode);
+            const [ins] = await conn.query(`
+                INSERT INTO \`${table}\`
+                (incident_type, type_code, date, time, latitude, longitude, street_name, address, reporter_id,
+                 status, danger_level, description, recommended_action,
+                 time_of_day, day_of_week, is_weekend,
+                 reported_by_name, statement, priority,
+                 severity, respondent_name, respondent_address, respondent_age, data_origin)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'real')
+            `, [
+                incident_type, typeCode, date, time, latitude, longitude, finalStreetName, finalAddress, finalReporterId,
+                status || 'Open', 'Calculated by System', description || '', recommended_action || '',
+                timeOfDay, dayOfWeek, isWeekend,
+                reported_by_name || null, statement || null, priority || 'Normal',
+                severity || 'Low', respondent_name || null, respondent_address || null, age != null ? age : null
+            ]);
+            const [reg] = await conn.query(
+                `INSERT INTO record_registry (source, source_id, public_number, type_code) VALUES (?, ?, ?, ?)`,
+                [cls, ins.insertId, publicNumber, typeCode]
+            );
+            registryId = reg.insertId;
+            await conn.commit();
+        } catch (txErr) {
+            await conn.rollback();
+            throw txErr;
+        } finally {
+            conn.release();
+        }
+
+        await computeCartRiskFactors(registryId);
         heatmapCache.del('incidents'); heatmapCache.del('street-analysis');
 
         // A new incident here means this street is active again - clear
@@ -2180,7 +2249,7 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
                 userId,
                 'CREATE_INCIDENT',
                 'incidents',
-                result.insertId,
+                registryId,
                 null,
                 req.body,
                 req
@@ -2189,7 +2258,7 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
 
         broadcastNotification({
             type: 'new_incident',
-            incidentId: result.insertId,
+            incidentId: registryId,
             incidentType: incident_type,
             location: finalStreetName || address || 'unknown location',
             timestamp: new Date().toISOString()
@@ -2197,7 +2266,8 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
 
         res.status(201).json({
             message: 'Incident saved successfully.',
-            id: result.insertId
+            id: registryId,
+            blotter_number: publicNumber
         });
 
     } catch (error) {
@@ -2225,28 +2295,32 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
         const dayOfWeek = getDayOfWeek(date);
         const isWeekend = isDateWeekend(date);
 
+        const reg = await resolveRegistry(pool, id);
+        if (!reg) {
+            return res.status(404).json({ error: 'Incident not found' });
+        }
+        // Keep the record in its own table (blotter vs incident classification is
+        // fixed once created); update its fields and keep type_code in step with
+        // the type. The public number does not change on edit.
+        const typeCode = codeFor(reg.source, incident_type);
         const [result] = await pool.query(`
-            UPDATE incidents
-            SET incident_type = ?, date = ?, time = ?, latitude = ?, longitude = ?,
+            UPDATE \`${reg.table}\`
+            SET incident_type = ?, type_code = ?, date = ?, time = ?, latitude = ?, longitude = ?,
                 street_name = ?, address = ?, reporter_id = ?, status = ?,
                 danger_level = 'Calculated by System',
                 description = ?, recommended_action = ?,
                 time_of_day = ?, day_of_week = ?, is_weekend = ?,
-                blotter_number = ?, reported_by_name = ?, statement = ?, persons_involved = ?,
-                priority = ?,
-                severity = ?, respondent_name = ?, respondent_address = ?, age = ?,
-                form_type = ?
+                reported_by_name = ?, statement = ?, priority = ?,
+                severity = ?, respondent_name = ?, respondent_address = ?, respondent_age = ?
             WHERE id = ?
         `, [
-            incident_type, date, time, latitude, longitude,
+            incident_type, typeCode, date, time, latitude, longitude,
             finalStreetName, finalAddress, finalReporterId, status,
             description, recommended_action,
             timeOfDay, dayOfWeek, isWeekend,
-            blotter_number || null, reported_by_name || null, statement || null, persons_involved || null,
-            priority || 'Normal',
+            reported_by_name || null, statement || null, priority || 'Normal',
             severity || 'Low', respondent_name || null, respondent_address || null, age != null ? age : null,
-            form_type || 'blotter',
-            id
+            reg.source_id
         ]);
 
         if (result.affectedRows === 0) {
@@ -2300,16 +2374,26 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Deputy Officer']), 
         try {
             await conn.beginTransaction();
             const files = [];
+            // Snapshot enough to rebuild Option A exactly: the view row (for the
+            // label / back-compat), the base row and the registry row.
+            const reg = await resolveRegistry(conn, id);
+            let baseRow = null;
+            if (reg) {
+                const [br] = await conn.query(`SELECT * FROM \`${reg.table}\` WHERE id = ?`, [reg.source_id]);
+                baseRow = br[0] || null;
+            }
+            const [rr] = await conn.query('SELECT * FROM record_registry WHERE registry_id = ?', [id]);
             await archive.archiveRecord(conn, {
                 entityType: 'incident',
                 entityId: Number(id),
                 label: `Incident #${id}: ${oldData[0].incident_type} - ${oldData[0].street_name || 'no street'} (${oldData[0].date})`,
-                data: { row: oldData[0], evidence: evidenceRows },
+                data: { row: oldData[0], baseRow, registry: rr[0] || null, source: reg ? reg.source : null, evidence: evidenceRows },
                 files,
                 deletedBy: userId
             });
             await conn.query('DELETE FROM cart_risk_factors WHERE incident_id = ?', [id]);
-            await conn.query('DELETE FROM incidents WHERE id = ?', [id]);
+            if (reg) await conn.query(`DELETE FROM \`${reg.table}\` WHERE id = ?`, [reg.source_id]);
+            await conn.query('DELETE FROM record_registry WHERE registry_id = ?', [id]);
             await conn.commit();
         } catch (err) {
             await conn.rollback();
@@ -3675,11 +3759,18 @@ app.post('/api/location-coordinates', authenticate, requireRole(['Deputy Officer
         // a location only helps *future* reports there, and anything
         // already reported today would stay permanently absent from the
         // heatmap even after the admin pins the street.
-        const [backfillResult] = await pool.query(
-            `UPDATE incidents SET latitude = ?, longitude = ?
+        // `incidents` is a view; backfill the underlying base tables instead.
+        const [bBlt] = await pool.query(
+            `UPDATE blotter_records SET latitude = ?, longitude = ?
              WHERE street_name = ? AND latitude IS NULL AND longitude IS NULL`,
             [latitude, longitude, location]
         );
+        const [bInc] = await pool.query(
+            `UPDATE incident_records SET latitude = ?, longitude = ?
+             WHERE street_name = ? AND latitude IS NULL AND longitude IS NULL`,
+            [latitude, longitude, location]
+        );
+        const backfillResult = { affectedRows: (bBlt.affectedRows || 0) + (bInc.affectedRows || 0) };
         if (backfillResult.affectedRows > 0) {
             heatmapCache.del('incidents'); heatmapCache.del('street-analysis');
         }
