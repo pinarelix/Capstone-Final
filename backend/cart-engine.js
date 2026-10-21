@@ -92,8 +92,7 @@ class CARTEngine {
                 'Theft': 85,
                 'Fencing of Stolen Properties': 75,
                 'Qualified Trespass to Dwelling': 75,
-                'Occupation of Real Property or Usurpation of': 70,
-                'Removal, Sale or Pledge of Mortgaged Property': 70,
+                'Occupation of Real Property or Usurpation of Removal, Sale or Pledge of Mortgaged Property': 30,
                 'Trespassing': 65,
                 'Altering Boundaries of Landmarks': 60,
                 'Vandalism': 55,
@@ -114,8 +113,8 @@ class CARTEngine {
                 'Oral Defamation': 50,
                 'Harassment': 50,
                 'Intriguing Against Honor': 45,
-                'Unlawful Use of Means of Publication and Unlaw': 45,
-                'Prohibiting Publication of Acts Referred to in the': 40,
+                'Unlawful Use of Means of Publication and Unlawful Utterances': 30,
+                'Prohibiting Publication of Acts Referred to in the Proceedings': 30,
 
                 // -- Special / Child-Related (35-45) -----------------
                 'BCPC': 45,
@@ -142,6 +141,12 @@ class CARTEngine {
                 'Abandon': 35,
                 'Missing': 35,
                 'Suicide': 30,
+
+                // Shared "Others" exception type (present in both catalogs) and
+                // the three long-named blotter types that previously had no exact
+                // match: kept at 30 per the approved config, so their overall
+                // score varies by the manual severity input, not a fixed type weight.
+                'Others': 30,
 
                 'default': 30
             },
