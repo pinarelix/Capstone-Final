@@ -74,14 +74,19 @@ function addMapLayers() {
                 18, 2.5
             ],
             'heatmap-color': [
+                // Single-hue glow: transparency escalates with (severity-weighted)
+                // heat density so a hotspot reads as ONE colour instead of stacked
+                // green -> amber -> red rings. The discrete severity tier (green/
+                // amber/red) is shown by the circle layer below, not by the glow,
+                // so the highest level is kept and the lower ones are not painted
+                // underneath it. heatmap-weight is already CART-score weighted, so
+                // low-severity concentrations stay faint rather than glowing red.
                 'interpolate', ['linear'], ['heatmap-density'],
                 0, 'rgba(0,0,0,0)',
-                0.15, 'rgba(16,185,129,0.35)',
-                0.30, 'rgba(16,185,129,0.6)',
-                0.45, 'rgba(245,158,11,0.7)',
-                0.60, 'rgba(239,68,68,0.8)',
-                0.80, 'rgba(220,38,38,0.9)',
-                1.0, 'rgba(153,27,27,1)'
+                0.15, 'rgba(239,68,68,0.25)',
+                0.40, 'rgba(239,68,68,0.5)',
+                0.70, 'rgba(239,68,68,0.78)',
+                1.0, 'rgba(185,28,28,0.95)'
             ],
             'heatmap-radius': [
                 'interpolate', ['linear'], ['zoom'],
@@ -105,10 +110,14 @@ function addMapLayers() {
         source: 'incidents',
         paint: {
             'circle-color': [
-                'interpolate', ['linear'], ['get', 'cart_score'],
-                0, '#10b981',
-                34, '#f59e0b',
-                67, '#ef4444'
+                // Discrete tiers (step, not interpolate): each incident shows exactly
+                // ONE severity colour by its CART score, so a high-score point is pure
+                // red rather than a blended orange that reads as several overlapping
+                // levels. Thresholds match the 34 / 67 danger bands.
+                'step', ['get', 'cart_score'],
+                '#10b981',        // < 34  -> Low (green)
+                34, '#f59e0b',    // 34-66 -> Moderate (amber)
+                67, '#ef4444'     // >= 67 -> High (red)
             ],
             'circle-radius': [
                 'interpolate', ['linear'], ['zoom'],
