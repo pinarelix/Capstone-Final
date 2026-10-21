@@ -55,51 +55,36 @@ function addMapSources() {
 }
 
 function addMapLayers() {
+    // Soft glow coloured by the SAME severity tier as the dot (green / amber /
+    // red), rather than a density heatmap that cycled green -> amber -> red and
+    // drew every lower colour as a ring under a hot point. A low-risk area now
+    // glows green, a moderate one amber, and only a high-risk one red. Features
+    // are fed lowest-tier-first (see renderIncidents), so where two glows
+    // overlap the higher tier is drawn on top and its colour wins.
     map.addLayer({
-        id: 'incidents-heat',
-        type: 'heatmap',
+        id: 'incidents-glow',
+        type: 'circle',
         source: 'incidents',
         paint: {
-            'heatmap-weight': [
-                'interpolate', ['linear'], ['get', 'cart_score'],
-                0, 0.1,
-                34, 0.4,
-                67, 0.7,
-                100, 1
+            'circle-color': [
+                'step', ['get', 'cart_score'],
+                '#10b981',        // < 34  -> Low (green)
+                34, '#f59e0b',    // 34-66 -> Moderate (amber)
+                67, '#ef4444'     // >= 67 -> High (red)
             ],
-            'heatmap-intensity': [
+            'circle-radius': [
                 'interpolate', ['linear'], ['zoom'],
-                13, 0.8,
-                16, 1.5,
-                18, 2.5
-            ],
-            'heatmap-color': [
-                // Single-hue glow: transparency escalates with (severity-weighted)
-                // heat density so a hotspot reads as ONE colour instead of stacked
-                // green -> amber -> red rings. The discrete severity tier (green/
-                // amber/red) is shown by the circle layer below, not by the glow,
-                // so the highest level is kept and the lower ones are not painted
-                // underneath it. heatmap-weight is already CART-score weighted, so
-                // low-severity concentrations stay faint rather than glowing red.
-                'interpolate', ['linear'], ['heatmap-density'],
-                0, 'rgba(0,0,0,0)',
-                0.15, 'rgba(239,68,68,0.25)',
-                0.40, 'rgba(239,68,68,0.5)',
-                0.70, 'rgba(239,68,68,0.78)',
-                1.0, 'rgba(185,28,28,0.95)'
-            ],
-            'heatmap-radius': [
-                'interpolate', ['linear'], ['zoom'],
-                13, 18,
-                15, 28,
+                13, 16,
+                15, 26,
                 17, 40,
                 19, 55
             ],
-            'heatmap-opacity': [
+            'circle-blur': 1,
+            'circle-opacity': [
                 'interpolate', ['linear'], ['zoom'],
-                14, 0.85,
-                17, 0.65,
-                19, 0.4
+                13, 0.5,
+                17, 0.4,
+                19, 0.3
             ]
         }
     });
@@ -485,6 +470,10 @@ function renderIncidents(incidents) {
             time: item.time || ''
         }
     }));
+
+    // Draw lowest-risk first so a higher-tier glow/dot always paints over a lower
+    // one where they overlap - the highest severity colour stays on top.
+    features.sort((a, b) => a.properties.cart_score - b.properties.cart_score);
 
     if (map.getSource('incidents')) {
         map.getSource('incidents').setData({
