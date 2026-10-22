@@ -93,7 +93,12 @@ const CATALOG = [
 function codeFor(recordClass, typeName) {
     const list = recordClass === 'incident' ? INCIDENT_TYPES : BLOTTER_TYPES;
     const hit = list.find(t => t.name.toLowerCase() === String(typeName || '').toLowerCase());
-    return hit ? hit.code : 'O'; // unknown type falls back to the Others code
+    return hit ? hit.code : 'O';
 }
 
-module.exports = { INCIDENT_TYPES, BLOTTER_TYPES, CATALOG, codeFor };
+function isValidType(recordClass, typeName) {
+    const list = recordClass === 'incident' ? INCIDENT_TYPES : BLOTTER_TYPES;
+    return list.some(t => t.name.toLowerCase() === String(typeName || '').toLowerCase());
+}
+
+module.exports = { INCIDENT_TYPES, BLOTTER_TYPES, CATALOG, codeFor, isValidType };

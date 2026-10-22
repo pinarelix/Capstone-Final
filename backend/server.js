@@ -200,7 +200,7 @@ setInterval(() => {
 // target the correct base table and keep the registry in step. The record id the
 // whole app uses (incidents.id, cart_risk_factors.incident_id,
 // incident_evidence.incident_id, audit entity_id) is the registry_id.
-const { codeFor } = require('./recordTypes');
+const { codeFor, isValidType } = require('./recordTypes');
 
 const recordClassFromFormType = ft => (ft === 'crime' ? 'incident' : 'blotter');
 const baseTableForClass = cls => (cls === 'incident' ? 'incident_records' : 'blotter_records');
@@ -2343,11 +2343,11 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
         const dayOfWeek = getDayOfWeek(date);
         const isWeekend = isDateWeekend(date);
 
-        // Route to the correct operational table and allocate a
-        // {PREFIX}-{TYPE}-{NNNN} number, all in one transaction so the base row,
-        // its registry entry and its public number are created together. Any
-        // client-sent blotter_number is ignored - the number is server-assigned.
         const cls = recordClassFromFormType(form_type);
+        if (!isValidType(cls, incident_type)) {
+            return res.status(400).json({ error: 'Validation failed', details: [`"${incident_type}" is not an approved ${cls} type`] });
+        }
+
         const table = baseTableForClass(cls);
         const typeCode = codeFor(cls, incident_type);
 
@@ -2435,9 +2435,23 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
         if (!reg) {
             return res.status(404).json({ error: 'Incident not found' });
         }
-        // Keep the record in its own table (blotter vs incident classification is
-        // fixed once created); update its fields and keep type_code in step with
-        // the type. The public number does not change on edit.
+
+        const expectedFormType = reg.source === 'incident' ? 'crime' : 'blotter';
+        if (form_type && form_type !== expectedFormType) {
+            return res.status(400).json({ error: 'Record classification cannot be changed after creation' });
+        }
+
+        if (!isValidType(reg.source, incident_type)) {
+            return res.status(400).json({ error: 'Validation failed', details: [`"${incident_type}" is not an approved ${reg.source} type`] });
+        }
+
+        if (reg.source === 'blotter' && !req.body.is_draft) {
+            const missing = [];
+            if (!req.body.respondent_first) missing.push('respondent_first');
+            if (!req.body.respondent_last) missing.push('respondent_last');
+            if (missing.length) return res.status(400).json({ error: 'Validation failed', details: missing.map(f => `"${f}" is required for non-draft blotter records`) });
+        }
+
         const typeCode = codeFor(reg.source, incident_type);
         const updFields = buildIncidentFields(req.body, { timeOfDay, dayOfWeek, isWeekend }, typeCode, finalReporterId);
         const [result] = await pool.query(`UPDATE \`${reg.table}\` SET ? WHERE id = ?`, [updFields, reg.source_id]);
