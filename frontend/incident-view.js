@@ -6,12 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. CHECK USER SESSION
     // =========================================================
     
-    // Try to get user data from sessionStorage first, then localStorage
-    let userData = sessionStorage.getItem('user') || localStorage.getItem('user');
-    let token = sessionStorage.getItem('token') || localStorage.getItem('session_token');
-    
-    console.log('🔍 User data from storage:', userData);
-    console.log('🔍 Token from storage:', token);
+    let userData = sessionStorage.getItem('user');
+    let token = sessionStorage.getItem('token');
     
     // Parse user data
     let user = null;

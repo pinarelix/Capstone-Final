@@ -10,6 +10,8 @@ const multer = require('multer');
 const NodeCache = require('node-cache');
 const FileType = require('file-type');
 const nodemailer = require('nodemailer');
+const helmet = require('helmet');
+const expressRateLimit = require('express-rate-limit');
 const cartEngine = require('./cart-engine');
 const { BARANGAY_LOCATIONS } = require('./locationList');
 const { createArchive, registerArchiveRoutes } = require('./archive');
@@ -60,31 +62,35 @@ function broadcastNotification(payload) {
 // Every request is same-origin now, so a CORS allowlist has nothing
 // left to do.
 
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
+
 app.use(express.json());
 
-// Stops the browser from guessing a file's type from its content instead
-// of trusting the server's Content-Type - relevant because upload
-// fileFilters below only check the client-supplied (spoofable) mimetype,
-// not the actual file bytes, so a mislabeled upload could otherwise be
-// sniffed and rendered as HTML/script instead of the image/video it's
-// served as.
 app.use((req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy',
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-        "style-src 'self' 'unsafe-inline'; " +
-        "font-src 'self'; " +
+        "script-src 'self' 'unsafe-inline'; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+        "font-src 'self' https://fonts.gstatic.com; " +
         "img-src 'self' data: blob: https://api.mapbox.com https://*.tiles.mapbox.com; " +
         "connect-src 'self' https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com; " +
         "worker-src 'self' blob:; " +
         "frame-src 'none'"
     );
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     next();
 });
+
+const apiLimiter = expressRateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again shortly.' }
+});
+app.use('/api/', apiLimiter);
 
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
@@ -193,6 +199,18 @@ setInterval(() => {
     const now = Date.now();
     for (const [k, v] of _idempotencyCache) { if (now - v.ts > IDEMPOTENCY_TTL) _idempotencyCache.delete(k); }
 }, 30000);
+
+setInterval(async () => {
+    try {
+        const timeoutMin = await getSessionTimeoutMinutes().catch(() => 30);
+        await pool.query(
+            `UPDATE user_sessions SET is_active = 0, logout_time = NOW()
+             WHERE is_active = 1 AND logout_time IS NULL
+               AND last_activity < DATE_SUB(NOW(), INTERVAL ? MINUTE)`,
+            [timeoutMin]
+        );
+    } catch {}
+}, 5 * 60 * 1000);
 
 // ── Option A record routing helpers ─────────────────────────────────────────
 // `incidents` is now a compatibility VIEW over blotter_records + incident_records
@@ -1784,7 +1802,7 @@ app.get('/api/login-history', authenticate, requireRole(['Deputy Officer']), asy
         
         res.json(rows);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch login history', details: error.message });
+        res.status(500).json({ error: 'Failed to fetch login history' });
     }
 });
 
@@ -1802,11 +1820,11 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         );
 
         if (users.length === 0) {
-            return res.status(404).json({ error: 'Username not found. Please check and try again.' });
+            return res.json({ message: 'If that account exists, a reset code has been generated. Contact your administrator if you did not receive it.' });
         }
 
         const user = users[0];
-        const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+        const resetToken = crypto.randomInt(100000, 1000000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         await pool.query(`
@@ -1822,7 +1840,7 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         const emailSent = user.email ? await sendPasswordResetEmail(user.email, user.name, resetToken) : false;
 
         await logAudit(user.id, 'PASSWORD_RESET_REQUESTED', 'users', user.id, null,
-            { username: user.username, reset_token: resetToken, expires_at: expiresAt, emailed_to: emailSent ? user.email : null }, req);
+            { username: user.username, reset_token_hint: resetToken.slice(0, 2) + '****', expires_at: expiresAt, emailed_to: emailSent ? user.email : null }, req);
 
         res.json({
             message: emailSent
@@ -2825,8 +2843,7 @@ app.get('/api/patrol/cart-summary', authenticate, requireRole(['Deputy Officer',
     } catch (error) {
         res.status(500).json({ 
             success: false,
-            error: 'Failed to get CART patrol summary',
-            details: error.message 
+            error: 'Failed to get CART patrol summary' 
         });
     }
 });
@@ -3853,7 +3870,7 @@ app.post('/api/settings', authenticate, requireRole(['Deputy Officer']), async (
         res.json({ message: 'Setting saved successfully' });
 
     } catch (error) {
-        res.status(500).json({ error: 'Failed to save setting: ' + error.message });
+        res.status(500).json({ error: 'Failed to save setting' });
     }
 });
 

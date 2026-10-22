@@ -63,8 +63,6 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log('🚀 Patrol page loading with CART integration...');
     
     const user = getCurrentUser();
-    console.log('👤 User from session:', user);
-    
     if (!user || !user.id) {
         console.log('❌ No user found, redirecting to login');
         window.location.href = 'login.html';

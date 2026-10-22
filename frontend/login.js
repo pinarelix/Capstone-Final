@@ -328,19 +328,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 sessionStorage.setItem('isLoggedIn', 'true');
                 sessionStorage.setItem('lastLogin', new Date().toLocaleString());
 
-                // ✅ Also save to localStorage for backward compatibility (optional)
-                try {
-                    localStorage.setItem('user', JSON.stringify({
-                        id: user.id,
-                        name: user.name,
-                        username: user.username,
-                        role: user.role,
-                        is_active: user.is_active,
-                        last_login_at: user.last_login_at || new Date().toISOString()
-                    }));
-                    localStorage.setItem('isLoggedIn', 'true');
-                } catch (e) {}
-
+                try { localStorage.removeItem('user'); localStorage.removeItem('isLoggedIn'); localStorage.removeItem('token'); } catch {}
 
                 window.location.href = 'dashboard.html';
 
