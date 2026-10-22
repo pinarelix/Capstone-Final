@@ -37,6 +37,7 @@ database/backups/
 
 # Project specific
 backend/.env
+backend/config.json
 backend/*.log
 backend/uploads/
 

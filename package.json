@@ -1,6 +1,6 @@
 {
   "name": "barangay179-crime-bi",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Barangay 179 Crime Intelligence and Patrol Decision Support System",
   "author": "Barangay 179 Crime BI Capstone Team",
   "main": "main.js",
@@ -26,7 +26,10 @@
       "package.json",
       "backend/**/*",
       "frontend/**/*",
+      "database/schema.sql",
+      "database/migrations/**/*",
       "!backend/.env",
+      "!backend/config.json",
       "!backend/*.log",
       "!backend/uploads/**",
       "!backend/tests/**",
