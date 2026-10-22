@@ -432,51 +432,127 @@
                             </div>
                         </div>
 
-                        <!-- Detailed address (blotter form only) -->
-                        <div class="form-row" id="addressDetailedGroup">
-                            <div class="form-group">
-                                <label>House / Block / Lot No. <span class="req">*</span></label>
-                                <input type="text" id="incidentHouseBlkLot" class="form-control" placeholder="e.g. Blk 5 Lot 3, House No. 12" maxlength="100">
-                            </div>
-                            <div class="form-group">
-                                <label>Landmark</label>
-                                <input type="text" id="incidentLandmark" class="form-control" placeholder="e.g. Near the chapel, beside sari-sari store" maxlength="150">
+                        <!-- Structured address (blotter form) -->
+                        <div id="addressDetailedGroup">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Block</label>
+                                    <input type="text" id="addrBlock" class="form-control" placeholder="e.g. 5" maxlength="50">
+                                </div>
+                                <div class="form-group">
+                                    <label>Lot</label>
+                                    <input type="text" id="addrLot" class="form-control" placeholder="e.g. 3" maxlength="50">
+                                </div>
+                                <div class="form-group">
+                                    <label>House No. <span class="req">*</span></label>
+                                    <input type="text" id="addrHouseNo" class="form-control" placeholder="e.g. 12" maxlength="50">
+                                </div>
+                                <div class="form-group">
+                                    <label>Unit</label>
+                                    <input type="text" id="addrUnit" class="form-control" placeholder="e.g. 2-B" maxlength="50">
+                                </div>
                             </div>
                         </div>
 
                         <!-- People Involved (blotter form only) -->
                         <div id="blotterPeopleSection">
-                        <div class="form-section-header"><i class="fa-solid fa-users"></i> People Involved</div>
+                        <div class="form-section-header"><i class="fa-solid fa-users"></i> Complainant</div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Name of Complainant <span class="req">*</span></label>
-                                <input type="text" id="incidentReportedByName" class="form-control" placeholder="e.g. Juan Dela Cruz" maxlength="150">
+                                <label>First Name <span class="req">*</span></label>
+                                <input type="text" id="complainantFirst" class="form-control" placeholder="e.g. Juan" maxlength="80">
+                            </div>
+                            <div class="form-group">
+                                <label>Middle Name</label>
+                                <input type="text" id="complainantMiddle" class="form-control" placeholder="e.g. Reyes" maxlength="80">
+                            </div>
+                            <div class="form-group">
+                                <label>Last Name <span class="req">*</span></label>
+                                <input type="text" id="complainantLast" class="form-control" placeholder="e.g. Dela Cruz" maxlength="80">
                             </div>
                         </div>
+                        <input type="hidden" id="incidentReportedByName">
+
+                        <div class="form-section-header"><i class="fa-solid fa-user-slash"></i> Respondent</div>
 
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Name of Respondent</label>
-                                <input type="text" id="respondentName" class="form-control" placeholder="e.g. Pedro Santos" maxlength="255">
+                            <div class="form-group" style="flex:0 0 auto; align-self:center;">
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                    <input type="checkbox" id="respondentUnknown"> Unknown Respondent (draft)
+                                </label>
                             </div>
+                        </div>
+                        <div id="respondentFieldsGroup">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>First Name</label>
+                                <input type="text" id="respondentFirst" class="form-control" placeholder="e.g. Pedro" maxlength="80">
+                            </div>
+                            <div class="form-group">
+                                <label>Middle Name</label>
+                                <input type="text" id="respondentMiddle" class="form-control" placeholder="e.g. Santos" maxlength="80">
+                            </div>
+                            <div class="form-group">
+                                <label>Last Name</label>
+                                <input type="text" id="respondentLast" class="form-control" placeholder="e.g. Reyes" maxlength="80">
+                            </div>
+                        </div>
+                        <div class="form-row">
                             <div class="form-group">
                                 <label>Address of Respondent</label>
                                 <input type="text" id="respondentAddress" class="form-control" placeholder="e.g. Blk 5 Lot 3, Acacia St." maxlength="500">
                             </div>
                         </div>
+                        </div>
+                        <input type="hidden" id="respondentName">
                         </div><!-- /blotterPeopleSection -->
 
-                        <!-- Reporter (crime form only) -->
-                        <div id="crimeReporterSection" style="display:none;">
+                        <!-- Reporter section (shown on BOTH forms) -->
+                        <div id="reporterSection">
                         <div class="form-section-header"><i class="fa-solid fa-user"></i> Reporter</div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Reporter Name <span class="req">*</span></label>
-                                <input type="text" id="crimeReporterName" class="form-control" placeholder="e.g. Juan Dela Cruz" maxlength="150">
+                        <div class="form-row" id="sameAsComplainantRow">
+                            <div class="form-group" style="flex:0 0 auto; align-self:center;">
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                    <input type="checkbox" id="reporterSameAsComplainant"> Same as Complainant
+                                </label>
                             </div>
                         </div>
-                        </div><!-- /crimeReporterSection -->
+                        <div id="reporterFieldsGroup">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>First Name <span class="req">*</span></label>
+                                <input type="text" id="reporterFirst" class="form-control" placeholder="e.g. Juan" maxlength="80">
+                            </div>
+                            <div class="form-group">
+                                <label>Middle Name</label>
+                                <input type="text" id="reporterMiddle" class="form-control" placeholder="e.g. Reyes" maxlength="80">
+                            </div>
+                            <div class="form-group">
+                                <label>Last Name <span class="req">*</span></label>
+                                <input type="text" id="reporterLast" class="form-control" placeholder="e.g. Dela Cruz" maxlength="80">
+                            </div>
+                        </div>
+                        </div>
+                        <input type="hidden" id="crimeReporterName">
+                        </div><!-- /reporterSection -->
+
+                        <!-- No Evidence checkbox -->
+                        <div id="noEvidenceSection">
+                        <div class="form-row">
+                            <div class="form-group" style="flex:0 0 auto; align-self:center;">
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                    <input type="checkbox" id="noEvidenceCheckbox"> No Evidence Available
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row" id="noEvidenceReasonGroup" style="display:none;">
+                            <div class="form-group">
+                                <label>Reason <span class="req">*</span></label>
+                                <textarea id="noEvidenceReason" class="form-control textarea" placeholder="Explain why no evidence is available (e.g. no CCTV in the area, witnesses unavailable)" rows="2" maxlength="500"></textarea>
+                            </div>
+                        </div>
+                        </div>
 
                         <!-- Salaysay (blotter form only) -->
                         <div id="blotterSalaysaySection">

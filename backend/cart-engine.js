@@ -92,7 +92,7 @@ class CARTEngine {
                 'Theft': 85,
                 'Fencing of Stolen Properties': 75,
                 'Qualified Trespass to Dwelling': 75,
-                'Occupation of Real Property or Usurpation of Removal, Sale or Pledge of Mortgaged Property': 30,
+                'Occupation of Real Property or Usurpation of Removal, Sale or Pledge of Mortgaged Property': 70,
                 'Trespassing': 65,
                 'Altering Boundaries of Landmarks': 60,
                 'Vandalism': 55,
@@ -113,8 +113,8 @@ class CARTEngine {
                 'Oral Defamation': 50,
                 'Harassment': 50,
                 'Intriguing Against Honor': 45,
-                'Unlawful Use of Means of Publication and Unlawful Utterances': 30,
-                'Prohibiting Publication of Acts Referred to in the Proceedings': 30,
+                'Unlawful Use of Means of Publication and Unlawful Utterances': 45,
+                'Prohibiting Publication of Acts Referred to in the Proceedings': 40,
 
                 // -- Special / Child-Related (35-45) -----------------
                 'BCPC': 45,

@@ -49,7 +49,7 @@ function createMapboxMap(container) {
 
     const map = new mapboxgl.Map({
         container: container,
-        style: 'mapbox://styles/mapbox/dark-v11',
+        style: 'mapbox://styles/mapbox/light-v11',
         center: MB_CENTER,
         zoom: 15,
         minZoom: 13,
@@ -81,8 +81,8 @@ function createMapboxMap(container) {
             type: 'fill',
             source: 'boundary-mask',
             paint: {
-                'fill-color': '#000000',
-                'fill-opacity': 0.6
+                'fill-color': '#94a3b8',
+                'fill-opacity': 0.45
             }
         });
 
@@ -102,9 +102,9 @@ function createMapboxMap(container) {
             type: 'line',
             source: 'boundary-outline',
             paint: {
-                'line-color': '#0ea5e9',
+                'line-color': '#1e40af',
                 'line-width': 6,
-                'line-opacity': 0.25,
+                'line-opacity': 0.3,
                 'line-blur': 4
             }
         });
@@ -114,7 +114,7 @@ function createMapboxMap(container) {
             type: 'line',
             source: 'boundary-outline',
             paint: {
-                'line-color': '#e2e8f0',
+                'line-color': '#1e293b',
                 'line-width': 2,
                 'line-opacity': 0.8
             }

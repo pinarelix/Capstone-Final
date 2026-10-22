@@ -141,43 +141,96 @@ function getFormType() {
 
 function setupFormTypeToggle() {
     const radios = document.querySelectorAll('input[name="formType"]');
-    const blotterGroup = document.getElementById('blotterGroup');
-    const addressSimple = document.getElementById('addressSimpleGroup');
-    const addressDetailed = document.getElementById('addressDetailedGroup');
-    const blotterPeople = document.getElementById('blotterPeopleSection');
-    const crimeReporter = document.getElementById('crimeReporterSection');
-    const blotterSalaysay = document.getElementById('blotterSalaysaySection');
 
     function applyFormType() {
         const type = getFormType();
-        // Different catalogs per form - repopulate the searchable list and clear
-        // any previously chosen type so it can't carry across forms.
         populateTypeDatalist(type);
         const typeEl = document.getElementById('incidentType');
         const typeOtherEl = document.getElementById('incidentTypeOther');
         if (typeEl) typeEl.value = '';
         if (typeOtherEl) { typeOtherEl.value = ''; typeOtherEl.style.display = 'none'; }
-        if (type === 'blotter') {
-            if (blotterGroup) blotterGroup.style.display = '';
-            if (addressSimple) addressSimple.style.display = 'none';
-            if (addressDetailed) addressDetailed.style.display = '';
-            if (blotterPeople) blotterPeople.style.display = '';
-            if (crimeReporter) crimeReporter.style.display = 'none';
-            if (blotterSalaysay) blotterSalaysay.style.display = '';
+
+        const isBlotter = type === 'blotter';
+        const show = el => { if (el) el.style.display = ''; };
+        const hide = el => { if (el) el.style.display = 'none'; };
+
+        const toggle = (id, visible) => visible ? show(document.getElementById(id)) : hide(document.getElementById(id));
+        toggle('blotterGroup', isBlotter);
+        toggle('addressSimpleGroup', !isBlotter);
+        toggle('addressDetailedGroup', isBlotter);
+        toggle('blotterPeopleSection', isBlotter);
+        toggle('blotterSalaysaySection', isBlotter);
+
+        // Reporter section visible on BOTH forms; "Same as Complainant" row only on blotter
+        show(document.getElementById('reporterSection'));
+        toggle('sameAsComplainantRow', isBlotter);
+        if (!isBlotter) {
+            const sameCheck = document.getElementById('reporterSameAsComplainant');
+            if (sameCheck) { sameCheck.checked = false; }
+            show(document.getElementById('reporterFieldsGroup'));
+        }
+
+        if (isBlotter) {
             generateBlotterNumber();
         } else {
-            if (blotterGroup) blotterGroup.style.display = 'none';
-            if (addressSimple) addressSimple.style.display = '';
-            if (addressDetailed) addressDetailed.style.display = 'none';
-            if (blotterPeople) blotterPeople.style.display = 'none';
-            if (crimeReporter) crimeReporter.style.display = '';
-            if (blotterSalaysay) blotterSalaysay.style.display = 'none';
             const blotterInput = document.getElementById('incidentBlotter');
             if (blotterInput) blotterInput.value = '';
         }
     }
 
     radios.forEach(r => r.addEventListener('change', applyFormType));
+
+    // "Same as Complainant" checkbox
+    const sameCheck = document.getElementById('reporterSameAsComplainant');
+    if (sameCheck) {
+        sameCheck.addEventListener('change', () => {
+            const group = document.getElementById('reporterFieldsGroup');
+            if (sameCheck.checked) {
+                if (group) group.style.display = 'none';
+                document.getElementById('reporterFirst').value = document.getElementById('complainantFirst')?.value || '';
+                document.getElementById('reporterMiddle').value = document.getElementById('complainantMiddle')?.value || '';
+                document.getElementById('reporterLast').value = document.getElementById('complainantLast')?.value || '';
+            } else {
+                if (group) group.style.display = '';
+            }
+        });
+    }
+
+    // Unknown respondent (draft) checkbox
+    const unknownCheck = document.getElementById('respondentUnknown');
+    if (unknownCheck) {
+        unknownCheck.addEventListener('change', () => {
+            const group = document.getElementById('respondentFieldsGroup');
+            if (unknownCheck.checked) {
+                if (group) group.style.display = 'none';
+                ['respondentFirst', 'respondentMiddle', 'respondentLast', 'respondentAddress'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+            } else {
+                if (group) group.style.display = '';
+            }
+        });
+    }
+
+    // No Evidence checkbox
+    const noEvCheck = document.getElementById('noEvidenceCheckbox');
+    if (noEvCheck) {
+        noEvCheck.addEventListener('change', () => {
+            const reasonGroup = document.getElementById('noEvidenceReasonGroup');
+            const evidenceGroup = document.getElementById('evidenceFormGroup');
+            if (noEvCheck.checked) {
+                if (reasonGroup) reasonGroup.style.display = '';
+                if (evidenceGroup) evidenceGroup.style.display = 'none';
+            } else {
+                if (reasonGroup) reasonGroup.style.display = 'none';
+                if (evidenceGroup) evidenceGroup.style.display = '';
+                const reasonEl = document.getElementById('noEvidenceReason');
+                if (reasonEl) reasonEl.value = '';
+            }
+        });
+    }
+
     applyFormType();
 }
 
@@ -621,26 +674,54 @@ function setupForm() {
         const lat = document.getElementById('incidentLat').value;
         const lng = document.getElementById('incidentLng').value;
         const street = document.getElementById('incidentStreet').value;
+
+        // Structured address
+        const addrBlock = document.getElementById('addrBlock')?.value.trim() || '';
+        const addrLot = document.getElementById('addrLot')?.value.trim() || '';
+        const addrHouseNo = document.getElementById('addrHouseNo')?.value.trim() || '';
+        const addrUnit = document.getElementById('addrUnit')?.value.trim() || '';
         let address;
         if (formType === 'blotter') {
-            const hbl = document.getElementById('incidentHouseBlkLot').value.trim();
-            const landmark = document.getElementById('incidentLandmark').value.trim();
-            address = [hbl, landmark].filter(Boolean).join(', ');
+            address = [addrBlock ? `Blk ${addrBlock}` : '', addrLot ? `Lot ${addrLot}` : '', addrHouseNo ? `House No. ${addrHouseNo}` : '', addrUnit ? `Unit ${addrUnit}` : ''].filter(Boolean).join(', ');
         } else {
             address = document.getElementById('incidentAddress').value.trim();
         }
+
+        // Structured names
+        const complainantFirst = document.getElementById('complainantFirst')?.value.trim() || '';
+        const complainantMiddle = document.getElementById('complainantMiddle')?.value.trim() || '';
+        const complainantLast = document.getElementById('complainantLast')?.value.trim() || '';
+
+        const respondentUnknown = document.getElementById('respondentUnknown')?.checked || false;
+        const respondentFirst = document.getElementById('respondentFirst')?.value.trim() || '';
+        const respondentMiddle = document.getElementById('respondentMiddle')?.value.trim() || '';
+        const respondentLast = document.getElementById('respondentLast')?.value.trim() || '';
+        const respondentAddress = document.getElementById('respondentAddress')?.value.trim() || '';
+
+        // If "Same as Complainant" is checked, sync reporter fields
+        const sameAsComplainant = document.getElementById('reporterSameAsComplainant')?.checked || false;
+        const reporterFirst = sameAsComplainant ? complainantFirst : (document.getElementById('reporterFirst')?.value.trim() || '');
+        const reporterMiddle = sameAsComplainant ? complainantMiddle : (document.getElementById('reporterMiddle')?.value.trim() || '');
+        const reporterLast = sameAsComplainant ? complainantLast : (document.getElementById('reporterLast')?.value.trim() || '');
+
+        const noEvidence = document.getElementById('noEvidenceCheckbox')?.checked || false;
+        const noEvidenceReason = document.getElementById('noEvidenceReason')?.value.trim() || '';
+
         const reporterIdRaw = document.getElementById('reportedBy').value;
         const isEdit = !!document.getElementById('editIndex').value;
         const status = isEdit ? document.getElementById('incidentStatus').value : 'Open';
         const desc = document.getElementById('incidentDesc').value;
         const blotter = document.getElementById('incidentBlotter').value.trim();
-        const reportedByName = formType === 'crime'
-            ? document.getElementById('crimeReporterName').value.trim()
-            : document.getElementById('incidentReportedByName').value.trim();
+
+        // Compose legacy name fields from structured parts
+        const composeName = (f, m, l) => [f, m, l].filter(Boolean).join(' ');
+        const reportedByName = formType === 'blotter'
+            ? composeName(complainantFirst, complainantMiddle, complainantLast)
+            : composeName(reporterFirst, reporterMiddle, reporterLast);
+        const respondentName = composeName(respondentFirst, respondentMiddle, respondentLast);
+
         const severity = document.getElementById('incidentSeverity').value;
         const priority = severity === 'High' ? 'Urgent' : 'Normal';
-        const respondentName = document.getElementById('respondentName').value.trim();
-        const respondentAddress = document.getElementById('respondentAddress').value.trim();
 
         const requiredFields = [
             { id: 'incidentType', label: 'Incident Type' },
@@ -651,14 +732,24 @@ function setupForm() {
         ];
         if (formType === 'blotter') {
             requiredFields.push(
-                { id: 'incidentHouseBlkLot', label: 'House / Block / Lot No.' },
-                { id: 'incidentReportedByName', label: 'Name of Complainant' }
+                { id: 'addrHouseNo', label: 'House No.' },
+                { id: 'complainantFirst', label: 'Complainant First Name' },
+                { id: 'complainantLast', label: 'Complainant Last Name' }
             );
         } else {
             requiredFields.push(
-                { id: 'incidentAddress', label: 'Address' },
-                { id: 'crimeReporterName', label: 'Reporter Name' }
+                { id: 'incidentAddress', label: 'Address' }
             );
+        }
+        // Reporter required on both forms (unless "Same as Complainant")
+        if (!sameAsComplainant) {
+            requiredFields.push(
+                { id: 'reporterFirst', label: 'Reporter First Name' },
+                { id: 'reporterLast', label: 'Reporter Last Name' }
+            );
+        }
+        if (noEvidence && !noEvidenceReason) {
+            requiredFields.push({ id: 'noEvidenceReason', label: 'Reason for No Evidence' });
         }
 
         document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));
@@ -719,7 +810,22 @@ function setupForm() {
                 snap.severity === severity &&
                 snap.respondentName === respondentName &&
                 snap.respondentAddress === respondentAddress &&
-                snap.age === age;
+                snap.complainantFirst === complainantFirst &&
+                snap.complainantMiddle === complainantMiddle &&
+                snap.complainantLast === complainantLast &&
+                snap.respondentFirst === respondentFirst &&
+                snap.respondentMiddle === respondentMiddle &&
+                snap.respondentLast === respondentLast &&
+                snap.reporterFirst === reporterFirst &&
+                snap.reporterMiddle === reporterMiddle &&
+                snap.reporterLast === reporterLast &&
+                snap.addrBlock === addrBlock &&
+                snap.addrLot === addrLot &&
+                snap.addrHouseNo === addrHouseNo &&
+                snap.addrUnit === addrUnit &&
+                snap.isDraft === respondentUnknown &&
+                snap.noEvidence === noEvidence &&
+                snap.noEvidenceReason === noEvidenceReason;
             if (nothingChanged) {
                 showErrorModal('No Changes Detected', 'You haven\'t made any changes. Please update the details first before saving.');
                 return;
@@ -758,7 +864,26 @@ function setupForm() {
                 severity: severity,
                 respondent_name: respondentName,
                 respondent_address: respondentAddress,
-                form_type: formType
+                form_type: formType,
+                // Structured name fields
+                complainant_first: complainantFirst,
+                complainant_middle: complainantMiddle,
+                complainant_last: complainantLast,
+                respondent_first: respondentFirst,
+                respondent_middle: respondentMiddle,
+                respondent_last: respondentLast,
+                reporter_first: reporterFirst,
+                reporter_middle: reporterMiddle,
+                reporter_last: reporterLast,
+                // Structured address
+                addr_block: addrBlock,
+                addr_lot: addrLot,
+                addr_house_no: addrHouseNo,
+                addr_unit: addrUnit,
+                // Draft / No evidence
+                is_draft: respondentUnknown,
+                no_evidence: noEvidence,
+                no_evidence_reason: noEvidenceReason
             };
 
             console.log('📤 Sending payload:', payload);
@@ -824,7 +949,7 @@ Open the incident with Edit to attach the evidence again.`);
 
     // Clear the red "missing" highlight on a field as soon as the user
     // fills it in, instead of waiting for the next submit attempt.
-    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus', 'incidentSeverity', 'incidentHouseBlkLot', 'incidentAddress', 'crimeReporterName'].forEach(id => {
+    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus', 'incidentSeverity', 'addrHouseNo', 'incidentAddress', 'complainantFirst', 'complainantLast', 'reporterFirst', 'reporterLast', 'noEvidenceReason'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', function () {
             if (this.value) this.classList.remove('field-missing');
         });
@@ -985,10 +1110,37 @@ function clearForm() {
     document.getElementById('incidentStreet').value = '';
     document.getElementById('incidentLat').value = '';
     document.getElementById('incidentLng').value = '';
-    const hblEl = document.getElementById('incidentHouseBlkLot');
-    if (hblEl) hblEl.value = '';
-    const landmarkEl = document.getElementById('incidentLandmark');
-    if (landmarkEl) landmarkEl.value = '';
+    // Structured address
+    ['addrBlock', 'addrLot', 'addrHouseNo', 'addrUnit'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    // Structured names
+    ['complainantFirst', 'complainantMiddle', 'complainantLast',
+     'respondentFirst', 'respondentMiddle', 'respondentLast',
+     'reporterFirst', 'reporterMiddle', 'reporterLast'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    // Draft / No evidence
+    const unknownCheck = document.getElementById('respondentUnknown');
+    if (unknownCheck) unknownCheck.checked = false;
+    const respondentGroup = document.getElementById('respondentFieldsGroup');
+    if (respondentGroup) respondentGroup.style.display = '';
+    const noEvCheck = document.getElementById('noEvidenceCheckbox');
+    if (noEvCheck) noEvCheck.checked = false;
+    const noEvReasonGroup = document.getElementById('noEvidenceReasonGroup');
+    if (noEvReasonGroup) noEvReasonGroup.style.display = 'none';
+    const noEvReason = document.getElementById('noEvidenceReason');
+    if (noEvReason) noEvReason.value = '';
+    const evidenceFormGroup = document.getElementById('evidenceFormGroup');
+    if (evidenceFormGroup) evidenceFormGroup.style.display = '';
+    const sameCheckClear = document.getElementById('reporterSameAsComplainant');
+    if (sameCheckClear) sameCheckClear.checked = false;
+    const reporterFieldsGroup = document.getElementById('reporterFieldsGroup');
+    if (reporterFieldsGroup) reporterFieldsGroup.style.display = '';
 
     const evidencePreview = document.getElementById('evidencePreviewList');
     if (evidencePreview) evidencePreview.innerHTML = '';
@@ -1016,18 +1168,14 @@ function clearForm() {
     const blotterRadio = document.querySelector('input[name="formType"][value="blotter"]');
     if (blotterRadio) {
         blotterRadio.checked = true;
-        const blotterGroup = document.getElementById('blotterGroup');
-        if (blotterGroup) blotterGroup.style.display = '';
-        const addressSimple = document.getElementById('addressSimpleGroup');
-        if (addressSimple) addressSimple.style.display = 'none';
-        const addressDetailed = document.getElementById('addressDetailedGroup');
-        if (addressDetailed) addressDetailed.style.display = '';
-        const blotterPeople = document.getElementById('blotterPeopleSection');
-        if (blotterPeople) blotterPeople.style.display = '';
-        const crimeReporter = document.getElementById('crimeReporterSection');
-        if (crimeReporter) crimeReporter.style.display = 'none';
-        const blotterSalaysay = document.getElementById('blotterSalaysaySection');
-        if (blotterSalaysay) blotterSalaysay.style.display = '';
+        const toggle = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; };
+        toggle('blotterGroup', true);
+        toggle('addressSimpleGroup', false);
+        toggle('addressDetailedGroup', true);
+        toggle('blotterPeopleSection', true);
+        toggle('blotterSalaysaySection', true);
+        toggle('reporterSection', true);
+        toggle('sameAsComplainantRow', true);
     }
 
     const formTypeSelector = document.querySelector('.form-type-selector');
@@ -1160,6 +1308,40 @@ window.editIncident = async (id) => {
         document.getElementById('respondentName').value = record.respondent_name || '';
         document.getElementById('respondentAddress').value = record.respondent_address || '';
 
+        // Structured name fields
+        document.getElementById('complainantFirst').value = record.complainant_first || '';
+        document.getElementById('complainantMiddle').value = record.complainant_middle || '';
+        document.getElementById('complainantLast').value = record.complainant_last || '';
+        document.getElementById('respondentFirst').value = record.respondent_first || '';
+        document.getElementById('respondentMiddle').value = record.respondent_middle || '';
+        document.getElementById('respondentLast').value = record.respondent_last || '';
+        document.getElementById('reporterFirst').value = record.reporter_first || '';
+        document.getElementById('reporterMiddle').value = record.reporter_middle || '';
+        document.getElementById('reporterLast').value = record.reporter_last || '';
+
+        // Structured address
+        document.getElementById('addrBlock').value = record.addr_block || '';
+        document.getElementById('addrLot').value = record.addr_lot || '';
+        document.getElementById('addrHouseNo').value = record.addr_house_no || '';
+        document.getElementById('addrUnit').value = record.addr_unit || '';
+
+        // Draft / No evidence
+        const unknownCheck = document.getElementById('respondentUnknown');
+        if (unknownCheck) {
+            unknownCheck.checked = !!record.is_draft;
+            const rGroup = document.getElementById('respondentFieldsGroup');
+            if (rGroup) rGroup.style.display = record.is_draft ? 'none' : '';
+        }
+        const noEvCheck = document.getElementById('noEvidenceCheckbox');
+        if (noEvCheck) {
+            noEvCheck.checked = !!record.no_evidence;
+            const reasonGroup = document.getElementById('noEvidenceReasonGroup');
+            const evidenceGroup = document.getElementById('evidenceFormGroup');
+            if (reasonGroup) reasonGroup.style.display = record.no_evidence ? '' : 'none';
+            if (evidenceGroup) evidenceGroup.style.display = record.no_evidence ? 'none' : '';
+        }
+        document.getElementById('noEvidenceReason').value = record.no_evidence_reason || '';
+
         const editFormType = record.form_type || (!record.blotter_number && !record.description ? 'crime' : 'blotter');
         const formTypeRadio = document.querySelector(`input[name="formType"][value="${editFormType}"]`);
         if (formTypeRadio) {
@@ -1177,14 +1359,15 @@ window.editIncident = async (id) => {
             const blotterSalaysay = document.getElementById('blotterSalaysaySection');
             if (blotterSalaysay) blotterSalaysay.style.display = editFormType === 'blotter' ? '' : 'none';
         }
-        if (editFormType === 'blotter' && record.address) {
-            const parts = record.address.split(', ');
-            document.getElementById('incidentHouseBlkLot').value = parts[0] || '';
-            document.getElementById('incidentLandmark').value = parts.slice(1).join(', ') || '';
-        }
-        if (editFormType === 'crime') {
-            document.getElementById('crimeReporterName').value = record.reported_by_name || '';
-        }
+        // Reporter section is visible on both forms; "Same as Complainant" row only on blotter
+        const sameRow = document.getElementById('sameAsComplainantRow');
+        if (sameRow) sameRow.style.display = editFormType === 'blotter' ? '' : 'none';
+        const sameCheck = document.getElementById('reporterSameAsComplainant');
+        if (sameCheck) { sameCheck.checked = false; }
+        const reporterGroup = document.getElementById('reporterFieldsGroup');
+        if (reporterGroup) reporterGroup.style.display = '';
+        const reporterSection = document.getElementById('reporterSection');
+        if (reporterSection) reporterSection.style.display = '';
         const formTypeSelector = document.querySelector('.form-type-selector');
         if (formTypeSelector) formTypeSelector.style.display = '';
 
@@ -1204,7 +1387,22 @@ window.editIncident = async (id) => {
             severity: record.severity || 'Low',
             respondentName: record.respondent_name || '',
             respondentAddress: record.respondent_address || '',
-            age: record.age != null ? record.age : null
+            complainantFirst: record.complainant_first || '',
+            complainantMiddle: record.complainant_middle || '',
+            complainantLast: record.complainant_last || '',
+            respondentFirst: record.respondent_first || '',
+            respondentMiddle: record.respondent_middle || '',
+            respondentLast: record.respondent_last || '',
+            reporterFirst: record.reporter_first || '',
+            reporterMiddle: record.reporter_middle || '',
+            reporterLast: record.reporter_last || '',
+            addrBlock: record.addr_block || '',
+            addrLot: record.addr_lot || '',
+            addrHouseNo: record.addr_house_no || '',
+            addrUnit: record.addr_unit || '',
+            isDraft: !!record.is_draft,
+            noEvidence: !!record.no_evidence,
+            noEvidenceReason: record.no_evidence_reason || ''
         };
 
         const archiveBtn = document.getElementById('archiveIncidentBtn');

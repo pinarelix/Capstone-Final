@@ -2168,12 +2168,28 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
             return res.status(404).json({ error: 'Incident not found' });
         }
 
+        const row = rows[0];
+
+        // Fetch structured fields from the base table (not exposed by the view)
+        const reg = await resolveRegistry(pool, row.id);
+        let structured = {};
+        if (reg) {
+            const [base] = await pool.query(
+                `SELECT complainant_first, complainant_middle, complainant_last,
+                        respondent_first, respondent_middle, respondent_last,
+                        reporter_first, reporter_middle, reporter_last,
+                        addr_block, addr_lot, addr_house_no, addr_street, addr_unit,
+                        no_evidence, no_evidence_reason
+                 FROM \`${reg.table}\` WHERE id = ?`, [reg.source_id]);
+            if (base.length) structured = base[0];
+        }
+
         const [evidence] = await pool.query(
             'SELECT id, file_path, file_type, original_filename, uploaded_at FROM incident_evidence WHERE incident_id = ? ORDER BY uploaded_at ASC',
             [req.params.id]
         );
 
-        res.json({ ...rows[0], evidence });
+        res.json({ ...row, ...structured, evidence });
 
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch incident' });
