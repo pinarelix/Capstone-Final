@@ -198,7 +198,7 @@ const IDEMPOTENCY_TTL = 60000;
 setInterval(() => {
     const now = Date.now();
     for (const [k, v] of _idempotencyCache) { if (now - v.ts > IDEMPOTENCY_TTL) _idempotencyCache.delete(k); }
-}, 30000);
+}, 30000).unref();
 
 setInterval(async () => {
     try {
@@ -210,7 +210,7 @@ setInterval(async () => {
             [timeoutMin]
         );
     } catch {}
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref();
 
 // ── Option A record routing helpers ─────────────────────────────────────────
 // `incidents` is now a compatibility VIEW over blotter_records + incident_records

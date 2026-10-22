@@ -12,7 +12,8 @@ describe('CART engine scoring', () => {
             incident_type: 'Homicide',   // type score 95
             time_of_day: 'Night',        // time score 90
             is_weekend: true,            // day score 70
-            severity: 'High'             // type weight 30%
+            severity: 'High',            // type weight 30%
+            form_type: 'crime'           // source weight 1.0
         };
         const locationData = { street_count: 6 };   // >=5 -> location 'critical' = 90
         const frequencyData = { recent_count: 6 };  // >=5 -> frequency 'very_high' = 95
@@ -32,7 +33,8 @@ describe('CART engine scoring', () => {
             incident_type: 'Missing',    // type score 35
             time_of_day: 'Morning',      // time score 20
             is_weekend: false,           // day score 40
-            severity: 'Low'              // type weight 10%
+            severity: 'Low',             // type weight 10%
+            form_type: 'crime'           // source weight 1.0
         };
 
         // no prior incidents at this location / in the last 30 days

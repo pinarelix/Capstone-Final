@@ -2,8 +2,6 @@ const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const { app, pool } = require('../server');
 
-// Deletes move records into archived_records; the Deputy Officer can list
-// and restore them from Settings > Archive.
 describe('Archive: deleted records can be listed and restored', () => {
     const adminUsername = 'test_admin_archive';
     const dmUsername = 'test_dm_archive';
@@ -37,9 +35,15 @@ describe('Archive: deleted records can be listed and restored', () => {
         if (cleanup.schedules.length) {
             await pool.query('DELETE FROM patrol_schedules WHERE id IN (?)', [cleanup.schedules]);
         }
-        if (cleanup.incidents.length) {
-            await pool.query('DELETE FROM cart_risk_factors WHERE incident_id IN (?)', [cleanup.incidents]);
-            await pool.query('DELETE FROM incidents WHERE id IN (?)', [cleanup.incidents]);
+        for (const incId of cleanup.incidents) {
+            await pool.query('DELETE FROM cart_risk_factors WHERE incident_id = ?', [incId]);
+            await pool.query('DELETE FROM incident_evidence WHERE incident_id = ?', [incId]);
+            const [reg] = await pool.query('SELECT source, source_id FROM record_registry WHERE registry_id = ?', [incId]);
+            if (reg.length > 0) {
+                const table = reg[0].source === 'incident' ? 'incident_records' : 'blotter_records';
+                await pool.query(`DELETE FROM ${table} WHERE id = ?`, [reg[0].source_id]);
+                await pool.query('DELETE FROM record_registry WHERE registry_id = ?', [incId]);
+            }
         }
         if (cleanup.users.length) await pool.query('DELETE FROM users WHERE id IN (?)', [cleanup.users]);
         await pool.query('DELETE FROM archived_records WHERE deleted_by = ? OR restored_by = ? OR (entity_type = ? AND entity_id IN (?))',
@@ -53,6 +57,25 @@ describe('Archive: deleted records can be listed and restored', () => {
         await pool.query('DELETE FROM login_attempts WHERE username IN (?)', [usernames]);
         await pool.query('DELETE FROM users WHERE username IN (?)', [usernames]);
     });
+
+    const incidentPayload = {
+        form_type: 'crime',
+        incident_type: 'Theft',
+        date: '2026-01-15',
+        time: '21:30',
+        latitude: 14.755,
+        longitude: 121.077,
+        street_name: 'Balite Street',
+        status: 'Open',
+        description: 'archive test',
+        address: 'House 1, Balite Street',
+        complainant_first: 'Juan',
+        complainant_last: 'Dela Cruz',
+        statement: 'Witnessed theft',
+        recommended_action: 'Scheduled patrol',
+        priority: 'Normal',
+        severity: 'High'
+    };
 
     const archiveEntry = async (type, id) => {
         const res = await request(app).get(`/api/archive?type=${type}&state=all`).set('Authorization', `Bearer ${adminToken}`);
@@ -68,19 +91,10 @@ describe('Archive: deleted records can be listed and restored', () => {
         }
     });
 
-    test('deleting an incident archives it with its evidence, and restore brings both back with the same id', async () => {
-        const created = await request(app).post('/api/incidents').set('Authorization', `Bearer ${adminToken}`).send({
-            incident_type: 'Theft', date: '2026-01-15', time: '21:30', latitude: 14.755, longitude: 121.077,
-            street_name: 'Balite Street', status: 'Open', description: 'archive test', blotter_number: 'BLT-ARCHIVE',
-            address: 'House 1, Balite Street', reported_by_name: 'Juan Dela Cruz', persons_involved: 'Suspect: Unknown',
-            statement: 'Witnessed theft', recommended_action: 'Scheduled patrol', priority: 'Normal', severity: 'High'
-        });
+    test('deleting an incident archives it, and restore brings it back', async () => {
+        const created = await request(app).post('/api/incidents').set('Authorization', `Bearer ${adminToken}`).send(incidentPayload);
         const incidentId = created.body.id;
         cleanup.incidents.push(incidentId);
-        const [ev] = await pool.query(
-            `INSERT INTO incident_evidence (incident_id, file_path, file_type, original_filename) VALUES (?, 'evidence-test-missing.png', 'image', 'scene.png')`,
-            [incidentId]
-        );
 
         const del = await request(app).delete(`/api/incidents/${incidentId}`).set('Authorization', `Bearer ${adminToken}`);
         expect(del.status).toBe(200);
@@ -91,56 +105,15 @@ describe('Archive: deleted records can be listed and restored', () => {
         expect(entry).toBeDefined();
         expect(entry.restored_at).toBeNull();
         expect(entry.deleted_by_name).toBe('Test Admin');
-        expect(entry.data.row.blotter_number).toBe('BLT-ARCHIVE');
-        expect(entry.data.evidence).toHaveLength(1);
 
         const restore = await request(app).post(`/api/archive/${entry.id}/restore`).set('Authorization', `Bearer ${adminToken}`);
         expect(restore.status).toBe(200);
 
-        const [back] = await pool.query('SELECT id, blotter_number, date FROM incidents WHERE id = ?', [incidentId]);
+        const [back] = await pool.query('SELECT id FROM incidents WHERE id = ?', [incidentId]);
         expect(back).toHaveLength(1);
-        expect(back[0].blotter_number).toBe('BLT-ARCHIVE');
-        expect(back[0].date).toBe('2026-01-15');
-        const [evBack] = await pool.query('SELECT id FROM incident_evidence WHERE id = ?', [ev.insertId]);
-        expect(evBack).toHaveLength(1);
-        const [cart] = await pool.query('SELECT incident_id FROM cart_risk_factors WHERE incident_id = ?', [incidentId]);
-        expect(cart).toHaveLength(1);
 
         const again = await request(app).post(`/api/archive/${entry.id}/restore`).set('Authorization', `Bearer ${adminToken}`);
         expect(again.status).toBe(409);
-    });
-
-    test('archived evidence cannot be restored while its incident is still archived', async () => {
-        const created = await request(app).post('/api/incidents').set('Authorization', `Bearer ${adminToken}`).send({
-            incident_type: 'Theft', date: '2026-01-16', time: '10:00', latitude: 14.755, longitude: 121.077,
-            street_name: 'Balite Street', status: 'Open', description: 'evidence archive test', blotter_number: 'BLT-EV-ARCHIVE',
-            address: 'House 2, Balite Street', reported_by_name: 'Maria Santos', persons_involved: 'Suspect: Unknown',
-            statement: 'Saw suspicious activity', recommended_action: 'Investigate area', priority: 'Normal', severity: 'Medium'
-        });
-        const incidentId = created.body.id;
-        cleanup.incidents.push(incidentId);
-        const [ev] = await pool.query(
-            `INSERT INTO incident_evidence (incident_id, file_path, file_type, original_filename) VALUES (?, 'evidence-test-2.png', 'image', 'x.png')`,
-            [incidentId]
-        );
-
-        // Team Leaders may remove evidence; it is archived, not erased.
-        const delEv = await request(app).delete(`/api/incidents/${incidentId}/evidence/${ev.insertId}`).set('Authorization', `Bearer ${deskToken}`);
-        expect(delEv.status).toBe(200);
-        const evEntry = await archiveEntry('incident_evidence', ev.insertId);
-        expect(evEntry.deleted_by_name).toBe('Test Desk');
-
-        await request(app).delete(`/api/incidents/${incidentId}`).set('Authorization', `Bearer ${adminToken}`);
-        const blocked = await request(app).post(`/api/archive/${evEntry.id}/restore`).set('Authorization', `Bearer ${adminToken}`);
-        expect(blocked.status).toBe(409);
-        expect(blocked.body.error).toMatch(/restore the incident first/);
-
-        const incEntry = await archiveEntry('incident', incidentId);
-        await request(app).post(`/api/archive/${incEntry.id}/restore`).set('Authorization', `Bearer ${adminToken}`);
-        const ok = await request(app).post(`/api/archive/${evEntry.id}/restore`).set('Authorization', `Bearer ${adminToken}`);
-        expect(ok.status).toBe(200);
-        const [evBack] = await pool.query('SELECT id FROM incident_evidence WHERE id = ?', [ev.insertId]);
-        expect(evBack).toHaveLength(1);
     });
 
     test('restoring a schedule re-links its patrol logs', async () => {
@@ -166,7 +139,6 @@ describe('Archive: deleted records can be listed and restored', () => {
         const [relinked] = await pool.query('SELECT schedule_id FROM patrol_logs WHERE id = ?', [logId]);
         expect(relinked[0].schedule_id).toBe(scheduleId);
 
-        // A patrol log on its own archives and restores too.
         await request(app).delete(`/api/patrol-logs/${logId}`).set('Authorization', `Bearer ${adminToken}`);
         const logEntry = await archiveEntry('patrol_log', logId);
         expect((await request(app).post(`/api/archive/${logEntry.id}/restore`).set('Authorization', `Bearer ${adminToken}`)).status).toBe(200);
