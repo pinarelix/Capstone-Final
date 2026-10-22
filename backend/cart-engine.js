@@ -38,6 +38,13 @@ class CARTEngine {
             frequency: 0.10  // 10% - Recent frequency
         };
 
+        // Source multipliers: scale the final score by record source.
+        // 1.0 = full weight; <1.0 = discounted. Configurable via Settings.
+        this.sourceWeights = {
+            incident: 1.0,
+            blotter: 0.85
+        };
+
         // ============================================================
         // 2. THRESHOLDS - Danger level boundaries
         // ============================================================
@@ -346,7 +353,14 @@ class CARTEngine {
         };
 
         const { total: rawTotal, effectiveWeights } = this.calculateTotalScore(scores, severity);
-        const roundedTotal = Math.round(rawTotal * 100) / 100;
+
+        // Apply source multiplier (blotter records are weighted lower than
+        // urgent incident records by default — configurable via Settings).
+        const source = incident.form_type === 'crime' ? 'incident' : (incident.form_type || 'blotter');
+        const sourceMul = this.sourceWeights[source] ?? 1.0;
+        const adjustedTotal = rawTotal * sourceMul;
+
+        const roundedTotal = Math.round(adjustedTotal * 100) / 100;
         const dangerLevel = this.getDangerLevel(roundedTotal);
         const dangerDescription = this.getDangerLevelDescription(dangerLevel);
 
@@ -473,6 +487,11 @@ Total Score: ${totalScore} → ${dangerDescription}`;
                 this.thresholds[key] = newThresholds[key];
             }
         });
+    }
+
+    updateSourceWeights(newSourceWeights) {
+        if (newSourceWeights.incident != null) this.sourceWeights.incident = newSourceWeights.incident;
+        if (newSourceWeights.blotter != null) this.sourceWeights.blotter = newSourceWeights.blotter;
     }
 }
 

@@ -1034,18 +1034,37 @@ async function applyConfiguredWeights() {
     });
 }
 
+async function applyConfiguredSourceWeights() {
+    const [rows] = await pool.query(
+        `SELECT setting_key, setting_value FROM system_settings
+         WHERE setting_key IN ('cart_source_weight_blotter','cart_source_weight_incident')`
+    );
+    const s = {};
+    rows.forEach(r => { s[r.setting_key] = r.setting_value; });
+    const parse = (key, def) => { const v = parseFloat(s[key]); return Number.isFinite(v) ? v : def; };
+    cartEngine.updateSourceWeights({
+        blotter:  parse('cart_source_weight_blotter',  0.85),
+        incident: parse('cart_source_weight_incident', 1.0)
+    });
+}
+
 // ============================================================
 // 🆕 CART ENGINE - COMPUTE FOR SINGLE INCIDENT
 // ============================================================
 
 async function computeCartRiskFactors(incidentId) {
     try {
-        
-        // 1. Get incident data
+
+        // 1. Get incident data (skip drafts — they aren't scored)
         const [incidents] = await pool.query(`
-            SELECT id, incident_type, time_of_day, is_weekend, street_name, severity
+            SELECT id, incident_type, time_of_day, is_weekend, street_name, severity, is_draft, form_type
             FROM incidents WHERE id = ?
         `, [incidentId]);
+
+        if (incidents.length > 0 && incidents[0].is_draft) {
+            await pool.query('DELETE FROM cart_risk_factors WHERE incident_id = ?', [incidentId]);
+            return;
+        }
 
         if (incidents.length === 0) {
             return;
@@ -1053,26 +1072,27 @@ async function computeCartRiskFactors(incidentId) {
 
         const incident = incidents[0];
 
-        // 2. Get location statistics
+        // 2. Get location statistics (exclude drafts)
         let locationData = null;
         if (incident.street_name) {
             const [result] = await pool.query(`
                 SELECT street_name, COUNT(*) as street_count
-                FROM incidents 
-                WHERE street_name = ? AND street_name IS NOT NULL
+                FROM incidents
+                WHERE street_name = ? AND street_name IS NOT NULL AND is_draft = 0
                 GROUP BY street_name
             `, [incident.street_name]);
             locationData = result[0] || null;
         }
 
-        // 3. Get frequency statistics (last 30 days)
+        // 3. Get frequency statistics (last 30 days, exclude drafts)
         let frequencyData = null;
         if (incident.street_name) {
             const [result] = await pool.query(`
                 SELECT street_name, COUNT(*) as recent_count
-                FROM incidents 
-                WHERE street_name = ? 
-                AND street_name IS NOT NULL 
+                FROM incidents
+                WHERE street_name = ?
+                AND street_name IS NOT NULL
+                AND is_draft = 0
                 AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                 GROUP BY street_name
             `, [incident.street_name]);
@@ -1082,6 +1102,7 @@ async function computeCartRiskFactors(incidentId) {
         // 4. Analyze using CART Engine
         await applyConfiguredThresholds();
         await applyConfiguredWeights();
+        await applyConfiguredSourceWeights();
         const result = cartEngine.analyze(
             incident,
             locationData,
@@ -1148,10 +1169,11 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
         // imported rows - derive it from `time` instead of skipping them,
         // since the old risk rows are wiped below.
         const [rawIncidents] = await pool.query(`
-            SELECT id, incident_type, time, time_of_day, is_weekend, street_name, date, severity
+            SELECT id, incident_type, time, time_of_day, is_weekend, street_name, date, severity, form_type
             FROM incidents
             WHERE id IS NOT NULL
             AND incident_type IS NOT NULL
+            AND is_draft = 0
         `);
         const incidents = rawIncidents.map(i => ({
             ...i,
@@ -1174,20 +1196,21 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
         }
 
 
-        // 2. Get location statistics for all streets (with data)
+        // 2. Get location statistics for all streets (exclude drafts)
         const [locationStats] = await pool.query(`
             SELECT street_name, COUNT(*) as street_count
-            FROM incidents 
-            WHERE street_name IS NOT NULL AND street_name != ''
+            FROM incidents
+            WHERE street_name IS NOT NULL AND street_name != '' AND is_draft = 0
             GROUP BY street_name
         `);
 
-        // 3. Get frequency statistics for all streets (last 30 days)
+        // 3. Get frequency statistics for all streets (last 30 days, exclude drafts)
         const [frequencyStats] = await pool.query(`
             SELECT street_name, COUNT(*) as recent_count
-            FROM incidents 
-            WHERE street_name IS NOT NULL 
+            FROM incidents
+            WHERE street_name IS NOT NULL
             AND street_name != ''
+            AND is_draft = 0
             AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
             GROUP BY street_name
         `);
@@ -1221,6 +1244,7 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
 
         await applyConfiguredThresholds();
         await applyConfiguredWeights();
+        await applyConfiguredSourceWeights();
 
         for (const incident of incidents) {
             try {
@@ -3413,6 +3437,52 @@ app.put('/api/cart/weights', authenticate, requireRole(['Deputy Officer']), vali
         res.json({ message: 'CART weights updated successfully.' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to update CART weights' });
+    }
+});
+
+app.get('/api/cart/source-weights', authenticate, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT setting_key, setting_value FROM system_settings
+             WHERE setting_key IN ('cart_source_weight_blotter','cart_source_weight_incident')`
+        );
+        const defaults = { blotter: 0.85, incident: 1.0 };
+        rows.forEach(r => {
+            const key = r.setting_key.replace('cart_source_weight_', '');
+            defaults[key] = parseFloat(r.setting_value);
+        });
+        res.json(defaults);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch source weights' });
+    }
+});
+
+app.put('/api/cart/source-weights', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+    try {
+        const { blotter, incident } = req.body;
+        if (typeof blotter !== 'number' || typeof incident !== 'number' ||
+            blotter < 0 || blotter > 2 || incident < 0 || incident > 2) {
+            return res.status(400).json({ error: 'Source weights must be numbers between 0 and 2' });
+        }
+
+        const userId = req.userId;
+        for (const [key, val] of Object.entries({ blotter, incident })) {
+            const settingKey = `cart_source_weight_${key}`;
+            const [existing] = await pool.query('SELECT id FROM system_settings WHERE setting_key = ?', [settingKey]);
+            if (existing.length > 0) {
+                await pool.query('UPDATE system_settings SET setting_value = ?, updated_by = ? WHERE setting_key = ?',
+                    [String(val), userId, settingKey]);
+            } else {
+                await pool.query('INSERT INTO system_settings (setting_key, setting_value, updated_by) VALUES (?, ?, ?)',
+                    [settingKey, String(val), userId]);
+            }
+        }
+
+        await logAudit(userId, 'UPDATE_CART_SOURCE_WEIGHTS', 'system_settings', null, null, { blotter, incident }, req);
+        await applyConfiguredSourceWeights();
+        res.json({ message: 'Source weights updated successfully.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update source weights' });
     }
 });
 
