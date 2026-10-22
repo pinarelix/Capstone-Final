@@ -663,7 +663,7 @@ function renderIncidentRows(incidents, tbody) {
         if (item.time) timeStr = item.time.substring(0, 5);
 
         const formBadge = item.form_type === 'crime'
-            ? '<span style="background:#3b82f6;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:4px;">Crime</span>'
+            ? '<span style="background:#3b82f6;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:4px;">Incident</span>'
             : '<span style="background:#f59e0b;color:#fff;font-size:0.6rem;padding:2px 7px;border-radius:4px;">Blotter</span>';
 
         return `

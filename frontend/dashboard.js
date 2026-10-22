@@ -381,7 +381,7 @@ function renderTable(rows) {
         tr.style.animation = `tableRowIn 0.45s ease ${index * 0.08}s both`;
 
         const formBadge = row.form_type === 'crime'
-            ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.6rem;">Crime</span>'
+            ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.6rem;">Incident</span>'
             : '<span class="badge" style="background:#f59e0b;color:#fff;font-size:0.6rem;">Blotter</span>';
 
         tr.innerHTML = `

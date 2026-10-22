@@ -2011,7 +2011,7 @@ app.get('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad'
         // Active cases only by default; Resolved ones come back when asked
         // for explicitly (status=Resolved) or with include_resolved=1
         // (Reports, which needs every case in the period).
-        let filter = [];
+        let filter = ['incidents.is_draft = 0'];
         let params = [];
         if (status) {
             filter.push('TRIM(incidents.status) = ?');
@@ -2093,12 +2093,9 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         const { page = 1, limit = 10, search = '', type = '', status = '', include_resolved = '', form_type = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        let filter = [];
+        let filter = ['incidents.is_draft = 0'];
         let params = [];
 
-        // Active cases only, unless a status is picked explicitly (the
-        // Resolved filter used to always come back empty) or the caller
-        // asks for everything.
         if (!status && include_resolved !== '1') {
             filter.push("TRIM(incidents.status) != 'Resolved'");
         }
@@ -2243,7 +2240,7 @@ app.get('/api/heatmap/incidents', authenticate, requireRole(['Deputy Officer', '
             FROM incidents
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
-            WHERE TRIM(incidents.status) != 'Resolved'
+            WHERE TRIM(incidents.status) != 'Resolved' AND incidents.is_draft = 0
               AND incidents.latitude IS NOT NULL
               AND incidents.longitude IS NOT NULL
             ORDER BY incidents.date DESC, incidents.time DESC
@@ -2293,7 +2290,7 @@ app.get('/api/heatmap/street-analysis', authenticate, requireRole(['Deputy Offic
               AND i.longitude IS NOT NULL
               AND i.street_name IS NOT NULL
               AND TRIM(i.street_name) != ''
-              AND TRIM(i.status) != 'Resolved'
+              AND TRIM(i.status) != 'Resolved' AND i.is_draft = 0
             GROUP BY i.street_name
             HAVING COUNT(*) >= 2
             ORDER BY avg_cart_score DESC
@@ -2727,7 +2724,7 @@ app.get('/api/patrol/cart-summary', authenticate, requireRole(['Deputy Officer',
             FROM incidents i
             LEFT JOIN cart_risk_factors rf ON i.id = rf.incident_id
             WHERE i.date LIKE ?
-            AND TRIM(i.status) != 'Resolved'
+            AND TRIM(i.status) != 'Resolved' AND i.is_draft = 0
             ORDER BY rf.total_risk_score DESC
         `, [`${month}%`]);
         
@@ -2844,14 +2841,14 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
         // "Total Active Incidents" card: Open + Monitoring only, same basis
         // as the risk KPIs below. Incident View's Total counts every record
         // (with Resolved shown as its own card).
-        const [totalResult] = await pool.query("SELECT COUNT(*) as total FROM incidents WHERE TRIM(status) != 'Resolved'");
+        const [totalResult] = await pool.query("SELECT COUNT(*) as total FROM incidents WHERE TRIM(status) != 'Resolved' AND is_draft = 0");
         const totalIncidents = totalResult[0].total;
 
         // Incidents actually logged today, not just "whatever date last had
         // activity" - the old query could silently show a stale prior date's
         // count under a label that said "latest active day".
         const [todayResult] = await pool.query(
-            'SELECT COUNT(*) as count FROM incidents WHERE TRIM(status) != "Resolved" AND DATE(date) = CURDATE()'
+            'SELECT COUNT(*) as count FROM incidents WHERE TRIM(status) != "Resolved" AND is_draft = 0 AND DATE(date) = CURDATE()'
         );
         const todayIncidents = todayResult[0].count;
 
@@ -2867,23 +2864,23 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
                           AND date < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 ELSE 0 END) as prev_month
             FROM incidents
             WHERE date >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01')
-              AND TRIM(status) != 'Resolved'
+              AND TRIM(status) != 'Resolved' AND is_draft = 0
         `);
         const current = changeResult[0].current_month || 0;
         const prev = changeResult[0].prev_month || 0;
         const change = current - prev;
 
         const [zonesResult] = await pool.query(
-            "SELECT COUNT(DISTINCT latitude, longitude) as zones FROM incidents WHERE TRIM(status) != 'Resolved'"
+            "SELECT COUNT(DISTINCT latitude, longitude) as zones FROM incidents WHERE TRIM(status) != 'Resolved' AND is_draft = 0"
         );
         const zones = zonesResult[0].zones;
 
         const [commonResult] = await pool.query(`
-            SELECT incident_type, COUNT(*) as count 
-            FROM incidents 
-            WHERE TRIM(status) != 'Resolved'
-            GROUP BY incident_type 
-            ORDER BY count DESC 
+            SELECT incident_type, COUNT(*) as count
+            FROM incidents
+            WHERE TRIM(status) != 'Resolved' AND is_draft = 0
+            GROUP BY incident_type
+            ORDER BY count DESC
             LIMIT 1
         `);
         const common = commonResult.length > 0 ? commonResult[0].incident_type : "N/A";
@@ -2891,7 +2888,7 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
         const [areaResult] = await pool.query(`
             SELECT COALESCE(street_name, CONCAT(latitude, ', ', longitude)) as location, COUNT(*) as count
             FROM incidents
-            WHERE TRIM(status) != 'Resolved'
+            WHERE TRIM(status) != 'Resolved' AND is_draft = 0
             GROUP BY COALESCE(street_name, CONCAT(latitude, ', ', longitude))
             ORDER BY count DESC
             LIMIT 1
@@ -2899,11 +2896,11 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
         const area = areaResult.length > 0 ? areaResult[0].location : "N/A";
 
         const [peakResult] = await pool.query(`
-            SELECT HOUR(time) as hour, COUNT(*) as count 
-            FROM incidents 
-            WHERE TRIM(status) != 'Resolved'
-            GROUP BY HOUR(time) 
-            ORDER BY count DESC 
+            SELECT HOUR(time) as hour, COUNT(*) as count
+            FROM incidents
+            WHERE TRIM(status) != 'Resolved' AND is_draft = 0
+            GROUP BY HOUR(time)
+            ORDER BY count DESC
             LIMIT 1
         `);
         const peakHour = peakResult.length > 0 ? peakResult[0].hour : 0;
@@ -2915,12 +2912,12 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
         // many different locations need attention, not how many reports
         // piled up at the same one.
         const [riskStreetsResult] = await pool.query(
-            "SELECT COUNT(DISTINCT street_name) as riskStreets FROM incidents WHERE danger_level LIKE '%Level 3%' AND TRIM(status) != 'Resolved' AND street_name IS NOT NULL"
+            "SELECT COUNT(DISTINCT street_name) as riskStreets FROM incidents WHERE danger_level LIKE '%Level 3%' AND TRIM(status) != 'Resolved' AND is_draft = 0 AND street_name IS NOT NULL"
         );
         const riskStreets = riskStreetsResult[0].riskStreets;
 
         const [formTypeCounts] = await pool.query(
-            "SELECT COALESCE(form_type, 'blotter') as form_type, COUNT(*) as count FROM incidents WHERE TRIM(status) != 'Resolved' GROUP BY COALESCE(form_type, 'blotter')"
+            "SELECT COALESCE(form_type, 'blotter') as form_type, COUNT(*) as count FROM incidents WHERE TRIM(status) != 'Resolved' AND is_draft = 0 GROUP BY COALESCE(form_type, 'blotter')"
         );
         const blotterCount = formTypeCounts.find(r => r.form_type === 'blotter')?.count || 0;
         const crimeCount = formTypeCounts.find(r => r.form_type === 'crime')?.count || 0;
@@ -2946,15 +2943,15 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
 app.get('/api/dashboard/charts', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [typesResult] = await pool.query(`
-            SELECT incident_type, COUNT(*) as count 
-            FROM incidents 
-            WHERE TRIM(status) != 'Resolved'
-            GROUP BY incident_type 
+            SELECT incident_type, COUNT(*) as count
+            FROM incidents
+            WHERE TRIM(status) != 'Resolved' AND is_draft = 0
+            GROUP BY incident_type
             ORDER BY count DESC
         `);
 
         let low = 0, moderate = 0, high = 0;
-        const [dangerResult] = await pool.query('SELECT danger_level FROM incidents WHERE TRIM(status) != "Resolved"');
+        const [dangerResult] = await pool.query('SELECT danger_level FROM incidents WHERE TRIM(status) != "Resolved" AND is_draft = 0');
         dangerResult.forEach(row => {
             const level = row.danger_level || '';
             if (level.includes('Level 3') || level.includes('High')) high++;
@@ -2974,17 +2971,17 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Deputy Officer', 'K
         const [trendResult] = await pool.query(`
             SELECT DATE(date) as day_date, incident_type, COUNT(*) as count
             FROM incidents
-            WHERE TRIM(status) != 'Resolved'
-              AND date >= DATE_SUB((SELECT MAX(date) FROM incidents WHERE TRIM(status) != 'Resolved'), INTERVAL 6 DAY)
+            WHERE TRIM(status) != 'Resolved' AND is_draft = 0
+              AND date >= DATE_SUB((SELECT MAX(date) FROM incidents WHERE TRIM(status) != 'Resolved' AND is_draft = 0), INTERVAL 6 DAY)
             GROUP BY DATE(date), incident_type
             ORDER BY day_date ASC
         `);
 
         const [hourlyResult] = await pool.query(`
-            SELECT HOUR(time) as hour, COUNT(*) as count 
-            FROM incidents 
-            WHERE TRIM(status) != 'Resolved'
-            GROUP BY HOUR(time) 
+            SELECT HOUR(time) as hour, COUNT(*) as count
+            FROM incidents
+            WHERE TRIM(status) != 'Resolved' AND is_draft = 0
+            GROUP BY HOUR(time)
             ORDER BY hour ASC
         `);
 
