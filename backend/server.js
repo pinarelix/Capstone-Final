@@ -186,6 +186,14 @@ const pool = mysql.createPool({
     dateStrings: ['DATE']
 });
 
+// ── Idempotency cache (prevents duplicate POST submissions) ────────────────
+const _idempotencyCache = new Map();
+const IDEMPOTENCY_TTL = 60000;
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of _idempotencyCache) { if (now - v.ts > IDEMPOTENCY_TTL) _idempotencyCache.delete(k); }
+}, 30000);
+
 // ── Option A record routing helpers ─────────────────────────────────────────
 // `incidents` is now a compatibility VIEW over blotter_records + incident_records
 // (joined through record_registry). Reads use the view unchanged; writes must
@@ -2306,6 +2314,12 @@ app.get('/api/heatmap/street-analysis', authenticate, requireRole(['Deputy Offic
 });
 
 app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Leader']), validate(incidentSchema), async (req, res) => {
+    const idemKey = req.headers['idempotency-key'];
+    if (idemKey) {
+        const cached = _idempotencyCache.get(idemKey);
+        if (cached) return res.status(cached.status).json(cached.body);
+    }
+
     try {
         const {
             incident_type, date, time, latitude, longitude, street_name, address,
@@ -2317,6 +2331,13 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
         const finalStreetName = street_name || null;
         const finalAddress = address || null;
         const finalReporterId = req.userId || null;
+
+        if (form_type === 'blotter' && !req.body.is_draft) {
+            const missing = [];
+            if (!req.body.respondent_first) missing.push('respondent_first');
+            if (!req.body.respondent_last) missing.push('respondent_last');
+            if (missing.length) return res.status(400).json({ error: 'Validation failed', details: missing.map(f => `"${f}" is required for non-draft blotter records`) });
+        }
 
         const timeOfDay = computeTimeOfDay(time);
         const dayOfWeek = getDayOfWeek(date);
@@ -2381,11 +2402,9 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
             timestamp: new Date().toISOString()
         });
 
-        res.status(201).json({
-            message: 'Incident saved successfully.',
-            id: registryId,
-            blotter_number: publicNumber
-        });
+        const responseBody = { message: 'Incident saved successfully.', id: registryId, blotter_number: publicNumber };
+        if (idemKey) _idempotencyCache.set(idemKey, { status: 201, body: responseBody, ts: Date.now() });
+        res.status(201).json(responseBody);
 
     } catch (error) {
         res.status(500).json({ error: 'Failed to create incident' });

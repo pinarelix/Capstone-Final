@@ -662,6 +662,11 @@ function setupForm() {
             return;
         }
 
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn.disabled) return;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+
         const formType = getFormType();
 
         const typeSelect = document.getElementById('incidentType');
@@ -751,6 +756,12 @@ function setupForm() {
         if (noEvidence && !noEvidenceReason) {
             requiredFields.push({ id: 'noEvidenceReason', label: 'Reason for No Evidence' });
         }
+        if (formType === 'blotter' && !respondentUnknown) {
+            requiredFields.push(
+                { id: 'respondentFirst', label: 'Respondent First Name' },
+                { id: 'respondentLast', label: 'Respondent Last Name' }
+            );
+        }
 
         document.querySelectorAll('.field-missing').forEach(el => el.classList.remove('field-missing'));
 
@@ -761,6 +772,8 @@ function setupForm() {
         } else if (isOthersType && !(typeOtherInput?.value.trim())) {
             missingFields.unshift({ id: 'incidentTypeOther', label: 'Custom Incident Type' });
         }
+        const restoreBtn = () => { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Incident'; };
+
         if (missingFields.length > 0) {
             missingFields.forEach(f => document.getElementById(f.id)?.classList.add('field-missing'));
             document.getElementById(missingFields[0].id)?.focus();
@@ -768,11 +781,13 @@ function setupForm() {
                 'Missing Required Fields',
                 `Please fill in the following before saving:\n\n${missingFields.map(f => `• ${f.label}`).join('\n')}`
             );
+            restoreBtn();
             return;
         }
 
         if (!lat || !lng) {
             showErrorModal('Missing Coordinates', 'This street has no pinned coordinates yet. Pin it on the Barangay Risk Map first, or choose a different street.');
+            restoreBtn();
             return;
         }
 
@@ -786,11 +801,13 @@ function setupForm() {
 
         if (isNaN(latNum) || isNaN(lngNum)) {
             showErrorModal('Invalid Coordinates', 'Please select a street to set the incident location.');
+            restoreBtn();
             return;
         }
 
         if (latNum < MIN_LAT || latNum > MAX_LAT || lngNum < MIN_LNG || lngNum > MAX_LNG) {
             showErrorModal('Invalid Coordinates', `Latitude must be between ${MIN_LAT} and ${MAX_LAT}\nLongitude must be between ${MIN_LNG} and ${MAX_LNG}\n\nThis street's pinned coordinates look wrong - check the Barangay Risk Map.`);
+            restoreBtn();
             return;
         }
 
@@ -828,6 +845,7 @@ function setupForm() {
                 snap.noEvidenceReason === noEvidenceReason;
             if (nothingChanged) {
                 showErrorModal('No Changes Detected', 'You haven\'t made any changes. Please update the details first before saving.');
+                restoreBtn();
                 return;
             }
         }
@@ -836,6 +854,7 @@ function setupForm() {
         const repId = Number.isInteger(parsedRepId) && parsedRepId > 0 ? parsedRepId : null;
         if (!isEdit && repId === null) {
             showErrorModal('Session Error', 'Could not determine the logged-in user. Please log out and log back in, then try again.');
+            restoreBtn();
             return;
         }
 
@@ -843,6 +862,7 @@ function setupForm() {
             const incidentId = document.getElementById('editIndex').value;
             const method = incidentId ? 'PUT' : 'POST';
             const url = incidentId ? `/incidents/${incidentId}` : '/incidents';
+            const idempotencyKey = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
             const payload = {
                 incident_type: type,
@@ -888,10 +908,19 @@ function setupForm() {
 
             console.log('📤 Sending payload:', payload);
 
-            const response = await apiFetch(url, {
-                method: method,
-                body: JSON.stringify(payload)
-            });
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 30000);
+            let response;
+            try {
+                response = await apiFetch(url, {
+                    method: method,
+                    headers: { 'Idempotency-Key': idempotencyKey },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timeout);
+            }
 
             if (!response.ok) {
                 let errorMsg = 'Failed to save incident';
@@ -937,7 +966,12 @@ Open the incident with Edit to attach the evidence again.`);
 
         } catch (error) {
             console.error('Error saving incident:', error);
-            showErrorModal('Error', 'Failed to save incident: ' + error.message);
+            const msg = error.name === 'AbortError'
+                ? 'The request timed out. Please check your network and try again.'
+                : error.message;
+            showErrorModal('Error', 'Failed to save incident: ' + msg);
+        } finally {
+            restoreBtn();
         }
     });
 
@@ -949,7 +983,7 @@ Open the incident with Edit to attach the evidence again.`);
 
     // Clear the red "missing" highlight on a field as soon as the user
     // fills it in, instead of waiting for the next submit attempt.
-    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus', 'incidentSeverity', 'addrHouseNo', 'incidentAddress', 'complainantFirst', 'complainantLast', 'reporterFirst', 'reporterLast', 'noEvidenceReason'].forEach(id => {
+    ['incidentType', 'incidentDate', 'incidentTime', 'incidentStreet', 'incidentStatus', 'incidentSeverity', 'addrHouseNo', 'incidentAddress', 'complainantFirst', 'complainantLast', 'respondentFirst', 'respondentLast', 'reporterFirst', 'reporterLast', 'noEvidenceReason'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', function () {
             if (this.value) this.classList.remove('field-missing');
         });
@@ -1190,9 +1224,11 @@ function clearForm() {
 // Clear Form asks first, so entered information isn't wiped by a mis-click.
 document.getElementById('clearBtn').addEventListener('click', () => {
     const hasInput = document.getElementById('incidentType')?.value
-        || document.getElementById('incidentReportedByName')?.value
+        || document.getElementById('complainantFirst')?.value
+        || document.getElementById('complainantLast')?.value
+        || document.getElementById('respondentFirst')?.value
         || document.getElementById('incidentDesc')?.value
-        || document.getElementById('crimeReporterName')?.value;
+        || document.getElementById('reporterFirst')?.value;
     if (hasInput && typeof showConfirmModal === 'function') {
         showConfirmModal('Clear this form?', 'All information you have entered will be removed. This cannot be undone.', clearForm);
     } else if (hasInput) {

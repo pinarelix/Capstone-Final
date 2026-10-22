@@ -1004,6 +1004,78 @@
         </div>
     </div>
 
+    <!-- =========================================================
+         CONFIRM MODAL (generic confirm/cancel — used by Clear Form etc.)
+    ============================================================ -->
+    <div id="confirmModal" style="
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 999999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    ">
+        <div style="
+            background: white;
+            max-width: 400px;
+            width: 90%;
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalPop 0.3s ease;
+        ">
+            <div style="
+                width: 64px;
+                height: 64px;
+                border-radius: 50%;
+                background: #dbeafe;
+                color: #2563eb;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 16px;
+                font-size: 2rem;
+            ">
+                <i class="fa-solid fa-circle-question"></i>
+            </div>
+            <h2 id="confirmTitle" style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+                Confirm
+            </h2>
+            <p id="confirmMessage" style="font-size: 0.9rem; color: #64748b; margin-bottom: 24px;">
+                Are you sure?
+            </p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button id="confirmCancelBtn" style="
+                    padding: 10px 28px;
+                    border: none;
+                    border-radius: 10px;
+                    background: #f1f5f9;
+                    color: #475569;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                ">
+                    Cancel
+                </button>
+                <button id="confirmOkBtn" style="
+                    padding: 10px 28px;
+                    border: none;
+                    border-radius: 10px;
+                    background: #2563eb;
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                ">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
     <style>
         @keyframes modalPop {
             0% { transform: scale(0.9) translateY(20px); opacity: 0; }
@@ -1149,12 +1221,46 @@
             }
         });
 
+        // =========================================================
+        // CONFIRM MODAL (generic — Clear Form, etc.)
+        // =========================================================
+        let _confirmCallback = null;
+
+        function showConfirmModal(title, message, onConfirm) {
+            const modal = document.getElementById('confirmModal');
+            document.getElementById('confirmTitle').textContent = title || 'Confirm';
+            document.getElementById('confirmMessage').textContent = message || 'Are you sure?';
+            _confirmCallback = onConfirm;
+            modal.style.display = 'flex';
+        }
+        window.showConfirmModal = showConfirmModal;
+
+        document.getElementById('confirmCancelBtn').addEventListener('click', function() {
+            document.getElementById('confirmModal').style.display = 'none';
+            _confirmCallback = null;
+        });
+
+        document.getElementById('confirmOkBtn').addEventListener('click', function() {
+            document.getElementById('confirmModal').style.display = 'none';
+            if (typeof _confirmCallback === 'function') _confirmCallback();
+            _confirmCallback = null;
+        });
+
+        document.getElementById('confirmModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+                _confirmCallback = null;
+            }
+        });
+
         // Close modals on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 document.getElementById('successModal').style.display = 'none';
                 document.getElementById('errorModal').style.display = 'none';
                 document.getElementById('deleteModal').style.display = 'none';
+                document.getElementById('confirmModal').style.display = 'none';
+                _confirmCallback = null;
             }
         });
     </script>
