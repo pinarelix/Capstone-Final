@@ -70,7 +70,7 @@ DROP TABLE IF EXISTS `audit_logs`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `audit_logs` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int NOT NULL,
+  `user_id` int DEFAULT NULL,
   `action` varchar(100) NOT NULL,
   `entity_type` varchar(50) DEFAULT NULL,
   `entity_id` int DEFAULT NULL,
@@ -84,7 +84,7 @@ CREATE TABLE `audit_logs` (
   KEY `idx_action` (`action`),
   KEY `idx_created_at` (`created_at`),
   KEY `idx_entity` (`entity_type`,`entity_id`),
-  CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=790 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -377,7 +377,7 @@ DROP TABLE IF EXISTS `login_history`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `login_history` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int NOT NULL,
+  `user_id` int DEFAULT NULL,
   `username` varchar(50) NOT NULL,
   `ip_address` varchar(45) DEFAULT NULL,
   `user_agent` text,
@@ -386,7 +386,7 @@ CREATE TABLE `login_history` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_username` (`username`),
   KEY `idx_login_time` (`login_time`),
-  CONSTRAINT `login_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  CONSTRAINT `login_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=355 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

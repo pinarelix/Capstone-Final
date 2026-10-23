@@ -4085,6 +4085,14 @@ async function startServer() {
                 }
             } catch (_) { /* users table may not exist yet */ }
         }
+        // T-8: Warn if MySQL accepts remote connections
+        try {
+            const [bindRows] = await pool.query("SHOW VARIABLES LIKE 'bind_address'");
+            const bindAddr = bindRows[0]?.Value;
+            if (bindAddr && bindAddr !== '127.0.0.1' && bindAddr !== '::1' && bindAddr !== 'localhost') {
+                console.warn(`⚠️  [SECURITY] MySQL bind-address is "${bindAddr}" — remote connections possible. Set bind-address=127.0.0.1 in my.ini for production.`);
+            }
+        } catch (_) { /* non-critical check */ }
     } catch (dbErr) {
         console.warn('⚠️  Database not reachable at startup — the setup wizard will handle it.');
     }

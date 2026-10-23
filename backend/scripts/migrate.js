@@ -101,6 +101,23 @@ async function migrate() {
         `);
         console.log('  ✓ archived_records');
 
+        // 6. M-7: Change audit_logs and login_history FKs from CASCADE to SET NULL
+        for (const table of ['audit_logs', 'login_history']) {
+            const fkName = `${table}_ibfk_1`;
+            try {
+                await conn.query(`ALTER TABLE ${table} MODIFY COLUMN user_id INT DEFAULT NULL`);
+                await conn.query(`ALTER TABLE ${table} DROP FOREIGN KEY ${fkName}`);
+                await conn.query(`ALTER TABLE ${table} ADD CONSTRAINT ${fkName} FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL`);
+                console.log(`  ✓ ${table} FK → SET NULL`);
+            } catch (err) {
+                if (err.message.includes('check that column/key exists')) {
+                    console.log(`  ✓ ${table} FK (already migrated)`);
+                } else {
+                    throw err;
+                }
+            }
+        }
+
         console.log('✅ All migrations complete.');
     } finally {
         await conn.end();
