@@ -148,6 +148,36 @@ describe('Setup guard — recovery token', () => {
     });
 });
 
+// ── Returning-install endpoints (pre-guard, localhost only) ──
+
+describe('Setup — returning install', () => {
+    beforeAll(() => setSetupCompleted(true));
+
+    test('status reports completed setup without exposing the password', async () => {
+        const res = await request(app).get('/api/setup/status');
+        expect(res.status).toBe(200);
+        expect(res.body.setup_completed).toBe(true);
+        expect(res.body.db).toBeDefined();
+        expect(res.body.db.password).toBeUndefined();
+        expect(res.body.db.name).toBeTruthy();
+    });
+
+    test('test-saved verifies the saved config without a session', async () => {
+        const res = await request(app).post('/api/setup/test-saved');
+        expect(res.status).toBe(200);
+        expect(res.body.ok).toBe(true);
+        expect(res.body.version).toBeTruthy();
+    });
+
+    test('test-saved is rejected before setup is complete', async () => {
+        setSetupCompleted(false);
+        const res = await request(app).post('/api/setup/test-saved');
+        expect(res.status).toBe(400);
+        expect(res.body.ok).toBe(false);
+        setSetupCompleted(true);
+    });
+});
+
 // ── Config-manager unit tests ──
 
 describe('config-manager setup helpers', () => {

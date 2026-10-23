@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let hasPassedTest  = false;   // true once a test succeeds
     let isConfigLoaded = false;   // true when config was fetched from server
     let configChanged  = false;   // true when user edits a pre-filled field
+    let isSetupComplete = false;  // true when the saved DB config is already in use
 
     // Snapshot of the loaded config so we can detect edits
     let loadedSnapshot = null;
@@ -95,8 +96,11 @@ document.addEventListener('DOMContentLoaded', function () {
         // Launch button available only after a successful test
         btnLaunch.disabled = !hasPassedTest;
 
-        // Label: "Connect & Continue" for an existing config, "Save & Launch" otherwise
-        if (isConfigLoaded && !configChanged) {
+        // Label: "Continue to Login" for an already-configured install,
+        // "Connect & Continue" for an existing config, "Save & Launch" otherwise
+        if (isSetupComplete) {
+            btnLabel.textContent = 'Continue to Login';
+        } else if (isConfigLoaded && !configChanged) {
             btnLabel.textContent = 'Connect & Continue';
         } else {
             btnLabel.textContent = 'Save & Launch';
@@ -163,11 +167,18 @@ document.addEventListener('DOMContentLoaded', function () {
         btnTest.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
 
         try {
-            var response = await fetch(API_URL + '/setup/test', {
+            var endpoint = isSetupComplete ? '/setup/test-saved' : '/setup/test';
+            var options = {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(fields)
-            });
+                headers: { 'Content-Type': 'application/json' }
+            };
+            // The saved-config endpoint deliberately accepts no body: it
+            // tests what is already on disk and never echoes the password.
+            if (!isSetupComplete) {
+                options.body = JSON.stringify(fields);
+            }
+
+            var response = await fetch(API_URL + endpoint, options);
 
             var data = await response.json();
 
@@ -210,6 +221,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function saveAndLaunch() {
         if (!hasPassedTest) return;
+
+        // Already configured — nothing to save. The test above only proved
+        // the saved connection still works, so continue straight to login.
+        if (isSetupComplete) {
+            window.location.href = 'login.html';
+            return;
+        }
 
         var fields = getFields();
 
@@ -285,6 +303,50 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // =========================================================
+    // LOAD SETUP STATUS (pre-guard, localhost only)
+    // =========================================================
+
+    async function loadStatus() {
+        try {
+            var response = await fetch(API_URL + '/setup/status');
+            if (!response.ok) return false;
+
+            var status = await response.json();
+            isSetupComplete = Boolean(status.setup_completed);
+
+            if (isSetupComplete) {
+                // Returning install: pre-fill the saved (non-secret) values
+                // and lock them. Reconfiguring after setup requires a Deputy
+                // Officer session or the local recovery token, not this form.
+                var db = status.db || {};
+                if (db.host) dbHost.value = db.host;
+                if (db.port) dbPort.value = db.port;
+                if (db.user) dbUser.value = db.user;
+                if (db.name) dbName.value = db.name;
+
+                dbPassword.value = '••••••';
+                dbPassword.setAttribute('data-masked', 'true');
+
+                allFields.forEach(function (field) {
+                    field.readOnly = true;
+                });
+
+                loadedSnapshot = getFields();
+                isConfigLoaded = true;
+                configChanged  = false;
+
+                refreshButtons();
+                await runTest();
+            }
+
+            return true;
+        } catch (err) {
+            console.error('Setup: could not read status:', err);
+            return false;
+        }
+    }
+
+    // =========================================================
     // LOAD EXISTING CONFIG ON PAGE LOAD
     // =========================================================
 
@@ -337,5 +399,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initial state
     refreshButtons();
-    loadConfig();
+
+    (async function init() {
+        var statusLoaded = await loadStatus();
+        // Fresh install (or status unavailable): load the saved config and
+        // auto-test it as before. Returning installs were auto-tested above.
+        if (!statusLoaded || !isSetupComplete) {
+            await loadConfig();
+        }
+    })();
 });

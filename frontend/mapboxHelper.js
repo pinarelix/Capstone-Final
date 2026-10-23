@@ -6,7 +6,7 @@
 
 // Paste your Mapbox public access token here.
 // Sign up free at https://mapbox.com — 50,000 map loads/month.
-const MAPBOX_TOKEN = 'YOUR_MAPBOX_TOKEN_HERE';
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiYWJlbGxha2V2aW4xMiIsImEiOiJjbXZjZ2xoMTcwZmFlMnhwbTRkdTdldGV3In0.BDqhPIVsBeBAwHF1YXoX8w';
 
 const MB_CENTER = [121.0789, 14.7468];
 
