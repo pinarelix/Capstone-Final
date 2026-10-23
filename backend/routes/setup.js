@@ -17,6 +17,7 @@
 
 const express = require('express');
 const mysql   = require('mysql2/promise');
+const { hashToken } = require('../token-utils');
 const {
     loadConfig,
     saveConfig,
@@ -115,12 +116,13 @@ async function setupGuard(req, res, next) {
     }
 
     try {
+        const setupTokenHash = hashToken(token);
         const [sessions] = await pool.query(
             `SELECT s.user_id, u.role
              FROM user_sessions s
              JOIN users u ON u.id = s.user_id
              WHERE s.session_token = ? AND s.is_active = 1 AND s.logout_time IS NULL AND u.is_active = 1`,
-            [token]
+            [setupTokenHash]
         );
 
         if (sessions.length === 0) {
