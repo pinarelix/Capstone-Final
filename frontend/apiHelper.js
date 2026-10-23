@@ -395,12 +395,19 @@ function showIncidentNotification(data) {
 
 let _liveNotificationSource = null;
 
-function initLiveNotifications() {
+async function initLiveNotifications() {
     const token = getSessionToken();
     if (!token || _liveNotificationSource) return;
 
     try {
-        _liveNotificationSource = new EventSource(`${API_URL}/notifications/stream?token=${encodeURIComponent(token)}`);
+        const ticketRes = await fetch(`${API_URL}/notifications/ticket`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        });
+        if (!ticketRes.ok) return;
+        const { ticket } = await ticketRes.json();
+
+        _liveNotificationSource = new EventSource(`${API_URL}/notifications/stream?ticket=${encodeURIComponent(ticket)}`);
         _liveNotificationSource.onmessage = (event) => {
             if (!event.data || event.data.startsWith(':')) return;
             try {
@@ -418,6 +425,13 @@ function initLiveNotifications() {
             } catch (e) {
                 console.error('Failed to parse live notification:', e);
             }
+        };
+        _liveNotificationSource.onerror = () => {
+            if (_liveNotificationSource) {
+                _liveNotificationSource.close();
+                _liveNotificationSource = null;
+            }
+            setTimeout(() => initLiveNotifications(), 5000);
         };
     } catch (e) {
         console.error('Failed to open live notification stream:', e);

@@ -15,6 +15,8 @@ const expressRateLimit = require('express-rate-limit');
 const cartEngine = require('./cart-engine');
 const { BARANGAY_LOCATIONS } = require('./locationList');
 const { createArchive, registerArchiveRoutes } = require('./archive');
+const { isSetupCompleted, markSetupCompleted, generateRecoveryToken } = require('./config-manager');
+const { hashToken, generateSessionToken, generateResetToken } = require('./token-utils');
 
 // The installed desktop app passes APP_CONFIG_PATH/UPLOADS_DIR (see
 // main.js) so settings and uploaded files live in the user's AppData
@@ -360,76 +362,9 @@ async function testConnection() {
         }
     }
 
-    // Per-street risk decay (Patrol Decision Support): each completed
-    // patrol schedule shaves a bit off that street's recommended risk
-    // score, and a new incident there wipes the decay so the street can
-    // surface as high-risk again. Created here (not just in schema.sql)
-    // so the feature works without a manual migration step.
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS area_risk_decay (
-            location VARCHAR(100) PRIMARY KEY,
-            decay_amount DECIMAL(5,2) NOT NULL DEFAULT 0,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Adds the 'Team Leader' staff role (manages patrol schedules,
-    // same view access as Decision-Maker) to the users.role ENUM.
-    // Migrate old role names to new ones (safe to re-run)
-    try {
-        await pool.query(`ALTER TABLE users MODIFY COLUMN role VARCHAR(50) NOT NULL`);
-        await pool.query(`UPDATE users SET role = 'Deputy Officer' WHERE role = 'Administrator'`);
-        await pool.query(`UPDATE users SET role = 'Kagawad' WHERE role IN ('Decision-Maker', 'Captain')`);
-        await pool.query(`UPDATE users SET role = 'Team Leader' WHERE role = 'Desk Officer'`);
-    } catch (e) { /* ignore if already migrated */ }
-
-    await pool.query(`
-        ALTER TABLE users
-        MODIFY COLUMN role ENUM('Deputy Officer', 'Kagawad', 'Team Leader') NOT NULL
-    `);
-
-    try {
-        // Needed so the forgot-password flow can actually email a reset
-        // link (see sendPasswordResetEmail) instead of only logging the
-        // token to the Audit Trail. "ADD COLUMN IF NOT EXISTS" isn't
-        // valid syntax on this MySQL version, so idempotency is done
-        // the same manual way as team_id above.
-        await pool.query(`ALTER TABLE users ADD COLUMN email VARCHAR(150) DEFAULT NULL`);
-    } catch (err) {
-        if (err.code !== 'ER_DUP_FIELDNAME') throw err;
-    }
-
-    // Legacy single-table migrations below only apply while `incidents` is still
-    // a BASE TABLE. After the Option A cutover (migrations 001-003) it is a
-    // compatibility VIEW over blotter_records / incident_records and these
-    // columns live on the base tables, so skip them rather than ALTER the view.
-    const [incMetaRows] = await pool.query(
-        "SELECT TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'incidents'"
-    );
-    if (incMetaRows[0] && incMetaRows[0].TABLE_TYPE === 'BASE TABLE') {
-        // New blotter-logbook fields (severity, respondent info, age).
-        for (const col of [
-            "ADD COLUMN severity ENUM('High','Medium','Low') DEFAULT 'Low'",
-            "ADD COLUMN respondent_name VARCHAR(255) DEFAULT NULL",
-            "ADD COLUMN respondent_address VARCHAR(500) DEFAULT NULL",
-            "ADD COLUMN age INT DEFAULT NULL"
-        ]) {
-            try { await pool.query(`ALTER TABLE incidents ${col}`); }
-            catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
-        }
-
-        // form_type distinguishes blotter vs crime incident records.
-        try { await pool.query("ALTER TABLE incidents ADD COLUMN form_type ENUM('blotter','crime') DEFAULT 'blotter'"); }
-        catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
-
-        // Backfill: records without a blotter_number and without a description
-        // were entered through the crime form.
-        await pool.query("UPDATE incidents SET form_type = 'crime' WHERE form_type = 'blotter' AND (blotter_number IS NULL OR blotter_number = '') AND (description IS NULL OR description = '')");
-    }
-
-    // Archive of everything deleted (see archive.js) - created here too so
-    // existing databases get it without a manual migration.
-    await archive.ensureArchiveTable();
+    // DDL migrations have been extracted to scripts/migrate.js.
+    // Run `node scripts/migrate.js` before first startup or after
+    // schema changes. The runtime account needs only SIUD privileges.
 }
 
 // ============================================================
@@ -537,7 +472,7 @@ const changePasswordSchema = Joi.object({
 
 const resetPasswordSchema = Joi.object({
     username: Joi.string().max(50).required(),
-    reset_token: Joi.string().pattern(/^\d{6}$/).required(),
+    reset_token: Joi.string().min(8).max(64).required(),
     new_password: Joi.string().min(8).max(128).required()
 });
 
@@ -662,9 +597,9 @@ async function sendPasswordResetEmail(toEmail, name, resetToken) {
             html: `
                 <p>Hi ${name},</p>
                 <p>We received a request to reset your password for the <strong>Barangay 179 Crime BI</strong> system.</p>
-                <p>Your 6-digit password reset code is:</p>
-                <p style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1d4ed8; text-align: center; margin: 20px 0; padding: 16px; background: #eff6ff; border-radius: 8px;">${resetToken}</p>
-                <p>Enter this code on the password reset screen. <strong>It expires in 10 minutes.</strong></p>
+                <p>Your password reset code is:</p>
+                <p style="font-size: 18px; font-weight: bold; color: #1d4ed8; text-align: center; margin: 20px 0; padding: 16px; background: #eff6ff; border-radius: 8px; word-break: break-all; font-family: monospace;">${resetToken}</p>
+                <p>Copy and paste this code on the password reset screen. <strong>It expires in 10 minutes.</strong></p>
                 <p style="color: #6b7280; font-size: 0.9em;">If you didn't request this, you can safely ignore this email. Your password will not be changed.</p>
             `
         });
@@ -729,12 +664,13 @@ async function authenticate(req, res, next) {
         }
 
         const token = authHeader.split(' ')[1];
+        const tokenHash = hashToken(token);
 
         const [sessions] = await pool.query(
             `SELECT user_id, last_activity
              FROM user_sessions
              WHERE session_token = ? AND is_active = 1 AND logout_time IS NULL`,
-            [token]
+            [tokenHash]
         );
 
         if (sessions.length === 0) {
@@ -748,12 +684,12 @@ async function authenticate(req, res, next) {
         if (idleMinutes > timeoutMinutes) {
             await pool.query(
                 'UPDATE user_sessions SET is_active = 0, logout_time = NOW() WHERE session_token = ?',
-                [token]
+                [tokenHash]
             );
             return res.status(401).json({ error: 'Unauthorized: Session expired due to inactivity' });
         }
 
-        await pool.query('UPDATE user_sessions SET last_activity = NOW() WHERE session_token = ?', [token]);
+        await pool.query('UPDATE user_sessions SET last_activity = NOW() WHERE session_token = ?', [tokenHash]);
 
         req.userId = session.user_id;
         next();
@@ -775,12 +711,13 @@ async function authenticateFromQueryToken(req, res, next) {
         if (!token) {
             return res.status(401).json({ error: 'Unauthorized: No session token provided' });
         }
+        const tokenHash = hashToken(token);
 
         const [sessions] = await pool.query(
             `SELECT user_id, last_activity
              FROM user_sessions
              WHERE session_token = ? AND is_active = 1 AND logout_time IS NULL`,
-            [token]
+            [tokenHash]
         );
 
         if (sessions.length === 0) {
@@ -834,11 +771,54 @@ function requireRole(allowedRoles) {
     };
 }
 
-// Live push stream for staff - right now just "a new incident was
-// reported" (see the broadcastNotification call in POST /api/incidents).
-// A plain GET the frontend opens with the browser's native EventSource,
-// which auto-reconnects on its own if the connection drops.
-app.get('/api/notifications/stream', authenticateFromQueryToken, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), (req, res) => {
+// ── SSE ticket system (M-3) ──
+// Short-lived, single-use tickets replace the main session token in SSE
+// URLs so that reusable credentials never appear in query strings.
+const sseTickets = new Map(); // ticketHash → { userId, sessionHash, createdAt }
+const SSE_TICKET_TTL_MS = 30 * 1000; // 30 seconds to connect
+
+app.post('/api/notifications/ticket', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), (req, res) => {
+    const ticket = crypto.randomBytes(24).toString('base64url');
+    const ticketHash = hashToken(ticket);
+    const sessionHash = hashToken(req.headers.authorization.split(' ')[1]);
+    sseTickets.set(ticketHash, {
+        userId: req.userId,
+        sessionHash,
+        createdAt: Date.now(),
+    });
+    // Clean up expired tickets periodically
+    for (const [k, v] of sseTickets) {
+        if (Date.now() - v.createdAt > SSE_TICKET_TTL_MS * 2) sseTickets.delete(k);
+    }
+    res.json({ ticket });
+});
+
+app.get('/api/notifications/stream', async (req, res) => {
+    const ticket = req.query.ticket;
+    if (!ticket) {
+        return res.status(401).json({ error: 'SSE ticket required' });
+    }
+    const ticketHash = hashToken(ticket);
+    const entry = sseTickets.get(ticketHash);
+
+    if (!entry || (Date.now() - entry.createdAt) > SSE_TICKET_TTL_MS) {
+        sseTickets.delete(ticketHash);
+        return res.status(401).json({ error: 'Invalid or expired SSE ticket' });
+    }
+    // Single-use: consume immediately
+    sseTickets.delete(ticketHash);
+
+    // Verify the parent session is still active
+    const [sessions] = await pool.query(
+        `SELECT s.user_id FROM user_sessions s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.session_token = ? AND s.is_active = 1 AND s.logout_time IS NULL AND u.is_active = 1`,
+        [entry.sessionHash]
+    );
+    if (sessions.length === 0) {
+        return res.status(401).json({ error: 'Parent session expired' });
+    }
+
     res.set({
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -850,21 +830,13 @@ app.get('/api/notifications/stream', authenticateFromQueryToken, requireRole(['D
 
     notificationClients.add(res);
 
-    // Keeps the connection from being silently dropped as idle by any
-    // intermediary - harmless no-op on a direct localhost/LAN connection,
-    // cheap insurance otherwise. Each beat also re-checks the session:
-    // auth only ran at connect time, so a user deactivated or logged out
-    // (or idled out) since then would otherwise keep receiving every
-    // incident alert until the tab closed. Ending the response makes the
-    // browser reconnect, which then fails auth and stops for good.
-    const token = req.query.token;
     const heartbeat = setInterval(async () => {
         try {
             const [rows] = await pool.query(
                 `SELECT s.last_activity FROM user_sessions s
                  JOIN users u ON u.id = s.user_id
                  WHERE s.session_token = ? AND s.is_active = 1 AND s.logout_time IS NULL AND u.is_active = 1`,
-                [token]
+                [entry.sessionHash]
             );
             const timeoutMinutes = await getSessionTimeoutMinutes();
             const stillValid = rows.length > 0 &&
@@ -1735,12 +1707,13 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
             [username, ip, true]
         );
         
-        const sessionToken = crypto.randomBytes(32).toString('hex');
+        const sessionToken = generateSessionToken();
+        const sessionTokenHash = hashToken(sessionToken);
         await pool.query(`
-            INSERT INTO user_sessions 
+            INSERT INTO user_sessions
             (user_id, session_token, ip_address, user_agent, is_active)
             VALUES (?, ?, ?, ?, ?)
-        `, [user.id, sessionToken, ip, req.headers['user-agent'] || '', true]);
+        `, [user.id, sessionTokenHash, ip, req.headers['user-agent'] || '', true]);
         
         
         try {
@@ -1824,28 +1797,32 @@ app.post('/api/auth/forgot-password', authRateLimit, validate(forgotPasswordSche
         }
 
         const user = users[0];
-        const resetToken = crypto.randomInt(100000, 1000000).toString();
+
+        // Invalidate any prior outstanding reset tokens for this user
+        await pool.query(
+            'UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL',
+            [user.id]
+        );
+
+        const resetToken = generateResetToken();
+        const resetTokenHash = hashToken(resetToken);
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         await pool.query(`
             INSERT INTO password_resets (user_id, reset_token, expires_at)
             VALUES (?, ?, ?)
-        `, [user.id, resetToken, expiresAt]);
+        `, [user.id, resetTokenHash, expiresAt]);
 
-
-        // Tries email first (if configured and this user has one on
-        // file); either way the token also goes to the Audit Trail as a
-        // fallback an Administrator can relay manually - see
-        // sendPasswordResetEmail's comment for why email can be absent.
         const emailSent = user.email ? await sendPasswordResetEmail(user.email, user.name, resetToken) : false;
 
         await logAudit(user.id, 'PASSWORD_RESET_REQUESTED', 'users', user.id, null,
-            { username: user.username, reset_token_hint: resetToken.slice(0, 2) + '****', expires_at: expiresAt, emailed_to: emailSent ? user.email : null }, req);
+            { username: user.username, expires_at: expiresAt, emailed_to: emailSent ? user.email : null }, req);
 
         res.json({
             message: emailSent
-                ? 'A 6-digit reset code has been sent to your registered email. It expires in 10 minutes.'
-                : 'Reset code generated. Please contact your administrator for the code.'
+                ? 'A password reset code has been sent to your registered email. It expires in 10 minutes.'
+                : 'Reset code generated. Please contact your administrator for the code.',
+            ...(emailSent ? {} : { reset_token: resetToken })
         });
 
     } catch (error) {
@@ -1861,14 +1838,13 @@ app.post('/api/auth/reset-password', authRateLimit, validate(resetPasswordSchema
     try {
         const { username, reset_token, new_password } = req.body;
 
-        // Verify the token AND that it was issued for this specific username,
-        // so a leaked token cannot be used against a different account.
+        const resetTokenHash = hashToken(reset_token);
         const [resetRecords] = await pool.query(`
             SELECT pr.user_id FROM password_resets pr
             JOIN users u ON u.id = pr.user_id
             WHERE pr.reset_token = ? AND pr.used_at IS NULL AND pr.expires_at > NOW()
               AND u.username = ? AND u.is_active = 1
-        `, [reset_token, username]);
+        `, [resetTokenHash, username]);
 
         if (resetRecords.length === 0) {
             return res.status(400).json({ error: 'Invalid or expired reset token' });
@@ -1925,11 +1901,22 @@ app.post('/api/auth/change-password', authenticate, validate(changePasswordSchem
         }
 
         const password_hash = await bcrypt.hash(new_password, 10);
+
+        // Get the current session's hash so we can preserve it
+        const currentTokenHash = hashToken(req.headers.authorization.split(' ')[1]);
+
         await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash, req.userId]);
 
-        await logAudit(req.userId, 'CHANGE_PASSWORD', 'users', req.userId, null, null, req);
+        // Revoke all OTHER sessions for this user (H-4)
+        await pool.query(
+            'UPDATE user_sessions SET is_active = 0, logout_time = NOW() WHERE user_id = ? AND is_active = 1 AND session_token != ?',
+            [req.userId, currentTokenHash]
+        );
 
-        res.json({ message: 'Password updated successfully.' });
+        await logAudit(req.userId, 'CHANGE_PASSWORD', 'users', req.userId, null,
+            { other_sessions_revoked: true }, req);
+
+        res.json({ message: 'Password updated successfully. Other sessions have been signed out.' });
 
     } catch (error) {
         res.status(500).json({ error: 'Failed to update password.' });
@@ -1948,17 +1935,18 @@ app.post('/api/auth/logout', async (req, res) => {
             return res.status(400).json({ error: 'Session token required' });
         }
 
+        const logoutTokenHash = hashToken(session_token);
         const [sessions] = await pool.query(
             'SELECT user_id FROM user_sessions WHERE session_token = ? AND is_active = 1',
-            [session_token]
+            [logoutTokenHash]
         );
 
         if (sessions.length > 0) {
             const userId = sessions[0].user_id;
-            
+
             await pool.query(
                 'UPDATE user_sessions SET logout_time = NOW(), is_active = 0 WHERE session_token = ?',
-                [session_token]
+                [logoutTokenHash]
             );
 
             await logAudit(
@@ -4086,6 +4074,25 @@ async function startServer() {
     // serve setup.html and the /api/setup/* endpoints.
     try {
         await testConnection();
+        // Auto-detect existing installation and lock setup wizard
+        if (!isSetupCompleted()) {
+            try {
+                const [rows] = await pool.query('SELECT COUNT(*) AS cnt FROM users WHERE is_active = 1');
+                if (rows[0].cnt > 0) {
+                    markSetupCompleted();
+                    generateRecoveryToken();
+                    console.log('[SETUP] Existing installation detected — setup wizard locked.');
+                }
+            } catch (_) { /* users table may not exist yet */ }
+        }
+        // T-8: Warn if MySQL accepts remote connections
+        try {
+            const [bindRows] = await pool.query("SHOW VARIABLES LIKE 'bind_address'");
+            const bindAddr = bindRows[0]?.Value;
+            if (bindAddr && bindAddr !== '127.0.0.1' && bindAddr !== '::1' && bindAddr !== 'localhost') {
+                console.warn(`⚠️  [SECURITY] MySQL bind-address is "${bindAddr}" — remote connections possible. Set bind-address=127.0.0.1 in my.ini for production.`);
+            }
+        } catch (_) { /* non-critical check */ }
     } catch (dbErr) {
         console.warn('⚠️  Database not reachable at startup — the setup wizard will handle it.');
     }
@@ -4106,4 +4113,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { app, startServer, pool };
+module.exports = { app, startServer, pool, sseTickets };

@@ -1,108 +1,160 @@
 /**
- * routes/setup.js
- * ---------------
- * Express router for the first-run setup wizard.  These endpoints let
- * the frontend read / test / save the database configuration before the
- * app has ever connected to MySQL (and therefore before any user table
- * or session table exists).
+ * routes/setup.js — hardened setup wizard (H-3)
  *
- * Security: a `setupGuard` middleware allows access in two cases:
- *   1. No session token present (pre-login / first boot) — open.
- *   2. A valid admin session — open.
- * Non-admin logged-in users are rejected with 403.
+ * Security model:
+ *   Fresh install (setup_completed === false):
+ *     - Only localhost requests are allowed (Electron desktop app).
+ *     - No auth token required (DB doesn't exist yet).
+ *   After initial setup (setup_completed === true):
+ *     - Only authenticated Deputy Officer can access.
+ *     - Localhost restriction lifted (admin may reconfigure remotely).
+ *   Recovery mode:
+ *     - A file-based, single-use, time-limited recovery token lets a
+ *       LOCAL operator regain access when the DB is down.
+ *     - Recovery tokens are consumed after the save operation.
+ *     - Recovery is restricted to localhost.
  */
 
 const express = require('express');
 const mysql   = require('mysql2/promise');
+const { hashToken } = require('../token-utils');
 const {
     loadConfig,
     saveConfig,
     validateDbConfig,
     applyToProcessEnv,
+    isSetupCompleted,
+    markSetupCompleted,
+    generateRecoveryToken,
+    validateRecoveryToken,
+    consumeRecoveryToken,
+    getRecoveryTokenPath,
 } = require('../config-manager');
 
 const router = express.Router();
 
-// ── security middleware ────────────────────────────────────────────
-/**
- * setupGuard
- * ----------
- * If the request carries a Bearer token:
- *   - Try to look up a matching active session + user.
- *   - If the user is a Deputy Officer → allow.
- *   - If the user is any other role  → 403 Forbidden.
- *   - If the token is invalid / expired → allow (treat as "no session",
- *     i.e. pre-login mode — the setup wizard must work before any DB is
- *     available, so we can't hard-fail on a bad token here).
- * If no token is present → allow (pre-login mode).
- *
- * The pool import is late-bound: at require-time the pool may not exist
- * yet (the setup wizard runs precisely because the DB isn't configured).
- */
+// ── helpers ───────────────────────────────────────────────────────
+
+function isLocalhostRequest(req) {
+    const ip = req.ip || req.connection?.remoteAddress || '';
+    return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+function logSetupAccess(req, action, granted, reason) {
+    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    const msg = `[SETUP-AUDIT] ${action} from ${ip} — ${granted ? 'ALLOWED' : 'DENIED'}: ${reason}`;
+    if (granted) {
+        console.log(msg);
+    } else {
+        console.warn(msg);
+    }
+}
+
+// ── security middleware ───────────────────────────────────────────
+
 async function setupGuard(req, res, next) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        // No token — pre-login mode, allow through.
+    const setupDone = isSetupCompleted();
+
+    // ── Recovery token bypass (localhost-only, any setup state) ──
+    const recoveryHeader = req.headers['x-recovery-token'];
+    if (recoveryHeader) {
+        if (!isLocalhostRequest(req)) {
+            logSetupAccess(req, req.method + ' ' + req.path, false, 'recovery token from non-localhost');
+            return res.status(403).json({ error: 'Recovery is only available from the local machine.' });
+        }
+        if (validateRecoveryToken(recoveryHeader)) {
+            req.recoveryMode = true;
+            logSetupAccess(req, req.method + ' ' + req.path, true, 'valid recovery token (localhost)');
+            return next();
+        }
+        logSetupAccess(req, req.method + ' ' + req.path, false, 'invalid or expired recovery token');
+        return res.status(401).json({ error: 'Invalid or expired recovery token.' });
+    }
+
+    // ── Fresh install: localhost-only, no auth needed ──
+    if (!setupDone) {
+        if (!isLocalhostRequest(req)) {
+            logSetupAccess(req, req.method + ' ' + req.path, false, 'fresh install — non-localhost');
+            return res.status(403).json({
+                error: 'Setup is only available from the local machine on first install.',
+            });
+        }
+        logSetupAccess(req, req.method + ' ' + req.path, true, 'fresh install — localhost');
         return next();
     }
 
-    const token = authHeader.split(' ')[1];
-    if (!token) return next();
+    // ── Post-setup: require Deputy Officer auth ──
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        logSetupAccess(req, req.method + ' ' + req.path, false, 'post-setup — no auth token');
+        return res.status(401).json({
+            error: 'Authentication required. Only the Deputy Officer can modify setup after initial configuration.',
+        });
+    }
 
-    // Late-require: the main server.js exports `pool`; it may be null
-    // or the DB may be unreachable on first boot.
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+        logSetupAccess(req, req.method + ' ' + req.path, false, 'post-setup — empty token');
+        return res.status(401).json({ error: 'Authentication required.' });
+    }
+
     let pool;
     try {
         pool = require('../server').pool;
     } catch (_) {
-        // server.js hasn't finished loading yet (circular require) or
-        // pool is unavailable — treat as pre-login.
-        return next();
+        logSetupAccess(req, req.method + ' ' + req.path, false, 'post-setup — pool unavailable');
+        return res.status(503).json({
+            error: 'Database unavailable. Use a recovery token to reconfigure.',
+        });
     }
 
-    if (!pool) return next();
+    if (!pool) {
+        logSetupAccess(req, req.method + ' ' + req.path, false, 'post-setup — pool null');
+        return res.status(503).json({
+            error: 'Database unavailable. Use a recovery token to reconfigure.',
+        });
+    }
 
     try {
+        const setupTokenHash = hashToken(token);
         const [sessions] = await pool.query(
             `SELECT s.user_id, u.role
              FROM user_sessions s
              JOIN users u ON u.id = s.user_id
              WHERE s.session_token = ? AND s.is_active = 1 AND s.logout_time IS NULL AND u.is_active = 1`,
-            [token]
+            [setupTokenHash]
         );
 
         if (sessions.length === 0) {
-            // Invalid / expired token — treat as pre-login.
-            return next();
+            logSetupAccess(req, req.method + ' ' + req.path, false, 'post-setup — invalid/expired token');
+            return res.status(401).json({ error: 'Invalid or expired session.' });
         }
 
         const { role } = sessions[0];
-        if (role === 'Deputy Officer') {
-            req.userId = sessions[0].user_id;
-            return next();
+        if (role !== 'Deputy Officer') {
+            logSetupAccess(req, req.method + ' ' + req.path, false, `post-setup — role ${role} denied`);
+            return res.status(403).json({ error: 'Forbidden: only the Deputy Officer can change setup.' });
         }
 
-        // Non-admin with a valid session — blocked.
-        return res.status(403).json({ error: 'Forbidden: only the Deputy Officer can change setup.' });
-    } catch (_) {
-        // DB query failed (e.g. tables don't exist yet) — treat as pre-login.
+        req.userId = sessions[0].user_id;
+        logSetupAccess(req, req.method + ' ' + req.path, true, 'post-setup — Deputy Officer');
         return next();
+    } catch (err) {
+        logSetupAccess(req, req.method + ' ' + req.path, false, `post-setup — DB error: ${err.message}`);
+        return res.status(503).json({
+            error: 'Database unavailable. Use a recovery token to reconfigure.',
+        });
     }
 }
 
-// Apply the guard to every route on this router.
 router.use(setupGuard);
 
-// ── GET /api/setup/config ──────────────────────────────────────────
-/**
- * Return the current config with the DB password masked.
- * No auth required (runs before login).
- */
+// ── GET /api/setup/config ────────────────────────────────────────
+
 router.get('/config', (req, res) => {
     try {
         const config = loadConfig();
 
-        // Mask the password for the response.
         const masked = JSON.parse(JSON.stringify(config));
         if (masked.db) {
             masked.db.password = masked.db.password ? '••••••' : '';
@@ -115,16 +167,11 @@ router.get('/config', (req, res) => {
     }
 });
 
-// ── POST /api/setup/test ───────────────────────────────────────────
-/**
- * Test a database connection with the supplied credentials.
- * Creates a one-off mysql2 connection (NOT from the pool).
- */
+// ── POST /api/setup/test ─────────────────────────────────────────
+
 router.post('/test', async (req, res) => {
     const { host, port, user, password, database } = req.body;
 
-    // If the frontend sends '__USE_SAVED__', the user hasn't changed the
-    // password — read the real one from the persisted config.
     let realPassword = password;
     if (password === '__USE_SAVED__') {
         const saved = loadConfig();
@@ -160,24 +207,18 @@ router.post('/test', async (req, res) => {
     }
 });
 
-// ── POST /api/setup/save ──────────────────────────────────────────
-/**
- * Validate, persist and apply a new database configuration.
- * Body: { db: { host, port, user, password, name } }
- */
-router.post('/save', (req, res) => {
+// ── POST /api/setup/save ─────────────────────────────────────────
+
+router.post('/save', async (req, res) => {
     try {
         const patch = req.body;
 
-        // If the password was not changed (still masked), carry forward
-        // the real saved password so we don't overwrite it with the mask.
         if (patch.db && patch.db.password === '__USE_SAVED__') {
             const saved = loadConfig();
             patch.db.password = saved.db.password;
         }
 
         const validation = validateDbConfig(patch);
-
         if (!validation.valid) {
             return res.status(400).json({ ok: false, errors: validation.errors });
         }
@@ -185,10 +226,73 @@ router.post('/save', (req, res) => {
         const merged = saveConfig(patch);
         applyToProcessEnv(merged);
 
-        res.json({ ok: true });
+        const wasFirstSetup = !isSetupCompleted();
+
+        if (wasFirstSetup) {
+            markSetupCompleted();
+            generateRecoveryToken();
+            console.log('[SETUP] Initial setup complete. Recovery token written to file system.');
+        }
+
+        if (req.recoveryMode) {
+            consumeRecoveryToken();
+        }
+
+        res.json({ ok: true, firstSetup: wasFirstSetup });
     } catch (err) {
         console.error('Setup /save error:', err.message);
         res.status(500).json({ error: 'Failed to save configuration.' });
+    }
+});
+
+// ── POST /api/setup/generate-recovery ────────────────────────────
+
+router.post('/generate-recovery', (req, res) => {
+    if (!isSetupCompleted()) {
+        return res.status(400).json({ error: 'Setup not yet completed.' });
+    }
+    if (!isLocalhostRequest(req)) {
+        logSetupAccess(req, 'generate-recovery', false, 'non-localhost');
+        return res.status(403).json({ error: 'Recovery tokens can only be generated from the local machine.' });
+    }
+    generateRecoveryToken();
+    logSetupAccess(req, 'generate-recovery', true, 'new recovery token written to file');
+    res.json({ ok: true, message: 'Recovery token written to file system. Check the server data directory.' });
+});
+
+// ── POST /api/setup/auto-detect ──────────────────────────────────
+
+router.post('/auto-detect', async (req, res) => {
+    if (isSetupCompleted()) {
+        return res.json({ ok: true, detected: false, message: 'Already configured.' });
+    }
+
+    const config = loadConfig();
+    let conn;
+    try {
+        conn = await mysql.createConnection({
+            host:     config.db.host,
+            port:     config.db.port,
+            user:     config.db.user,
+            password: config.db.password,
+            database: config.db.name,
+        });
+
+        const [[row]] = await conn.query('SELECT COUNT(*) AS cnt FROM users WHERE is_active = 1');
+        if (row.cnt > 0) {
+            markSetupCompleted();
+            generateRecoveryToken();
+            console.log('[SETUP] Existing installation detected — setup locked. Recovery token written to file system.');
+            res.json({ ok: true, detected: true, userCount: row.cnt });
+        } else {
+            res.json({ ok: true, detected: false, message: 'No users found — fresh install.' });
+        }
+    } catch (err) {
+        res.json({ ok: true, detected: false, message: `DB not reachable: ${err.message}` });
+    } finally {
+        if (conn) {
+            try { conn.destroy(); } catch (_) { /* ignore */ }
+        }
     }
 });
 

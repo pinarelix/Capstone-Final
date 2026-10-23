@@ -33,6 +33,7 @@ const CONFIG_DEFAULTS = {
         user: '',
         appPassword: '',
     },
+    setup_completed: false,
 };
 
 // ── paths ───────────────────────────────────────────────────────────
@@ -243,6 +244,77 @@ function applyToProcessEnv(cfg) {
     process.env.EMAIL_APP_PASSWORD = cfg.email.appPassword;
 }
 
+// ── setup state helpers ────────────────────────────────────────────
+
+const crypto = require('crypto');
+
+function isSetupCompleted() {
+    const cfg = loadConfig();
+    return cfg.setup_completed === true;
+}
+
+function markSetupCompleted() {
+    saveConfig({ setup_completed: true });
+}
+
+function getRecoveryTokenPath() {
+    return path.join(getDataDir(), '.setup-recovery-token');
+}
+
+const RECOVERY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function generateRecoveryToken() {
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenPath = getRecoveryTokenPath();
+    const dir = path.dirname(tokenPath);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    const payload = JSON.stringify({ token, created: Date.now() });
+    fs.writeFileSync(tokenPath, payload, 'utf8');
+    return token;
+}
+
+function validateRecoveryToken(candidate) {
+    if (!candidate || typeof candidate !== 'string') return false;
+    const tokenPath = getRecoveryTokenPath();
+    if (!fs.existsSync(tokenPath)) return false;
+    try {
+        const raw = fs.readFileSync(tokenPath, 'utf8').trim();
+        let stored, created;
+        try {
+            const parsed = JSON.parse(raw);
+            stored = parsed.token;
+            created = parsed.created;
+        } catch {
+            stored = raw;
+            created = 0;
+        }
+
+        if (!stored) return false;
+
+        // Expired tokens are invalid
+        if (created && (Date.now() - created) > RECOVERY_TOKEN_TTL_MS) {
+            consumeRecoveryToken();
+            return false;
+        }
+
+        // Length check before timingSafeEqual (it throws on mismatch)
+        const candidateBuf = Buffer.from(candidate, 'utf8');
+        const storedBuf = Buffer.from(stored, 'utf8');
+        if (candidateBuf.length !== storedBuf.length) return false;
+
+        return crypto.timingSafeEqual(candidateBuf, storedBuf);
+    } catch {
+        return false;
+    }
+}
+
+function consumeRecoveryToken() {
+    const tokenPath = getRecoveryTokenPath();
+    try { fs.unlinkSync(tokenPath); } catch { /* already gone */ }
+}
+
 // ── public API ──────────────────────────────────────────────────────
 
 module.exports = {
@@ -256,4 +328,10 @@ module.exports = {
     migrateIfNeeded,
     applyToProcessEnv,
     parseEnvToConfig,
+    isSetupCompleted,
+    markSetupCompleted,
+    getRecoveryTokenPath,
+    generateRecoveryToken,
+    validateRecoveryToken,
+    consumeRecoveryToken,
 };

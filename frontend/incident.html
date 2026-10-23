@@ -338,11 +338,33 @@
                             </div>
                         </div>
 
-                        <div class="form-section-header"><i class="fa-solid fa-location-dot"></i> Location Details</div>
+                        <div class="form-row" id="blotterNumberRow" style="display:none;">
+                            <div class="form-group">
+                                <label>Blotter Number</label>
+                                <input type="text" id="incidentBlotter" class="form-control" readonly style="background: #f1f5f9; color: #64748b; cursor: default;">
+                            </div>
+                        </div>
 
-                        <!-- ==========================================================
-                             ROW 3: STREET NAME DROPDOWN
-                        ========================================================== -->
+                        <div class="form-section-header" id="locationSectionHeader"><i class="fa-solid fa-location-dot"></i> Location Details</div>
+                        <div class="form-section-header" id="complainantLocationHeader" style="display:none;"><i class="fa-solid fa-users"></i> Complainant & Location Details</div>
+
+                        <div id="complainantFieldsTop" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>First Name <span class="req">*</span></label>
+                                <input type="text" id="complainantFirst" class="form-control" placeholder="e.g. Juan" maxlength="80">
+                            </div>
+                            <div class="form-group">
+                                <label>Middle Name</label>
+                                <input type="text" id="complainantMiddle" class="form-control" placeholder="e.g. Reyes" maxlength="80">
+                            </div>
+                            <div class="form-group">
+                                <label>Last Name <span class="req">*</span></label>
+                                <input type="text" id="complainantLast" class="form-control" placeholder="e.g. Dela Cruz" maxlength="80">
+                            </div>
+                        </div>
+                        </div>
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Street Name <span class="req">*</span></label>
@@ -426,10 +448,6 @@
                                 <label>Address <span class="req">*</span></label>
                                 <input type="text" id="incidentAddress" class="form-control" placeholder="e.g. House No. 12, near the chapel" maxlength="255">
                             </div>
-                            <div class="form-group" id="blotterGroup">
-                                <label>Blotter Number</label>
-                                <input type="text" id="incidentBlotter" class="form-control" readonly style="background: #f1f5f9; color: #64748b; cursor: default;">
-                            </div>
                         </div>
 
                         <!-- Structured address (blotter form) -->
@@ -454,36 +472,10 @@
                             </div>
                         </div>
 
-                        <!-- People Involved (blotter form only) -->
+                        <!-- Respondent (blotter form only) -->
                         <div id="blotterPeopleSection">
-                        <div class="form-section-header"><i class="fa-solid fa-users"></i> Complainant</div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>First Name <span class="req">*</span></label>
-                                <input type="text" id="complainantFirst" class="form-control" placeholder="e.g. Juan" maxlength="80">
-                            </div>
-                            <div class="form-group">
-                                <label>Middle Name</label>
-                                <input type="text" id="complainantMiddle" class="form-control" placeholder="e.g. Reyes" maxlength="80">
-                            </div>
-                            <div class="form-group">
-                                <label>Last Name <span class="req">*</span></label>
-                                <input type="text" id="complainantLast" class="form-control" placeholder="e.g. Dela Cruz" maxlength="80">
-                            </div>
-                        </div>
-                        <input type="hidden" id="incidentReportedByName">
-
                         <div class="form-section-header"><i class="fa-solid fa-user-slash"></i> Respondent</div>
 
-                        <div class="form-row">
-                            <div class="form-group" style="flex:0 0 auto; align-self:center;">
-                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                                    <input type="checkbox" id="respondentUnknown"> Unknown Respondent (draft)
-                                </label>
-                            </div>
-                        </div>
-                        <div id="respondentFieldsGroup">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>First Name</label>
@@ -504,20 +496,13 @@
                                 <input type="text" id="respondentAddress" class="form-control" placeholder="e.g. Blk 5 Lot 3, Acacia St." maxlength="500">
                             </div>
                         </div>
-                        </div>
                         <input type="hidden" id="respondentName">
+                        <input type="hidden" id="incidentReportedByName">
                         </div><!-- /blotterPeopleSection -->
 
-                        <!-- Reporter section (shown on BOTH forms) -->
-                        <div id="reporterSection">
+                        <!-- Reporter section (incident/crime form only) -->
+                        <div id="reporterSection" style="display:none;">
                         <div class="form-section-header"><i class="fa-solid fa-user"></i> Reporter</div>
-                        <div class="form-row" id="sameAsComplainantRow">
-                            <div class="form-group" style="flex:0 0 auto; align-self:center;">
-                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                                    <input type="checkbox" id="reporterSameAsComplainant"> Same as Complainant
-                                </label>
-                            </div>
-                        </div>
                         <div id="reporterFieldsGroup">
                         <div class="form-row">
                             <div class="form-group">
