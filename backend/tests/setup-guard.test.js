@@ -1,6 +1,8 @@
 const request = require('supertest');
 const bcrypt  = require('bcryptjs');
 const fs      = require('fs');
+const os      = require('os');
+const path    = require('path');
 const { app, pool } = require('../server');
 const {
     loadConfig,
@@ -10,26 +12,34 @@ const {
     markSetupCompleted,
     generateRecoveryToken,
     getRecoveryTokenPath,
+    setDataDir,
 } = require('../config-manager');
 
-let originalConfig;
+let originalConfig, originalConfigPath, setupTestDir;
 
 beforeAll(() => {
-    const cfgPath = getConfigPath();
-    if (fs.existsSync(cfgPath)) {
-        originalConfig = fs.readFileSync(cfgPath, 'utf8');
-    }
+    originalConfigPath = getConfigPath();
+    originalConfig = fs.existsSync(originalConfigPath) ? fs.readFileSync(originalConfigPath, 'utf8') : null;
+    setupTestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'brgy179-setup-test-'));
+    setDataDir(setupTestDir);
+    // Use only the disposable test DB, and never write to the running app's
+    // config/recovery-token paths. Windows may hold those real files open.
+    saveConfig({ db: {
+        host: process.env.DB_HOST || 'localhost', port: Number(process.env.DB_PORT) || 3306,
+        user: process.env.DB_USER || 'root', password: process.env.DB_PASSWORD || '', name: 'brgydata_test'
+    }, setup_completed: false });
 });
 
 afterAll(() => {
-    const cfgPath = getConfigPath();
-    if (originalConfig) {
-        fs.writeFileSync(cfgPath, originalConfig, 'utf8');
-    } else if (fs.existsSync(cfgPath)) {
-        fs.unlinkSync(cfgPath);
+    for (const file of [getConfigPath(), getConfigPath() + '.tmp', getRecoveryTokenPath()]) {
+        if (path.dirname(path.resolve(file)) !== path.resolve(setupTestDir)) throw new Error('Unsafe test cleanup path');
+        if (fs.existsSync(file)) fs.unlinkSync(file);
     }
-    const tokenPath = getRecoveryTokenPath();
-    try { fs.unlinkSync(tokenPath); } catch {}
+    // Non-recursive: unexpected files cause a test failure, not broad deletion.
+    fs.rmdirSync(setupTestDir);
+    setDataDir(null);
+    const current = fs.existsSync(originalConfigPath) ? fs.readFileSync(originalConfigPath, 'utf8') : null;
+    expect(current === originalConfig).toBe(true);
 });
 
 function setSetupCompleted(val) {
@@ -66,8 +76,12 @@ describe('Setup guard — post-setup', () => {
 
     let adminToken;
     let normalToken;
+    const bootToken = 'test-electron-boot-token-0123456789abcdef';
+    let originalBootToken;
 
     beforeAll(async () => {
+        originalBootToken = process.env.SETUP_BOOT_TOKEN;
+        process.env.SETUP_BOOT_TOKEN = bootToken;
         setSetupCompleted(true);
 
         const hash = await bcrypt.hash(password, 10);
@@ -97,6 +111,8 @@ describe('Setup guard — post-setup', () => {
         await pool.query('DELETE FROM audit_logs WHERE user_id IN (SELECT id FROM users WHERE username IN (?, ?))', [username, normalUser]);
         await pool.query('DELETE FROM login_history WHERE username IN (?, ?)', [username, normalUser]);
         await pool.query('DELETE FROM users WHERE username IN (?, ?)', [username, normalUser]);
+        if (originalBootToken === undefined) delete process.env.SETUP_BOOT_TOKEN;
+        else process.env.SETUP_BOOT_TOKEN = originalBootToken;
     });
 
     test('unauthenticated request is rejected with 401', async () => {
@@ -122,6 +138,57 @@ describe('Setup guard — post-setup', () => {
         const res = await request(app)
             .get('/api/setup/config')
             .set('Authorization', 'Bearer totally-invalid-token-123');
+        expect(res.status).toBe(401);
+    });
+
+    test('Electron setup window can access setup with its per-launch boot token', async () => {
+        const res = await request(app)
+            .get('/api/setup/config')
+            .set('X-Setup-Boot-Token', bootToken);
+        expect(res.status).toBe(200);
+        expect(res.body.db.password).not.toBe(loadConfig().db.password);
+    });
+
+    test('Electron setup window can test the configured database before login', async () => {
+        const config = loadConfig();
+        const res = await request(app)
+            .post('/api/setup/test')
+            .set('X-Setup-Boot-Token', bootToken)
+            .send({
+                host: process.env.DB_HOST,
+                port: Number(process.env.DB_PORT),
+                user: process.env.DB_USER,
+                password: process.env.DB_PASSWORD,
+                database: process.env.DB_NAME
+            });
+        expect(res.status).toBe(200);
+        expect(res.body.ok).toBe(true);
+        expect(res.body.tables).toBeGreaterThan(0);
+        expect(config.db.password).toBeTruthy();
+    });
+
+    test('unchanged setup config can continue without restarting the app', async () => {
+        const config = loadConfig();
+        const res = await request(app)
+            .post('/api/setup/save')
+            .set('X-Setup-Boot-Token', bootToken)
+            .send({
+                db: {
+                    host: config.db.host,
+                    port: config.db.port,
+                    user: config.db.user,
+                    password: '__USE_SAVED__',
+                    name: config.db.name
+                }
+            });
+        expect(res.status).toBe(200);
+        expect(res.body).toMatchObject({ ok: true, restartRequired: false });
+    });
+
+    test('invalid Electron boot token is rejected', async () => {
+        const res = await request(app)
+            .get('/api/setup/config')
+            .set('X-Setup-Boot-Token', 'wrong-electron-boot-token');
         expect(res.status).toBe(401);
     });
 });
@@ -151,6 +218,11 @@ describe('Setup guard — recovery token', () => {
 // ── Config-manager unit tests ──
 
 describe('config-manager setup helpers', () => {
+    test('setup tests use isolated files and the disposable database', () => {
+        expect(path.dirname(getConfigPath())).toBe(setupTestDir);
+        expect(getConfigPath()).not.toBe(originalConfigPath);
+        expect(loadConfig().db.name).toBe('brgydata_test');
+    });
     test('isSetupCompleted reads the flag', () => {
         saveConfig({ setup_completed: false });
         expect(isSetupCompleted()).toBe(false);

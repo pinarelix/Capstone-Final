@@ -1,0 +1,48 @@
+/* White encoding-form styling, using the shared dashboard tokens. */
+.record-map-modal[hidden], .record-map-actions[hidden] { display: none; }
+body.record-map-open { overflow: hidden; }
+.record-map-modal { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 20000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.record-map-dialog { width: min(1180px,100%); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--sidebar-border); border-radius: var(--radius-lg); background: var(--bg-card); color: var(--text-primary); box-shadow: 0 24px 80px #0f172a33; }
+.record-map-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--sidebar-border); }
+.record-map-header h2 { margin: 0; font-size: 1.15rem; }
+.record-map-header p, .record-browser-help { margin: 6px 0 0; color: var(--text-muted); font-size: .82rem; line-height: 1.5; }
+.record-map-body { display: grid; grid-template-columns: 300px minmax(0,1fr); min-height: 0; overflow: hidden; }
+.record-map-list { padding: 12px; border-right: 1px solid var(--sidebar-border); overflow-y: auto; background: #f8fafc; }
+.record-map-option { display: block; box-sizing: border-box; width: 100%; text-align: left; padding: 12px 14px; background: #fff; color: var(--text-primary); border: 1px solid var(--sidebar-border); border-radius: var(--radius-md); cursor: pointer; font: inherit; font-size: .85rem; line-height: 1.5; overflow-wrap: anywhere; }
+.record-map-list .record-map-option + .record-map-option { margin-top: 8px; }
+.record-map-option[aria-selected=true] { border-color: #0284c7; background: #f0f9ff; box-shadow: inset 3px 0 #0284c7; }
+.record-map-option small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: .78rem; }
+.record-map-option:focus-visible, .record-map-close:focus-visible { outline: 3px solid #0284c7; outline-offset: 2px; }
+@media (hover:hover) and (pointer:fine) { .record-map-option:hover { background: #f0f9ff; border-color: #0284c7; } }
+.record-map-detail { padding: 24px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+.record-map-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.record-map-grid .wide { grid-column: 1 / -1; }
+.record-map-section { min-width: 0; margin: 0 0 24px; padding: 0; border: 0; }
+.record-map-section legend { width: 100%; box-sizing: border-box; padding: 0 0 8px; margin-bottom: 16px; border-bottom: 2px solid var(--border-card); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+.record-map-detail label { display: block; font-size: .75rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+.record-map-detail input,.record-map-detail select,.record-map-detail textarea { box-sizing: border-box; width: 100%; padding: 10px 14px; border-radius: var(--radius-md); background: #fff; color: var(--text-primary); border: 1px solid var(--border-card); font: inherit; font-size: .85rem; }
+.record-map-detail textarea { resize: vertical; min-height: 84px; }
+.record-map-detail input:focus,.record-map-detail select:focus,.record-map-detail textarea:focus { outline: 2px solid #0284c7; outline-offset: 2px; }
+.record-map-detail :disabled, .record-map-detail [readonly] { background: #f8fafc; color: var(--text-secondary); opacity: 1; }
+.record-map-summary { padding: 0 0 20px; margin-bottom: 24px; border-bottom: 1px solid var(--sidebar-border); overflow-wrap: anywhere; }
+.record-map-identity { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.record-map-identity h3 { margin: 0; font-size: 1.15rem; }
+.record-map-badge { padding: 4px 9px; border-radius: 6px; background: #f1f5f9; color: var(--text-secondary); font-size: .78rem; font-weight: 600; }
+.record-map-score { display: flex; gap: 8px; align-items: baseline; margin: 12px 0 6px; color: var(--text-secondary); }
+.record-map-score strong { font-size: 1.35rem; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.record-map-summary p { margin: 6px 0 0; color: var(--text-secondary); font-size: .85rem; line-height: 1.6; }
+.record-map-people { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 18px; margin: 0; }
+.record-map-people div { min-width: 0; overflow-wrap: anywhere; }
+.record-map-people dt { font-size: .75rem; font-weight: 700; color: var(--text-muted); }
+.record-map-people dd { margin: 4px 0 0; font-size: .85rem; white-space: pre-wrap; }
+.record-map-linked { white-space: pre-wrap; padding: 12px 14px; background: #f8fafc; border: 1px solid var(--sidebar-border); border-radius: var(--radius-md); font-size: .85rem; line-height: 1.6; }
+.record-map-synthetic { padding: 10px 14px; margin: 0 0 18px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: var(--radius-md); color: #92400e; font-size: .8rem; }
+.record-map-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--sidebar-border); }
+.record-map-status { min-height: 22px; color: var(--text-secondary); margin-top: 10px; font-size: .85rem; }
+.record-map-field-help { display: block; margin-top: 6px; color: var(--text-muted); font-size: .75rem; text-align: right; }
+.record-map-close { flex-shrink: 0; width: 40px; height: 40px; border: 1px solid var(--sidebar-border); border-radius: var(--radius-md); background: #fff; color: var(--text-secondary); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+.record-browser { padding: 20px; }
+.record-browser h2 { margin: 0; font-size: 1rem; }
+.record-browser-list { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; margin-top: 16px; padding: 4px; }
+.record-browser-empty { margin: 12px 0; color: var(--text-muted); font-size: .85rem; }
+@media(max-width:760px) { .record-map-modal { padding: 8px; } .record-map-dialog { max-height: 96vh; } .record-map-header { padding: 16px; } .record-map-body { grid-template-columns: 1fr; overflow-y: auto; } .record-map-list { max-height: 170px; border-right: 0; border-bottom: 1px solid var(--sidebar-border); } .record-map-detail { padding: 18px; overflow-y: visible; } .record-map-grid,.record-map-people { grid-template-columns: 1fr; } }

@@ -762,7 +762,7 @@ body.role-desk-officer .admin-badge {
    so Decision-Maker's existing read-only schedule view is unchanged.
    Scoped to the Schedules table specifically - Desk Officer manages
    assignments, not patrol log entries. */
-body.role-desk-officer #scheduleTableBody .btn-action-edit {
+body.role-admin #scheduleTableBody .btn-action-edit {
     display: inline-block !important;
 }
 
@@ -781,6 +781,8 @@ body.role-desk-officer #scheduleTableBody .btn-action-edit {
    he can still click into. The "Patrol Schedules" list tab stays
    visible so he can still see what's scheduled. */
 body.role-decision-maker #scheduleSuggestionsSection,
+body.role-desk-officer #scheduleSuggestionsSection,
+body.role-desk-officer #scheduleFormCard,
 body.role-decision-maker #scheduleFormCard,
 body.role-decision-maker #logFormCard {
     display: none !important;
@@ -899,3 +901,10 @@ body.role-decision-maker .cart-score-chip {
     0% { transform: scale(0.95) translateY(10px); opacity: 0; }
     100% { transform: scale(1) translateY(0); opacity: 1; }
 }
+#scheduleFormCard[hidden], #manualPatrolLabel[hidden] { display: none !important; }
+.recommendations-listbox { display:flex; flex-direction:column; max-height:440px; overflow-y:auto; border:1px solid #94a3b8; border-radius:8px; background:#fff; }
+.recommendations-listbox .rec-card { flex-shrink:0; padding:14px 18px; margin:0; border:0; border-bottom:1px solid #e2e8f0; border-radius:0; box-shadow:none; transform:none; animation:none; }
+.recommendations-listbox .rec-card:last-child { border-bottom:0; }
+.recommendations-listbox .rec-card .rec-details, .recommendations-listbox .rec-card .danger-level, .recommendations-listbox .rec-card .rec-card-view-hint { display:none; }
+.recommendations-listbox .rec-card:hover, .recommendations-listbox .rec-card[aria-selected="true"] { background:#f0f9ff; transform:none; }
+.recommendations-listbox .rec-card:focus-visible { outline:3px solid #0284c7; outline-offset:-3px; }

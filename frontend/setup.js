@@ -5,6 +5,26 @@
 
 document.addEventListener('DOMContentLoaded', function () {
 
+    // Electron supplies a random, per-launch token in the initial URL. Keep it
+    // only for this tab and remove it from the visible address/history entry.
+    var initialParams = new URLSearchParams(window.location.search);
+    var tokenFromUrl = initialParams.get('boot_token');
+    if (tokenFromUrl) {
+        sessionStorage.setItem('setup_boot_token', tokenFromUrl);
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    var setupBootToken = sessionStorage.getItem('setup_boot_token') || '';
+
+    function setupHeaders(includeJson) {
+        var headers = {};
+        if (includeJson) headers['Content-Type'] = 'application/json';
+        if (setupBootToken) headers['X-Setup-Boot-Token'] = setupBootToken;
+        // Reopening from EO Settings still uses server-side role checks.
+        var authToken = sessionStorage.getItem('token');
+        if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+        return headers;
+    }
+
     // =========================================================
     // API URL (same logic as apiHelper.js)
     // =========================================================
@@ -165,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             var response = await fetch(API_URL + '/setup/test', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: setupHeaders(true),
                 body: JSON.stringify(fields)
             });
 
@@ -219,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             var response = await fetch(API_URL + '/setup/save', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: setupHeaders(true),
                 body: JSON.stringify({
                     db: {
                         host:     fields.host,
@@ -234,8 +254,16 @@ document.addEventListener('DOMContentLoaded', function () {
             var data = await response.json();
 
             if (data.ok) {
-                // Redirect to login page
-                window.location.href = 'login.html';
+                if (data.restartRequired) {
+                    showStatus(
+                        'success',
+                        'Configuration saved',
+                        'Restarting the application with the new database connection…'
+                    );
+                    btnLaunch.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Restarting…';
+                } else {
+                    window.location.href = 'login.html';
+                }
             } else {
                 showStatus(
                     'error',
@@ -290,7 +318,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function loadConfig() {
         try {
-            var response = await fetch(API_URL + '/setup/config');
+            var response = await fetch(API_URL + '/setup/config', {
+                headers: setupHeaders(false)
+            });
 
             if (!response.ok) {
                 // No saved config (404 or error) — keep defaults

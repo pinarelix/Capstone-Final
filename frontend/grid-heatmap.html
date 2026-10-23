@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="sidebar-state.js"></script>
+    <link rel="preload" href="vendor/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barangay 179 Crime BI — Grid Risk Map</title>
 
     <!-- Mapbox GL JS -->
-    <link rel="stylesheet" href="vendor/css/mapbox-gl-2.15.0.css">
+    <link rel="stylesheet" href="vendor/css/maplibre-gl-5.24.0.css">
 
     <!-- Dashboard CSS -->
     <link rel="stylesheet" href="dashboard.css">
@@ -47,20 +49,20 @@
         }
 
         .mapboxgl-popup-content {
-            background: rgba(15, 23, 42, 0.95) !important;
-            color: #ffffff !important;
+            background: #ffffff !important;
+            color: var(--text-primary) !important;
             border-radius: 12px !important;
             padding: 14px !important;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
-            border: 1px solid rgba(255,255,255,0.1) !important;
+            box-shadow: var(--shadow-md) !important;
+            border: 1px solid var(--sidebar-border) !important;
         }
 
         .mapboxgl-popup-tip {
-            border-top-color: rgba(15, 23, 42, 0.95) !important;
+            border-top-color: #ffffff !important;
         }
 
         .mapboxgl-popup-close-button {
-            color: #94a3b8 !important;
+            color: var(--text-secondary) !important;
             font-size: 18px !important;
             padding: 4px 8px !important;
         }
@@ -612,6 +614,8 @@
             }
         }
     </style>
+<link rel="stylesheet" href="sidebar-drag.css">
+<link rel="stylesheet" href="record-map.css">
 </head>
 <body>
 
@@ -634,7 +638,7 @@
         <div class="user-profile">
             <div class="profile-info">
                 <h3 id="userNameDisplay">Barangay Secretary</h3>
-                <p id="userRoleDisplay">Deputy Officer - Full System Access</p>
+                <p id="userRoleDisplay">Executive Officer - Full System Access</p>
             </div>
         </div>
 
@@ -684,7 +688,7 @@
         <header class="top-header">
             <div class="header-titles">
                 <h1>Geospatial Risk Map</h1>
-                <p>Severity-weighted heatmap with street-level decision tree analysis for Barangay 179, Amparo, Caloocan City.</p>
+                <p>Patrol-eligible incident and blotter locations, colored by each record's current CART score.</p>
             </div>
         </header>
 
@@ -695,7 +699,7 @@
                     <i class="fa-solid fa-file-lines heatmap-flat-icon heatmap-flat-icon--blue"></i>
                     <span class="heatmap-metric-flat-value" id="kpi-incidents">0</span>
                 </div>
-                <span class="heatmap-metric-label">Total Incidents</span>
+                <span class="heatmap-metric-label">Patrol-eligible Records</span>
                 <p class="heatmap-metric-flat-desc">Records mapped in the grid.</p>
             </div>
             <div class="heatmap-metric-flat">
@@ -719,18 +723,18 @@
                     <i class="fa-solid fa-triangle-exclamation heatmap-flat-icon heatmap-flat-icon--red"></i>
                     <span class="heatmap-metric-flat-value" id="kpi-high">0</span>
                 </div>
-                <span class="heatmap-metric-label">High Severity Cells</span>
-                <p class="heatmap-metric-flat-desc">Cells with avg CART score ≥ 67.</p>
+                <span class="heatmap-metric-label">High CART Cells</span>
+                <p class="heatmap-metric-flat-desc" id="highCellDescription">High-risk cells follow current CART thresholds.</p>
             </div>
             <div class="heatmap-metric-flat heatmap-metric-flat--wide">
                 <div class="heatmap-metric-flat-top">
                     <i class="fa-solid fa-location-dot heatmap-flat-icon heatmap-flat-icon--green"></i>
-                    <span class="heatmap-metric-label" style="margin-bottom: 0;">Top 3 Hotspot Areas</span>
+                    <span class="heatmap-metric-label" style="margin-bottom: 0;">Patrol Coverage</span>
                 </div>
                 <div class="hotspot-rank-list" id="kpi-hotspot">
                     <div class="hotspot-rank-row"><span class="hotspot-rank-name">N/A</span></div>
                 </div>
-                <p class="heatmap-metric-flat-desc">Streets with the most incidents in the current filter.</p>
+                <p class="heatmap-metric-flat-desc">Coverage is shown separately from the original CART assessment.</p>
             </div>
         </div>
 
@@ -739,7 +743,7 @@
             <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
                 <div>
                     <h2>Barangay 179 — Geospatial Risk Heatmap</h2>
-                    <span class="map-subtitle">CART-weighted heat radiation + street-level risk analysis</span>
+                    <span class="map-subtitle">Exact record pins with live CART thresholds</span>
                 </div>
                 <div class="gh-toolbar">
                     <div class="gh-filter-chip">
@@ -761,9 +765,6 @@
                         <span class="gh-filter-icon"><i class="fa-solid fa-calendar-days"></i></span>
                         <select id="heatmapPeriod" class="gh-select"></select>
                     </div>
-                    <button type="button" id="toggleStreetBtn" class="gh-toggle-btn active">
-                        <i class="fa-solid fa-street-view"></i> Street Analysis
-                    </button>
                     <span class="gh-science-badge"><i class="fa-solid fa-flask"></i> Geospatial Analysis</span>
                 </div>
             </div>
@@ -771,73 +772,57 @@
             <div id="mapWrap">
                 <div id="map"></div>
                 <div class="grid-legend">
-                    <strong>INCIDENT SEVERITY</strong>
-                    <div class="legend-row"><span class="legend-square high"></span> High</div>
-                    <div class="legend-row"><span class="legend-square moderate"></span> Moderate</div>
-                    <div class="legend-row"><span class="legend-square low"></span> Low</div>
+                    <strong>RECORD CART SCORE</strong>
+                    <div class="legend-row"><span class="legend-square high"></span> <span id="legendHigh">High</span></div>
+                    <div class="legend-row"><span class="legend-square moderate"></span> <span id="legendModerate">Moderate</span></div>
+                    <div class="legend-row"><span class="legend-square low"></span> <span id="legendLow">Low</span></div>
                     <div class="legend-row"><span class="legend-square no-data"></span> No Data</div>
                 </div>
             </div>
         </div>
 
-        <!-- =========================================================
-             INCIDENT DETAILS SECTION (BABA NG MAP)
-        ========================================================== -->
-        <div class="incident-details-section" id="incidentDetailsSection">
-            <div class="section-header">
-                <h3><i class="fa-solid fa-location-dot"></i> Incident Details</h3>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div class="gh-filter-chip" style="margin: 0;">
-                        <span class="gh-filter-icon"><i class="fa-solid fa-file-lines"></i></span>
-                        <input type="text" id="blotterNumberFilter" class="gh-select" placeholder="Search Blotter No." style="width: 160px; border: none; outline: none; background: transparent; font-size: 0.82rem;">
-                    </div>
-                    <span class="location-badge" id="selectedLocationBadge">Click a circle on the map</span>
+        <div class="record-map-actions">
+            <label for="mapWindowDays">Record window</label>
+            <select id="mapWindowDays"><option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option><option value="365">Last year</option><option value="all">All dates (paged)</option></select>
+            <button id="mapPreviousPage" type="button" class="btn btn-secondary" disabled>Previous page</button>
+            <button id="mapNextPage" type="button" class="btn btn-secondary" disabled>Next page</button>
+        </div>
+        <p id="mapLoadStatus" role="status">Loading patrol map...</p>
+        <section class="card record-browser" aria-labelledby="mapRecordBrowserTitle">
+            <h2 id="mapRecordBrowserTitle">Browse visible records <span id="mapRecordCount" class="record-map-badge">0 records</span></h2>
+            <p id="mapRecordBrowserHelp" class="record-browser-help">Highest CART score first. Click a record to open details, or use arrow keys to browse and Enter to open.</p>
+            <div id="mapRecordList" class="record-browser-list" role="listbox" aria-label="Visible patrol records by CART score" aria-describedby="mapRecordBrowserHelp" aria-orientation="vertical"></div>
+            <p id="mapRecordEmpty" class="record-browser-empty" hidden>No patrol-eligible records match the selected filters.</p>
+        </section>
+        <div id="mapRecordModal" class="record-map-modal" hidden>
+            <section class="record-map-dialog" role="dialog" aria-modal="true" aria-labelledby="mapRecordTitle">
+                <header class="record-map-header"><div><h2 id="mapRecordTitle">Record details</h2><p>Records are ordered by CART score, highest first.</p></div>
+                    <button id="closeMapRecord" class="record-map-close" type="button" aria-label="Close record details">&times;</button></header>
+                <div class="record-map-body">
+                    <div id="mapRecordListbox" class="record-map-list" role="listbox" aria-label="Selected records by CART score" aria-orientation="vertical"></div>
+                    <div id="mapRecordDetail" class="record-map-detail"></div>
                 </div>
-            </div>
-            <div class="table-responsive">
-                <table class="data-table" id="detailsTable">
-                    <thead>
-                        <tr>
-                            <th>BLOTTER NO.</th>
-                            <th>FORM</th>
-                            <th>INCIDENT ID</th>
-                            <th>TYPE</th>
-                            <th>DATE / TIME</th>
-                            <th>STATUS</th>
-                            <th>DANGER LEVEL</th>
-                            <th>RECOMMENDED ACTION</th>
-                            <th>LOCATION</th>
-                            <th>ADDRESS</th>
-                        </tr>
-                    </thead>
-                    <tbody id="detailsTableBody">
-                        <tr>
-                            <td colspan="10">
-                                <div class="empty-state">
-                                    <i class="fa-regular fa-circle"></i>
-                                    <p>Click on a heatmap circle to view incident details</p>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+            </section>
         </div>
 
     </main>
 </div>
 
 <!-- Mapbox GL JS -->
-<script src="vendor/js/mapbox-gl-2.15.0.js"></script>
+<script src="vendor/js/maplibre-gl-5.24.0.js"></script>
 
 <!-- Mapbox barangay boundary map setup -->
+<script src="barangay-boundary.js"></script>
 <script src="mapboxHelper.js"></script>
 
 <!-- 2. API HELPER (IKALAWA - CRITICAL!) -->
 <script src="apiHelper.js"></script>
+<script src="locationList.js"></script>
 
 <!-- Grid Heatmap JS -->
+<script src="heatmap-analytics.js"></script>
 <script src="grid-heatmap.js"></script>
+<script src="record-map-panel.js"></script>
 
 <!-- =========================================================
      LOGOUT CONFIRMATION MODAL

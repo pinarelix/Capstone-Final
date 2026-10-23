@@ -8,15 +8,17 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const NodeCache = require('node-cache');
-const FileType = require('file-type');
 const nodemailer = require('nodemailer');
 const helmet = require('helmet');
 const expressRateLimit = require('express-rate-limit');
 const cartEngine = require('./cart-engine');
+const { normalizeRole, LEGACY_EXECUTIVE } = require('./roles');
+const { createRecordPatrol, notesSchema, overrideSchema, dateOnlySchema } = require('./recordPatrol');
 const { BARANGAY_LOCATIONS } = require('./locationList');
 const { createArchive, registerArchiveRoutes } = require('./archive');
 const { isSetupCompleted, markSetupCompleted, generateRecoveryToken } = require('./config-manager');
 const { hashToken, generateSessionToken, generateResetToken } = require('./token-utils');
+const { pagination, appendDateFilters, registerRecordSummaries } = require('./recordQueries');
 
 // The installed desktop app passes APP_CONFIG_PATH/UPLOADS_DIR (see
 // main.js) so settings and uploaded files live in the user's AppData
@@ -66,7 +68,10 @@ function broadcastNotification(payload) {
 
 app.use(helmet({
     contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    // OSM requires an identifiable client/referrer. Helmet's no-referrer
+    // default removes the origin even though tile requests are permitted.
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 
 app.use(express.json());
@@ -75,10 +80,10 @@ app.use((req, res, next) => {
     res.setHeader('Content-Security-Policy',
         "default-src 'self'; " +
         "script-src 'self' 'unsafe-inline'; " +
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-        "font-src 'self' https://fonts.gstatic.com; " +
-        "img-src 'self' data: blob: https://api.mapbox.com https://*.tiles.mapbox.com; " +
-        "connect-src 'self' https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "font-src 'self'; " +
+        "img-src 'self' data: blob: https://tile.openstreetmap.org; " +
+        "connect-src 'self' https://tile.openstreetmap.org; " +
         "worker-src 'self' blob:; " +
         "frame-src 'none'"
     );
@@ -94,6 +99,9 @@ const apiLimiter = expressRateLimit({
 });
 app.use('/api/', apiLimiter);
 
+// Bundled fonts/icons and versioned vendor libraries should be reused during
+// navigation. HTML and application scripts retain revalidation on upgrade.
+app.use('/vendor', express.static(path.join(__dirname, '..', 'frontend', 'vendor'), { maxAge: '1d' }));
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 // Gated by a short-lived file token (?ftoken=...) instead of being a
@@ -152,11 +160,18 @@ const ALLOWED_MAGIC_MIMES = new Set([
     'video/mp4', 'video/webm', 'video/quicktime'
 ]);
 
+let fileTypeModulePromise;
+function loadFileType() {
+    fileTypeModulePromise ||= import('file-type');
+    return fileTypeModulePromise;
+}
+
 async function validateMagicBytes(req, res, next) {
     const files = req.file ? [req.file] : (req.files || []);
     for (const file of files) {
         try {
-            const type = await FileType.fromFile(file.path);
+            const { fileTypeFromFile } = await loadFileType();
+            const type = await fileTypeFromFile(file.path);
             if (!type || !ALLOWED_MAGIC_MIMES.has(type.mime)) {
                 fs.unlink(file.path, () => {});
                 return res.status(400).json({
@@ -279,6 +294,7 @@ function composeStructuredAddress(b) {
     if (b.addr_lot) parts.push(`Lot ${b.addr_lot}`);
     if (b.addr_house_no) parts.push(`House No. ${b.addr_house_no}`);
     if (b.addr_unit) parts.push(`Unit ${b.addr_unit}`);
+    if (parts.length === 0 && b.address) return b.address;
     const street = b.addr_street || b.street_name;
     let composed = parts.join(', ');
     if (street) composed = composed ? `${composed}, ${street}` : street;
@@ -373,6 +389,8 @@ async function testConnection() {
 
 // Incident Schema
 const incidentSchema = Joi.object({
+    patrol_notes: notesSchema,
+    patrol_override: overrideSchema,
     incident_type: Joi.string().max(150).required(),
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
@@ -446,7 +464,7 @@ const userSchema = Joi.object({
     name: Joi.string().max(100).required(),
     username: Joi.string().min(3).max(50).required(),
     password: Joi.string().min(8).max(128).required(),
-    role: Joi.string().valid('Deputy Officer', 'Kagawad', 'Team Leader').required(),
+    role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     contact_no: Joi.string().max(20).allow('', null),
     email: Joi.string().email({ tlds: false }).max(100).required()
 });
@@ -478,6 +496,12 @@ const resetPasswordSchema = Joi.object({
 
 // Patrol Schedule Schema
 const scheduleSchema = Joi.object({
+    incident_id: Joi.number().integer().positive().allow(null),
+    scheduled_date: dateOnlySchema.allow(null, ''),
+    priority: Joi.string().valid('High', 'Moderate', 'Low'),
+    exact_address: Joi.string().max(255).allow(''),
+    tanod_ids: Joi.array().items(Joi.number().integer().positive()).unique().max(30),
+    manual_patrol: Joi.boolean(),
     location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
     start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
@@ -756,7 +780,7 @@ function requireRole(allowedRoles) {
                 return res.status(401).json({ error: 'User not found or inactive' });
             }
 
-            const userRole = users[0].role;
+            const userRole = normalizeRole(users[0].role);
 
             if (!allowedRoles.includes(userRole)) {
                 return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
@@ -777,7 +801,7 @@ function requireRole(allowedRoles) {
 const sseTickets = new Map(); // ticketHash → { userId, sessionHash, createdAt }
 const SSE_TICKET_TTL_MS = 30 * 1000; // 30 seconds to connect
 
-app.post('/api/notifications/ticket', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), (req, res) => {
+app.post('/api/notifications/ticket', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), (req, res) => {
     const ticket = crypto.randomBytes(24).toString('base64url');
     const ticketHash = hashToken(ticket);
     const sessionHash = hashToken(req.headers.authorization.split(' ')[1]);
@@ -1369,7 +1393,19 @@ async function recomputeAllCartRiskFactors({ triggeredBy = null } = {}) {
 // USER MANAGEMENT API ROUTES
 // ============================================================
 
-app.get('/api/users', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+const recordPatrol = createRecordPatrol({
+    pool, cartEngine, authenticate, requireRole, validate, resolveRegistry,
+    computeCartRiskFactors, computeTimeOfDay, getDayOfWeek, isDateWeekend,
+    logAudit, locations: BARANGAY_LOCATIONS,
+    configureCart: async () => {
+        await applyConfiguredThresholds();
+        await applyConfiguredWeights();
+        await applyConfiguredSourceWeights();
+    }
+});
+recordPatrol.register(app);
+
+app.get('/api/users', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT
@@ -1388,7 +1424,7 @@ app.get('/api/users', authenticate, requireRole(['Deputy Officer']), async (req,
 // Registered before /api/users/:id - Express matches routes in
 // registration order, and "search" would otherwise match :id first
 // (as a literal id value, 404ing instead of ever reaching this handler).
-app.get('/api/users/search', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.get('/api/users/search', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const { q } = req.query;
 
@@ -1424,7 +1460,7 @@ app.get('/api/users/search', authenticate, requireRole(['Deputy Officer']), asyn
     }
 });
 
-app.get('/api/users/:id', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.get('/api/users/:id', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT
@@ -1444,7 +1480,7 @@ app.get('/api/users/:id', authenticate, requireRole(['Deputy Officer']), async (
     }
 });
 
-app.post('/api/users', authenticate, requireRole(['Deputy Officer']), validate(userSchema), async (req, res) => {
+app.post('/api/users', authenticate, requireRole(['Executive Officer']), validate(userSchema), async (req, res) => {
     try {
         const { name, username, password, role, contact_no, email } = req.body;
 
@@ -1518,12 +1554,12 @@ app.post('/api/users', authenticate, requireRole(['Deputy Officer']), validate(u
 const userUpdateSchema = Joi.object({
     name: Joi.string().max(100).required(),
     username: Joi.string().min(3).max(50).required(),
-    role: Joi.string().valid('Deputy Officer', 'Kagawad', 'Team Leader').required(),
+    role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     email: Joi.string().email({ tlds: false }).max(100).required(),
     password: Joi.string().min(8).max(128).allow('', null).optional()
 });
 
-app.put('/api/users/:id', authenticate, requireRole(['Deputy Officer']), validate(userUpdateSchema), async (req, res) => {
+app.put('/api/users/:id', authenticate, requireRole(['Executive Officer']), validate(userUpdateSchema), async (req, res) => {
     try {
         const { name, username, role, email, password } = req.body;
         const userId = req.params.id;
@@ -1557,7 +1593,7 @@ app.put('/api/users/:id', authenticate, requireRole(['Deputy Officer']), validat
     }
 });
 
-app.put('/api/users/:id/email', authenticate, requireRole(['Deputy Officer']), validate(userEmailSchema), async (req, res) => {
+app.put('/api/users/:id/email', authenticate, requireRole(['Executive Officer']), validate(userEmailSchema), async (req, res) => {
     try {
         const { email } = req.body;
         const [result] = await pool.query(
@@ -1577,7 +1613,7 @@ app.put('/api/users/:id/email', authenticate, requireRole(['Deputy Officer']), v
     }
 });
 
-app.delete('/api/users/:id', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.delete('/api/users/:id', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const userId = req.params.id;
         const loggedInUserId = req.userId;
@@ -1640,7 +1676,7 @@ app.delete('/api/users/:id', authenticate, requireRole(['Deputy Officer']), asyn
     }
 });
 
-app.get('/api/users-list', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/users-list', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT id, name FROM users WHERE is_active = 1 ORDER BY name'
@@ -1737,6 +1773,7 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
         await logAudit(user.id, 'LOGIN', 'users', user.id, null, { username: user.username, role: user.role }, req);
         
         const { password_hash, ...userData } = user;
+        userData.role = normalizeRole(userData.role);
         
         
         res.json({
@@ -1754,7 +1791,7 @@ app.post('/api/auth/login', authRateLimit, validate(loginSchema), async (req, re
 // 📋 GET LOGIN HISTORY - PUBLIC (NO AUTH REQUIRED)
 // ============================================================
 
-app.get('/api/login-history', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.get('/api/login-history', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         
         const [rows] = await pool.query(`
@@ -2005,10 +2042,12 @@ app.get('/api/incidents/next-blotter', authenticate, async (req, res) => {
     }
 });
 
-app.get('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+registerRecordSummaries(app, { pool, authenticate, readRoles: requireRole(['Executive Officer', 'Kagawad', 'Team Leader']) });
+
+app.get('/api/incidents', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
-        const { page = 1, limit = 25, search = '', type = '', danger = '', date = '', status = '', include_resolved = '', form_type = '' } = req.query;
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const { page, limit, offset: skip } = pagination(req.query);
+        const { search = '', type = '', danger = '', date = '', status = '', include_resolved = '', form_type = '' } = req.query;
 
         // Search/filter moved server-side (was previously done client-side
         // over the whole loaded array) so real pagination doesn't silently
@@ -2044,10 +2083,12 @@ app.get('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad'
             params.push(date);
         }
         if (form_type) {
-            filter.push('COALESCE(incidents.form_type, \'blotter\') = ?');
-            params.push(form_type);
+            if (!['crime','blotter'].includes(form_type)) return res.status(400).json({ error: 'Invalid record form type' });
+            filter.push('incidents.source = ?');
+            params.push(form_type === 'crime' ? 'incident' : 'blotter');
         }
 
+        appendDateFilters(req.query, filter, params, 'incidents');
         const whereClause = filter.length > 0 ? `WHERE ${filter.join(' AND ')}` : '';
 
         const [countResult] = await pool.query(
@@ -2067,7 +2108,7 @@ app.get('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad'
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
             ${whereClause}
-            ORDER BY incidents.date DESC, incidents.time DESC
+            ORDER BY incidents.date DESC, incidents.time DESC, incidents.id DESC
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), skip]);
 
@@ -2090,14 +2131,14 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
             return res.status(401).json({ error: 'User not found' });
         }
 
-        const userRole = users[0].role;
+        const userRole = normalizeRole(users[0].role);
 
-        if (!['Kagawad', 'Deputy Officer', 'Kagawad', 'Team Leader'].includes(userRole)) {
+        if (!['Kagawad', 'Executive Officer', 'Kagawad', 'Team Leader'].includes(userRole)) {
             return res.status(403).json({ error: 'Access denied. View-only for Captain and above.' });
         }
 
-        const { page = 1, limit = 10, search = '', type = '', status = '', include_resolved = '', form_type = '' } = req.query;
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const { page, limit, offset: skip } = pagination(req.query, 10);
+        const { search = '', type = '', status = '', include_resolved = '', form_type = '' } = req.query;
 
         let filter = ['incidents.is_draft = 0'];
         let params = [];
@@ -2123,10 +2164,12 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         }
 
         if (form_type) {
-            filter.push("COALESCE(incidents.form_type, 'blotter') = ?");
-            params.push(form_type);
+            if (!['crime','blotter'].includes(form_type)) return res.status(400).json({ error: 'Invalid record form type' });
+            filter.push('incidents.source = ?');
+            params.push(form_type === 'crime' ? 'incident' : 'blotter');
         }
 
+        appendDateFilters(req.query, filter, params, 'incidents');
         const whereClause = filter.length > 0 ? `WHERE ${filter.join(' AND ')}` : '';
 
         const [countResult] = await pool.query(`
@@ -2150,7 +2193,7 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
             ${whereClause}
-            ORDER BY incidents.date DESC, incidents.time DESC
+            ORDER BY incidents.date DESC, incidents.time DESC, incidents.id DESC
             LIMIT ? OFFSET ?
         `, params);
 
@@ -2180,9 +2223,9 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
             return res.status(401).json({ error: 'User not found' });
         }
 
-        const userRole = users[0].role;
+        const userRole = normalizeRole(users[0].role);
 
-        if (!['Kagawad', 'Deputy Officer', 'Kagawad', 'Team Leader'].includes(userRole)) {
+        if (!['Kagawad', 'Executive Officer', 'Kagawad', 'Team Leader'].includes(userRole)) {
             return res.status(403).json({ error: 'Access denied. View-only for Captain and above.' });
         }
 
@@ -2212,7 +2255,8 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
             const [base] = await pool.query(
                 `SELECT complainant_first, complainant_middle, complainant_last,
                         respondent_first, respondent_middle, respondent_last,
-                        reporter_first, reporter_middle, reporter_last,
+                        reporter_first, reporter_middle, reporter_last, reporter_address, reporter_contact,
+                        complainant_contact,
                         addr_block, addr_lot, addr_house_no, addr_street, addr_unit,
                         no_evidence, no_evidence_reason
                  FROM \`${reg.table}\` WHERE id = ?`, [reg.source_id]);
@@ -2224,123 +2268,33 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
             [req.params.id]
         );
 
-        res.json({ ...row, ...structured, evidence });
+        const patrol = await recordPatrol.metadata(row.id);
+        const [linkedPatrols] = await pool.query(`SELECT ps.*, pr.scheduled_date, pr.priority, pr.exact_address,
+            (SELECT GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ', ') FROM patrol_schedule_tanods st
+             JOIN tanods t ON t.id = st.tanod_id WHERE st.schedule_id = ps.id) AS assigned_tanods
+            FROM patrol_schedules ps JOIN patrol_schedule_records pr ON pr.schedule_id=ps.id
+            WHERE pr.incident_id=? ORDER BY pr.scheduled_date DESC, ps.id DESC`, [row.id]);
+        res.json({ ...row, ...structured, ...patrol, evidence, linked_patrols: linkedPatrols });
 
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch incident' });
     }
 });
 
-app.get('/api/heatmap/incidents', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
-    try {
-        const cached = heatmapCache.get('incidents');
-        if (cached) {
-            return res.json(cached);
-        }
-
-        const [rows] = await pool.query(`
-            SELECT
-                incidents.*,
-                users.name as reporter_name,
-                rf.total_risk_score as cart_score
-            FROM incidents
-            LEFT JOIN users ON incidents.reporter_id = users.id
-            LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
-            WHERE TRIM(incidents.status) != 'Resolved' AND incidents.is_draft = 0
-              AND incidents.latitude IS NOT NULL
-              AND incidents.longitude IS NOT NULL
-            ORDER BY incidents.date DESC, incidents.time DESC
-        `);
-
-        heatmapCache.set('incidents', rows);
-        res.json(rows);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch heatmap incidents' });
-    }
+// Legacy clients receive the same record-level eligibility as the current map.
+app.get('/api/heatmap/incidents', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+    try { res.json((await recordPatrol.mapRecords()).filter(record => record.eligible)); }
+    catch { res.status(500).json({ error: 'Failed to fetch patrol map records' }); }
 });
 
-// Street-level decision tree aggregation for the Geospatial Risk Map.
-// Computes a composite risk score per street from accumulated historical
-// data: avg CART score, recency-weighted scoring, incident density,
-// severity distribution, and night-time patterns.
-app.get('/api/heatmap/street-analysis', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
-    try {
-        const cached = heatmapCache.get('street-analysis');
-        if (cached) return res.json(cached);
-
-        const [rows] = await pool.query(`
-            SELECT
-                i.street_name,
-                COUNT(*) as incident_count,
-                ROUND(AVG(COALESCE(rf.total_risk_score, 30)), 2) as avg_cart_score,
-                ROUND(AVG(
-                    CASE
-                        WHEN i.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN COALESCE(rf.total_risk_score, 30) * 2.0
-                        WHEN i.date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) THEN COALESCE(rf.total_risk_score, 30) * 1.5
-                        ELSE COALESCE(rf.total_risk_score, 30) * 1.0
-                    END
-                ) / AVG(
-                    CASE
-                        WHEN i.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 2.0
-                        WHEN i.date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) THEN 1.5
-                        ELSE 1.0
-                    END
-                ), 2) as recency_score,
-                ROUND(SUM(CASE WHEN COALESCE(rf.total_risk_score, 0) >= 67 THEN 1 ELSE 0 END) / COUNT(*) * 100, 1) as high_severity_pct,
-                ROUND(SUM(CASE WHEN i.time_of_day IN ('Night', 'Late Night') THEN 1 ELSE 0 END) / COUNT(*) * 100, 1) as night_pct,
-                ROUND(AVG(i.latitude), 6) as center_lat,
-                ROUND(AVG(i.longitude), 6) as center_lng
-            FROM incidents i
-            LEFT JOIN cart_risk_factors rf ON i.id = rf.incident_id
-            WHERE i.latitude IS NOT NULL
-              AND i.longitude IS NOT NULL
-              AND i.street_name IS NOT NULL
-              AND TRIM(i.street_name) != ''
-              AND TRIM(i.status) != 'Resolved' AND i.is_draft = 0
-            GROUP BY i.street_name
-            HAVING COUNT(*) >= 2
-            ORDER BY avg_cart_score DESC
-        `);
-
-        const maxCount = rows.length > 0 ? Math.max(...rows.map(r => r.incident_count)) : 1;
-
-        const result = rows.map(row => {
-            const densityNorm = (row.incident_count / maxCount) * 100;
-            const composite = (row.avg_cart_score || 0) * 0.35
-                + (row.recency_score || 0) * 0.25
-                + densityNorm * 0.20
-                + (row.high_severity_pct || 0) * 0.10
-                + (row.night_pct || 0) * 0.10;
-
-            let risk_tier;
-            if (composite >= 75) risk_tier = 'Critical';
-            else if (composite >= 55) risk_tier = 'High';
-            else if (composite >= 35) risk_tier = 'Moderate';
-            else risk_tier = 'Low';
-
-            return {
-                street_name: row.street_name,
-                incident_count: row.incident_count,
-                avg_cart_score: row.avg_cart_score,
-                recency_score: row.recency_score,
-                high_severity_pct: row.high_severity_pct,
-                night_pct: row.night_pct,
-                density_normalized: Math.round(densityNorm * 100) / 100,
-                composite_score: Math.round(composite * 100) / 100,
-                risk_tier,
-                center_lat: row.center_lat,
-                center_lng: row.center_lng
-            };
-        });
-
-        heatmapCache.set('street-analysis', result);
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to compute street analysis' });
-    }
+app.get('/api/heatmap/street-analysis', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), (req, res) => {
+    res.status(410).json({ error: 'Street analysis has been retired. Use /api/heatmap/records for individual record locations and CART scores.' });
 });
 
-app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Leader']), validate(incidentSchema), async (req, res) => {
+app.post('/api/incidents', authenticate, requireRole(['Executive Officer', 'Team Leader']), validate(incidentSchema), async (req, res) => {
+    if (req.userRole !== 'Executive Officer' && (req.body.patrol_notes !== undefined || req.body.patrol_override !== undefined)) {
+        return res.status(403).json({ error: 'Only the Executive Officer can edit patrol notes or eligibility' });
+    }
     const idemKey = req.headers['idempotency-key'];
     if (idemKey) {
         const cached = _idempotencyCache.get(idemKey);
@@ -2391,6 +2345,7 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
                 [cls, ins.insertId, publicNumber, typeCode]
             );
             registryId = reg.insertId;
+            await recordPatrol.saveMetadata(conn, registryId, req.body, req.userId);
             await conn.commit();
         } catch (txErr) {
             await conn.rollback();
@@ -2438,7 +2393,10 @@ app.post('/api/incidents', authenticate, requireRole(['Deputy Officer', 'Team Le
     }
 });
 
-app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team Leader']), validate(incidentSchema), async (req, res) => {
+app.put('/api/incidents/:id', authenticate, requireRole(['Executive Officer']), validate(incidentSchema), async (req, res) => {
+    if (req.userRole !== 'Executive Officer' && (req.body.patrol_notes !== undefined || req.body.patrol_override !== undefined)) {
+        return res.status(403).json({ error: 'Only the Executive Officer can edit patrol notes or eligibility' });
+    }
     try {
         const {
             incident_type, date, time, latitude, longitude, street_name, address,
@@ -2482,6 +2440,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
         const typeCode = codeFor(reg.source, incident_type);
         const updFields = buildIncidentFields(req.body, { timeOfDay, dayOfWeek, isWeekend }, typeCode, finalReporterId);
         const [result] = await pool.query(`UPDATE \`${reg.table}\` SET ? WHERE id = ?`, [updFields, reg.source_id]);
+        await recordPatrol.saveMetadata(pool, id, req.body, req.userId);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Incident not found' });
@@ -2517,7 +2476,7 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Deputy Officer', 'Team
     }
 });
 
-app.delete('/api/incidents/:id', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.delete('/api/incidents/:id', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const id = req.params.id;
         const userId = req.userId;
@@ -2543,11 +2502,14 @@ app.delete('/api/incidents/:id', authenticate, requireRole(['Deputy Officer']), 
                 baseRow = br[0] || null;
             }
             const [rr] = await conn.query('SELECT * FROM record_registry WHERE registry_id = ?', [id]);
+            const [patrolMetadata] = await conn.query('SELECT * FROM record_patrol_details WHERE incident_id=?', [id]);
+            const [linkedScheduleRecords] = await conn.query('SELECT schedule_id FROM patrol_schedule_records WHERE incident_id=?', [id]);
             await archive.archiveRecord(conn, {
                 entityType: 'incident',
                 entityId: Number(id),
                 label: `Incident #${id}: ${oldData[0].incident_type} - ${oldData[0].street_name || 'no street'} (${oldData[0].date})`,
-                data: { row: oldData[0], baseRow, registry: rr[0] || null, source: reg ? reg.source : null, evidence: evidenceRows },
+                data: { row: oldData[0], baseRow, registry: rr[0] || null, source: reg ? reg.source : null, evidence: evidenceRows,
+                    patrol_metadata: patrolMetadata[0] || null, linked_schedule_ids: linkedScheduleRecords.map(record => record.schedule_id) },
                 files,
                 deletedBy: userId
             });
@@ -2626,7 +2588,7 @@ async function requireExistingIncident(req, res, next) {
     }
 }
 
-app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Deputy Officer', 'Team Leader']), requireExistingIncident, runMulterMiddleware(evidenceUpload.array('evidence', 5)), validateMagicBytes, async (req, res) => {
+app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Executive Officer', 'Team Leader']), requireExistingIncident, runMulterMiddleware(evidenceUpload.array('evidence', 5)), validateMagicBytes, async (req, res) => {
     try {
         const id = req.params.id;
 
@@ -2656,7 +2618,7 @@ app.post('/api/incidents/:id/evidence', authenticate, requireRole(['Deputy Offic
     }
 });
 
-app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(['Deputy Officer', 'Team Leader']), async (req, res) => {
+app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(['Executive Officer', 'Team Leader']), async (req, res) => {
     try {
         const { id, evidenceId } = req.params;
 
@@ -2699,7 +2661,7 @@ app.delete('/api/incidents/:id/evidence/:evidenceId', authenticate, requireRole(
 // 🆕 CART PATROL INTEGRATION - Get CART data for patrol
 // ============================================================
 
-app.get('/api/patrol/cart-summary', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/patrol/cart-summary', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const { month } = req.query;
         
@@ -2841,7 +2803,7 @@ app.get('/api/patrol/cart-summary', authenticate, requireRole(['Deputy Officer',
 // DASHBOARD STATISTICS API ROUTE
 // ============================================================
 
-app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/dashboard/stats', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         // "Total Active Incidents" card: Open + Monitoring only, same basis
         // as the risk KPIs below. Incident View's Total counts every record
@@ -2945,7 +2907,7 @@ app.get('/api/dashboard/stats', authenticate, requireRole(['Deputy Officer', 'Ka
     }
 });
 
-app.get('/api/dashboard/charts', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/dashboard/charts', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [typesResult] = await pool.query(`
             SELECT incident_type, COUNT(*) as count
@@ -2956,12 +2918,12 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Deputy Officer', 'K
         `);
 
         let low = 0, moderate = 0, high = 0;
-        const [dangerResult] = await pool.query('SELECT danger_level FROM incidents WHERE TRIM(status) != "Resolved" AND is_draft = 0');
+        const [dangerResult] = await pool.query('SELECT danger_level, COUNT(*) AS count FROM incidents WHERE TRIM(status) != "Resolved" AND is_draft = 0 GROUP BY danger_level');
         dangerResult.forEach(row => {
             const level = row.danger_level || '';
-            if (level.includes('Level 3') || level.includes('High')) high++;
-            else if (level.includes('Level 2') || level.includes('Moderate')) moderate++;
-            else low++;
+            if (level.includes('Level 3') || level.includes('High')) high += Number(row.count);
+            else if (level.includes('Level 2') || level.includes('Moderate')) moderate += Number(row.count);
+            else low += Number(row.count);
         });
 
         // Anchored to the most recent incident date rather than the
@@ -3005,7 +2967,7 @@ app.get('/api/dashboard/charts', authenticate, requireRole(['Deputy Officer', 'K
 // Per-street risk decay accumulated from completed patrols (see
 // decayAreaRisk/resetAreaRisk) - the frontend subtracts this from each
 // street's live CART risk score when building patrol recommendations.
-app.get('/api/patrol/area-decay', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/patrol/area-decay', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT location, decay_amount FROM area_risk_decay WHERE decay_amount > 0'
@@ -3018,32 +2980,290 @@ app.get('/api/patrol/area-decay', authenticate, requireRole(['Deputy Officer', '
 
 // ---------- PATROL SCHEDULES ----------
 
-app.get('/api/patrol-schedules', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+const NAVIGATION_PAGES = [
+    'dashboard.html',
+    'incident.html',
+    'incident-view.html',
+    'grid-heatmap.html',
+    'patrol.html',
+    'report.html',
+    'users.html',
+    'settings.html'
+];
+const MEDIATION_STATUSES = ['Pending', 'In Progress', 'Canceled', 'Rescheduled'];
+const LOCAL_DATE_TIME_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+function isPositiveId(value) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0;
+}
+
+function toMysqlLocalDateTime(value) {
+    const match = LOCAL_DATE_TIME_RE.exec(value || '');
+    if (!match) return null;
+
+    const [, year, month, day, hour, minute] = match;
+    const parsed = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+    const isExact = parsed.getFullYear() === Number(year)
+        && parsed.getMonth() === Number(month) - 1
+        && parsed.getDate() === Number(day)
+        && parsed.getHours() === Number(hour)
+        && parsed.getMinutes() === Number(minute);
+
+    return isExact ? `${year}-${month}-${day} ${hour}:${minute}:00` : null;
+}
+
+// Personal navigation preferences; always scoped to the authenticated account.
+app.get('/api/me/navigation-order', authenticate, async (req, res) => {
     try {
+        const [rows] = await pool.query(
+            'SELECT icon_order FROM user_navigation_preferences WHERE user_id = ?',
+            [req.userId]
+        );
+
+        if (rows.length === 0) return res.json({ order: [] });
+
+        const stored = typeof rows[0].icon_order === 'string'
+            ? JSON.parse(rows[0].icon_order)
+            : rows[0].icon_order;
+        const valid = Array.isArray(stored)
+            && stored.length === NAVIGATION_PAGES.length
+            && new Set(stored).size === NAVIGATION_PAGES.length
+            && stored.every(page => NAVIGATION_PAGES.includes(page));
+
+        res.json({ order: valid ? stored : [] });
+    } catch (error) {
+        res.status(500).json({ error: 'Could not load navigation preferences' });
+    }
+});
+
+app.put('/api/me/navigation-order', authenticate, async (req, res) => {
+    const order = req.body.order;
+    const valid = Array.isArray(order)
+        && order.length === NAVIGATION_PAGES.length
+        && new Set(order).size === NAVIGATION_PAGES.length
+        && order.every(page => NAVIGATION_PAGES.includes(page));
+
+    if (!valid) return res.status(400).json({ error: 'Invalid navigation order' });
+
+    try {
+        await pool.query(
+            `INSERT INTO user_navigation_preferences (user_id, icon_order)
+             VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE icon_order = VALUES(icon_order)`,
+            [req.userId, JSON.stringify(order)]
+        );
+        res.json({ ok: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Could not save navigation preferences' });
+    }
+});
+
+// Today's assigned mediation tasks; incident report date is not the appointment date.
+app.get('/api/me/mediation-tasks', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+            SELECT t.*, i.blotter_number, i.incident_type, i.priority, i.street_name
+            FROM mediation_tasks t
+            JOIN incidents i ON i.id = t.incident_id
+            WHERE t.assigned_user_id = ?
+              AND t.scheduled_at >= CURDATE()
+              AND t.scheduled_at < CURDATE() + INTERVAL 1 DAY
+            ORDER BY CASE LOWER(i.priority)
+                WHEN 'critical' THEN 0
+                WHEN 'urgent' THEN 1
+                WHEN 'high' THEN 2
+                WHEN 'medium' THEN 3
+                WHEN 'normal' THEN 4
+                WHEN 'low' THEN 5
+                ELSE 6
+            END, t.scheduled_at ASC
+        `, [req.userId]);
+        res.json(rows);
+    } catch (error) {
+        console.error('Could not load mediation tasks:', error.message);
+        res.status(500).json({ error: 'Could not load mediation tasks' });
+    }
+});
+
+app.get('/api/me/mediation-tasks/:id/history', authenticate, async (req, res) => {
+    if (!isPositiveId(req.params.id)) {
+        return res.status(400).json({ error: 'Invalid task id' });
+    }
+
+    try {
+        const [owned] = await pool.query(
+            'SELECT id FROM mediation_tasks WHERE id = ? AND assigned_user_id = ?',
+            [req.params.id, req.userId]
+        );
+        if (owned.length === 0) return res.status(404).json({ error: 'Task not found' });
+
+        const [rows] = await pool.query(`
+            SELECT h.status, h.note, h.scheduled_at, h.created_at, u.name AS author
+            FROM mediation_task_history h
+            JOIN users u ON u.id = h.actor_id
+            WHERE h.task_id = ?
+            ORDER BY h.id DESC
+        `, [req.params.id]);
+        res.json(rows);
+    } catch (error) {
+        console.error('Could not load mediation task history:', error.message);
+        res.status(500).json({ error: 'Could not load task history' });
+    }
+});
+
+app.post('/api/mediation-tasks', authenticate, requireRole(['Executive Officer', 'Team Leader']), async (req, res) => {
+    const incidentId = Number(req.body.incident_id);
+    const assignedUserId = Number(req.body.assigned_user_id);
+    const scheduledAt = toMysqlLocalDateTime(req.body.scheduled_at);
+
+    if (!isPositiveId(incidentId) || !isPositiveId(assignedUserId) || !scheduledAt) {
+        return res.status(400).json({ error: 'Valid incident, assignee and date/time required' });
+    }
+
+    let conn;
+    try {
+        const [records] = await pool.query(
+            "SELECT registry_id FROM record_registry WHERE registry_id = ? AND source = 'blotter'",
+            [incidentId]
+        );
+        const [users] = await pool.query(
+            'SELECT id FROM users WHERE id = ? AND is_active = 1',
+            [assignedUserId]
+        );
+        if (records.length === 0 || users.length === 0) {
+            return res.status(400).json({ error: 'Active user and blotter incident required' });
+        }
+
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        const [result] = await conn.query(
+            `INSERT INTO mediation_tasks (incident_id, assigned_user_id, scheduled_at, created_by)
+             VALUES (?, ?, ?, ?)`,
+            [incidentId, assignedUserId, scheduledAt, req.userId]
+        );
+        await conn.query(
+            `INSERT INTO mediation_task_history (task_id, actor_id, status, note, scheduled_at)
+             VALUES (?, ?, 'Pending', ?, ?)`,
+            [result.insertId, req.userId, 'Task assigned.', scheduledAt]
+        );
+        await conn.commit();
+
+        await logAudit(req.userId, 'CREATE_MEDIATION_TASK', 'mediation_tasks', result.insertId, null, {
+            incident_id: incidentId,
+            assigned_user_id: assignedUserId,
+            scheduled_at: scheduledAt
+        }, req);
+
+        res.status(201).json({ id: result.insertId });
+    } catch (error) {
+        if (conn) await conn.rollback().catch(() => {});
+        console.error('Could not create mediation task:', error.message);
+        res.status(500).json({ error: 'Could not create task' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+app.patch('/api/me/mediation-tasks/:id', authenticate, async (req, res) => {
+    if (!isPositiveId(req.params.id)) {
+        return res.status(400).json({ error: 'Invalid task id' });
+    }
+
+    const { status, scheduled_at: requestedDate } = req.body;
+    const note = typeof req.body.note === 'string' ? req.body.note.trim() : null;
+    const rescheduledAt = status === 'Rescheduled' ? toMysqlLocalDateTime(requestedDate) : null;
+
+    if (!MEDIATION_STATUSES.includes(status) || note === null || note.length > 4000) {
+        return res.status(400).json({ error: 'Invalid status or note' });
+    }
+    if (status === 'Rescheduled' && !rescheduledAt) {
+        return res.status(400).json({ error: 'New date/time required' });
+    }
+
+    let conn;
+    let previous;
+    try {
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        const [rows] = await conn.query(
+            'SELECT * FROM mediation_tasks WHERE id = ? AND assigned_user_id = ? FOR UPDATE',
+            [req.params.id, req.userId]
+        );
+        if (rows.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        previous = rows[0];
+        const scheduledAt = rescheduledAt || previous.scheduled_at;
+        await conn.query(
+            'UPDATE mediation_tasks SET status = ?, scheduled_at = ? WHERE id = ?',
+            [status, scheduledAt, req.params.id]
+        );
+        await conn.query(
+            `INSERT INTO mediation_task_history (task_id, actor_id, status, note, scheduled_at)
+             VALUES (?, ?, ?, ?, ?)`,
+            [req.params.id, req.userId, status, note, scheduledAt]
+        );
+        await conn.commit();
+
+        await logAudit(req.userId, 'UPDATE_MEDIATION_TASK', 'mediation_tasks', req.params.id, previous, {
+            status,
+            note,
+            scheduled_at: scheduledAt
+        }, req);
+
+        res.json({ ok: true });
+    } catch (error) {
+        if (conn) await conn.rollback().catch(() => {});
+        console.error('Could not update mediation task:', error.message);
+        res.status(500).json({ error: 'Could not update task' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
+app.get('/api/patrol-schedules', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+    try {
+        const {limit,offset} = pagination(req.query,100);
         const [rows] = await pool.query(`
             SELECT * FROM patrol_schedules 
             WHERE status = 'Active' 
-            ORDER BY day_of_week, start_time
-        `);
-        res.json(rows);
+            ORDER BY day_of_week, start_time, id LIMIT ? OFFSET ?
+        `,[limit,offset]);
+        res.json(await Promise.all(rows.map(async row => ({ ...row, ...await recordPatrol.scheduleExtras(row.id) }))));
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch schedules' });
     }
 });
 
-app.get('/api/patrol-schedules/all', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/patrol-schedules/all', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
+        const {limit,offset,page} = pagination(req.query,10);
+        const where = req.query.status ? 'WHERE status = ?' : '';
+        const params = req.query.status ? [req.query.status] : [];
+        const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total FROM patrol_schedules ${where}`,params);
         const [rows] = await pool.query(`
-            SELECT * FROM patrol_schedules 
-            ORDER BY status DESC, day_of_week, start_time
-        `);
-        res.json(rows);
+            SELECT * FROM patrol_schedules ${where}
+            ORDER BY FIELD(status,'Active','Completed','Cancelled'), day_of_week, start_time, id LIMIT ? OFFSET ?
+        `,[...params,limit,offset]);
+        res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
+        res.json(await Promise.all(rows.map(async row => ({ ...row, ...await recordPatrol.scheduleExtras(row.id) }))));
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch schedules' });
     }
 });
 
-app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/patrol-schedules/options', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req,res) => {
+    try {
+        const [rows] = await pool.query(`SELECT id, location, day_of_week, start_time, end_time, status FROM patrol_schedules
+            WHERE location LIKE ? ORDER BY status='Active' DESC, id DESC LIMIT 50`, ['%'+String(req.query.search||'').slice(0,100)+'%']);
+        res.json(rows);
+    } catch {res.status(500).json({error:'Could not load schedule choices'});}
+});
+
+app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT * FROM patrol_schedules WHERE id = ?',
@@ -3054,17 +3274,20 @@ app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer'
             return res.status(404).json({ error: 'Schedule not found' });
         }
 
-        res.json(rows[0]);
+        res.json({ ...rows[0], ...await recordPatrol.scheduleExtras(rows[0].id) });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch schedule' });
     }
 });
 
-app.post('/api/patrol-schedules', authenticate, requireRole(['Deputy Officer', 'Team Leader']), validate(scheduleSchema), async (req, res) => {
+app.post('/api/patrol-schedules', authenticate, requireRole(['Executive Officer']), validate(scheduleSchema), recordPatrol.validateScheduleContext, async (req, res) => {
+    let conn;
     try {
         const { location, start_time, end_time, day_of_week, latitude, longitude, reason } = req.body;
 
-        const [result] = await pool.query(`
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        const [result] = await conn.query(`
             INSERT INTO patrol_schedules
             (location, start_time, end_time, day_of_week, latitude, longitude, reason)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -3073,6 +3296,8 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Deputy Officer', '
             latitude ?? null, longitude ?? null, reason || null
         ]);
 
+        await recordPatrol.saveScheduleExtras(conn, result.insertId, req.body, req.userId);
+        await conn.commit();
         const [newSchedule] = await pool.query(
             'SELECT * FROM patrol_schedules WHERE id = ?',
             [result.insertId]
@@ -3094,14 +3319,16 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Deputy Officer', '
 
         res.status(201).json({
             message: 'Patrol schedule created successfully',
-            schedule: newSchedule[0]
+            schedule: { ...newSchedule[0], ...await recordPatrol.scheduleExtras(result.insertId) }
         });
     } catch (error) {
+        if (conn) await conn.rollback();
         res.status(500).json({ error: 'Failed to create schedule' });
-    }
+    } finally { if (conn) conn.release(); }
 });
 
-app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer', 'Team Leader']), validate(scheduleSchema), async (req, res) => {
+app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Executive Officer']), validate(scheduleSchema), recordPatrol.validateScheduleContext, async (req, res) => {
+    let conn;
     try {
         const { location, start_time, end_time, day_of_week, latitude, longitude, reason, status } = req.body;
         const id = req.params.id;
@@ -3112,7 +3339,9 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer'
             return res.status(404).json({ error: 'Schedule not found' });
         }
 
-        await pool.query(`
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        await conn.query(`
             UPDATE patrol_schedules
             SET location = ?, start_time = ?, end_time = ?,
                 day_of_week = ?, latitude = ?, longitude = ?, reason = ?, status = ?
@@ -3121,6 +3350,9 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer'
             location, start_time, end_time, day_of_week,
             latitude ?? null, longitude ?? null, reason || null, status || 'Active', id
         ]);
+
+        await recordPatrol.saveScheduleExtras(conn, id, req.body, req.userId);
+        await conn.commit();
 
         // Only the Active/Cancelled -> Completed transition counts - not
         // every re-save of a schedule that was already Completed.
@@ -3149,14 +3381,15 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer'
 
         res.json({
             message: 'Patrol schedule updated successfully',
-            schedule: updatedSchedule[0]
+            schedule: { ...updatedSchedule[0], ...await recordPatrol.scheduleExtras(id) }
         });
     } catch (error) {
+        if (conn) await conn.rollback();
         res.status(500).json({ error: 'Failed to update schedule' });
-    }
+    } finally { if (conn) conn.release(); }
 });
 
-app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const id = req.params.id;
         const userId = req.userId;
@@ -3166,6 +3399,8 @@ app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Offic
             return res.status(404).json({ error: 'Schedule not found' });
         }
         const [linkedLogs] = await pool.query('SELECT id FROM patrol_logs WHERE schedule_id = ?', [id]);
+        const [scheduleRecord] = await pool.query('SELECT * FROM patrol_schedule_records WHERE schedule_id=?', [id]);
+        const [scheduleTanods] = await pool.query('SELECT * FROM patrol_schedule_tanods WHERE schedule_id=?', [id]);
 
         const conn = await pool.getConnection();
         try {
@@ -3174,7 +3409,7 @@ app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Offic
                 entityType: 'patrol_schedule',
                 entityId: Number(id),
                 label: `Patrol schedule #${id}: ${oldData[0].location}, ${oldData[0].day_of_week} ${String(oldData[0].start_time).slice(0, 5)}-${String(oldData[0].end_time).slice(0, 5)}`,
-                data: { row: oldData[0], log_ids: linkedLogs.map(l => l.id) },
+                data: { row: oldData[0], log_ids: linkedLogs.map(l => l.id), record_link: scheduleRecord[0] || null, tanod_links: scheduleTanods },
                 deletedBy: userId
             });
             // Detach (don't delete) historical patrol logs — deleting a schedule
@@ -3210,8 +3445,15 @@ app.delete('/api/patrol-schedules/:id', authenticate, requireRole(['Deputy Offic
 
 // ---------- PATROL LOGS ----------
 
-app.get('/api/patrol-logs', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/patrol-logs', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
+        const {limit,offset,page} = pagination(req.query,25);
+        const conditions = ['1=1'], params=[];
+        for (const [name,field,operator] of [['date_from','pl.patrol_date','>='],['date_to','pl.patrol_date','<='],['status','pl.status','='],['location','ps.location','=']]) {
+            if(req.query[name]){conditions.push(`${field} ${operator} ?`);params.push(req.query[name]);}
+        }
+        const where=conditions.join(' AND ');
+        const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total FROM patrol_logs pl LEFT JOIN patrol_schedules ps ON pl.schedule_id=ps.id WHERE ${where}`,params);
         const [rows] = await pool.query(`
             SELECT 
                 pl.*,
@@ -3220,15 +3462,16 @@ app.get('/api/patrol-logs', authenticate, requireRole(['Deputy Officer', 'Kagawa
                 ps.end_time as schedule_end
             FROM patrol_logs pl
             LEFT JOIN patrol_schedules ps ON pl.schedule_id = ps.id
-            ORDER BY pl.created_at DESC
-        `);
+            WHERE ${where} ORDER BY pl.created_at DESC, pl.id DESC LIMIT ? OFFSET ?
+        `,[...params,limit,offset]);
+        res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
         res.json(rows);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch patrol logs' });
     }
 });
 
-app.get('/api/patrol-logs/:id', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/patrol-logs/:id', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM patrol_logs WHERE id = ?', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Patrol log not found' });
@@ -3238,7 +3481,7 @@ app.get('/api/patrol-logs/:id', authenticate, requireRole(['Deputy Officer', 'Ka
     }
 });
 
-app.post('/api/patrol-logs', authenticate, requireRole(['Deputy Officer', 'Team Leader']), validate(logSchema), async (req, res) => {
+app.post('/api/patrol-logs', authenticate, requireRole(['Executive Officer', 'Team Leader']), validate(logSchema), async (req, res) => {
     try {
         const { schedule_id, report, status, patrol_date } = req.body;
         
@@ -3279,7 +3522,7 @@ app.post('/api/patrol-logs', authenticate, requireRole(['Deputy Officer', 'Team 
     }
 });
 
-app.put('/api/patrol-logs/:id', authenticate, requireRole(['Deputy Officer']), validate(logSchema), async (req, res) => {
+app.put('/api/patrol-logs/:id', authenticate, requireRole(['Executive Officer']), validate(logSchema), async (req, res) => {
     try {
         const { schedule_id, report, status, patrol_date } = req.body;
         const id = req.params.id;
@@ -3324,7 +3567,7 @@ app.put('/api/patrol-logs/:id', authenticate, requireRole(['Deputy Officer']), v
     }
 });
 
-app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const id = req.params.id;
         const userId = req.userId;
@@ -3401,16 +3644,18 @@ const cartWeightsSchema = Joi.object({
 });
 
 const cartPredictSchema = Joi.object({
-    incident_type: Joi.string().max(100).required(),
+    incident_type: Joi.string().max(150).required(),
+    severity: Joi.string().valid('Low','Medium','High').default('Low'),
+    form_type: Joi.string().valid('crime','blotter').default('blotter'),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     day: Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday').required(),
     location: Joi.string().valid(...BARANGAY_LOCATIONS).allow('', null),
-    repeated: Joi.alternatives().try(Joi.number().integer().min(0), Joi.string().allow('', null)).allow(null),
+    repeated: Joi.number().integer().min(0).max(100000).empty('').allow(null),
     history: Joi.string().valid('High', 'Moderate', 'Low').allow('', null),
     frequency: Joi.string().valid('High', 'Moderate', 'Low').allow('', null)
 });
 
-app.put('/api/cart/weights', authenticate, requireRole(['Deputy Officer']), validate(cartWeightsSchema), async (req, res) => {
+app.put('/api/cart/weights', authenticate, requireRole(['Executive Officer']), validate(cartWeightsSchema), async (req, res) => {
     try {
         const { time, day, type, location, frequency } = req.body;
         const total = time + day + type + location + frequency;
@@ -3459,7 +3704,7 @@ app.get('/api/cart/source-weights', authenticate, async (req, res) => {
     }
 });
 
-app.put('/api/cart/source-weights', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.put('/api/cart/source-weights', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const { blotter, incident } = req.body;
         if (typeof blotter !== 'number' || typeof incident !== 'number' ||
@@ -3492,7 +3737,7 @@ app.put('/api/cart/source-weights', authenticate, requireRole(['Deputy Officer']
 // CART ANALYTICS API ROUTES
 // ============================================================
 
-app.get('/api/cart/risk-factors', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/cart/risk-factors', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT
@@ -3521,7 +3766,7 @@ app.get('/api/cart/risk-factors', authenticate, requireRole(['Deputy Officer', '
     }
 });
 
-app.get('/api/cart/summary', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/cart/summary', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [summary] = await pool.query(`
             SELECT 
@@ -3540,7 +3785,7 @@ app.get('/api/cart/summary', authenticate, requireRole(['Deputy Officer', 'Kagaw
     }
 });
 
-app.get('/api/cart/decision-rules', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/cart/decision-rules', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT * FROM cart_decision_rules 
@@ -3553,7 +3798,7 @@ app.get('/api/cart/decision-rules', authenticate, requireRole(['Deputy Officer',
     }
 });
 
-app.get('/api/cart/analysis-logs', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/cart/analysis-logs', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT l.*, u.name AS triggered_by_name
@@ -3575,10 +3820,10 @@ app.get('/api/cart/analysis-logs', authenticate, requireRole(['Deputy Officer', 
 // field values plus real location/frequency stats for the chosen
 // street - but never writes to incidents or cart_risk_factors.
 // ============================================================
-app.post('/api/cart/predict', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), validate(cartPredictSchema), async (req, res) => {
+app.post('/api/cart/predict', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), validate(cartPredictSchema), async (req, res) => {
     const startTime = Date.now();
     try {
-        const { incident_type, time, day, location, repeated, history, frequency } = req.body;
+        const { incident_type, time, day, location, repeated, history, frequency, severity, form_type } = req.body;
 
         if (!incident_type || !time || !day) {
             return res.status(400).json({ error: 'incident_type, time, and day are required' });
@@ -3591,14 +3836,14 @@ app.post('/api/cart/predict', authenticate, requireRole(['Deputy Officer', 'Kaga
         let recentCount = 0;
         if (location) {
             const [locationRows] = await pool.query(
-                'SELECT COUNT(*) as street_count FROM incidents WHERE street_name = ?',
+                'SELECT COUNT(*) as street_count FROM incidents WHERE street_name = ? AND is_draft = 0',
                 [location]
             );
             streetCount = locationRows[0]?.street_count || 0;
 
             const [frequencyRows] = await pool.query(
                 `SELECT COUNT(*) as recent_count FROM incidents
-                 WHERE street_name = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+                 WHERE street_name = ? AND is_draft = 0 AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND date <= CURDATE()`,
                 [location]
             );
             recentCount = frequencyRows[0]?.recent_count || 0;
@@ -3616,8 +3861,9 @@ app.post('/api/cart/predict', authenticate, requireRole(['Deputy Officer', 'Kaga
 
         await applyConfiguredThresholds();
         await applyConfiguredWeights();
+        await applyConfiguredSourceWeights();
         const result = cartEngine.analyze(
-            { incident_type, time_of_day: timeOfDay, is_weekend: isWeekend, street_name: location || null },
+            { incident_type, time_of_day: timeOfDay, is_weekend: isWeekend, street_name: location || null, severity, form_type },
             { street_count: effectiveLocationCount },
             { recent_count: effectiveRecentCount }
         );
@@ -3660,7 +3906,7 @@ app.post('/api/cart/predict', authenticate, requireRole(['Deputy Officer', 'Kaga
     }
 });
 
-app.post('/api/cart/analyze', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.post('/api/cart/analyze', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const startTime = Date.now();
         const triggered_by = req.userId;
@@ -3713,7 +3959,7 @@ app.post('/api/reports/log-export', authenticate, validate(reportExportSchema), 
 // AUDIT LOGS - GET
 // ============================================================
 
-app.get('/api/audit-logs', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.get('/api/audit-logs', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const { limit = 100, offset = 0, action, entity_type, user_id } = req.query;
 
@@ -3760,7 +4006,7 @@ app.get('/api/audit-logs', authenticate, requireRole(['Deputy Officer']), async 
 // SYSTEM SETTINGS
 // ============================================================
 
-app.get('/api/settings', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.get('/api/settings', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM system_settings ORDER BY setting_key');
         res.json(rows);
@@ -3769,7 +4015,7 @@ app.get('/api/settings', authenticate, requireRole(['Deputy Officer']), async (r
     }
 });
 
-app.get('/api/settings/:key', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.get('/api/settings/:key', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT * FROM system_settings WHERE setting_key = ?',
@@ -3804,7 +4050,7 @@ const SETTINGS_DEFAULTS = {
     cart_weight_frequency: '10'
 };
 
-app.post('/api/settings', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.post('/api/settings', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const { setting_key, setting_value } = req.body;
         const userId = req.userId;
@@ -3862,7 +4108,7 @@ app.post('/api/settings', authenticate, requireRole(['Deputy Officer']), async (
     }
 });
 
-app.put('/api/settings/:key', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+app.put('/api/settings/:key', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
         const { setting_value } = req.body;
         const { key } = req.params;
@@ -3930,7 +4176,7 @@ const locationCoordinateSchema = Joi.object({
     longitude: Joi.number().min(-180).max(180).required()
 });
 
-app.get('/api/location-coordinates', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/location-coordinates', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT location, latitude, longitude FROM location_coordinates');
         const byLocation = new Map(rows.map(r => [r.location, r]));
@@ -3947,7 +4193,7 @@ app.get('/api/location-coordinates', authenticate, requireRole(['Deputy Officer'
     }
 });
 
-app.post('/api/location-coordinates', authenticate, requireRole(['Deputy Officer']), validate(locationCoordinateSchema), async (req, res) => {
+app.post('/api/location-coordinates', authenticate, requireRole(['Executive Officer']), validate(locationCoordinateSchema), async (req, res) => {
     try {
         const { location, latitude, longitude } = req.body;
         const userId = req.userId;
@@ -4007,7 +4253,7 @@ app.get('/', (req, res) => {
 // START SERVER
 // ============================================================
 
-app.get('/api/system/status', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), (req, res) => {
+app.get('/api/system/status', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), (req, res) => {
     res.json({ uptimeSeconds: Math.floor((Date.now() - SERVER_START_TIME) / 1000) });
 });
 
@@ -4034,7 +4280,7 @@ app.use('/api/setup', setupRouter);
 // ============================================================
 // 🩺 SYSTEM HEALTH CHECK
 // ============================================================
-app.get('/api/health', authenticate, requireRole(['Deputy Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+app.get('/api/health', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         await pool.query('SELECT 1');
         const [[{ staff_sessions }]] = await pool.query(

@@ -101,19 +101,21 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(updateRes.status).toBe(403);
     });
 
-    test('Team Leader can create and update a schedule', async () => {
+    test('Team Leader cannot create or update a schedule', async () => {
         const createRes = await request(app)
             .post('/api/patrol-schedules')
             .set('Authorization', `Bearer ${deskToken}`)
             .send(validSchedulePayload());
-        expect(createRes.status).toBe(201);
-        createdScheduleId = createRes.body.schedule.id;
+        expect(createRes.status).toBe(403);
+        const adminCreate = await request(app).post('/api/patrol-schedules')
+            .set('Authorization', `Bearer ${adminToken}`).send(validSchedulePayload());
+        createdScheduleId = adminCreate.body.schedule.id;
 
         const updateRes = await request(app)
             .put(`/api/patrol-schedules/${createdScheduleId}`)
             .set('Authorization', `Bearer ${deskToken}`)
             .send({ ...validSchedulePayload(), reason: 'updated by Team Leader' });
-        expect(updateRes.status).toBe(200);
+        expect(updateRes.status).toBe(403);
     });
 
     test('Kagawad cannot delete a schedule (Deputy Officer-only route)', async () => {

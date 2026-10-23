@@ -5,13 +5,23 @@
   "author": "Barangay 179 Crime BI Capstone Team",
   "main": "main.js",
   "scripts": {
+    "postinstall": "cd backend && npm install",
     "start": "electron .",
-    "build": "electron-builder --win --x64"
+    "build": "electron-builder --win --x64",
+    "db:migrate": "cd backend && node scripts/migrate.js",
+    "db:migrate:record-patrol": "node backend/scripts/migrate-record-patrol.js",
+    "db:seed": "cd backend && node scripts/seed-test-data.js",
+    "db:generate:qa": "node backend/generate-records.js",
+    "db:verify:qa": "node backend/verify-cart.js --batch qa-cart-map-400-v1",
+    "db:admin": "cd backend && node scripts/seed-admin.js",
+    "test:analytics": "npm --prefix backend run test:analytics",
+    "setup": "npm install && cd backend && node scripts/seed-test-data.js"
   },
   "type": "commonjs",
   "devDependencies": {
     "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "maplibre-gl": "5.24.0"
   },
   "build": {
     "appId": "com.barangay179.crimebi",
@@ -23,6 +33,7 @@
     },
     "files": [
       "main.js",
+      "desktop-policy.js",
       "package.json",
       "backend/**/*",
       "frontend/**/*",

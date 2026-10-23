@@ -1,131 +1,66 @@
-/**
- * Independent CART verification.
- *
- *   node verify-cart.js
- *
- * Recomputes every record's expected risk score from the DOCUMENTED model
- * (docs/CART_MODEL.md: fixed factor tables, severity-adaptive weights,
- * thresholds) WITHOUT calling cart-engine.js, then diffs against what the engine
- * actually stored in cart_risk_factors. A clean run means the implementation
- * matches its own documented spec. It also reports the danger-level
- * distribution, hotspot behaviour, and — the real finding for the paper — which
- * approved catalog types have no entry in the engine's type-score table and so
- * silently fall to the default score.
- *
- * The type raw-score table is reference data (the approved weights the owner
- * supplied), so it is read from the engine; everything else (bucketing, the
- * weighted-sum formula, the severity-adaptive redistribution, the thresholds) is
- * reimplemented here from the documentation so the check is genuinely
- * independent of the engine's arithmetic.
- */
-
+// Verify stored CART results with independently implemented documented
+// arithmetic. A clean run checks implementation, not forecast accuracy.
 const mysql = require('mysql2/promise');
-const path = require('path');
-const config = require(path.join(__dirname, 'config.json'));
-const cartEngine = require(path.join(__dirname, 'cart-engine.js'));
-const { CATALOG } = require(path.join(__dirname, 'recordTypes.js'));
+const { loadConfig } = require('./config-manager');
+const { CATALOG } = require('./recordTypes');
+const cartEngine = require('./cart-engine');
+const { readModelConfiguration, referenceAssessment } = require('./test-data/cart-reference');
 
-// ── Documented model (docs/CART_MODEL.md) ───────────────────────────────────
-const TIME = { Night: 90, Evening: 70, Afternoon: 40, Morning: 20 };
-const timeScore = t => (t in TIME ? TIME[t] : 20);
-const dayScore = isWeekend => (isWeekend ? 70 : 40);
-const locScore = n => (n >= 5 ? 90 : n >= 3 ? 70 : n >= 2 ? 50 : n >= 1 ? 30 : 10);
-const freqScore = n => (n >= 5 ? 95 : n >= 3 ? 75 : n >= 2 ? 50 : n >= 1 ? 25 : 5);
-const typeWeightFor = sev => (sev === 'High' ? 0.30 : sev === 'Medium' ? 0.20 : 0.10);
-// Base weights (defaults; cart-engine runs with these when called directly).
-const BASE = { time: 0.25, day: 0.15, location: 0.20, frequency: 0.10 };
-const BASE_OTHER = BASE.time + BASE.day + BASE.location + BASE.frequency; // 0.70
-const HIGH_MIN = 67, MOD_MIN = 34;
-
-function expectedTotal({ timeOfDay, isWeekend, typeRaw, street_count, recent_count, severity }) {
-    const tw = typeWeightFor(severity);
-    const remaining = 1 - tw;
-    const w = {
-        type: tw,
-        time: remaining * (BASE.time / BASE_OTHER),
-        day: remaining * (BASE.day / BASE_OTHER),
-        location: remaining * (BASE.location / BASE_OTHER),
-        frequency: remaining * (BASE.frequency / BASE_OTHER),
-    };
-    const total =
-        typeRaw * w.type +
-        timeScore(timeOfDay) * w.time +
-        dayScore(isWeekend) * w.day +
-        locScore(street_count) * w.location +
-        freqScore(recent_count) * w.frequency;
-    return Math.round(total * 100) / 100;
+function documentedTime(time) {
+    const hour = Number(String(time).slice(0,2));
+    return hour<6 || hour>=22 ? 'Night' : hour<12 ? 'Morning' : hour<18 ? 'Afternoon' : 'Evening';
 }
-const tierOf = s => (s >= HIGH_MIN ? 'High' : s >= MOD_MIN ? 'Moderate' : 'Low');
-function storedTier(dangerLevel) {
-    if (/Level 3|High/i.test(dangerLevel)) return 'High';
-    if (/Level 2|Moderate/i.test(dangerLevel)) return 'Moderate';
-    return 'Low';
+function level(text) {
+    return /Level 3|High/i.test(text||'') ? 'Level 3' : /Level 2|Moderate/i.test(text||'') ? 'Level 2' : 'Level 1';
 }
-
-(async () => {
-    const pool = mysql.createPool({
-        host: config.db.host, port: config.db.port, user: config.db.user,
-        password: config.db.password, database: config.db.name,
-        waitForConnections: true, connectionLimit: 5, charset: 'utf8mb4',
-    });
-
-    const [rows] = await pool.query(`
-        SELECT i.id, i.incident_type, i.time_of_day, i.is_weekend, i.street_name, i.severity,
-               c.total_risk_score, c.type_risk_score, c.danger_level
-        FROM incidents i JOIN cart_risk_factors c ON c.incident_id = i.id
-    `);
-
-    // Street counts (total + recent 30d) as the engine sees them via the view.
-    const [locRows] = await pool.query('SELECT street_name, COUNT(*) n FROM incidents GROUP BY street_name');
-    const [freqRows] = await pool.query(
-        'SELECT street_name, COUNT(*) n FROM incidents WHERE date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) GROUP BY street_name');
-    const locMap = Object.fromEntries(locRows.map(r => [r.street_name, r.n]));
-    const freqMap = Object.fromEntries(freqRows.map(r => [r.street_name, r.n]));
-
-    let mismatches = 0, tierMismatch = 0;
-    const dist = { High: 0, Moderate: 0, Low: 0 };
-    const examples = [];
-    for (const r of rows) {
-        const typeRaw = Number(r.type_risk_score); // engine's looked-up type score (reference data)
-        const exp = expectedTotal({
-            timeOfDay: r.time_of_day, isWeekend: !!r.is_weekend, typeRaw,
-            street_count: locMap[r.street_name] || 0, recent_count: freqMap[r.street_name] || 0,
-            severity: r.severity,
-        });
-        const got = Number(r.total_risk_score);
-        if (Math.abs(exp - got) > 0.02) {
-            mismatches++;
-            if (examples.length < 8) examples.push(`#${r.id} ${r.incident_type} sev=${r.severity}: expected ${exp}, stored ${got}`);
+async function verifyCart(db, { batchKey } = {}) {
+    const model = await readModelConfiguration(db);
+    const [rows] = await db.query(`SELECT i.*,rf.total_risk_score,rf.time_risk_score,rf.day_risk_score,rf.type_risk_score,
+        rf.location_risk_score,rf.frequency_risk_score,rf.danger_level AS stored_danger
+        FROM incidents i LEFT JOIN cart_risk_factors rf ON rf.incident_id=i.id
+        ${batchKey ? 'JOIN qa_record_cases qa ON qa.incident_id=i.id WHERE qa.batch_key=?' : ''}
+        ORDER BY i.id`, batchKey ? [batchKey] : []);
+    const [history] = await db.query(`SELECT street_name,COUNT(*) AS total,
+        SUM(date>=DATE_SUB(CURDATE(),INTERVAL 30 DAY) AND date<=CURDATE()) AS recent
+        FROM incidents WHERE is_draft=0 AND street_name IS NOT NULL GROUP BY street_name`);
+    const counts = new Map(history.map(row=>[row.street_name,row]));
+    const mismatches = [];
+    const distribution = { 'Level 1':0,'Level 2':0,'Level 3':0 };
+    let scored=0,drafts=0;
+    for(const row of rows) {
+        if(Number(row.is_draft)) {
+            drafts++;
+            if(row.total_risk_score != null) mismatches.push({ id:row.id,field:'draft should not have a CART row' });
+            continue;
         }
-        if (tierOf(got) !== storedTier(r.danger_level)) tierMismatch++;
-        dist[tierOf(got)]++;
+        const actualTime = documentedTime(row.time);
+        const weekday = new Date(row.date+'T12:00:00Z').getUTCDay();
+        const weekend = weekday===0 || weekday===6 ? 1 : 0;
+        if(row.time_of_day!==actualTime) mismatches.push({ id:row.id,field:'time_of_day',expected:actualTime,actual:row.time_of_day });
+        if(Number(row.is_weekend)!==weekend) mismatches.push({ id:row.id,field:'is_weekend',expected:weekend,actual:row.is_weekend });
+        const raw = cartEngine.scores.type[row.incident_type] ?? 30;
+        const expected = referenceAssessment({ ...row,time_of_day:actualTime,is_weekend:weekend },counts.get(row.street_name)||{},model,raw);
+        scored++; distribution[expected.level]++;
+        for(const [factor,value] of Object.entries(expected.scores)) if(row[`${factor}_risk_score`]==null || Number(row[`${factor}_risk_score`])!==value) {
+            mismatches.push({ id:row.id,field:factor,expected:value,actual:row[`${factor}_risk_score`] });
+        }
+        if(row.total_risk_score==null || Number(row.total_risk_score)!==expected.total) mismatches.push({ id:row.id,field:'total',expected:expected.total,actual:row.total_risk_score });
+        if(level(row.stored_danger)!==expected.level) mismatches.push({ id:row.id,field:'danger_level',expected:expected.level,actual:row.stored_danger });
     }
-
-    // Type-score coverage: which approved catalog types have no engine entry
-    // (fall to the default type score)?
-    const typeTable = cartEngine.scores && cartEngine.scores.type ? cartEngine.scores.type : {};
-    const defaultType = typeTable.default;
-    const usedTypes = [...new Set(rows.map(r => r.incident_type))];
-    const missing = usedTypes.filter(t => !(t in typeTable)).sort();
-    const catalogMissing = CATALOG.map(c => c.name).filter(n => !(n in typeTable)).sort();
-
-    // utf8mb4 round-trip spot check.
-    const [[uni]] = await pool.query(
-        `SELECT COUNT(*) n FROM incidents WHERE reported_by_name REGEXP '[ñÑáéíóúÁÉ]' OR reported_by_name LIKE '%\\'%' OR reported_by_name LIKE '%-%'`);
-
-    console.log('\n================ CART VERIFICATION ================');
-    console.log(`Records checked:            ${rows.length}`);
-    console.log(`Total-score mismatches:     ${mismatches}   (engine vs documented formula)`);
-    console.log(`Danger-tier mismatches:     ${tierMismatch}`);
-    console.log(`Danger distribution:        High ${dist.High} | Moderate ${dist.Moderate} | Low ${dist.Low}`);
-    console.log(`utf8mb4 names (ñ/accent/'/-): ${uni.n} records round-tripped`);
-    if (examples.length) { console.log('\nExample mismatches:'); examples.forEach(e => console.log('  ' + e)); }
-    console.log(`\nType-score default is ${defaultType}. Types in the data with NO engine entry (scored at default):`);
-    console.log('  ' + (missing.length ? missing.join(', ') : '(none)'));
-    console.log(`\nApproved catalog types (all ${CATALOG.length}) with NO engine type-score entry: ${catalogMissing.length}`);
-    console.log('  ' + (catalogMissing.length ? catalogMissing.join(', ') : '(none)'));
-    console.log('===================================================\n');
-
-    await pool.end();
-    process.exit(mismatches === 0 && tierMismatch === 0 ? 0 : 1);
-})().catch(e => { console.error('VERIFY FAILED:', e.message); process.exit(2); });
+    const missingTypeMappings = [...new Set(CATALOG.map(type=>type.name))].filter(name=>cartEngine.scores.type[name]===undefined);
+    return { batchKey:batchKey||null, records:rows.length,scored,drafts,distribution,
+        mismatchCount:mismatches.length,mismatches: mismatches.slice(0,25),missingTypeMappings,
+        passed: rows.length>0 && mismatches.length===0 && missingTypeMappings.length===0,model };
+}
+async function main() {
+    const index=process.argv.indexOf('--batch'); const batchKey=index<0 ? undefined : process.argv[index+1];
+    const config=loadConfig();
+    const pool=mysql.createPool({ host:config.db.host,port:config.db.port,user:config.db.user,password:config.db.password,database:config.db.name,
+        charset:'utf8mb4',dateStrings:['DATE'],connectionLimit:2 });
+    try {
+        const result=await verifyCart(pool,{batchKey});
+        console.log(JSON.stringify(result,null,2)); if(!result.passed) process.exitCode=1;
+    } finally { await pool.end(); }
+}
+if(require.main===module)main().catch(error=>{console.error('VERIFICATION FAILED: '+error.message);process.exitCode=1;});
+module.exports={ verifyCart,documentedTime };

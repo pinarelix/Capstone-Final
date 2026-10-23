@@ -9,7 +9,7 @@
    body/UI font everywhere else for data-dense screens, this is the
    classic "formal letterhead heading + clean modern body" pairing
    rather than one sans-serif family doing both jobs. */
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@700;800&display=swap');
+@import url('./vendor/css/local-fonts.css');
 
 :root {
 
@@ -113,7 +113,6 @@ body {
     top: 0;
     overflow-y: auto;
     padding: 20px 16px;
-    animation: sidebarReveal 0.5s ease both;
     transition: width 0.25s ease;
 }
 
@@ -121,25 +120,31 @@ body {
    Only the logo stays visible; everything else is hidden rather than
    shrunk, so the rail reads as "just the brand mark", not a half-cut
    sidebar. */
-.sidebar.collapsed {
+.sidebar.collapsed,
+html[data-sidebar-collapsed="true"] .sidebar {
     width: 90px;
     overflow: visible;
 }
 
 .sidebar.collapsed .brand-info,
 .sidebar.collapsed .user-profile,
-.sidebar.collapsed .nav-item span:not(.nav-icon) {
+.sidebar.collapsed .nav-item span:not(.nav-icon),
+html[data-sidebar-collapsed="true"] .sidebar .brand-info,
+html[data-sidebar-collapsed="true"] .sidebar .user-profile,
+html[data-sidebar-collapsed="true"] .sidebar .nav-item span:not(.nav-icon) {
     display: none;
 }
 
-.sidebar.collapsed .sidebar-header {
+.sidebar.collapsed .sidebar-header,
+html[data-sidebar-collapsed="true"] .sidebar .sidebar-header {
     justify-content: center;
     border-bottom: none;
     padding-bottom: 0;
     margin-bottom: 20px;
 }
 
-.sidebar.collapsed .nav-item {
+.sidebar.collapsed .nav-item,
+html[data-sidebar-collapsed="true"] .sidebar .nav-item {
     justify-content: center;
     padding: 14px 0;
 }
@@ -176,7 +181,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: logoPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -359,9 +363,7 @@ body {
 
     gap: 14px;
 
-    opacity: 0;
-
-    animation: navItemReveal 0.4s ease forwards;
+    opacity: 1;
 
     transition:
         background-color 0.25s ease,
@@ -382,16 +384,6 @@ body {
     to { opacity: 1; }
 }
 
-.nav-item:nth-child(1) { animation-delay: 0.22s; }
-.nav-item:nth-child(2) { animation-delay: 0.26s; }
-.nav-item:nth-child(3) { animation-delay: 0.30s; }
-.nav-item:nth-child(4) { animation-delay: 0.34s; }
-.nav-item:nth-child(5) { animation-delay: 0.38s; }
-.nav-item:nth-child(6) { animation-delay: 0.42s; }
-.nav-item:nth-child(7) { animation-delay: 0.46s; }
-.nav-item:nth-child(8) { animation-delay: 0.50s; }
-.nav-item:nth-child(9) { animation-delay: 0.54s; }
-.nav-item:nth-child(10) { animation-delay: 0.58s; }
 
 
 .nav-icon {
@@ -470,6 +462,36 @@ body {
 /* ============================================================
    RIPPLE
 ============================================================ */
+
+/* Shared sidenav template: fixed rail, aligned icon/label rows and a
+   separated account/utility footer. No replayed entrance animations. */
+.sidebar { width: 280px; height: 100vh; height: 100dvh; padding: 20px 16px 16px; transition: none; }
+.sidebar-header { flex-shrink: 0; }
+.sidebar-nav { gap: 6px; padding: 0; min-height: 0; }
+.sidebar-nav .nav-item { min-height: 48px; padding: 12px 14px; gap: 12px; font-size: .88rem; transition: background-color 150ms ease, color 150ms ease; }
+.sidebar-nav .nav-item:hover, .sidebar-nav .nav-item:hover .nav-icon, .sidebar-nav .nav-item:active { transform: none; }
+.sidebar-nav .nav-icon { width: 24px; font-size: 1rem; transition: none; }
+.sidebar-nav .nav-item.active { background: #e0f2fe; color: #075985; }
+.sidebar .user-profile { margin: 16px 0 0; padding: 16px 0 0; border-top: 1px solid var(--sidebar-border); flex-shrink: 0; }
+.sidebar .profile-info { padding: 12px; }
+.sidebar > #logoutBtn { order: 3; margin-top: 10px; flex-shrink: 0; }
+.sidebar-nav .nav-item:focus-visible, .brand-logo-container:focus-visible { outline: 3px solid #0284c7; outline-offset: 2px; }
+.sidebar-mobile-toggle, .sidebar-backdrop { display: none; }
+@media(max-width:760px) {
+    .sidebar, .sidebar.collapsed, html[data-sidebar-collapsed="true"] .sidebar { position: fixed; inset: 0 auto 0 0; width: min(280px,85vw); height: 100vh; height: 100dvh; z-index: 15000; padding: 20px 16px; visibility: hidden; transform: translateX(-100%); }
+    body.sidebar-mobile-open { overflow: hidden; }
+    body.sidebar-mobile-open .sidebar { visibility: visible; transform: none; }
+    .sidebar-mobile-toggle { display: block; position: fixed; top: 12px; left: 12px; z-index: 14000; padding: 9px 12px; background: #fff; color: var(--text-primary); border: 1px solid var(--border-card); border-radius: var(--radius-md); font: inherit; cursor: pointer; }
+    body.sidebar-mobile-open .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 14999; background: #0f172a66; border: 0; }
+    .sidebar-nav { flex-direction: column; flex-wrap: nowrap; }
+    .sidebar-nav .nav-item { padding: 12px 14px; font-size: .88rem; }
+    html[data-sidebar-collapsed="true"] .sidebar .brand-info, html[data-sidebar-collapsed="true"] .sidebar .user-profile,
+    html[data-sidebar-collapsed="true"] .sidebar .nav-item span:not(.nav-icon), .sidebar.collapsed .brand-info,
+    .sidebar.collapsed .user-profile, .sidebar.collapsed .nav-item span:not(.nav-icon) { display: block; }
+    html[data-sidebar-collapsed="true"] .sidebar .nav-item, .sidebar.collapsed .nav-item { justify-content: flex-start; padding: 12px 14px; }
+    html[data-sidebar-collapsed="true"] .sidebar .sidebar-header, .sidebar.collapsed .sidebar-header { justify-content: flex-start; padding-bottom: 20px; border-bottom: 1px solid var(--sidebar-border); }
+    .app-container > .main-content { padding-top: 66px; }
+}
 
 .ripple {
     position: absolute;
@@ -1799,10 +1821,6 @@ body {
 
 @media (max-width: 1100px) {
 
-    .sidebar {
-        width: 250px;
-    }
-
     .kpi-grid,
     .kpi-group-grid--3,
     .kpi-group-grid--2 {
@@ -1823,35 +1841,6 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .sidebar {
-        width: 78px;
-    }
-
-    .brand-info,
-    .profile-info,
-    .nav-item > span:not(.nav-icon) {
-        display: none;
-    }
-
-    .sidebar-header {
-        justify-content: center;
-
-        padding: 18px 10px;
-    }
-
-    .user-profile {
-        padding: 10px;
-    }
-
-    .nav-item {
-        justify-content: center;
-
-        padding: 14px 0;
-    }
-
-    .nav-icon {
-        width: auto;
-    }
 
     .top-header {
         flex-direction: column;
@@ -1880,9 +1869,6 @@ body {
         min-height: 100vh;
     }
 
-    .sidebar {
-        width: 64px;
-    }
 
     .main-content {
         padding: 16px;
@@ -1952,21 +1938,25 @@ body {
 
 /* 🔥 For Decision-Maker (and Desk Officer), hide admin-only elements */
 body.role-decision-maker .admin-only,
-body.role-desk-officer .admin-only {
+body.role-desk-officer .admin-only,
+html[data-sidebar-role="Kagawad"] .sidebar .admin-only,
+html[data-sidebar-role="Team Leader"] .sidebar .admin-only {
     display: none !important;
 }
 
 /* Desk Officer can add incidents (see incident.js), so they need a way
    to reach that page - re-show just this one admin-only sidebar link,
    unlike Decision-Maker who stays fully view-only everywhere. */
-body.role-desk-officer a[href="incident.html"].nav-item {
+body.role-desk-officer a[href="incident.html"].nav-item,
+html[data-sidebar-role="Team Leader"] .sidebar a[href="incident.html"].nav-item {
     display: flex !important;
 }
 
 /* The raw incident list (View) is too dense/technical for the
    Decision-Maker (the barangay Captain) - the Dashboard and Reports
    pages already surface what they need in plainer language. */
-body.role-decision-maker a[href="incident-view.html"].nav-item {
+body.role-decision-maker a[href="incident-view.html"].nav-item,
+html[data-sidebar-role="Kagawad"] .sidebar a[href="incident-view.html"].nav-item {
     display: none !important;
 }
 

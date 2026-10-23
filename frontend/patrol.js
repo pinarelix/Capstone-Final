@@ -33,6 +33,7 @@ window.logoutUser = function() {
 
 let allIncidents = [];
 let allRiskFactors = []; // 🔥 NEW: CART risk factors
+let patrolThresholds = { level2: 34, level3: 67 };
 let allSchedules = [];
 let allLogs = [];
 // Per-street risk decay from completed patrols - {location: decay_amount},
@@ -53,6 +54,10 @@ let currentRecommendations = [];
 // rows are paginated.
 let schedulePage = 1;
 let logPage = 1;
+let scheduleTotal = 0, logTotal = 0;
+let scheduleChoices = [];
+function scheduleListUrl() { return '/patrol-schedules/all?' + new URLSearchParams({page:schedulePage,limit:10,status:document.getElementById('scheduleStatusFilter')?.value||''}); }
+function logListUrl() { return '/patrol-logs?' + new URLSearchParams({page:logPage,limit:10}); }
 const rowsPerPage = 10;
 
 // ============================================================
@@ -95,7 +100,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (scheduleStatusFilter) {
         scheduleStatusFilter.addEventListener('change', () => {
             schedulePage = 1;
-            renderSchedules(allSchedules);
+            refreshSchedulesOnly();
             updateCounts();
         });
     }
@@ -257,10 +262,11 @@ async function loadAllData() {
         // Load incidents — CART recommendations need the full active
         // dataset, not one page of it (see /api/incidents' pagination,
         // added for the admin Incident Records list specifically).
-        const incResponse = await window.apiFetch('/incidents?limit=10000');
+        const incResponse = await window.apiFetch('/heatmap/records?window_days=90&limit=500');
         if (incResponse.ok) {
             const incData = await incResponse.json();
-            allIncidents = incData.incidents || [];
+            allIncidents = incData.records || [];
+            patrolThresholds = incData.thresholds;
             console.log('✅ Incidents loaded:', allIncidents.length);
         } else {
             console.warn('⚠️ Failed to load incidents:', incResponse.status);
@@ -274,9 +280,10 @@ async function loadAllData() {
         // Load schedules
         // /all, not /patrol-schedules (Active only) - otherwise a schedule
         // disappears for good once it's marked Completed or Cancelled.
-        const scheduleResponse = await window.apiFetch('/patrol-schedules/all');
+        const scheduleResponse = await window.apiFetch(scheduleListUrl());
         if (scheduleResponse.ok) {
             allSchedules = await scheduleResponse.json();
+            scheduleTotal = Number(scheduleResponse.headers.get('X-Total-Count'));
             console.log('✅ Schedules loaded:', allSchedules.length);
         } else {
             console.warn('⚠️ Failed to load schedules. Using empty array.');
@@ -284,9 +291,10 @@ async function loadAllData() {
         }
         
         // Load logs
-        const logResponse = await window.apiFetch('/patrol-logs');
+        const logResponse = await window.apiFetch(logListUrl());
         if (logResponse.ok) {
             allLogs = await logResponse.json();
+            logTotal = Number(logResponse.headers.get('X-Total-Count'));
             console.log('✅ Logs loaded:', allLogs.length);
         } else {
             console.warn('⚠️ Failed to load logs. Using empty array.');
@@ -304,7 +312,7 @@ async function loadAllData() {
         renderSchedules(allSchedules);
         renderLogs(allLogs);
         
-        populateScheduleDropdown();
+        await loadScheduleChoices();
 
         updateCounts();
         
@@ -325,10 +333,11 @@ async function loadAllData() {
 
 async function refreshPatrolLogsOnly() {
     try {
-        const response = await window.apiFetch('/patrol-logs');
+        const response = await window.apiFetch(logListUrl());
         if (!response.ok) return;
 
         allLogs = await response.json();
+        logTotal = Number(response.headers.get('X-Total-Count'));
         renderLogs(allLogs);
         updateCounts();
     } catch (error) {
@@ -342,10 +351,11 @@ async function refreshPatrolLogsOnly() {
 // forms since they rebuild <option>/checkbox lists from scratch).
 async function refreshSchedulesOnly() {
     try {
-        const response = await window.apiFetch('/patrol-schedules/all');
+        const response = await window.apiFetch(scheduleListUrl());
         if (!response.ok) return;
 
         allSchedules = await response.json();
+        scheduleTotal = Number(response.headers.get('X-Total-Count'));
         renderSchedules(allSchedules);
         updateCounts();
     } catch (error) {
@@ -359,10 +369,11 @@ async function refreshSchedulesOnly() {
 // triggered by another admin, without touching the Schedules/Logs tabs.
 async function refreshRecommendationsOnly() {
     try {
-        const incResponse = await window.apiFetch('/incidents?limit=10000');
+        const incResponse = await window.apiFetch('/heatmap/records?window_days=90&limit=500');
         if (incResponse.ok) {
             const incData = await incResponse.json();
-            allIncidents = incData.incidents || [];
+            allIncidents = incData.records || [];
+            patrolThresholds = incData.thresholds;
         }
         await loadAreaDecay();
         await loadCartDataOnly();
@@ -378,9 +389,14 @@ async function refreshRecommendationsOnly() {
 async function loadCartDataOnly() {
     try {
         console.log('🔄 Reloading CART data only...');
-        const cartResponse = await window.apiFetch('/cart/risk-factors');
-        if (cartResponse.ok) {
-            allRiskFactors = await cartResponse.json();
+        {
+            // Recommendations use the same current, policy-filtered records
+            // and scores as the map, including records not yet persisted by a
+            // full CART recomputation.
+            allRiskFactors = allIncidents.map(record => ({
+                incident_id: record.id, total_risk_score: record.cart_score,
+                danger_level: record.danger_level, decision_path: record.cart_decision_path
+            }));
             console.log('✅ CART risk factors reloaded:', allRiskFactors.length);
             
             if (allRiskFactors.length > 0) {
@@ -394,9 +410,6 @@ async function loadCartDataOnly() {
             if (monthSelect && monthSelect.value) {
                 updateDashboardWithCartData(monthSelect.value);
             }
-        } else {
-            console.warn('⚠️ Failed to reload CART risk factors. Status:', cartResponse.status);
-            allRiskFactors = [];
         }
     } catch (error) {
         console.error('❌ Error reloading CART data:', error);
@@ -465,7 +478,7 @@ function populateMonthDropdown(incidents) {
     // entirely in getCartBasedPatrolRecommendations() below.
     const allOpt = document.createElement('option');
     allOpt.value = 'all';
-    allOpt.textContent = 'All Dates';
+    allOpt.textContent = 'Loaded records (last 90 days)';
     monthSelect.appendChild(allOpt);
 
     sorted.forEach(key => {
@@ -614,14 +627,7 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
         });
         data.dominantLevel = dominantLevel;
 
-        // Patrol completions at this street shave decay off its score
-        // (see loadAreaDecay); a new incident here resets it to 0 on the
-        // backend, so this is always relative to the current live risk.
-        const decay = areaDecay[location] || 0;
-        if (decay > 0) {
-            data.maxRisk = Math.max(0, data.maxRisk - decay);
-            data.avgRisk = Math.max(0, data.avgRisk - decay);
-        }
+        // Coverage is operational context; retain the actual CART score.
     });
 
     // 5. Sort locations by CART risk score (highest first)
@@ -653,13 +659,13 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
         let personnel = Math.max(1, Math.ceil(count / 3));
         let riskBadgeColor = '#10b981';
 
-        if (dominantLevel === 'Level 3' || maxRisk >= 67) {
+        if (dominantLevel === 'Level 3' || maxRisk >= patrolThresholds.level3) {
             priority = 'high';
             levelText = 'Level 3 — High Crime / Considerable Danger';
             action = 'PRIORITY: Deploy additional personnel, increase patrol frequency, and coordinate with barangay officials.';
             personnel = Math.min(Math.ceil(count / 1.5) + 2, 8);
             riskBadgeColor = '#dc2626';
-        } else if (dominantLevel === 'Level 2' || maxRisk >= 34) {
+        } else if (dominantLevel === 'Level 2' || maxRisk >= patrolThresholds.level2) {
             priority = 'medium';
             levelText = 'Level 2 — Moderate Danger / Caution Area';
             action = 'Deploy targeted patrols, conduct periodic spot checks, and monitor for escalation.';
@@ -692,7 +698,7 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
         // Get risk level distribution for display
         const riskDist = {};
         data.riskScores.forEach(score => {
-            const level = score >= 67 ? 'High' : score >= 34 ? 'Moderate' : 'Low';
+            const level = score >= patrolThresholds.level3 ? 'High' : score >= patrolThresholds.level2 ? 'Moderate' : 'Low';
             riskDist[level] = (riskDist[level] || 0) + 1;
         });
         const riskSummary = Object.entries(riskDist)
@@ -840,10 +846,21 @@ function renderCartRecommendationCards(recs, container) {
         return;
     }
     
-    recs.forEach((rec, index) => {
+    // Severity first, then newest incident date. Recommendations are not
+    // appointments, so incident dates are used only as a recency tie-breaker.
+    const severity = { high: 3, medium: 2, low: 1 };
+    const latestIncident = rec => (rec.incidents || []).reduce((latest, inc) => {
+        const date = String(inc.date || inc.incident_date || '').slice(0, 10);
+        return date > latest ? date : latest;
+    }, '');
+    const ordered = [...recs].sort((a, b) =>
+        (severity[b.priority] || 0) - (severity[a.priority] || 0) ||
+        latestIncident(b).localeCompare(latestIncident(a)) ||
+        (b.maxRisk || 0) - (a.maxRisk || 0));
+    ordered.forEach((rec, index) => {
         const card = document.createElement("div");
-        card.className = `rec-card rec-card-clickable ${rec.priority} fade-transition`;
-        card.style.animationDelay = `${index * 0.08}s`;
+        card.className = `rec-card rec-card-clickable ${rec.priority}`;
+        card.setAttribute('role','option'); card.setAttribute('aria-selected','false'); card.tabIndex = index === 0 ? 0 : -1;
         
         // 🔥 NEW: CART risk score badge
         const riskBadge = rec.avgRisk !== undefined && rec.avgRisk > 0 ? 
@@ -885,7 +902,17 @@ function renderCartRecommendationCards(recs, container) {
             </div>
             <div class="rec-card-view-hint"><i class="fa-solid fa-expand"></i> Click for full street details</div>
         `;
-        card.addEventListener('click', () => showStreetDetailModal(rec));
+        const select = () => container.querySelectorAll('[role="option"]').forEach(option => {
+            option.setAttribute('aria-selected',String(option === card)); option.tabIndex = option === card ? 0 : -1;
+        });
+        card.addEventListener('click', () => { select(); showStreetDetailModal(rec); });
+        card.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); card.click(); return; }
+            if (!['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
+            const options = [...container.querySelectorAll('[role="option"]')].filter(option=>!option.hidden);
+            const index = options.indexOf(card), next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length-1 : Math.max(0,Math.min(options.length-1,index+(event.key === 'ArrowDown' ? 1 : -1)));
+            event.preventDefault(); options[next]?.focus();
+        });
         container.appendChild(card);
     });
 }
@@ -1171,6 +1198,12 @@ async function saveSchedule() {
     }
 
     const payload = {
+        incident_id: document.getElementById('scheduleRecordId').value ? Number(document.getElementById('scheduleRecordId').value) : null,
+        scheduled_date: document.getElementById('scheduleDate').value || null,
+        priority: document.getElementById('schedulePriority').value,
+        exact_address: document.getElementById('scheduleExactAddress').value,
+        tanod_ids: [...document.getElementById('scheduleTanods').selectedOptions].map(option => Number(option.value)),
+        manual_patrol: document.getElementById('scheduleManualPatrol').checked,
         location,
         start_time,
         end_time,
@@ -1190,7 +1223,7 @@ async function saveSchedule() {
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) throw new Error('Failed to save schedule');
+        if (!response.ok) { const data = await response.json(); throw new Error(data.details?.join('; ') || data.error || 'Failed to save schedule'); }
 
         resetScheduleFormState();
 
@@ -1198,7 +1231,7 @@ async function saveSchedule() {
         showToast('Schedule saved successfully!', 'success');
     } catch (error) {
         console.error('Error saving schedule:', error);
-        showToast('Failed to save schedule.', 'error');
+        showToast(error.message, 'error');
     }
 }
 
@@ -1209,6 +1242,8 @@ async function saveSchedule() {
 function resetScheduleFormState() {
     document.getElementById('scheduleForm').reset();
     document.getElementById('editScheduleId').value = '';
+    document.getElementById('scheduleRecordSummary').textContent = '';
+    document.getElementById('manualPatrolLabel').hidden = true;
     document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
     updateScheduleLocationIncidents();
@@ -1262,11 +1297,11 @@ function closeScheduleModal() {
 // worth of rows (via rowRenderFn) and a Prev/Next/numbered control list
 // (reusing the same .pagination-controls/.page-item/.page-link markup
 // and CSS as the server-paginated Incident Records table).
-function renderPaginatedTable(items, page, controlsId, onPageChange, rowRenderFn, emptyColspan, emptyIcon, emptyText) {
-    const totalPages = Math.max(1, Math.ceil(items.length / rowsPerPage));
+function renderPaginatedTable(items, page, controlsId, onPageChange, serverTotal) {
+    const totalPages = Math.max(1, Math.ceil((serverTotal ?? items.length) / rowsPerPage));
     const clampedPage = Math.min(Math.max(1, page), totalPages);
     const start = (clampedPage - 1) * rowsPerPage;
-    const pageItems = items.slice(start, start + rowsPerPage);
+    const pageItems = serverTotal === undefined ? items.slice(start, start + rowsPerPage) : items;
 
     const controls = document.getElementById(controlsId);
     if (controls) {
@@ -1274,7 +1309,7 @@ function renderPaginatedTable(items, page, controlsId, onPageChange, rowRenderFn
             controls.innerHTML = '';
         } else {
             let html = `<li class="page-item ${clampedPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${clampedPage - 1}">Previous</a></li>`;
-            for (let i = 1; i <= totalPages; i++) {
+            for (let i = Math.max(1,clampedPage-2); i <= Math.min(totalPages,clampedPage+2); i++) {
                 html += `<li class="page-item ${i === clampedPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
             }
             html += `<li class="page-item ${clampedPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${clampedPage + 1}">Next</a></li>`;
@@ -1433,7 +1468,7 @@ function renderSchedules(schedules) {
 
     const { pageItems } = renderPaginatedTable(
         visible, schedulePage, 'schedulePaginationControls',
-        (p) => { schedulePage = p; renderSchedules(allSchedules); }
+        (p) => { schedulePage = p; refreshSchedulesOnly(); }, scheduleTotal
     );
 
     const groupCounts = {};
@@ -1456,8 +1491,8 @@ function renderSchedules(schedules) {
         return groupRow + `
             <tr>
                 <td class="font-bold">${schedule.id}</td>
-                <td>${escapeHTML(schedule.location)}</td>
-                <td>${escapeHTML(schedule.day_of_week)}</td>
+                <td>${escapeHTML(schedule.location)}${schedule.exact_address ? '<br><small>' + escapeHTML(schedule.exact_address) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + '</small>' : ''}${schedule.tanods?.length ? '<br><small>Tanods: ' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : ''}</td>
+                <td>${escapeHTML(schedule.scheduled_date || schedule.day_of_week)}</td>
                 <td>${timeDisplay}</td>
                 <td>${renderIncidentTypeBadges(schedule.location)}</td>
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
@@ -1475,6 +1510,12 @@ window.editSchedule = async function(id) {
         if (!response.ok) throw new Error('Failed to fetch schedule');
         
         const schedule = await response.json();
+        await window.loadScheduleTanods(schedule.tanod_ids || []);
+        document.getElementById('scheduleRecordId').value = schedule.incident_id || '';
+        document.getElementById('scheduleDate').value = schedule.scheduled_date || '';
+        document.getElementById('schedulePriority').value = schedule.priority || 'Low';
+        document.getElementById('scheduleExactAddress').value = schedule.exact_address || '';
+        document.getElementById('scheduleRecordSummary').textContent = schedule.incident_id ? 'Linked record #' + schedule.incident_id : '';
         
         document.getElementById('editScheduleId').value = schedule.id;
         document.getElementById('scheduleLocation').value = schedule.location || '';
@@ -1515,8 +1556,8 @@ window.editSchedule = async function(id) {
 window.requestDeleteSchedule = function(id) {
     const schedule = allSchedules.find(s => s.id === id);
     const message = schedule
-        ? `Are you sure you want to delete the schedule for "${schedule.location}"? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.`
-        : 'Are you sure you want to delete this schedule? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.';
+        ? `Are you sure you want to delete the schedule for "${schedule.location}"? It will be moved to the Archive (Settings > Archive), where the Executive Officer can restore it.`
+        : 'Are you sure you want to delete this schedule? It will be moved to the Archive (Settings > Archive), where the Executive Officer can restore it.';
     requestDelete(message, id, 'schedule', confirmDeleteSchedule);
 };
 
@@ -1587,13 +1628,13 @@ function renderLogs(logs) {
 
     const { pageItems } = renderPaginatedTable(
         logs, logPage, 'logPaginationControls',
-        (p) => { logPage = p; renderLogs(allLogs); }
+        (p) => { logPage = p; refreshPatrolLogsOnly(); }, logTotal
     );
 
     tbody.innerHTML = pageItems.map(log => {
         const statusClass = log.status === 'Completed' ? 'badge-open' :
                            log.status === 'Partial' ? 'badge-monitoring' : 'badge-resolved';
-        const scheduleName = getScheduleName(log.schedule_id);
+        const scheduleName = log.schedule_location || getScheduleName(log.schedule_id);
 
         return `
             <tr>
@@ -1623,6 +1664,7 @@ window.editLog = async function(id) {
         if (!response.ok) throw new Error('Failed to fetch log');
         
         const log = await response.json();
+        await ensureScheduleOption(log.schedule_id);
         
         document.getElementById('editLogId').value = log.id;
         document.getElementById('logSchedule').value = log.schedule_id || '';
@@ -1643,8 +1685,8 @@ window.editLog = async function(id) {
 window.requestDeleteLog = function(id) {
     const log = allLogs.find(l => l.id === id);
     const message = log
-        ? `Are you sure you want to delete the patrol log for "${getScheduleName(log.schedule_id)}" (${log.patrol_date || 'no date'})? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.`
-        : 'Are you sure you want to delete this log? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.';
+        ? `Are you sure you want to delete the patrol log for "${getScheduleName(log.schedule_id)}" (${log.patrol_date || 'no date'})? It will be moved to the Archive (Settings > Archive), where the Executive Officer can restore it.`
+        : 'Are you sure you want to delete this log? It will be moved to the Archive (Settings > Archive), where the Executive Officer can restore it.';
     requestDelete(message, id, 'log', confirmDeleteLog);
 };
 
@@ -1656,13 +1698,35 @@ window.confirmDeleteLog = function(id) {
 // 12. DROPDOWN POPULATORS
 // ============================================================
 
+async function ensureScheduleOption(id) {
+    const select=document.getElementById('logSchedule');
+    if(!id || !select || [...select.options].some(option=>Number(option.value)===Number(id))) return;
+    const response=await window.apiFetch('/patrol-schedules/'+encodeURIComponent(id)); if(!response.ok) return;
+    const schedule=await response.json();
+    select.add(new Option(`${schedule.location} (${schedule.day_of_week} ${schedule.start_time?.slice(0,5)||''})`,String(schedule.id)));
+}
+let scheduleChoiceRequest=0;
+async function loadScheduleChoices(search=document.getElementById('logScheduleSearch')?.value||'') {
+    const request=++scheduleChoiceRequest;
+    const response=await window.apiFetch('/patrol-schedules/options?search='+encodeURIComponent(search));
+    if(!response.ok) return;
+    const choices=await response.json(); if(request!==scheduleChoiceRequest) return;
+    scheduleChoices=choices; const selected=document.getElementById('logSchedule')?.value;
+    populateScheduleDropdown();
+    if(selected){await ensureScheduleOption(selected);document.getElementById('logSchedule').value=selected;}
+}
 function populateScheduleDropdown() {
     const select = document.getElementById('logSchedule');
     if (!select) return;
+    if(!document.getElementById('logScheduleSearch')) {
+        const input=document.createElement('input'); input.id='logScheduleSearch';input.type='search';input.className='form-control';input.placeholder='Search schedule location (up to 50 results)';input.setAttribute('aria-label','Search schedule locations');
+        let timer; input.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>loadScheduleChoices(input.value).catch(()=>showToast('Could not search schedules','error')),250);});
+        select.before(input);
+    }
 
     select.innerHTML = '<option value="">Select Schedule</option>';
     
-    if (!allSchedules || allSchedules.length === 0) {
+    if (!scheduleChoices || scheduleChoices.length === 0) {
         const opt = document.createElement('option');
         opt.value = "";
         opt.textContent = "No schedules available";
@@ -1671,7 +1735,7 @@ function populateScheduleDropdown() {
         return;
     }
     
-    allSchedules.forEach(schedule => {
+    scheduleChoices.forEach(schedule => {
         const option = document.createElement('option');
         option.value = schedule.id;
         const timeDisplay = schedule.start_time && schedule.end_time 
@@ -1692,15 +1756,15 @@ function updateCounts() {
     const logCount = document.getElementById('logCount');
 
     if (scheduleCount) {
-        const total = allSchedules ? allSchedules.length : 0;
+        const total = scheduleTotal;
         const filter = document.getElementById('scheduleStatusFilter')?.value;
         scheduleCount.textContent = filter
-            ? `${getVisibleSchedules(allSchedules).length} of ${total} schedules`
+            ? `${total} ${filter.toLowerCase()} schedules (paged)`
             : `${total} schedules`;
     }
 
     if (logCount) {
-        logCount.textContent = `${allLogs ? allLogs.length : 0} logs`;
+        logCount.textContent = `${logTotal} logs (paged)`;
     }
 }
 

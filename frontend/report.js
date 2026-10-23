@@ -38,8 +38,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     if (roleEl) {
         let roleDisplay = '<i class="fa-solid fa-chart-column"></i> Kagawad — View & Analytics Access';
-        if (user?.role === 'Deputy Officer') {
-            roleDisplay = '<i class="fa-solid fa-crown"></i> Deputy Officer — Full System Access';
+        if (user?.role === 'Executive Officer') {
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Executive Officer — Full System Access';
         } else if (user?.role === 'Team Leader') {
             roleDisplay = '<i class="fa-solid fa-headset"></i> Team Leader — Records & Patrol Access';
         }
@@ -87,23 +87,69 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let currentIncidentData = [];
     let currentPatrolLogData = [];
+    let reportPage = 1, reportTotal = 0, reportSummary = {}, reportRequest = 0;
+    let reportPeriodsLoaded = false;
+    const reportPager = document.createElement('div');
+    reportPager.className = 'report-pagination'; reportPager.setAttribute('role','navigation'); reportPager.setAttribute('aria-label','Report record pages');
+    tableBody?.closest('table')?.after(reportPager);
+    function reportParams(page = reportPage, limit = 50) {
+        const month = monthSelect.value;
+        const [year,number] = month.split('-').map(Number);
+        const last = new Date(year,number,0).getDate();
+        const firstDay = month + '-01', lastDay = month + '-' + String(last).padStart(2,'0');
+        const params = new URLSearchParams({page,limit,include_resolved:'1',
+            date_from:filterDateFrom?.value > firstDay ? filterDateFrom.value : firstDay,
+            date_to:filterDateTo?.value && filterDateTo.value < lastDay ? filterDateTo.value : lastDay});
+        for (const [key,field] of [['status',filterStatus],['type',filterType],['form_type',filterFormType],['location',filterLocation]]) if(field?.value) params.set(key,field.value);
+        return params;
+    }
+    function renderReportPager(totalPages) {
+        reportPager.replaceChildren();
+        const label = document.createElement('span'); label.textContent = `${reportTotal} matching records · Page ${reportPage} of ${Math.max(1,totalPages)} · 50 records per page`;
+        for (const [text,delta,disabled] of [['Previous',-1,reportPage<=1],['Next',1,reportPage>=totalPages]]) {
+            const button = document.createElement('button'); button.type='button'; button.className='btn btn-secondary'; button.textContent=text; button.disabled=disabled;
+            button.addEventListener('click',()=>{reportPage+=delta;loadIncidents();}); reportPager.append(button);
+        }
+        reportPager.append(label);
+    }
+    async function exportRecords() {
+        const params = reportParams(1,100), records = new Map(); let pages=1, expected;
+        for(let page=1;page<=pages;page++) {
+            params.set('page',page);
+            const response = await apiFetch('/incidents?' + params); if(!response.ok) throw new Error('Could not load the complete selected report.');
+            const data = await response.json();
+            if(expected !== undefined && Number(data.total)!==expected) throw new Error('Records changed during export. Please retry.');
+            expected=Number(data.total);pages=data.totalPages;
+            data.incidents.forEach(record=>records.set(record.id,record));
+        }
+        if(records.size!==expected) throw new Error('Records changed during export. Please retry.');
+        return [...records.values()];
+    }
 
     async function loadIncidents() {
+        const request = ++reportRequest;
         try {
-            // Reports need the full active-incidents dataset (month-based
-            // filtering happens client-side across all of it), not one
-            // page of it — request a high limit rather than the (now
-            // paginated) default of 25.
-            const response = await apiFetch('/incidents?limit=10000&include_resolved=1');
+            if(!reportPeriodsLoaded) {
+                const response = await apiFetch('/incidents/metadata'); if(!response.ok) throw new Error('Could not load periods');
+                const metadata = await response.json();
+                populateMonthDropdown(metadata.months.map(item=>({date:item.month+'-01'})));
+                if(filterPatrolLocation) {
+                    metadata.patrolLocations.forEach(item=>filterPatrolLocation.add(new Option(item.location,item.location)));
+                }
+                populateLocationDropdown(); reportPeriodsLoaded=true;
+            }
+            if(!monthSelect.value) { reportTotal=0;renderReportPager(0);return; }
+            const params = reportParams();
+            const [response,summary] = await Promise.all([apiFetch('/incidents?' + params),apiFetch('/incidents/summary?' + params)]);
             if (!response.ok) throw new Error('Failed to load incidents');
-
             const responseData = await response.json();
+            if(!summary.ok) throw new Error('Could not load report totals');
+            const totals = await summary.json();
+            if(request !== reportRequest) return;
             const data = responseData.incidents || [];
             currentIncidentData = data;
-
-            populateMonthDropdown(data);
-            populateLocationDropdown();
-
+            reportSummary=totals; reportTotal=Number(responseData.total);
+            renderReportPager(responseData.totalPages);
             const initialMonth = monthSelect.value;
             updateReportView(initialMonth, data);
 
@@ -176,14 +222,47 @@ document.addEventListener("DOMContentLoaded", async () => {
     // PATROL LOGS TAB
     // =========================================================
 
+    let patrolReportPage=1, patrolReportTotal=0;
+    const patrolReportPager=document.createElement('div');
+    patrolReportPager.className='report-pagination';patrolReportPager.setAttribute('role','navigation');patrolReportPager.setAttribute('aria-label','Patrol log report pages');
+    patrolLogTableBody?.closest('table')?.after(patrolReportPager);
+    function patrolReportParams(page=patrolReportPage,limit=50) {
+        const params=new URLSearchParams({page,limit});
+        for(const [name,field] of [['date_from',filterPatrolDateFrom],['date_to',filterPatrolDateTo],['status',filterPatrolStatus],['location',filterPatrolLocation]]) if(field?.value) params.set(name,field.value);
+        return params;
+    }
+    async function exportPatrolRecords() {
+        const params=patrolReportParams(1,100), records=new Map();let pages=1,expected;
+        for(let page=1;page<=pages;page++) {
+            params.set('page',page); const response=await apiFetch('/patrol-logs?'+params); if(!response.ok) throw new Error('Could not load patrol log export.');
+            const total=Number(response.headers.get('X-Total-Count'));
+            if(expected!==undefined&&total!==expected) throw new Error('Patrol logs changed during export. Please retry.');
+            expected=total; pages=Number(response.headers.get('X-Total-Pages'));
+            (await response.json()).forEach(record=>records.set(record.id,record));
+        }
+        if(records.size!==expected) throw new Error('Patrol logs changed during export. Please retry.');
+        return [...records.values()];
+    }
+    let patrolReportRequest=0;
     async function loadPatrolLogs() {
+        const request=++patrolReportRequest;
         try {
             // No pagination/limit support on this endpoint (unlike
             // /incidents) - it already returns every row.
-            const response = await apiFetch('/patrol-logs');
+            const response = await apiFetch('/patrol-logs?'+patrolReportParams());
             if (!response.ok) throw new Error('Failed to load patrol logs');
 
-            currentPatrolLogData = await response.json();
+            const rows=await response.json(); if(request!==patrolReportRequest) return;
+            currentPatrolLogData = rows;
+            patrolReportTotal=Number(response.headers.get('X-Total-Count'));
+            const pages=Number(response.headers.get('X-Total-Pages'));
+            patrolReportPager.replaceChildren();
+            const text=document.createElement('span');text.textContent=`${patrolReportTotal} matching logs · Page ${patrolReportPage} of ${Math.max(1,pages)}`;
+            for(const [label,delta,disabled] of [['Previous',-1,patrolReportPage<=1],['Next',1,patrolReportPage>=pages]]) {
+                const button=document.createElement('button');button.type='button';button.className='btn btn-secondary';button.textContent=label;button.disabled=disabled;
+                button.addEventListener('click',()=>{patrolReportPage+=delta;loadPatrolLogs();});patrolReportPager.append(button);
+            }
+            patrolReportPager.append(text);
             populatePatrolFilterDropdowns(currentPatrolLogData);
             updatePatrolLogView();
         } catch (error) {
@@ -240,7 +319,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const filtered = applyPatrolLogFilters(currentPatrolLogData);
 
         if (patrolLogCount) {
-            patrolLogCount.textContent = `${filtered.length} record${filtered.length !== 1 ? 's' : ''}`;
+            patrolLogCount.textContent = `${patrolReportTotal} matching logs (paged)`;
         }
 
         if (!patrolLogTableBody) return;
@@ -281,7 +360,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         status: filterPatrolStatus?.value || '',
                         location: filterPatrolLocation?.value || ''
                     },
-                    recordCount: applyPatrolLogFilters(currentPatrolLogData).length
+                    recordCount: patrolReportTotal
                 })
             }).catch(err => console.error('Error logging patrol report action:', err));
         } catch (err) {
@@ -474,8 +553,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         // filtering to just "Theft" incidents, say, should mean the patrol
         // guidance is about those Theft incidents too, not the whole month.
         const monthData = applyFilters(currentMonth, currentIncidentData);
-        const highRiskCount = monthData.filter(item => item.danger_level?.includes("Level 3") || item.danger_level?.includes("High")).length;
-        const moderateRiskCount = monthData.filter(item => item.danger_level?.includes("Level 2") || item.danger_level?.includes("Moderate")).length;
+        const highRiskCount = Number(reportSummary.high)||0;
+        const moderateRiskCount = Number(reportSummary.moderate)||0;
 
         // Rank locations by incident count instead of just listing every
         // distinct street that had any incident at all - previously this
@@ -484,10 +563,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Mirrors the same group-count-sort pattern dashboard.js's "Top
         // Hotspot Areas" widget already uses.
         const locationCounts = {};
-        monthData.forEach(item => {
-            const loc = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : null);
-            if (loc) locationCounts[loc] = (locationCounts[loc] || 0) + 1;
-        });
+        (reportSummary.locations || []).forEach(item=>{if(item.location)locationCounts[item.location]=Number(item.count);});
         const rankedLocations = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]);
         const topLocations = rankedLocations.slice(0, 3);
         const topLocationName = topLocations.length > 0 ? topLocations[0][0] : null;
@@ -496,14 +572,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             : 'General Coverage Area';
 
         let peakHour = "N/A";
-        if (monthData.length > 0) {
+        if (reportTotal > 0) {
             const hourCounts = {};
-            monthData.forEach(item => {
-                if (item.time) {
-                    const hour = item.time.split(':')[0];
-                    hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-                }
-            });
+            (reportSummary.hours || []).forEach(item=>{hourCounts[item.hour]=Number(item.count);});
             const sortedHours = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
             if (sortedHours.length > 0) {
                 const hour = parseInt(sortedHours[0][0]);
@@ -528,7 +599,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 "Regular patrol drive for traffic decongestion.",
                 "Maintain active presence to prevent late-night altercations."
             ];
-        } else if (monthData.length > 0) {
+        } else if (reportTotal > 0) {
             summary = `Low risk level detected. Standard patrol procedures recommended.`;
             directives = [
                 "Regular foot patrol in designated areas.",
@@ -586,7 +657,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         formType: filterFormType?.value || '',
                         location: filterLocation?.value || ''
                     },
-                    recordCount: applyFilters(monthSelect?.value, currentIncidentData).length
+                    recordCount: reportTotal
                 })
             }).catch(err => console.error('Error logging report action:', err));
         } catch (err) {
@@ -600,7 +671,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     if (monthSelect) {
         monthSelect.addEventListener("change", (e) => {
-            updateReportView(e.target.value, currentIncidentData);
+            reportPage=1;loadIncidents();
         });
     }
 
@@ -610,7 +681,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         .filter(Boolean)
         .forEach(field => {
             field.addEventListener("change", () => {
-                updateReportView(monthSelect.value, currentIncidentData);
+                reportPage=1;loadIncidents();
             });
         });
 
@@ -619,7 +690,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             [filterDateFrom, filterDateTo, filterStatus, filterType, filterFormType, filterLocation]
                 .filter(Boolean)
                 .forEach(field => { field.value = ""; });
-            updateReportView(monthSelect.value, currentIncidentData);
+            reportPage=1;loadIncidents();
         });
     }
 
@@ -628,7 +699,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolLocation]
         .filter(Boolean)
         .forEach(field => {
-            field.addEventListener("change", updatePatrolLogView);
+            field.addEventListener("change", ()=>{patrolReportPage=1;loadPatrolLogs();});
         });
 
     if (clearPatrolFiltersBtn) {
@@ -636,21 +707,24 @@ document.addEventListener("DOMContentLoaded", async () => {
             [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolLocation]
                 .filter(Boolean)
                 .forEach(field => { field.value = ""; });
-            updatePatrolLogView();
+            patrolReportPage=1;loadPatrolLogs();
         });
     }
 
     if (printPatrolLogBtn) {
-        printPatrolLogBtn.addEventListener("click", () => {
-            logPatrolReportAction('PRINT_PATROL_LOGS_REPORT');
-            window.print();
+        printPatrolLogBtn.addEventListener("click", async () => {
+            printPatrolLogBtn.disabled=true;const page=currentPatrolLogData;
+            try {currentPatrolLogData=await exportPatrolRecords();updatePatrolLogView();logPatrolReportAction('PRINT_PATROL_LOGS_REPORT');window.print();}
+            catch(error){showToast(error.message,'error');}
+            finally{currentPatrolLogData=page;updatePatrolLogView();printPatrolLogBtn.disabled=false;}
         });
     }
 
     if (exportPatrolLogCsvBtn) {
-        exportPatrolLogCsvBtn.addEventListener("click", (e) => {
+        exportPatrolLogCsvBtn.addEventListener("click", async (e) => {
             e.preventDefault();
-            const filteredData = applyPatrolLogFilters(currentPatrolLogData);
+            let filteredData;exportPatrolLogCsvBtn.disabled=true;
+            try{filteredData=await exportPatrolRecords();}catch(error){showToast(error.message,'error');return;}finally{exportPatrolLogCsvBtn.disabled=false;}
 
             if (filteredData.length === 0) {
                 showToast("No patrol log data available to export for the selected filters.", "error");
@@ -689,14 +763,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (printBtn) {
-        printBtn.addEventListener("click", () => {
-            logReportAction('PRINT_REPORT');
-            window.print();
+        printBtn.addEventListener("click", async () => {
+            printBtn.disabled=true;
+            try { const rows=await exportRecords(); updateReportView(monthSelect.value,rows); logReportAction('PRINT_REPORT'); window.print(); }
+            catch(error){showToast(error.message,'error');}
+            finally {updateReportView(monthSelect.value,currentIncidentData);printBtn.disabled=false;}
         });
     }
 
     if (exportCsvBtn) {
-        exportCsvBtn.addEventListener("click", (e) => {
+        exportCsvBtn.addEventListener("click", async (e) => {
             e.preventDefault();
             const currentMonth = monthSelect.value;
             if (!currentMonth) {
@@ -704,7 +780,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
             
-            const filteredData = applyFilters(currentMonth, currentIncidentData);
+            let filteredData;
+            exportCsvBtn.disabled=true;
+            try { filteredData = await exportRecords(); }
+            catch(error){showToast(error.message,'error');return;}
+            finally {exportCsvBtn.disabled=false;}
 
             if (filteredData.length === 0) {
                 showToast("No data available to export for the selected filters.", "error");

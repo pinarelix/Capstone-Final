@@ -7,6 +7,14 @@
 const cartEngine = require('../cart-engine');
 
 describe('CART engine scoring', () => {
+    beforeEach(() => {
+        // cartEngine is a singleton and API tests can update it at runtime.
+        // Reset the analytical baseline so every case is deterministic.
+        cartEngine.updateWeights({ time: 0.25, day: 0.15, type: 0.30, location: 0.20, frequency: 0.10 });
+        cartEngine.updateThresholds({ level3: 67, level2: 34 });
+        cartEngine.updateSourceWeights({ incident: 1.0, blotter: 0.85 });
+    });
+
     test('a severe, frequent, well-known-hotspot High-severity incident scores into Level 3', () => {
         const incident = {
             incident_type: 'Homicide',   // type score 95
@@ -98,5 +106,97 @@ describe('CART engine scoring', () => {
         expect(result.effectiveWeights).toBeDefined();
         expect(result.effectiveWeights.tier).toBe('Medium');
         expect(result.effectiveWeights.type).toBe(0.20);
+    });
+
+    test.each([
+        ['Morning', 20],
+        ['Afternoon', 40],
+        ['Evening', 70],
+        ['Night', 90],
+        ['Unknown', 20],
+        [null, 20]
+    ])('time bucket %p maps to %i points', (bucket, expected) => {
+        expect(cartEngine.getTimeScore(bucket)).toBe(expected);
+    });
+
+    test.each([
+        [0, 10], [1, 30], [2, 50], [3, 70], [4, 70], [5, 90], [20, 90]
+    ])('location count %i maps to %i points at every boundary', (count, expected) => {
+        expect(cartEngine.getLocationScore(count)).toBe(expected);
+    });
+
+    test.each([
+        [0, 5], [1, 25], [2, 50], [3, 75], [4, 75], [5, 95], [20, 95]
+    ])('30-day frequency count %i maps to %i points at every boundary', (count, expected) => {
+        expect(cartEngine.getFrequencyScore(count)).toBe(expected);
+    });
+
+    test.each([
+        [33.99, 'Level 1'], [34, 'Level 2'], [66.99, 'Level 2'], [67, 'Level 3']
+    ])('danger threshold edge %p is classified as %s', (score, expected) => {
+        expect(cartEngine.getDangerLevel(score)).toBe(expected);
+    });
+
+    test('medium-severity total matches an independently calculated weighted score', () => {
+        const result = cartEngine.analyze({
+            incident_type: 'Robbery', // 90
+            time_of_day: 'Evening',   // 70
+            is_weekend: false,         // 40
+            severity: 'Medium',
+            form_type: 'crime'
+        }, { street_count: 3 }, { recent_count: 2 }); // 70 and 50
+
+        // Medium gives type 20%. The remaining 80% follows the original
+        // 25:15:20:10 ratio, independently yielding the weights below.
+        const expected = 90 * 0.20
+            + 70 * (0.80 * 25 / 70)
+            + 40 * (0.80 * 15 / 70)
+            + 70 * (0.80 * 20 / 70)
+            + 50 * (0.80 * 10 / 70);
+        expect(result.totalScore).toBe(Math.round(expected * 100) / 100);
+    });
+
+    test('blotter source multiplier discounts the same raw case by exactly 15%', () => {
+        const common = {
+            incident_type: 'Theft', time_of_day: 'Night', is_weekend: true, severity: 'High'
+        };
+        const incident = cartEngine.analyze({ ...common, form_type: 'crime' }, { street_count: 3 }, { recent_count: 3 });
+        const blotter = cartEngine.analyze({ ...common, form_type: 'blotter' }, { street_count: 3 }, { recent_count: 3 });
+        expect(blotter.totalScore).toBe(Math.round(incident.totalScore * 0.85 * 100) / 100);
+    });
+
+    test('configured thresholds take effect exactly and can be restored', () => {
+        cartEngine.updateThresholds({ level2: 50, level3: 80 });
+        expect(cartEngine.getDangerLevel(49.99)).toBe('Level 1');
+        expect(cartEngine.getDangerLevel(50)).toBe('Level 2');
+        expect(cartEngine.getDangerLevel(80)).toBe('Level 3');
+    });
+    test('mathematical half-cent rounding is stable after the blotter multiplier', () => {
+        const result=cartEngine.analyze({ incident_type:'Others',time_of_day:'Evening',is_weekend:true,severity:'High',form_type:'blotter' },
+            { street_count:5 },{ recent_count:1 });
+        // (30*.30 + 70*.25 + 70*.15 + 90*.20 + 25*.10) * .85
+        // = 57.5 * .85 = 48.875 -> 48.88.
+        expect(result.totalScore).toBe(48.88);
+    });
+
+    test('analysis is deterministic and always stays within the 0-100 score scale', () => {
+        const input = { incident_type: 'Homicide', time_of_day: 'Night', is_weekend: true, severity: 'High', form_type: 'crime' };
+        const first = cartEngine.analyze(input, { street_count: 99 }, { recent_count: 99 });
+        const second = cartEngine.analyze(input, { street_count: 99 }, { recent_count: 99 });
+        expect(second).toEqual(first);
+        expect(first.totalScore).toBeGreaterThanOrEqual(0);
+        expect(first.totalScore).toBeLessThanOrEqual(100);
+    });
+
+    test('decision path exposes all five factors and the final classification for auditability', () => {
+        const result = cartEngine.analyze(
+            { incident_type: 'Theft', time_of_day: 'Night', is_weekend: true, severity: 'High', form_type: 'crime', street_name: 'Balite Street' },
+            { street_count: 5 },
+            { recent_count: 3 }
+        );
+        expect(result.decisionPath).toHaveLength(8);
+        expect(result.decisionPath.join('\n')).toEqual(expect.stringContaining('Incident Type'));
+        expect(result.decisionPath.join('\n')).toEqual(expect.stringContaining('Recent Frequency'));
+        expect(result.decisionPath.join('\n')).toEqual(expect.stringContaining('Final Classification'));
     });
 });

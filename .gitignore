@@ -44,3 +44,8 @@ backend/uploads/
 # Electron build output
 dist/
 out/
+
+# Native Windows build output
+native/**/bin/
+native/**/obj/
+native/**/*.user

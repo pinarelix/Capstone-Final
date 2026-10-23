@@ -1,7 +1,7 @@
 /* ============================================================
    USERS.JS
    Barangay 179 Crime BI
-   User Management Module - Deputy Officer Only + Audit
+   User Management Module - Executive Officer Only + Audit
 ============================================================ */
 
 // ✅ API_URL ay naka-define na sa apiHelper.js
@@ -41,8 +41,8 @@ document.addEventListener("DOMContentLoaded", function () {
     
     if (roleEl) {
         let roleDisplay = '<i class="fa-solid fa-chart-column"></i> Kagawad — View & Analytics Access';
-        if (user?.role === 'Deputy Officer') {
-            roleDisplay = '<i class="fa-solid fa-crown"></i> Deputy Officer — Full System Access';
+        if (user?.role === 'Executive Officer') {
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Executive Officer — Full System Access';
         } else if (user?.role === 'Team Leader') {
             roleDisplay = '<i class="fa-solid fa-headset"></i> Team Leader — Records & Patrol Access';
         }
@@ -73,7 +73,7 @@ async function loadUsers() {
             throw new Error('Failed to fetch users');
         }
         
-        users = await response.json();
+        users = (await response.json()).map(user => ({ ...user, role: user.role === 'Deputy Officer' ? 'Executive Officer' : user.role }));
         renderUsers();
         updateAccountCount();
         
@@ -97,7 +97,7 @@ async function refreshUsersOnly() {
         const response = await apiFetch('/users');
         if (!response.ok) return;
 
-        users = await response.json();
+        users = (await response.json()).map(user => ({ ...user, role: user.role === 'Deputy Officer' ? 'Executive Officer' : user.role }));
 
         const searchInput = document.getElementById('searchUsers');
         if (searchInput && searchInput.value.trim()) return;
@@ -239,7 +239,7 @@ function renderUsers(filteredUsers = users) {
         let roleClass = 'role-badge role-field-user';
         let roleDisplay = users.role || 'User';
         
-        if (users.role === 'Deputy Officer') {
+        if (users.role === 'Executive Officer') {
             roleClass = 'role-badge role-admin';
         } else if (users.role === 'Kagawad') {
             roleClass = 'role-badge role-decision-maker';
@@ -287,7 +287,7 @@ function renderUsers(filteredUsers = users) {
 /* ============================================================
    INLINE EDIT: USER EMAIL
    Scoped to just this one field since there's no general "edit user"
-   endpoint yet - needed so the Deputy Officer can set an email on
+   endpoint yet - needed so the Executive Officer can set an email on
    existing accounts (the Add User form only covers new ones), which
    the forgot-password flow uses to actually send a reset code.
 ============================================================ */
@@ -431,7 +431,7 @@ async function deleteUser(id) {
         return;
     }
 
-    showDeleteModal(`Are you sure you want to deactivate user "${user.name}"? It will be moved to the Archive (Settings > Archive), where the Deputy Officer can restore it.`, id, 'user');
+    showDeleteModal(`Are you sure you want to deactivate user "${user.name}"? It will be moved to the Archive (Settings > Archive), where the Executive Officer can restore it.`, id, 'user');
 }
 
 window.confirmDeleteUser = async function(id) {
@@ -586,7 +586,7 @@ function escapeHTML(value) {
 
 function getRoleClass(role) {
     switch (role) {
-        case "Deputy Officer": return "admin";
+        case "Executive Officer": return "admin";
         case "Kagawad": return "decision-maker";
         case "Team Leader": return "desk-officer";
         default: return "field-user";
@@ -595,7 +595,7 @@ function getRoleClass(role) {
 
 function getRoleIcon(role) {
     switch (role) {
-        case "Deputy Officer": return '<i class="fa-solid fa-user-shield"></i>';
+        case "Executive Officer": return '<i class="fa-solid fa-user-shield"></i>';
         case "Kagawad": return '<i class="fa-solid fa-user-tie"></i>';
         case "Team Leader": return '<i class="fa-solid fa-headset"></i>';
         default: return '<i class="fa-solid fa-user"></i>';

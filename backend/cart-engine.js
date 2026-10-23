@@ -360,7 +360,9 @@ class CARTEngine {
         const sourceMul = this.sourceWeights[source] ?? 1.0;
         const adjustedTotal = rawTotal * sourceMul;
 
-        const roundedTotal = Math.round(adjustedTotal * 100) / 100;
+        // Prevent binary arithmetic from rounding a mathematical half-cent
+        // down (e.g. 57.5 * .85 can become 48.87499999999999).
+        const roundedTotal = Math.round((adjustedTotal + 1e-9) * 100) / 100;
         const dangerLevel = this.getDangerLevel(roundedTotal);
         const dangerDescription = this.getDangerLevelDescription(dangerLevel);
 

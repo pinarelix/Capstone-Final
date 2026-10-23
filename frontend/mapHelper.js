@@ -59,7 +59,8 @@ function createBarangayMap(container, mapOptions = {}) {
     // Philippine street-level data to be usable at barangay scale
     // (comes out nearly blank). Standard OSM tiles remain the only
     // free, key-less option with real local street detail.
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Use the same single tile origin as the risk map and CSP allowlist.
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);

@@ -1,0 +1,12 @@
+.sidebar-nav .nav-item[draggable="true"] {
+    cursor: grab;
+}
+
+.sidebar-nav .nav-item.nav-dragging {
+    opacity: 0.35;
+    outline: 2px dashed #2688db;
+}
+
+.sidebar-nav .nav-item[draggable="true"]:active {
+    cursor: grabbing;
+}

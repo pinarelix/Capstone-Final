@@ -2,11 +2,13 @@
 // throwaway brgydata_test database with the real brgydata's schema
 // (no data), so tests never touch real barangay data.
 const path = require('path');
+const fs = require('fs');
 const { execSync } = require('child_process');
 const mysql = require('mysql2/promise');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { findBinary } = require('./mysqlBin');
 const { createArchive } = require('../archive');
+const { migrateRecordPatrol } = require('../migrations/record-patrol');
 
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_PORT = process.env.DB_PORT || 3306;
@@ -44,10 +46,40 @@ module.exports = async function globalSetup() {
         { shell: true, env, stdio: 'pipe' }
     );
 
-    // Tables the server creates on startup (see testConnection) may not
-    // exist in the source DB yet if it hasn't been restarted since they
-    // were added - run the same idempotent creation against the clone.
-    const testPool = mysql.createPool({ host: DB_HOST, user: DB_USER, password: DB_PASSWORD, database: TEST_DB });
+    // The live database can legitimately lag behind repository migrations.
+    // Bring only the throwaway clone up to the schema expected by this
+    // checkout so test outcomes do not depend on the operator's live DB.
+    const testPool = mysql.createPool({
+        host: DB_HOST,
+        port: DB_PORT,
+        user: DB_USER,
+        password: DB_PASSWORD,
+        database: TEST_DB,
+        multipleStatements: true
+    });
+
+    const [registryTables] = await testPool.query("SHOW FULL TABLES LIKE 'record_registry'");
+    if (registryTables.length === 0) {
+        for (const migration of [
+            '001_option_a_tables.sql',
+            '002_cutover_incidents_view.sql',
+            '003_record_type_catalog.sql',
+            '004_unified_analytics_view.sql'
+        ]) {
+            const sql = fs.readFileSync(path.join(__dirname, '..', '..', 'database', 'migrations', migration), 'utf8');
+            await testPool.query(sql);
+        }
+    }
+
+    const taskMigration = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'database', 'migrations', '20261023_task_manager.sql'),
+        'utf8'
+    );
+    await testPool.query(taskMigration);
+    await migrateRecordPatrol(testPool);
+    await testPool.query("ALTER TABLE users MODIFY COLUMN role ENUM('Executive Officer','Deputy Officer','Kagawad','Team Leader') NOT NULL");
+
+    // Runtime-created support tables must also exist in the clone.
     await createArchive({ pool: testPool, uploadsRoot: '' }).ensureArchiveTable();
     await testPool.end();
 

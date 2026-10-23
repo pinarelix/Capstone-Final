@@ -406,19 +406,19 @@ async function loadHotspots() {
         // Hotspot aggregation needs the full active-incidents dataset, not
         // one page of it — request a high limit rather than the (now
         // paginated) default of 25.
-        const response = await apiFetch('/incidents?limit=10000');
+        const response = await apiFetch('/incidents/summary?window_days=90');
         if (!response.ok) throw new Error('Failed to fetch hotspots');
 
         const data = await response.json();
-        const incidents = data.incidents || [];
+        const incidents = data.locations || [];
 
         const locationMap = {};
         incidents.forEach(item => {
             const location = item.street_name || item.location || 'Unknown';
             if (!locationMap[location]) {
-                locationMap[location] = { count: 0, danger: item.danger_level };
+                locationMap[location] = { count: 0, danger: Number(item.danger_rank) === 3 ? 'High' : Number(item.danger_rank) === 2 ? 'Moderate' : 'Low' };
             }
-            locationMap[location].count++;
+            locationMap[location].count += Number(item.count);
         });
 
         const hotspots = Object.entries(locationMap)
@@ -475,7 +475,7 @@ function renderHotspots(hotspots) {
                 <span class="badge ${item.levelClass}">${item.danger} Risk</span>
             </div>
             <p class="hotspot-desc">
-                ${item.count} reported incident${item.count > 1 ? 's' : ''} in this area.
+                ${item.count} reported incident${item.count > 1 ? 's' : ''} in this area in the last 90 days.
             </p>
             <div class="hotspot-tags">
                 <span class="tag ${item.tagClass}">${item.count} record${item.count > 1 ? 's' : ''}</span>

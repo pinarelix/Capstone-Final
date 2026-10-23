@@ -1,6 +1,7 @@
-const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
-const fs = require('fs');
+const crypto = require('crypto');
+const { DESKTOP_WEB_PREFERENCES, configureDesktopContents } = require('./desktop-policy');
 
 // Fixes the AppData folder name (%APPDATA%\Barangay 179 Crime BI)
 // regardless of how the app was launched.
@@ -15,7 +16,6 @@ const {
     loadConfig,
     migrateIfNeeded,
     applyToProcessEnv,
-    getConfigPath,
 } = require('./backend/config-manager');
 
 const DATA_DIR = app.getPath('userData');
@@ -41,6 +41,21 @@ if (app.isPackaged) {
 }
 
 let mainWindow;
+// Authorizes only the setup wizard opened by this Electron process. It is
+// random for every launch, kept in memory, and accepted only from localhost.
+// This lets the pre-login connection gate work without making post-setup
+// configuration endpoints generally available to other local processes.
+const setupBootToken = crypto.randomBytes(32).toString('hex');
+process.env.SETUP_BOOT_TOKEN = setupBootToken;
+let setupRestartScheduled = false;
+process.on('setup-config-changed', () => {
+    if (setupRestartScheduled) return;
+    setupRestartScheduled = true;
+    setTimeout(() => {
+        app.relaunch();
+        app.exit(0);
+    }, 500);
+});
 // The port the backend actually listened on (PORT in backend/.env,
 // default 3000) — the window must load that, not a hardcoded 3000.
 let serverPort = 3000;
@@ -60,11 +75,10 @@ function createWindow() {
         show: false,
         icon: path.join(__dirname, 'frontend', 'icons', 'icon-512.png'),
         backgroundColor: '#0b1c3c',
-        webPreferences: {
-            contextIsolation: true,
-            nodeIntegration: false
-        }
+        webPreferences: { ...DESKTOP_WEB_PREFERENCES }
     });
+
+    configureDesktopContents(mainWindow.webContents, `http://localhost:${serverPort}`);
 
     mainWindow.once('ready-to-show', () => {
         mainWindow.maximize();
@@ -76,7 +90,9 @@ function createWindow() {
     // clicks "Connect & Continue" (one click) and setup.js navigates
     // to login.html. On first run or a broken connection they stay in
     // the wizard until they fix it.
-    mainWindow.loadURL(`http://localhost:${serverPort}/setup.html`);
+    mainWindow.loadURL(
+        `http://localhost:${serverPort}/setup.html?boot_token=${encodeURIComponent(setupBootToken)}`
+    );
 }
 
 Menu.setApplicationMenu(null);

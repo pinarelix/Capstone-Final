@@ -46,9 +46,12 @@ output. A rule-based model is:
 | Day of week | 15% | Weekends show a measurable but secondary risk shift versus weekdays. |
 | Recent frequency | 10% | A recent spike at a location matters, but least of the five — it's a secondary signal on top of type/time/location. |
 
-Weights sum to 100% (`backend/cart-engine.js`, `this.weights`). They are configurable via
-`cartEngine.updateWeights()`, though the Settings UI currently exposes no field to edit them
-(only the two thresholds below are user-configurable).
+These are the default High-severity weights (`backend/cart-engine.js`). Medium and Low
+severity set the type contribution to 20% and 10% respectively; the remaining factors are
+redistributed proportionally. Settings controls the base factor ratios, thresholds, and
+source multipliers. Blotter scores are multiplied by 0.85 by default; incident scores by 1.0.
+The type contribution is selected by severity, rather than directly using the base type
+percentage. These policy weights are not fitted estimates of forecast importance.
 
 ## Thresholds
 
@@ -72,33 +75,21 @@ time of day, day of week, location-history buckets, frequency buckets). Each fac
 score (0–100) is multiplied by its weight above, and the five weighted scores are summed
 into the final 0–100 total.
 
-## Patrol-completion decay
+## Resolution and patrol coverage
 
-Separately from the scoring model above, each street carries a decay offset
-(`area_risk_decay` table) that's *subtracted* from its live CART score for display and
-recommendation purposes — the underlying score itself is never modified. Completing a
-patrol scheduled for that street reduces the offset by `PATROL_COMPLETION_DECAY = 3.5`
-(a fixed percentage point, `backend/server.js`); a new incident at that street resets the
-offset to 0, since a fresh incident means whatever the patrols accomplished no longer
-reflects the street's current risk.
+The record map and patrol recommendations now retain each record's current CART score.
+Resolved cases are excluded from the active map but retained in historical records.
+Linked patrol schedules and assigned tanods are displayed separately as operational coverage.
+The old area-completion offset is retained for backward compatibility and historical audits,
+but is no longer subtracted from displayed patrol recommendation scores.
 
-**Where 3.5 comes from:** this is a calibrated heuristic, not a value derived from
-Barangay 179's historical incident data — there isn't yet enough accumulated history to
-fit a decay rate statistically (the same reasoning as "why rule-based, not a trained
-model" above). It was chosen against the model's own 0–100 scale so that the pace of
-decay matches realistic field practice:
+A scheduled or completed patrol is not evidence of a specific reduction in crime probability.
+See [RECORD_PATROL_MAP.md](RECORD_PATROL_MAP.md) for the eligibility policy, resolution behavior,
+coverage definitions, and the proposed approach to future rate forecasting.
 
-| Starting score | Patrols needed to drop one tier at 3.5%/patrol | Rough duration |
-|---|---|---|
-| 70 (just into Level 3) | ~1 patrol | same day |
-| 85 (solidly Level 3) | ~5 patrols | about a week |
-| 100 (maximum risk) | ~10 patrols | about two weeks |
+## Validation suite
 
-A single patrol visibly nudges a borderline street, but a street that's a well-established
-hotspot takes sustained, repeated coverage — on the order of a week or two of regular
-patrols — before it's reclassified down a risk tier. That matches how visible, consistent
-presence actually earns down perceived risk in the field, rather than letting one patrol
-swing a hotspot's classification immediately (too fast to be credible) or requiring months
-of patrols to move at all (too slow to be useful as a decision-support signal). The value
-is a constant in code rather than a Settings-page field, the same way the weights above
-are code-configurable but not yet exposed in the UI.
+The executable CART and heatmap validation cases, analytical populations, independent
+expected-value calculations, and manual browser checks are documented in
+`docs/CART_HEATMAP_TEST_CASES.md`. Run the focused suite from the repository root with
+`npm run test:analytics`.

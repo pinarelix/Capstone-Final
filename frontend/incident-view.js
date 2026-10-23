@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Check role - all three current staff roles may view incident records.
-    const allowedRoles = ['Deputy Officer', 'Kagawad', 'Team Leader'];
+    const allowedRoles = ['Executive Officer', 'Kagawad', 'Team Leader'];
     if (!allowedRoles.includes(user.role)) {
         console.log(`❌ Access denied. User role: ${user.role}`);
         alert('Access denied. This page is for Captain and above.');
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (userRoleDisplay) {
         const roleMap = {
-            'Deputy Officer': 'Deputy Officer — Full Access',
+            'Executive Officer': 'Executive Officer — Full Access',
             'Kagawad': 'Kagawad — View & Analytics Access',
             'Team Leader': 'Team Leader — Incident & Patrol Access'
         };
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // always reflects the true counts across every visible record.
     // =========================================================
     function loadStats() {
-        fetch(`${API_URL}/incidents/view-only?page=1&limit=1000&include_resolved=1`, {
+        fetch(`${API_URL}/incidents/summary?include_resolved=1`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             .then(response => {
@@ -147,18 +147,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return response.json();
             })
             .then(data => {
-                const list = data.incidents || [];
-                const counts = { Open: 0, Monitoring: 0, Resolved: 0 };
-                list.forEach(item => {
-                    if (counts[item.status] !== undefined) counts[item.status]++;
-                });
+                const counts = { Open: Number(data.open)||0, Monitoring: Number(data.monitoring)||0, Resolved: Number(data.resolved)||0 };
 
                 const statTotal = document.getElementById('statTotal');
                 const statOpen = document.getElementById('statOpen');
                 const statMonitoring = document.getElementById('statMonitoring');
                 const statResolved = document.getElementById('statResolved');
 
-                if (statTotal) statTotal.textContent = data.total ?? list.length;
+                if (statTotal) statTotal.textContent = data.total || 0;
                 if (statOpen) statOpen.textContent = counts.Open;
                 if (statMonitoring) statMonitoring.textContent = counts.Monitoring;
                 if (statResolved) statResolved.textContent = counts.Resolved;

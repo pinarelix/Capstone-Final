@@ -12,7 +12,7 @@
 
 The **Barangay 179 Crime Intelligence and Patrol Decision Support System** is a standalone desktop application designed to help barangay officials manage, analyze, and respond to crime incidents in Barangay 179, Amparo, Caloocan City.
 
-It runs as a native Windows desktop app (built with Electron) backed by a local MySQL database — no browser or separate servers required. The system integrates **Business Intelligence (BI)**, **Geospatial Mapping**, and a **transparent, weighted risk-scoring engine** (referred to throughout the system as the "CART Engine" — see the [naming note](#-about-the-cart-engine-naming) below) to provide data-driven patrol recommendations and risk assessments.
+The app uses an Electron desktop shell with an HTML interface and an internal Express API backed by MySQL. Electron remains the supported interface; the native Windows rewrite has been discontinued. Electron starts the API locally, and office clients can use the configured internal server. Fonts, icons and application libraries are bundled locally. Street-map tiles still require internet access. See [desktop operation and network dependencies](docs/ELECTRON_LOCAL_OPERATION.md). The system integrates **Business Intelligence (BI)**, **Geospatial Mapping**, and a **transparent, weighted risk-scoring engine** (referred to throughout the system as the "CART Engine" — see the [naming note](#-about-the-cart-engine-naming) below) to provide data-driven patrol recommendations and risk assessments.
 
 ---
 
@@ -22,17 +22,19 @@ It runs as a native Windows desktop app (built with Electron) backed by a local 
 - Real-time incident statistics and KPIs
 - Interactive charts (incident types, danger levels, trends)
 - Recent incident table with status tracking
+- Today's assigned blotter-mediation queue with status, notes, rescheduling, and history
 
 ### 📁 Incident Management
 - Full CRUD operations for incident records
 - Map-based location picker with barangay boundary
 - Auto-computation of time of day and day of week
 - CART risk factor generation per incident
+- Blotter-mediation assignment to active staff accounts
 
 ### 🗺️ Barangay Risk Map (Heatmap)
-- Grid-based quadrat analysis
-- Visual representation of incident density
-- Click to view incident details per location
+- Exact incident/blotter pins colored by each record's current CART score and thresholds
+- Patrol-eligibility filtering and overlapping-location record groups
+- White record detail/editor panel and a descending-score visible-record listbox
 
 ### 📈 CART Predictive Analytics
 - Transparent, weighted rule-based scoring engine (not a trained decision tree — see
@@ -50,6 +52,7 @@ It runs as a native Windows desktop app (built with Electron) backed by a local 
 - Priority area identification
 - Suggested personnel deployment
 - Patrol scheduling and logging
+- Live recommendation search and severity/recency ordering
 
 ### 📄 Reports Module
 - Printable incident summaries
@@ -62,6 +65,7 @@ It runs as a native Windows desktop app (built with Electron) backed by a local 
   (incident and patrol operations)
 - Secure authentication with session management
 - Password reset functionality
+- Per-account drag-and-drop sidebar order
 
 ### ⚙️ System Settings
 - Configurable thresholds and weights
@@ -175,7 +179,15 @@ accounts below):
 ```powershell
 mysql -u root -p -e "CREATE DATABASE brgydata"
 mysql -u root -p brgydata < database/schema.sql
+
+# Apply the checked-in schema migrations after backing up the database
+npm run db:migrate
 ```
+
+> **Existing populated database:** migration 002 preserves legacy incident rows
+> in `incidents_legacy` but does not copy them into the new operational tables.
+> Review and back up those rows before cutover; see
+> [`docs/CODEBASE_AUDIT_2026-10-24.md`](docs/CODEBASE_AUDIT_2026-10-24.md).
 
 Copy `backend/.env.example` to `backend/.env` and fill in your local database credentials:
 
@@ -197,7 +209,7 @@ PORT=3000
 npm start
 ```
 
-This launches the desktop app: it starts the Express/MySQL backend in-process, then opens a native window loading the login screen. If MySQL isn't running, you'll get a clear error dialog instead of a silent crash — start MySQL and relaunch.
+This launches the Electron app: it starts the Express backend in-process and opens the database-connection gate before login. MySQL must run separately. No .NET SDK or native-preview commands are required. The abandoned native preview is retained only as reference source and is not included in the Electron installer.
 
 **Demo accounts** (seeded by `database/schema.sql`):
 - Deputy Officer — `admin` / `admin123`

@@ -4,7 +4,7 @@
 // Every delete route snapshots what it removes into `archived_records`
 // (the row plus anything that would otherwise be lost with it - e.g. an
 // incident's evidence rows) and moves any uploaded files into
-// <uploads>/archive/ instead of unlinking them. The Deputy Officer can
+// <uploads>/archive/ instead of unlinking them. The Executive Officer can
 // browse the archive in Settings > Archive and restore a record exactly
 // as it was.
 //
@@ -151,7 +151,7 @@ async function insertRow(conn, table, row) {
 class RestoreConflict extends Error {}
 
 function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, logAudit, computeCartRiskFactors, heatmapCache }) {
-    app.get('/api/archive', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+    app.get('/api/archive', authenticate, requireRole(['Executive Officer']), async (req, res) => {
         try {
             const { type = '', state = 'archived' } = req.query;
             const where = [];
@@ -178,7 +178,7 @@ function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, 
         }
     });
 
-    app.post('/api/archive/:id/restore', authenticate, requireRole(['Deputy Officer']), async (req, res) => {
+    app.post('/api/archive/:id/restore', authenticate, requireRole(['Executive Officer']), async (req, res) => {
         const [found] = await pool.query('SELECT * FROM archived_records WHERE id = ?', [req.params.id]);
         const entry = found[0];
         if (!entry) return res.status(404).json({ error: 'Archive entry not found' });
@@ -206,6 +206,10 @@ function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, 
                     const baseTable = source === 'incident' ? 'incident_records' : 'blotter_records';
                     await insertRow(conn, baseTable, baseRow);
                     await insertRow(conn, 'record_registry', reg);
+                    if (data.patrol_metadata) await insertRow(conn, 'record_patrol_details', data.patrol_metadata);
+                    if (data.linked_schedule_ids?.length) await conn.query(
+                        'UPDATE patrol_schedule_records SET incident_id=? WHERE schedule_id IN (?) AND incident_id IS NULL',
+                        [reg.registry_id, data.linked_schedule_ids]);
                     for (const ev of data.evidence || []) {
                         if (!(await exists('incident_evidence', ev.id))) await insertRow(conn, 'incident_evidence', ev);
                     }
@@ -222,6 +226,12 @@ function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, 
                 case 'patrol_schedule': {
                     if (await exists('patrol_schedules', row.id)) throw new RestoreConflict(`Schedule #${row.id} already exists.`);
                     await insertRow(conn, 'patrol_schedules', row);
+                    if (data.record_link) {
+                        const link = { ...data.record_link };
+                        if (link.incident_id && !(await exists('incidents', link.incident_id))) link.incident_id = null;
+                        await insertRow(conn, 'patrol_schedule_records', link);
+                    }
+                    for (const link of data.tanod_links || []) if (await exists('tanods', link.tanod_id)) await insertRow(conn, 'patrol_schedule_tanods', link);
                     if ((data.log_ids || []).length) {
                         await conn.query('UPDATE patrol_logs SET schedule_id = ? WHERE id IN (?) AND schedule_id IS NULL', [row.id, data.log_ids]);
                     }

@@ -6,7 +6,7 @@
  *     - Only localhost requests are allowed (Electron desktop app).
  *     - No auth token required (DB doesn't exist yet).
  *   After initial setup (setup_completed === true):
- *     - Only authenticated Deputy Officer can access.
+ *     - Only authenticated Executive Officer can access.
  *     - Localhost restriction lifted (admin may reconfigure remotely).
  *   Recovery mode:
  *     - A file-based, single-use, time-limited recovery token lets a
@@ -17,6 +17,7 @@
 
 const express = require('express');
 const mysql   = require('mysql2/promise');
+const crypto  = require('crypto');
 const { hashToken } = require('../token-utils');
 const {
     loadConfig,
@@ -50,10 +51,37 @@ function logSetupAccess(req, action, granted, reason) {
     }
 }
 
+function secretsMatch(candidate, expected) {
+    if (typeof candidate !== 'string' || typeof expected !== 'string') return false;
+    const candidateBuffer = Buffer.from(candidate);
+    const expectedBuffer = Buffer.from(expected);
+    return candidateBuffer.length === expectedBuffer.length
+        && crypto.timingSafeEqual(candidateBuffer, expectedBuffer);
+}
+
 // ── security middleware ───────────────────────────────────────────
 
 async function setupGuard(req, res, next) {
     const setupDone = isSetupCompleted();
+
+    // Electron creates a fresh in-memory token for every launch and passes it
+    // only to its setup window. This authorizes the mandatory pre-login setup
+    // gate without exposing post-setup configuration to arbitrary localhost
+    // requests. Browser access without the token still follows normal auth.
+    const bootToken = req.headers['x-setup-boot-token'];
+    if (bootToken) {
+        if (!isLocalhostRequest(req)) {
+            logSetupAccess(req, req.method + ' ' + req.path, false, 'boot token from non-localhost');
+            return res.status(403).json({ error: 'Setup boot access is local-only.' });
+        }
+        if (secretsMatch(bootToken, process.env.SETUP_BOOT_TOKEN)) {
+            req.setupBootMode = true;
+            logSetupAccess(req, req.method + ' ' + req.path, true, 'valid Electron boot token');
+            return next();
+        }
+        logSetupAccess(req, req.method + ' ' + req.path, false, 'invalid Electron boot token');
+        return res.status(401).json({ error: 'Invalid setup boot token.' });
+    }
 
     // ── Recovery token bypass (localhost-only, any setup state) ──
     const recoveryHeader = req.headers['x-recovery-token'];
@@ -83,12 +111,12 @@ async function setupGuard(req, res, next) {
         return next();
     }
 
-    // ── Post-setup: require Deputy Officer auth ──
+    // ── Post-setup: require Executive Officer auth ──
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         logSetupAccess(req, req.method + ' ' + req.path, false, 'post-setup — no auth token');
         return res.status(401).json({
-            error: 'Authentication required. Only the Deputy Officer can modify setup after initial configuration.',
+            error: 'Authentication required. Only the Executive Officer can modify setup after initial configuration.',
         });
     }
 
@@ -131,13 +159,13 @@ async function setupGuard(req, res, next) {
         }
 
         const { role } = sessions[0];
-        if (role !== 'Deputy Officer') {
+        if (!['Executive Officer', 'Deputy Officer'].includes(role)) {
             logSetupAccess(req, req.method + ' ' + req.path, false, `post-setup — role ${role} denied`);
-            return res.status(403).json({ error: 'Forbidden: only the Deputy Officer can change setup.' });
+            return res.status(403).json({ error: 'Forbidden: only the Executive Officer can change setup.' });
         }
 
         req.userId = sessions[0].user_id;
-        logSetupAccess(req, req.method + ' ' + req.path, true, 'post-setup — Deputy Officer');
+        logSetupAccess(req, req.method + ' ' + req.path, true, 'post-setup — Executive Officer');
         return next();
     } catch (err) {
         logSetupAccess(req, req.method + ' ' + req.path, false, `post-setup — DB error: ${err.message}`);
@@ -212,10 +240,10 @@ router.post('/test', async (req, res) => {
 router.post('/save', async (req, res) => {
     try {
         const patch = req.body;
+        const previous = loadConfig();
 
         if (patch.db && patch.db.password === '__USE_SAVED__') {
-            const saved = loadConfig();
-            patch.db.password = saved.db.password;
+            patch.db.password = previous.db.password;
         }
 
         const validation = validateDbConfig(patch);
@@ -225,6 +253,9 @@ router.post('/save', async (req, res) => {
 
         const merged = saveConfig(patch);
         applyToProcessEnv(merged);
+
+        const connectionChanged = ['host', 'port', 'user', 'password', 'name']
+            .some(key => String(previous.db[key] ?? '') !== String(merged.db[key] ?? ''));
 
         const wasFirstSetup = !isSetupCompleted();
 
@@ -238,7 +269,10 @@ router.post('/save', async (req, res) => {
             consumeRecoveryToken();
         }
 
-        res.json({ ok: true, firstSetup: wasFirstSetup });
+        res.json({ ok: true, firstSetup: wasFirstSetup, restartRequired: connectionChanged });
+        if (connectionChanged) {
+            setImmediate(() => process.emit('setup-config-changed'));
+        }
     } catch (err) {
         console.error('Setup /save error:', err.message);
         res.status(500).json({ error: 'Failed to save configuration.' });

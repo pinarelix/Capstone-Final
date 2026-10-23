@@ -18,7 +18,7 @@
 --
 -- Table structure for table `archived_records`
 -- Everything deleted in the app lands here (snapshot of the record plus
--- related rows, files moved to uploads/archive/) so the Deputy Officer can
+-- related rows, files moved to uploads/archive/) so the Executive Officer can
 -- review and restore it from Settings > Archive. See backend/archive.js.
 --
 
@@ -85,7 +85,7 @@ CREATE TABLE `audit_logs` (
   KEY `idx_created_at` (`created_at`),
   KEY `idx_entity` (`entity_type`,`entity_id`),
   CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=790 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -116,7 +116,7 @@ CREATE TABLE `cart_analysis_log` (
   KEY `idx_timestamp` (`run_timestamp`),
   KEY `idx_status` (`status`),
   CONSTRAINT `cart_analysis_log_ibfk_1` FOREIGN KEY (`triggered_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -144,7 +144,7 @@ CREATE TABLE `cart_decision_rules` (
   KEY `created_by` (`created_by`),
   KEY `idx_active` (`is_active`),
   CONSTRAINT `cart_decision_rules_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -172,7 +172,7 @@ CREATE TABLE `cart_risk_factors` (
   KEY `idx_incident` (`incident_id`),
   KEY `idx_risk` (`total_risk_score`,`danger_level`),
   CONSTRAINT `cart_risk_factors_ibfk_1` FOREIGN KEY (`incident_id`) REFERENCES `incidents` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=53 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -207,13 +207,15 @@ CREATE TABLE `incidents` (
   `statement` text,
   `persons_involved` text,
   `priority` varchar(20) DEFAULT 'Normal',
+  `is_draft` tinyint(1) NOT NULL DEFAULT '0',
+  `form_type` varchar(20) DEFAULT 'blotter',
   PRIMARY KEY (`id`),
   KEY `reporter_id` (`reporter_id`),
   KEY `idx_street_name` (`street_name`),
   KEY `idx_date` (`date`),
   KEY `idx_status` (`status`),
   CONSTRAINT `incidents_ibfk_1` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=103 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -243,14 +245,6 @@ CREATE TABLE `incident_evidence` (
 --
 -- Table structure for table `location_coordinates`
 --
--- A one-time fixed pin per canonical barangay location (see
--- backend/locationList.js), so an incident reported at that location -
--- by any staff member - always has coordinates to plot on the Risk
--- Map heatmap, even when no patrol schedule happens to have pinned
--- that exact spot. Set once by an admin via Settings > Location
--- Coordinates; getAnyPinForLocation() in server.js falls back to it
--- when no active schedule pin exists for the location.
---
 
 DROP TABLE IF EXISTS `location_coordinates`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -268,12 +262,6 @@ CREATE TABLE `location_coordinates` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
--- Seeded with the actual pinned coordinates from the working
--- deployment, so importing this schema on another device starts with
--- every barangay street already plotted on the Risk Map instead of
--- needing each one re-pinned by hand via Settings > Location
--- Coordinates. `set_by` is left NULL since the admin user IDs that set
--- these won't necessarily match on a fresh `users` table.
 INSERT INTO `location_coordinates` (`location`, `latitude`, `longitude`, `set_by`) VALUES
   ('Acacia Street', 14.75450684, 121.07306541, NULL),
   ('Aguho Street', 14.75498409, 121.07117848, NULL),
@@ -365,7 +353,7 @@ CREATE TABLE `login_attempts` (
   KEY `idx_username` (`username`),
   KEY `idx_ip_address` (`ip_address`),
   KEY `idx_attempt_time` (`attempt_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=483 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -387,7 +375,7 @@ CREATE TABLE `login_history` (
   KEY `idx_username` (`username`),
   KEY `idx_login_time` (`login_time`),
   CONSTRAINT `login_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=355 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -408,7 +396,7 @@ CREATE TABLE `password_resets` (
   UNIQUE KEY `reset_token` (`reset_token`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -430,7 +418,7 @@ CREATE TABLE `patrol_logs` (
   KEY `schedule_id` (`schedule_id`),
   KEY `idx_patrol_date` (`patrol_date`),
   CONSTRAINT `patrol_logs_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `patrol_schedules` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -454,7 +442,7 @@ CREATE TABLE `patrol_schedules` (
   `longitude` decimal(11,8) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_location` (`location`)
-) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -476,7 +464,7 @@ CREATE TABLE `system_settings` (
   KEY `updated_by` (`updated_by`),
   KEY `idx_setting_key` (`setting_key`),
   CONSTRAINT `system_settings_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -502,7 +490,7 @@ CREATE TABLE `user_sessions` (
   KEY `idx_user_active` (`user_id`,`is_active`),
   KEY `idx_last_activity` (`last_activity`),
   CONSTRAINT `user_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=406 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -517,7 +505,7 @@ CREATE TABLE `users` (
   `name` varchar(100) NOT NULL,
   `username` varchar(50) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `role` enum('Deputy Officer','Kagawad','Team Leader') NOT NULL,
+  `role` enum('Executive Officer','Deputy Officer','Kagawad','Team Leader') NOT NULL,
   `contact_no` varchar(20) DEFAULT NULL,
   `email` varchar(150) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
@@ -526,7 +514,7 @@ CREATE TABLE `users` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -540,11 +528,11 @@ CREATE TABLE `users` (
 
 --
 -- Demo accounts (README's documented login credentials).
--- Bcrypt hashes below are freshly generated for these exact passwords —
+-- Bcrypt hashes below are freshly generated for these exact passwords -
 -- do not treat as real production credentials for anything but local dev.
 --
 INSERT INTO `users` (`name`, `username`, `password_hash`, `role`, `is_active`) VALUES
-('Demo Deputy Officer', 'admin', '$2b$10$ip7Eo1S35tl3RKWWZ30vNeXtkGE5f5uhYJtqtPxrc2Nx4wnCB1I8.', 'Deputy Officer', 1),
+('Demo Executive Officer', 'admin', '$2b$10$ip7Eo1S35tl3RKWWZ30vNeXtkGE5f5uhYJtqtPxrc2Nx4wnCB1I8.', 'Executive Officer', 1),
 ('Demo Barangay Captain', 'captain', '$2b$10$IqJllqxbyiiznMCV5GyGPuePb1GVVryljozpbx8522ZGbyj5jadWy', 'Kagawad', 1),
 ('Demo Team Leader', 'deskofficer', '$2b$10$r8nAnGyPDJbCbwYkgfdZeuO4eSNlV0E40iYKZeiSZE8PPUOzP2Dae', 'Team Leader', 1);
 

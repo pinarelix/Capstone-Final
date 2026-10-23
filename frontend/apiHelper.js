@@ -48,10 +48,63 @@ function escapeHTML(value) {
         }
 
         logo.title = 'Click to collapse/expand the sidebar';
-        logo.addEventListener('click', () => {
+        logo.setAttribute('role', 'button'); logo.tabIndex = 0;
+        logo.setAttribute('aria-label', 'Collapse or expand navigation');
+        logo.setAttribute('aria-expanded', String(!sidebar.classList.contains('collapsed')));
+        const collapse = () => {
+            if (narrow.matches) { setOpen(false, true); return; }
             const isCollapsed = sidebar.classList.toggle('collapsed');
+            document.documentElement.dataset.sidebarCollapsed = isCollapsed ? 'true' : 'false';
+            logo.setAttribute('aria-expanded', String(!isCollapsed));
             localStorage.setItem(SIDEBAR_COLLAPSE_KEY, isCollapsed ? 'true' : 'false');
+        };
+        logo.addEventListener('click', collapse);
+        logo.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); collapse(); }
         });
+        const nav = sidebar.querySelector('.sidebar-nav');
+        if (nav) {
+            nav.setAttribute('aria-label', 'Primary navigation');
+            nav.querySelectorAll('a.nav-item').forEach(link => {
+                if (link.classList.contains('active')) link.setAttribute('aria-current', 'page');
+                link.title = link.textContent.trim();
+                link.querySelectorAll('.nav-icon').forEach(icon => icon.setAttribute('aria-hidden', 'true'));
+            });
+        }
+        // One shared implementation for all eight dashboards. No synthetic
+        // unread badges or empty dropdowns: show only real system features.
+        sidebar.id = 'applicationSidebar';
+        const toggle = document.createElement('button');
+        toggle.type = 'button'; toggle.className = 'sidebar-mobile-toggle';
+        toggle.textContent = '☰ Menu'; toggle.setAttribute('aria-controls', sidebar.id); toggle.setAttribute('aria-expanded', 'false');
+        const backdrop = document.createElement('button');
+        backdrop.type = 'button'; backdrop.className = 'sidebar-backdrop'; backdrop.tabIndex = -1;
+        backdrop.setAttribute('aria-label', 'Close navigation');
+        document.body.append(toggle, backdrop);
+        const narrow = window.matchMedia('(max-width: 760px)');
+        const setOpen = (open, restoreFocus = false) => {
+            document.body.classList.toggle('sidebar-mobile-open', open);
+            toggle.setAttribute('aria-expanded', String(open));
+            sidebar.inert = narrow.matches && !open;
+            logo.setAttribute('aria-label', narrow.matches ? 'Close navigation' : 'Collapse or expand navigation');
+            logo.setAttribute('aria-expanded', String(narrow.matches ? open : !sidebar.classList.contains('collapsed')));
+            if (open) (sidebar.querySelector('a[aria-current="page"]') || logo).focus();
+            else if (restoreFocus) toggle.focus();
+        };
+        toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+        backdrop.addEventListener('click', () => setOpen(false, true));
+        document.addEventListener('keydown', event => {
+            if (!narrow.matches || toggle.getAttribute('aria-expanded') !== 'true') return;
+            if (event.key === 'Escape') { event.preventDefault(); setOpen(false, true); }
+            if (event.key === 'Tab') {
+                const controls = [logo, ...sidebar.querySelectorAll('a[href],button')].filter(node => !node.disabled && node.offsetParent !== null);
+                const first = controls[0], last = controls[controls.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }
+        });
+        narrow.addEventListener('change', () => setOpen(false));
+        setOpen(false);
     });
 })();
 
@@ -131,7 +184,9 @@ function getCurrentUser() {
     try {
         const userData = sessionStorage.getItem('user');
         if (userData) {
-            return JSON.parse(userData);
+            const user = JSON.parse(userData);
+            if (user.role === 'Deputy Officer') user.role = 'Executive Officer';
+            return user;
         }
         return null;
     } catch (e) {
@@ -461,7 +516,7 @@ function isLoggedIn() {
  */
 function isAdmin() {
     const user = getCurrentUser();
-    return user && user.role === 'Deputy Officer';
+    return user && user.role === 'Executive Officer';
 }
 
 /**
@@ -517,9 +572,9 @@ function applyRoleBasedUI() {
     } else if (user.role === 'Team Leader') {
         document.body.classList.add('role-desk-officer');
         console.log('🗂️ Team Leader mode enabled');
-    } else if (user.role === 'Deputy Officer') {
+    } else if (user.role === 'Executive Officer') {
         document.body.classList.add('role-admin');
-        console.log('👑 Deputy Officer mode enabled');
+        console.log('👑 Executive Officer mode enabled');
     }
 
     // Hide admin-only elements for non-admin users. Desk Officer gets the
@@ -551,8 +606,8 @@ function applyRoleBasedUI() {
     
     if (roleEl) {
         let roleDisplay = 'User';
-        if (user.role === 'Deputy Officer') {
-            roleDisplay = '<i class="fa-solid fa-crown"></i> Deputy Officer — Full System Access';
+        if (user.role === 'Executive Officer') {
+            roleDisplay = '<i class="fa-solid fa-crown"></i> Executive Officer — Full System Access';
         } else if (user.role === 'Kagawad') {
             roleDisplay = '<i class="fa-solid fa-chart-column"></i> Kagawad — View & Analytics Access';
         } else if (user.role === 'Team Leader') {
@@ -792,3 +847,62 @@ window.formatIncidentId = formatIncidentId;
 window.INCIDENT_CATEGORY_PREFIX = INCIDENT_CATEGORY_PREFIX;
 
 console.log('✅ apiHelper.js loaded successfully (sessionStorage version)');
+// Per-account sidebar ordering, shared by all application pages.
+document.addEventListener('DOMContentLoaded', async () => {
+    const nav = document.querySelector('.sidebar-nav');
+    if (!nav) return;
+
+    const pageKey = item => item.getAttribute('href').split('?')[0];
+    const state = window.SidebarState;
+    state?.apply(nav, state.read().order);
+    if (!state || state.needsRefresh()) {
+        try {
+            const response = await apiFetch('/me/navigation-order');
+            if (response.ok) {
+                const savedOrder = (await response.json()).order || [];
+                state?.save(savedOrder);
+                state?.apply(nav, savedOrder);
+            }
+        } catch (error) { console.warn('Sidebar order unavailable', error); }
+    }
+
+    let dragging = null;
+    nav.querySelectorAll('a.nav-item').forEach(item => {
+        item.draggable = true;
+        item.title = `${item.title ? `${item.title} · ` : ''}Drag to rearrange`;
+
+        item.addEventListener('dragstart', event => {
+            dragging = item;
+            item.classList.add('nav-dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', pageKey(item));
+        });
+
+        item.addEventListener('dragover', event => {
+            if (!dragging || dragging === item) return;
+            event.preventDefault();
+            const bounds = item.getBoundingClientRect();
+            nav.insertBefore(dragging, event.clientY < bounds.top + bounds.height / 2 ? item : item.nextSibling);
+        });
+
+        item.addEventListener('drop', event => event.preventDefault());
+        item.addEventListener('dragend', async () => {
+            item.classList.remove('nav-dragging');
+            if (!dragging) return;
+            dragging = null;
+
+            const order = [...nav.querySelectorAll('a.nav-item[href]')].map(pageKey);
+            state?.save(order);
+            try {
+                const response = await apiFetch('/me/navigation-order', {
+                    method: 'PUT',
+                    body: JSON.stringify({ order })
+                });
+                if (!response.ok) throw new Error('Save failed');
+            } catch (error) {
+                console.error(error);
+                showToast('Could not save your sidebar arrangement.', 'error');
+            }
+        });
+    });
+});

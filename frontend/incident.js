@@ -84,6 +84,10 @@ async function generateBlotterNumber() {
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
+    for (const id of ['incidentPatrolNotes', 'incidentPatrolOverride']) {
+        const field = document.getElementById(id);
+        if (field) field.disabled = !isAdmin();
+    }
     console.log('🚀 DOM loaded - initializing incident page');
     
     // Apply role-based UI gamit ang apiHelper
@@ -126,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // fetches the record itself if it isn't on the currently loaded table
     // page, so this doesn't need to wait for loadIncidents().
     const editId = new URLSearchParams(window.location.search).get('edit');
-    if (editId && (isAdmin() || isDeskOfficer())) {
+    if (editId && isAdmin()) {
         editIncident(parseInt(editId, 10));
         history.replaceState({}, '', window.location.pathname);
     }
@@ -586,7 +590,6 @@ function renderTable(dataToRender) {
     }
 
     const isAdminUser = isAdmin();
-    const isDeskOfficerUser = isDeskOfficer();
 
     // Build all rows in a fragment first, then swap atomically — no blank flash.
     const fragment = document.createDocumentFragment();
@@ -609,7 +612,7 @@ function renderTable(dataToRender) {
             const formattedTime = formatTime(item.time);
             const locationDisplay = item.street_name || `${item.latitude || 'N/A'}, ${item.longitude || 'N/A'}`;
 
-            const actionButtons = (isAdminUser || isDeskOfficerUser) ? `
+            const actionButtons = isAdminUser ? `
                 <button class="btn-action-edit admin-action" onclick="editIncident(${item.id})"><i class="fa-solid fa-pen"></i> Update</button>
             ` : `<span style="color: #94a3b8; font-size: 0.7rem;">View Only</span>`;
 
@@ -672,9 +675,9 @@ function setupForm() {
         e.preventDefault();
 
         // Team Leaders can both add and edit incidents (including
-        // evidence) - only deleting a record stays Deputy Officer-only.
+        // evidence) - only deleting a record stays Executive Officer-only.
         if (!isAdmin() && !isDeskOfficer()) {
-            showErrorModal('Access Denied', 'Only the Deputy Officer and Team Leaders can add incidents.');
+            showErrorModal('Access Denied', 'Only the Executive Officer and Team Leaders can add incidents.');
             return;
         }
 
@@ -854,7 +857,9 @@ function setupForm() {
                 snap.addrHouseNo === addrHouseNo &&
                 snap.addrUnit === addrUnit &&
                 snap.noEvidence === noEvidence &&
-                snap.noEvidenceReason === noEvidenceReason;
+                snap.noEvidenceReason === noEvidenceReason &&
+                (snap.patrolNotes || '') === (document.getElementById('incidentPatrolNotes')?.value || '') &&
+                (snap.patrolOverride || 'auto') === (document.getElementById('incidentPatrolOverride')?.value || 'auto');
             if (nothingChanged) {
                 showErrorModal('No Changes Detected', 'You haven\'t made any changes. Please update the details first before saving.');
                 restoreBtn();
@@ -877,6 +882,10 @@ function setupForm() {
             const idempotencyKey = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
             const payload = {
+                ...(isAdmin() ? {
+                    patrol_notes: document.getElementById('incidentPatrolNotes').value,
+                    patrol_override: document.getElementById('incidentPatrolOverride').value
+                } : {}),
                 incident_type: type,
                 date,
                 time,
@@ -1140,6 +1149,9 @@ window.deleteEvidenceFile = deleteEvidenceFile;
 ============================================================ */
 
 function clearForm() {
+    document.getElementById('incidentPatrolNotes').value = '';
+    document.getElementById('incidentPatrolOverride').value = 'auto';
+    document.getElementById('incidentPlanPatrol').hidden = true;
     // Closes the edit popup too, if it was open - a no-op otherwise
     // since removing an absent class does nothing.
     document.getElementById('tab-new-incident')?.classList.remove('edit-modal-mode');
@@ -1252,7 +1264,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 
 window.requestDeleteIncident = function(id) {
     if (!isAdmin()) { // mula sa apiHelper.js
-        showErrorModal('Access Denied', 'Only the Deputy Officer can delete incidents.');
+        showErrorModal('Access Denied', 'Only the Executive Officer can delete incidents.');
         return;
     }
 
@@ -1263,9 +1275,9 @@ window.requestDeleteIncident = function(id) {
     }
     
     if (typeof showDeleteModal === 'function') {
-        showDeleteModal(`Are you sure you want to archive incident #${id}? It will be moved to the Archive (Settings > Archive), where a Deputy Officer can restore it.`, id);
+        showDeleteModal(`Are you sure you want to archive incident #${id}? It will be moved to the Archive (Settings > Archive), where a Executive Officer can restore it.`, id);
     } else {
-        if (confirm(`Are you sure you want to delete incident record #${id}? It will be moved to the Archive (Settings > Archive), where a Deputy Officer can restore it.`)) {
+        if (confirm(`Are you sure you want to delete incident record #${id}? It will be moved to the Archive (Settings > Archive), where a Executive Officer can restore it.`)) {
             confirmDeleteIncident(id);
         }
     }
@@ -1298,8 +1310,8 @@ window.confirmDeleteIncident = async function(id) {
 ============================================================ */
 
 window.editIncident = async (id) => {
-    if (!isAdmin() && !isDeskOfficer()) { // mula sa apiHelper.js
-        showErrorModal('Access Denied', 'Only the Deputy Officer and Team Leaders can edit incidents.');
+    if (!isAdmin()) { // Record edits are Executive Officer only.
+        showErrorModal('Access Denied', 'Only the Executive Officer can edit existing records.');
         return;
     }
 
@@ -1346,6 +1358,11 @@ window.editIncident = async (id) => {
         document.getElementById('reportedBy').value = record.reporter_id || '';
         document.getElementById('incidentStatus').value = record.status || 'Open';
         document.getElementById('incidentDesc').value = record.description || '';
+        document.getElementById('incidentPatrolNotes').value = record.patrol_notes || '';
+        document.getElementById('incidentPatrolOverride').value = record.patrol_override || 'auto';
+        const planPatrol = document.getElementById('incidentPlanPatrol');
+        planPatrol.hidden = !isAdmin();
+        planPatrol.onclick = () => { window.location.href = 'patrol.html?record=' + encodeURIComponent(record.id); };
         document.getElementById('incidentBlotter').value = record.blotter_number || '';
         document.getElementById('incidentReportedByName').value = record.reported_by_name || '';
         document.getElementById('incidentSeverity').value = record.severity || 'Low';
@@ -1413,6 +1430,8 @@ window.editIncident = async (id) => {
         document.getElementById('saveBtn').innerHTML = `<i class="fa-solid fa-pen"></i> Update Incident`;
 
         window._incidentEditSnapshot = {
+            patrolNotes: record.patrol_notes || '',
+            patrolOverride: record.patrol_override || 'auto',
             type: record.incident_type || '',
             date: record.date ? record.date.split('T')[0] : '',
             time: record.time ? record.time.substring(0, 5) : '',

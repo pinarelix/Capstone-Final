@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="sidebar-state.js"></script>
+    <link rel="preload" href="vendor/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -536,6 +538,7 @@
             .audit-filter-bar { flex-direction: column; }
         }
     </style>
+<link rel="stylesheet" href="sidebar-drag.css">
 </head>
 
 <body>
@@ -559,7 +562,7 @@
         <div class="user-profile">
             <div class="profile-info">
                 <h3 id="userNameDisplay">Barangay Secretary</h3>
-                <p id="userRoleDisplay">Deputy Officer - Full System Access</p>
+                <p id="userRoleDisplay">Executive Officer - Full System Access</p>
             </div>
         </div>
 
@@ -996,6 +999,7 @@
                     </div>
                     <div>
                         <h2>Database Connection</h2>
+                        <a href="setup.html" class="btn btn-secondary" id="reopenSetupWizard">Open server connection wizard</a>
                         <p>Configure the MySQL connection. Test first before saving.</p>
                     </div>
                 </div>
@@ -1610,14 +1614,14 @@
 
     function getRoleClass(role) {
         if (!role) return 'field-user';
-        if (role === 'Deputy Officer') return 'admin';
+        if (role === 'Executive Officer') return 'admin';
         if (role === 'Kagawad') return 'decision-maker';
         return 'field-user';
     }
 
     function getRoleIcon(role) {
         if (!role) return '<i class="fa-solid fa-user"></i>';
-        if (role === 'Deputy Officer') return '<i class="fa-solid fa-shield-halved"></i>';
+        if (role === 'Executive Officer') return '<i class="fa-solid fa-shield-halved"></i>';
         if (role === 'Kagawad') return '<i class="fa-solid fa-user-tie"></i>';
         if (role === 'Team Leader') return '<i class="fa-solid fa-headset"></i>';
         return '<i class="fa-solid fa-person-walking"></i>';

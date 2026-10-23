@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="sidebar-state.js"></script>
+    <link rel="preload" href="vendor/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -96,6 +98,8 @@
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
+<link rel="stylesheet" href="sidebar-drag.css">
+<link rel="stylesheet" href="mediation-tasks.css">
 </head>
 
 <body>
@@ -198,12 +202,12 @@
         <div class="user-profile">
             <div class="profile-info">
                 <h3 id="userNameDisplay">Barangay Secretary</h3>
-                <p id="userRoleDisplay">Deputy Officer - Full System Access</p>
+                <p id="userRoleDisplay">Executive Officer - Full System Access</p>
             </div>
         </div>
 
         <!-- Admin logs out from Settings instead (see settings.html) -
-             Settings is Deputy Officer-only, so Kagawad/Team Leader
+             Settings is Executive Officer-only, so Kagawad/Team Leader
              (who can't reach that page) still need this here, or they'd
              have no way to log out at all. Hidden for Administrator via
              dashboard.css so it doesn't show twice for that role. -->
@@ -308,6 +312,43 @@
             </div>
 
         </header>
+
+        <section class="today-task-widget" aria-label="My mediation tasks">
+            <h2>Today's Assigned Blotter Mediation</h2>
+            <p>Highest priority first, then earliest appointment. Only your assignments are shown.</p>
+            <div id="mediationTaskList" aria-live="polite">Loading tasks…</div>
+        </section>
+
+        <dialog id="mediationTaskDialog">
+            <form id="mediationTaskForm">
+                <h3>Update mediation task</h3>
+                <p id="mediationTaskHeading"></p>
+                <label>
+                    Status
+                    <select id="mediationTaskStatus">
+                        <option>Pending</option>
+                        <option>In Progress</option>
+                        <option>Canceled</option>
+                        <option>Rescheduled</option>
+                    </select>
+                </label>
+                <label id="mediationNewDateWrap" hidden>
+                    New date and time
+                    <input type="datetime-local" id="mediationNewDate">
+                </label>
+                <label>
+                    Note
+                    <textarea id="mediationTaskNote" maxlength="4000" rows="3" placeholder="Add a note to the task history"></textarea>
+                </label>
+                <h4>History</h4>
+                <div id="mediationTaskHistory"></div>
+                <div class="task-actions">
+                    <button type="button" id="mediationClose">Close</button>
+                    <button type="submit">Save update</button>
+                </div>
+                <p id="mediationTaskError" role="alert"></p>
+            </form>
+        </dialog>
 
         <!-- =====================================================
              TABS: Overview / Analytics
@@ -864,6 +905,7 @@
 ============================================================ -->
 <script src="apiHelper.js"></script>
 <script src="dashboard.js"></script>
+<script src="mediation-tasks.js"></script>
 
 <script>
     // Admin-only sidebar links are hidden via dashboard.js calling
