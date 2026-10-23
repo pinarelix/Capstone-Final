@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSearchAndFilters();
     setupRippleEffect();
     setupTabs();
+    setupInputValidation();
 
     // SSE push for same-device instant refresh; 10s poll covers cross-device
     // updates (Device B won't receive Device A's SSE broadcast directly).
@@ -139,6 +140,54 @@ function getFormType() {
     return document.querySelector('input[name="formType"]:checked')?.value || 'blotter';
 }
 
+function setupInputValidation() {
+    // Bug 1: Enter key selects the best-matching datalist suggestion
+    const typeInput = document.getElementById('incidentType');
+    if (typeInput) {
+        typeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const val = typeInput.value.trim().toLowerCase();
+                if (!val) return;
+                const dl = document.getElementById('incidentTypeList');
+                if (!dl) return;
+                const options = Array.from(dl.options);
+                const match = options.find(o => o.value.toLowerCase().startsWith(val))
+                    || options.find(o => o.value.toLowerCase().includes(val));
+                if (match) {
+                    typeInput.value = match.value;
+                    typeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    typeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        });
+        typeInput.addEventListener('input', () => {
+            const cleaned = typeInput.value.replace(/[0-9]/g, '');
+            if (cleaned !== typeInput.value) typeInput.value = cleaned;
+        });
+    }
+    const typeOther = document.getElementById('incidentTypeOther');
+    if (typeOther) {
+        typeOther.addEventListener('input', () => {
+            const cleaned = typeOther.value.replace(/[0-9]/g, '');
+            if (cleaned !== typeOther.value) typeOther.value = cleaned;
+        });
+    }
+
+    // Bug 3: Name fields — letters, apostrophes, and spaces only
+    ['complainantFirst', 'complainantMiddle', 'complainantLast',
+     'respondentFirst', 'respondentMiddle', 'respondentLast',
+     'reporterFirst', 'reporterMiddle', 'reporterLast'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => {
+                const cleaned = el.value.replace(/[^a-zA-Z\s']/g, '');
+                if (cleaned !== el.value) el.value = cleaned;
+            });
+        }
+    });
+}
+
 function setupFormTypeToggle() {
     const radios = document.querySelectorAll('input[name="formType"]');
 
@@ -155,20 +204,20 @@ function setupFormTypeToggle() {
         const hide = el => { if (el) el.style.display = 'none'; };
 
         const toggle = (id, visible) => visible ? show(document.getElementById(id)) : hide(document.getElementById(id));
-        toggle('blotterGroup', isBlotter);
+
+        toggle('blotterNumberRow', isBlotter);
         toggle('addressSimpleGroup', !isBlotter);
         toggle('addressDetailedGroup', isBlotter);
         toggle('blotterPeopleSection', isBlotter);
         toggle('blotterSalaysaySection', isBlotter);
 
-        // Reporter section visible on BOTH forms; "Same as Complainant" row only on blotter
-        show(document.getElementById('reporterSection'));
-        toggle('sameAsComplainantRow', isBlotter);
-        if (!isBlotter) {
-            const sameCheck = document.getElementById('reporterSameAsComplainant');
-            if (sameCheck) { sameCheck.checked = false; }
-            show(document.getElementById('reporterFieldsGroup'));
-        }
+        // Blotter: combined Complainant & Location header; Crime: Location header only
+        toggle('complainantLocationHeader', isBlotter);
+        toggle('locationSectionHeader', !isBlotter);
+        toggle('complainantFieldsTop', isBlotter);
+
+        // Reporter section only on crime form
+        toggle('reporterSection', !isBlotter);
 
         if (isBlotter) {
             generateBlotterNumber();
@@ -179,39 +228,6 @@ function setupFormTypeToggle() {
     }
 
     radios.forEach(r => r.addEventListener('change', applyFormType));
-
-    // "Same as Complainant" checkbox
-    const sameCheck = document.getElementById('reporterSameAsComplainant');
-    if (sameCheck) {
-        sameCheck.addEventListener('change', () => {
-            const group = document.getElementById('reporterFieldsGroup');
-            if (sameCheck.checked) {
-                if (group) group.style.display = 'none';
-                document.getElementById('reporterFirst').value = document.getElementById('complainantFirst')?.value || '';
-                document.getElementById('reporterMiddle').value = document.getElementById('complainantMiddle')?.value || '';
-                document.getElementById('reporterLast').value = document.getElementById('complainantLast')?.value || '';
-            } else {
-                if (group) group.style.display = '';
-            }
-        });
-    }
-
-    // Unknown respondent (draft) checkbox
-    const unknownCheck = document.getElementById('respondentUnknown');
-    if (unknownCheck) {
-        unknownCheck.addEventListener('change', () => {
-            const group = document.getElementById('respondentFieldsGroup');
-            if (unknownCheck.checked) {
-                if (group) group.style.display = 'none';
-                ['respondentFirst', 'respondentMiddle', 'respondentLast', 'respondentAddress'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.value = '';
-                });
-            } else {
-                if (group) group.style.display = '';
-            }
-        });
-    }
 
     // No Evidence checkbox
     const noEvCheck = document.getElementById('noEvidenceCheckbox');
@@ -697,17 +713,14 @@ function setupForm() {
         const complainantMiddle = document.getElementById('complainantMiddle')?.value.trim() || '';
         const complainantLast = document.getElementById('complainantLast')?.value.trim() || '';
 
-        const respondentUnknown = document.getElementById('respondentUnknown')?.checked || false;
         const respondentFirst = document.getElementById('respondentFirst')?.value.trim() || '';
         const respondentMiddle = document.getElementById('respondentMiddle')?.value.trim() || '';
         const respondentLast = document.getElementById('respondentLast')?.value.trim() || '';
         const respondentAddress = document.getElementById('respondentAddress')?.value.trim() || '';
 
-        // If "Same as Complainant" is checked, sync reporter fields
-        const sameAsComplainant = document.getElementById('reporterSameAsComplainant')?.checked || false;
-        const reporterFirst = sameAsComplainant ? complainantFirst : (document.getElementById('reporterFirst')?.value.trim() || '');
-        const reporterMiddle = sameAsComplainant ? complainantMiddle : (document.getElementById('reporterMiddle')?.value.trim() || '');
-        const reporterLast = sameAsComplainant ? complainantLast : (document.getElementById('reporterLast')?.value.trim() || '');
+        const reporterFirst = document.getElementById('reporterFirst')?.value.trim() || '';
+        const reporterMiddle = document.getElementById('reporterMiddle')?.value.trim() || '';
+        const reporterLast = document.getElementById('reporterLast')?.value.trim() || '';
 
         const noEvidence = document.getElementById('noEvidenceCheckbox')?.checked || false;
         const noEvidenceReason = document.getElementById('noEvidenceReason')?.value.trim() || '';
@@ -746,8 +759,8 @@ function setupForm() {
                 { id: 'incidentAddress', label: 'Address' }
             );
         }
-        // Reporter required on both forms (unless "Same as Complainant")
-        if (!sameAsComplainant) {
+        // Reporter required on crime form only
+        if (formType === 'crime') {
             requiredFields.push(
                 { id: 'reporterFirst', label: 'Reporter First Name' },
                 { id: 'reporterLast', label: 'Reporter Last Name' }
@@ -756,7 +769,7 @@ function setupForm() {
         if (noEvidence && !noEvidenceReason) {
             requiredFields.push({ id: 'noEvidenceReason', label: 'Reason for No Evidence' });
         }
-        if (formType === 'blotter' && !respondentUnknown) {
+        if (formType === 'blotter') {
             requiredFields.push(
                 { id: 'respondentFirst', label: 'Respondent First Name' },
                 { id: 'respondentLast', label: 'Respondent Last Name' }
@@ -840,7 +853,6 @@ function setupForm() {
                 snap.addrLot === addrLot &&
                 snap.addrHouseNo === addrHouseNo &&
                 snap.addrUnit === addrUnit &&
-                snap.isDraft === respondentUnknown &&
                 snap.noEvidence === noEvidence &&
                 snap.noEvidenceReason === noEvidenceReason;
             if (nothingChanged) {
@@ -901,7 +913,7 @@ function setupForm() {
                 addr_house_no: addrHouseNo,
                 addr_unit: addrUnit,
                 // Draft / No evidence
-                is_draft: respondentUnknown,
+                is_draft: false,
                 no_evidence: noEvidence,
                 no_evidence_reason: noEvidenceReason
             };
@@ -1158,11 +1170,7 @@ function clearForm() {
         if (el) el.value = '';
     });
 
-    // Draft / No evidence
-    const unknownCheck = document.getElementById('respondentUnknown');
-    if (unknownCheck) unknownCheck.checked = false;
-    const respondentGroup = document.getElementById('respondentFieldsGroup');
-    if (respondentGroup) respondentGroup.style.display = '';
+    // No evidence
     const noEvCheck = document.getElementById('noEvidenceCheckbox');
     if (noEvCheck) noEvCheck.checked = false;
     const noEvReasonGroup = document.getElementById('noEvidenceReasonGroup');
@@ -1171,8 +1179,6 @@ function clearForm() {
     if (noEvReason) noEvReason.value = '';
     const evidenceFormGroup = document.getElementById('evidenceFormGroup');
     if (evidenceFormGroup) evidenceFormGroup.style.display = '';
-    const sameCheckClear = document.getElementById('reporterSameAsComplainant');
-    if (sameCheckClear) sameCheckClear.checked = false;
     const reporterFieldsGroup = document.getElementById('reporterFieldsGroup');
     if (reporterFieldsGroup) reporterFieldsGroup.style.display = '';
 
@@ -1203,13 +1209,15 @@ function clearForm() {
     if (blotterRadio) {
         blotterRadio.checked = true;
         const toggle = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; };
-        toggle('blotterGroup', true);
+        toggle('blotterNumberRow', true);
         toggle('addressSimpleGroup', false);
         toggle('addressDetailedGroup', true);
         toggle('blotterPeopleSection', true);
         toggle('blotterSalaysaySection', true);
-        toggle('reporterSection', true);
-        toggle('sameAsComplainantRow', true);
+        toggle('reporterSection', false);
+        toggle('complainantLocationHeader', true);
+        toggle('locationSectionHeader', false);
+        toggle('complainantFieldsTop', true);
     }
 
     const formTypeSelector = document.querySelector('.form-type-selector');
@@ -1361,13 +1369,7 @@ window.editIncident = async (id) => {
         document.getElementById('addrHouseNo').value = record.addr_house_no || '';
         document.getElementById('addrUnit').value = record.addr_unit || '';
 
-        // Draft / No evidence
-        const unknownCheck = document.getElementById('respondentUnknown');
-        if (unknownCheck) {
-            unknownCheck.checked = !!record.is_draft;
-            const rGroup = document.getElementById('respondentFieldsGroup');
-            if (rGroup) rGroup.style.display = record.is_draft ? 'none' : '';
-        }
+        // No evidence
         const noEvCheck = document.getElementById('noEvidenceCheckbox');
         if (noEvCheck) {
             noEvCheck.checked = !!record.no_evidence;
@@ -1390,20 +1392,20 @@ window.editIncident = async (id) => {
             if (addressDetailed) addressDetailed.style.display = editFormType === 'blotter' ? '' : 'none';
             const blotterPeople = document.getElementById('blotterPeopleSection');
             if (blotterPeople) blotterPeople.style.display = editFormType === 'blotter' ? '' : 'none';
-            const crimeReporter = document.getElementById('crimeReporterSection');
-            if (crimeReporter) crimeReporter.style.display = editFormType === 'crime' ? '' : 'none';
             const blotterSalaysay = document.getElementById('blotterSalaysaySection');
             if (blotterSalaysay) blotterSalaysay.style.display = editFormType === 'blotter' ? '' : 'none';
+            const blotterNumberRow = document.getElementById('blotterNumberRow');
+            if (blotterNumberRow) blotterNumberRow.style.display = editFormType === 'blotter' ? '' : 'none';
+            const complainantLocationHeader = document.getElementById('complainantLocationHeader');
+            if (complainantLocationHeader) complainantLocationHeader.style.display = editFormType === 'blotter' ? '' : 'none';
+            const locationSectionHeader = document.getElementById('locationSectionHeader');
+            if (locationSectionHeader) locationSectionHeader.style.display = editFormType === 'blotter' ? 'none' : '';
+            const complainantFieldsTop = document.getElementById('complainantFieldsTop');
+            if (complainantFieldsTop) complainantFieldsTop.style.display = editFormType === 'blotter' ? '' : 'none';
         }
-        // Reporter section is visible on both forms; "Same as Complainant" row only on blotter
-        const sameRow = document.getElementById('sameAsComplainantRow');
-        if (sameRow) sameRow.style.display = editFormType === 'blotter' ? '' : 'none';
-        const sameCheck = document.getElementById('reporterSameAsComplainant');
-        if (sameCheck) { sameCheck.checked = false; }
-        const reporterGroup = document.getElementById('reporterFieldsGroup');
-        if (reporterGroup) reporterGroup.style.display = '';
+        // Reporter section only on crime form
         const reporterSection = document.getElementById('reporterSection');
-        if (reporterSection) reporterSection.style.display = '';
+        if (reporterSection) reporterSection.style.display = editFormType === 'crime' ? '' : 'none';
         const formTypeSelector = document.querySelector('.form-type-selector');
         if (formTypeSelector) formTypeSelector.style.display = '';
 
@@ -1436,7 +1438,6 @@ window.editIncident = async (id) => {
             addrLot: record.addr_lot || '',
             addrHouseNo: record.addr_house_no || '',
             addrUnit: record.addr_unit || '',
-            isDraft: !!record.is_draft,
             noEvidence: !!record.no_evidence,
             noEvidenceReason: record.no_evidence_reason || ''
         };
