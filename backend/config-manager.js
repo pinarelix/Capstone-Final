@@ -33,6 +33,7 @@ const CONFIG_DEFAULTS = {
         user: '',
         appPassword: '',
     },
+    setup_completed: false,
 };
 
 // ── paths ───────────────────────────────────────────────────────────
@@ -243,6 +244,53 @@ function applyToProcessEnv(cfg) {
     process.env.EMAIL_APP_PASSWORD = cfg.email.appPassword;
 }
 
+// ── setup state helpers ────────────────────────────────────────────
+
+const crypto = require('crypto');
+
+function isSetupCompleted() {
+    const cfg = loadConfig();
+    return cfg.setup_completed === true;
+}
+
+function markSetupCompleted() {
+    saveConfig({ setup_completed: true });
+}
+
+function getRecoveryTokenPath() {
+    return path.join(getDataDir(), '.setup-recovery-token');
+}
+
+function generateRecoveryToken() {
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenPath = getRecoveryTokenPath();
+    const dir = path.dirname(tokenPath);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(tokenPath, token, 'utf8');
+    return token;
+}
+
+function validateRecoveryToken(candidate) {
+    const tokenPath = getRecoveryTokenPath();
+    if (!fs.existsSync(tokenPath)) return false;
+    try {
+        const stored = fs.readFileSync(tokenPath, 'utf8').trim();
+        return crypto.timingSafeEqual(
+            Buffer.from(candidate),
+            Buffer.from(stored)
+        );
+    } catch {
+        return false;
+    }
+}
+
+function consumeRecoveryToken() {
+    const tokenPath = getRecoveryTokenPath();
+    try { fs.unlinkSync(tokenPath); } catch { /* already gone */ }
+}
+
 // ── public API ──────────────────────────────────────────────────────
 
 module.exports = {
@@ -256,4 +304,10 @@ module.exports = {
     migrateIfNeeded,
     applyToProcessEnv,
     parseEnvToConfig,
+    isSetupCompleted,
+    markSetupCompleted,
+    getRecoveryTokenPath,
+    generateRecoveryToken,
+    validateRecoveryToken,
+    consumeRecoveryToken,
 };

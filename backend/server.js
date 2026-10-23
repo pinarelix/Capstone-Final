@@ -15,6 +15,7 @@ const expressRateLimit = require('express-rate-limit');
 const cartEngine = require('./cart-engine');
 const { BARANGAY_LOCATIONS } = require('./locationList');
 const { createArchive, registerArchiveRoutes } = require('./archive');
+const { isSetupCompleted, markSetupCompleted, generateRecoveryToken } = require('./config-manager');
 
 // The installed desktop app passes APP_CONFIG_PATH/UPLOADS_DIR (see
 // main.js) so settings and uploaded files live in the user's AppData
@@ -4086,6 +4087,17 @@ async function startServer() {
     // serve setup.html and the /api/setup/* endpoints.
     try {
         await testConnection();
+        // Auto-detect existing installation and lock setup wizard
+        if (!isSetupCompleted()) {
+            try {
+                const [rows] = await pool.query('SELECT COUNT(*) AS cnt FROM users WHERE is_active = 1');
+                if (rows[0].cnt > 0) {
+                    markSetupCompleted();
+                    generateRecoveryToken();
+                    console.log('[SETUP] Existing installation detected — setup wizard locked.');
+                }
+            } catch (_) { /* users table may not exist yet */ }
+        }
     } catch (dbErr) {
         console.warn('⚠️  Database not reachable at startup — the setup wizard will handle it.');
     }
