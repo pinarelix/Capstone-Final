@@ -716,7 +716,12 @@ function setupForm() {
         const respondentFirst = document.getElementById('respondentFirst')?.value.trim() || '';
         const respondentMiddle = document.getElementById('respondentMiddle')?.value.trim() || '';
         const respondentLast = document.getElementById('respondentLast')?.value.trim() || '';
-        const respondentAddress = document.getElementById('respondentAddress')?.value.trim() || '';
+        const respStreet = document.getElementById('respondentStreet')?.value.trim() || '';
+        const respBlock = document.getElementById('respAddrBlock')?.value.trim() || '';
+        const respLot = document.getElementById('respAddrLot')?.value.trim() || '';
+        const respHouseNo = document.getElementById('respAddrHouseNo')?.value.trim() || '';
+        const respUnit = document.getElementById('respAddrUnit')?.value.trim() || '';
+        const respondentAddress = [respBlock ? `Blk ${respBlock}` : '', respLot ? `Lot ${respLot}` : '', respHouseNo ? `House No. ${respHouseNo}` : '', respUnit ? `Unit ${respUnit}` : '', respStreet].filter(Boolean).join(', ');
 
         const reporterFirst = document.getElementById('reporterFirst')?.value.trim() || '';
         const reporterMiddle = document.getElementById('reporterMiddle')?.value.trim() || '';
@@ -853,6 +858,11 @@ function setupForm() {
                 snap.addrLot === addrLot &&
                 snap.addrHouseNo === addrHouseNo &&
                 snap.addrUnit === addrUnit &&
+                snap.respStreet === respStreet &&
+                snap.respBlock === respBlock &&
+                snap.respLot === respLot &&
+                snap.respHouseNo === respHouseNo &&
+                snap.respUnit === respUnit &&
                 snap.noEvidence === noEvidence &&
                 snap.noEvidenceReason === noEvidenceReason;
             if (nothingChanged) {
@@ -896,6 +906,11 @@ function setupForm() {
                 severity: severity,
                 respondent_name: respondentName,
                 respondent_address: respondentAddress,
+                resp_addr_street: respStreet,
+                resp_addr_block: respBlock,
+                resp_addr_lot: respLot,
+                resp_addr_house_no: respHouseNo,
+                resp_addr_unit: respUnit,
                 form_type: formType,
                 // Structured name fields
                 complainant_first: complainantFirst,
@@ -1199,6 +1214,12 @@ function clearForm() {
     if (respondentNameEl) respondentNameEl.value = '';
     const respondentAddressEl = document.getElementById('respondentAddress');
     if (respondentAddressEl) respondentAddressEl.value = '';
+    const respStreetEl = document.getElementById('respondentStreet');
+    if (respStreetEl) respStreetEl.value = '';
+    ['respAddrBlock', 'respAddrLot', 'respAddrHouseNo', 'respAddrUnit'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     const severityEl = document.getElementById('incidentSeverity');
     if (severityEl) severityEl.value = '';
 
@@ -1351,6 +1372,11 @@ window.editIncident = async (id) => {
         document.getElementById('incidentSeverity').value = record.severity || 'Low';
         document.getElementById('respondentName').value = record.respondent_name || '';
         document.getElementById('respondentAddress').value = record.respondent_address || '';
+        document.getElementById('respondentStreet').value = record.resp_addr_street || '';
+        document.getElementById('respAddrBlock').value = record.resp_addr_block || '';
+        document.getElementById('respAddrLot').value = record.resp_addr_lot || '';
+        document.getElementById('respAddrHouseNo').value = record.resp_addr_house_no || '';
+        document.getElementById('respAddrUnit').value = record.resp_addr_unit || '';
 
         // Structured name fields
         document.getElementById('complainantFirst').value = record.complainant_first || '';
@@ -1438,6 +1464,11 @@ window.editIncident = async (id) => {
             addrLot: record.addr_lot || '',
             addrHouseNo: record.addr_house_no || '',
             addrUnit: record.addr_unit || '',
+            respStreet: record.resp_addr_street || '',
+            respBlock: record.resp_addr_block || '',
+            respLot: record.resp_addr_lot || '',
+            respHouseNo: record.resp_addr_house_no || '',
+            respUnit: record.resp_addr_unit || '',
             noEvidence: !!record.no_evidence,
             noEvidenceReason: record.no_evidence_reason || ''
         };

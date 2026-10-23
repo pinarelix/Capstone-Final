@@ -492,10 +492,102 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Address of Respondent</label>
-                                <input type="text" id="respondentAddress" class="form-control" placeholder="e.g. Blk 5 Lot 3, Acacia St." maxlength="500">
+                                <label>Street Name</label>
+                                <select id="respondentStreet" class="form-select">
+                                    <option value="">Select Street</option>
+                                    <option value="Acacia Street">Acacia Street</option>
+                                    <option value="Aguho Street">Aguho Street</option>
+                                    <option value="Alibangbang Street">Alibangbang Street</option>
+                                    <option value="Amugis Street">Amugis Street</option>
+                                    <option value="Anahaw Street">Anahaw Street</option>
+                                    <option value="Anapla Street">Anapla Street</option>
+                                    <option value="Annunciation Street">Annunciation Street</option>
+                                    <option value="Anonas Street">Anonas Street</option>
+                                    <option value="Antipolo Street">Antipolo Street</option>
+                                    <option value="Anubing Street">Anubing Street</option>
+                                    <option value="Ascencion Street">Ascencion Street</option>
+                                    <option value="Assumption Street">Assumption Street</option>
+                                    <option value="Bagtikan Street">Bagtikan Street</option>
+                                    <option value="Balimbing Street">Balimbing Street</option>
+                                    <option value="Balite Street">Balite Street</option>
+                                    <option value="Balubad Street">Balubad Street</option>
+                                    <option value="Banaba Street">Banaba Street</option>
+                                    <option value="Bangkal Street">Bangkal Street</option>
+                                    <option value="Bayabas Street">Bayabas Street</option>
+                                    <option value="Bigaa Street">Bigaa Street</option>
+                                    <option value="Binayuyo Street">Binayuyo Street</option>
+                                    <option value="Bitao Street">Bitao Street</option>
+                                    <option value="C. M. Hoskins Street">C. M. Hoskins Street</option>
+                                    <option value="Dao Street">Dao Street</option>
+                                    <option value="Dapdap Street">Dapdap Street</option>
+                                    <option value="Duhat Street">Duhat Street</option>
+                                    <option value="Guagua Street">Guagua Street</option>
+                                    <option value="H. Dela Costa Avenue">H. Dela Costa Avenue</option>
+                                    <option value="Iloilo Street">Iloilo Street</option>
+                                    <option value="Jaro Street">Jaro Street</option>
+                                    <option value="Kalinga Street">Kalinga Street</option>
+                                    <option value="Kamias Street">Kamias Street</option>
+                                    <option value="Kamuning Street">Kamuning Street</option>
+                                    <option value="Kaong Street">Kaong Street</option>
+                                    <option value="Katmon Street">Katmon Street</option>
+                                    <option value="Kawayan Street">Kawayan Street</option>
+                                    <option value="Kaymito Street">Kaymito Street</option>
+                                    <option value="Kupang Street">Kupang Street</option>
+                                    <option value="Lawaan Street">Lawaan Street</option>
+                                    <option value="Lukban Street">Lukban Street</option>
+                                    <option value="Mabolo Street">Mabolo Street</option>
+                                    <option value="Macabud Street">Macabud Street</option>
+                                    <option value="Malanting Street">Malanting Street</option>
+                                    <option value="Mandaue Street">Mandaue Street</option>
+                                    <option value="Mangga Street">Mangga Street</option>
+                                    <option value="Maraluhat Street">Maraluhat Street</option>
+                                    <option value="Marang Street">Marang Street</option>
+                                    <option value="Mary the Queen Street">Mary the Queen Street</option>
+                                    <option value="Mulawin Street">Mulawin Street</option>
+                                    <option value="Nativity Street">Nativity Street</option>
+                                    <option value="Ormoc Street">Ormoc Street</option>
+                                    <option value="Pentecost Street">Pentecost Street</option>
+                                    <option value="Pili Street">Pili Street</option>
+                                    <option value="Resurrection Street">Resurrection Street</option>
+                                    <option value="Rimas Street">Rimas Street</option>
+                                    <option value="Roxas Street">Roxas Street</option>
+                                    <option value="Saint Andrew Street">Saint Andrew Street</option>
+                                    <option value="Saint Bartholomew Street">Saint Bartholomew Street</option>
+                                    <option value="Saint George Street">Saint George Street</option>
+                                    <option value="Saint Ignatius Street">Saint Ignatius Street</option>
+                                    <option value="Saint John Street">Saint John Street</option>
+                                    <option value="Saint Matthew Street">Saint Matthew Street</option>
+                                    <option value="Saint Peter Street">Saint Peter Street</option>
+                                    <option value="Sampaloc Street">Sampaloc Street</option>
+                                    <option value="Santol Street">Santol Street</option>
+                                    <option value="Saplungan Street">Saplungan Street</option>
+                                    <option value="Tibeg Street">Tibeg Street</option>
+                                    <option value="Tindalo Street">Tindalo Street</option>
+                                    <option value="Wawa Street">Wawa Street</option>
+                                    <option value="Xavier Street">Xavier Street</option>
+                                    <option value="Zambales Street">Zambales Street</option>
+                                </select>
                             </div>
                         </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Block</label>
+                                <input type="text" id="respAddrBlock" class="form-control" placeholder="e.g. 5" maxlength="50">
+                            </div>
+                            <div class="form-group">
+                                <label>Lot</label>
+                                <input type="text" id="respAddrLot" class="form-control" placeholder="e.g. 3" maxlength="50">
+                            </div>
+                            <div class="form-group">
+                                <label>House No.</label>
+                                <input type="text" id="respAddrHouseNo" class="form-control" placeholder="e.g. 12" maxlength="50">
+                            </div>
+                            <div class="form-group">
+                                <label>Unit</label>
+                                <input type="text" id="respAddrUnit" class="form-control" placeholder="e.g. 2-B" maxlength="50">
+                            </div>
+                        </div>
+                        <input type="hidden" id="respondentAddress">
                         <input type="hidden" id="respondentName">
                         <input type="hidden" id="incidentReportedByName">
                         </div><!-- /blotterPeopleSection -->

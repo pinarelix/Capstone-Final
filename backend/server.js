@@ -285,6 +285,18 @@ function composeStructuredAddress(b) {
     return composed || b.address || null;
 }
 
+function composeRespondentAddress(b) {
+    const parts = [];
+    if (b.resp_addr_block) parts.push(`Blk ${b.resp_addr_block}`);
+    if (b.resp_addr_lot) parts.push(`Lot ${b.resp_addr_lot}`);
+    if (b.resp_addr_house_no) parts.push(`House No. ${b.resp_addr_house_no}`);
+    if (b.resp_addr_unit) parts.push(`Unit ${b.resp_addr_unit}`);
+    const street = b.resp_addr_street;
+    let composed = parts.join(', ');
+    if (street) composed = composed ? `${composed}, ${street}` : street;
+    return composed || b.respondent_address || null;
+}
+
 // Build the full base-table row from the request body (legacy + structured).
 // The compatibility view composes the display name from the structured columns
 // first, so reported_by_name / respondent_name are stored as a convenience
@@ -311,7 +323,12 @@ function buildIncidentFields(b, derived, typeCode, reporterId) {
         respondent_first: b.respondent_first || null,
         respondent_middle: b.respondent_middle || null,
         respondent_last: b.respondent_last || null,
-        respondent_address: b.respondent_address || null,
+        resp_addr_street: b.resp_addr_street || null,
+        resp_addr_block: b.resp_addr_block || null,
+        resp_addr_lot: b.resp_addr_lot || null,
+        resp_addr_house_no: b.resp_addr_house_no || null,
+        resp_addr_unit: b.resp_addr_unit || null,
+        respondent_address: composeRespondentAddress(b),
         respondent_age: b.age != null ? b.age : null,
         reporter_first: b.reporter_first || null,
         reporter_middle: b.reporter_middle || null,
@@ -416,6 +433,11 @@ const incidentSchema = Joi.object({
     addr_house_no: Joi.string().max(50).allow('', null),
     addr_street: Joi.string().max(100).allow('', null),
     addr_unit: Joi.string().max(50).allow('', null),
+    resp_addr_street: Joi.string().max(100).allow('', null),
+    resp_addr_block: Joi.string().max(50).allow('', null),
+    resp_addr_lot: Joi.string().max(50).allow('', null),
+    resp_addr_house_no: Joi.string().max(50).allow('', null),
+    resp_addr_unit: Joi.string().max(50).allow('', null),
     is_draft: Joi.boolean().truthy(1, '1', 'true').falsy(0, '0', 'false', '').default(false),
     no_evidence: Joi.boolean().truthy(1, '1', 'true').falsy(0, '0', 'false', '').default(false),
     no_evidence_reason: Joi.string().max(500).allow('', null)
