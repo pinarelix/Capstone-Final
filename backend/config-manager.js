@@ -261,6 +261,8 @@ function getRecoveryTokenPath() {
     return path.join(getDataDir(), '.setup-recovery-token');
 }
 
+const RECOVERY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 function generateRecoveryToken() {
     const token = crypto.randomBytes(32).toString('hex');
     const tokenPath = getRecoveryTokenPath();
@@ -268,19 +270,41 @@ function generateRecoveryToken() {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(tokenPath, token, 'utf8');
+    const payload = JSON.stringify({ token, created: Date.now() });
+    fs.writeFileSync(tokenPath, payload, 'utf8');
     return token;
 }
 
 function validateRecoveryToken(candidate) {
+    if (!candidate || typeof candidate !== 'string') return false;
     const tokenPath = getRecoveryTokenPath();
     if (!fs.existsSync(tokenPath)) return false;
     try {
-        const stored = fs.readFileSync(tokenPath, 'utf8').trim();
-        return crypto.timingSafeEqual(
-            Buffer.from(candidate),
-            Buffer.from(stored)
-        );
+        const raw = fs.readFileSync(tokenPath, 'utf8').trim();
+        let stored, created;
+        try {
+            const parsed = JSON.parse(raw);
+            stored = parsed.token;
+            created = parsed.created;
+        } catch {
+            stored = raw;
+            created = 0;
+        }
+
+        if (!stored) return false;
+
+        // Expired tokens are invalid
+        if (created && (Date.now() - created) > RECOVERY_TOKEN_TTL_MS) {
+            consumeRecoveryToken();
+            return false;
+        }
+
+        // Length check before timingSafeEqual (it throws on mismatch)
+        const candidateBuf = Buffer.from(candidate, 'utf8');
+        const storedBuf = Buffer.from(stored, 'utf8');
+        if (candidateBuf.length !== storedBuf.length) return false;
+
+        return crypto.timingSafeEqual(candidateBuf, storedBuf);
     } catch {
         return false;
     }

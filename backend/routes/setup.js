@@ -9,8 +9,10 @@
  *     - Only authenticated Deputy Officer can access.
  *     - Localhost restriction lifted (admin may reconfigure remotely).
  *   Recovery mode:
- *     - A file-based recovery token lets an operator regain access
- *       if the DB is down or admin credentials are lost.
+ *     - A file-based, single-use, time-limited recovery token lets a
+ *       LOCAL operator regain access when the DB is down.
+ *     - Recovery tokens are consumed after the save operation.
+ *     - Recovery is restricted to localhost.
  */
 
 const express = require('express');
@@ -25,6 +27,7 @@ const {
     generateRecoveryToken,
     validateRecoveryToken,
     consumeRecoveryToken,
+    getRecoveryTokenPath,
 } = require('../config-manager');
 
 const router = express.Router();
@@ -38,12 +41,11 @@ function isLocalhostRequest(req) {
 
 function logSetupAccess(req, action, granted, reason) {
     const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-    const level = granted ? 'info' : 'warn';
     const msg = `[SETUP-AUDIT] ${action} from ${ip} — ${granted ? 'ALLOWED' : 'DENIED'}: ${reason}`;
-    if (level === 'warn') {
-        console.warn(msg);
-    } else {
+    if (granted) {
         console.log(msg);
+    } else {
+        console.warn(msg);
     }
 }
 
@@ -52,16 +54,20 @@ function logSetupAccess(req, action, granted, reason) {
 async function setupGuard(req, res, next) {
     const setupDone = isSetupCompleted();
 
-    // ── Recovery token bypass (works in any state) ──
+    // ── Recovery token bypass (localhost-only, any setup state) ──
     const recoveryHeader = req.headers['x-recovery-token'];
     if (recoveryHeader) {
+        if (!isLocalhostRequest(req)) {
+            logSetupAccess(req, req.method + ' ' + req.path, false, 'recovery token from non-localhost');
+            return res.status(403).json({ error: 'Recovery is only available from the local machine.' });
+        }
         if (validateRecoveryToken(recoveryHeader)) {
             req.recoveryMode = true;
-            logSetupAccess(req, req.method + ' ' + req.path, true, 'valid recovery token');
+            logSetupAccess(req, req.method + ' ' + req.path, true, 'valid recovery token (localhost)');
             return next();
         }
-        logSetupAccess(req, req.method + ' ' + req.path, false, 'invalid recovery token');
-        return res.status(401).json({ error: 'Invalid recovery token.' });
+        logSetupAccess(req, req.method + ' ' + req.path, false, 'invalid or expired recovery token');
+        return res.status(401).json({ error: 'Invalid or expired recovery token.' });
     }
 
     // ── Fresh install: localhost-only, no auth needed ──
@@ -222,12 +228,8 @@ router.post('/save', async (req, res) => {
 
         if (wasFirstSetup) {
             markSetupCompleted();
-            const token = generateRecoveryToken();
-            console.log('═══════════════════════════════════════════════════');
-            console.log('  SETUP COMPLETE — Recovery token generated.');
-            console.log('  Store this token securely for emergency access:');
-            console.log(`  ${token}`);
-            console.log('═══════════════════════════════════════════════════');
+            generateRecoveryToken();
+            console.log('[SETUP] Initial setup complete. Recovery token written to file system.');
         }
 
         if (req.recoveryMode) {
@@ -247,14 +249,16 @@ router.post('/generate-recovery', (req, res) => {
     if (!isSetupCompleted()) {
         return res.status(400).json({ error: 'Setup not yet completed.' });
     }
-    const token = generateRecoveryToken();
-    logSetupAccess(req, 'generate-recovery', true, 'new recovery token issued');
-    res.json({ ok: true, token });
+    if (!isLocalhostRequest(req)) {
+        logSetupAccess(req, 'generate-recovery', false, 'non-localhost');
+        return res.status(403).json({ error: 'Recovery tokens can only be generated from the local machine.' });
+    }
+    generateRecoveryToken();
+    logSetupAccess(req, 'generate-recovery', true, 'new recovery token written to file');
+    res.json({ ok: true, message: 'Recovery token written to file system. Check the server data directory.' });
 });
 
 // ── POST /api/setup/auto-detect ──────────────────────────────────
-// On first boot, check if this is an existing installation (DB has
-// users) and auto-set setup_completed = true so the wizard locks.
 
 router.post('/auto-detect', async (req, res) => {
     if (isSetupCompleted()) {
@@ -275,9 +279,9 @@ router.post('/auto-detect', async (req, res) => {
         const [[row]] = await conn.query('SELECT COUNT(*) AS cnt FROM users WHERE is_active = 1');
         if (row.cnt > 0) {
             markSetupCompleted();
-            const token = generateRecoveryToken();
-            console.log('[SETUP] Existing installation detected — setup locked. Recovery token generated.');
-            res.json({ ok: true, detected: true, userCount: row.cnt, recoveryToken: token });
+            generateRecoveryToken();
+            console.log('[SETUP] Existing installation detected — setup locked. Recovery token written to file system.');
+            res.json({ ok: true, detected: true, userCount: row.cnt });
         } else {
             res.json({ ok: true, detected: false, message: 'No users found — fresh install.' });
         }

@@ -164,9 +164,80 @@ describe('config-manager setup helpers', () => {
         expect(isSetupCompleted()).toBe(true);
     });
 
-    test('generateRecoveryToken creates a file', () => {
+    test('generateRecoveryToken creates a file with JSON payload', () => {
         const token = generateRecoveryToken();
         expect(token).toHaveLength(64);
         expect(fs.existsSync(getRecoveryTokenPath())).toBe(true);
+        const raw = fs.readFileSync(getRecoveryTokenPath(), 'utf8');
+        const parsed = JSON.parse(raw);
+        expect(parsed.token).toBe(token);
+        expect(typeof parsed.created).toBe('number');
+    });
+
+    test('wrong-length token is rejected without throwing', () => {
+        generateRecoveryToken();
+        const { validateRecoveryToken } = require('../config-manager');
+        expect(validateRecoveryToken('short')).toBe(false);
+        expect(validateRecoveryToken('')).toBe(false);
+        expect(validateRecoveryToken('a'.repeat(128))).toBe(false);
+    });
+
+    test('expired token is rejected', () => {
+        const { validateRecoveryToken } = require('../config-manager');
+        const token = generateRecoveryToken();
+        // Manually backdate the token file
+        const raw = JSON.parse(fs.readFileSync(getRecoveryTokenPath(), 'utf8'));
+        raw.created = Date.now() - (25 * 60 * 60 * 1000); // 25 hours ago
+        fs.writeFileSync(getRecoveryTokenPath(), JSON.stringify(raw), 'utf8');
+        expect(validateRecoveryToken(token)).toBe(false);
+        // Token file should be cleaned up
+        expect(fs.existsSync(getRecoveryTokenPath())).toBe(false);
+    });
+
+    test('token is consumed after use', () => {
+        const token = generateRecoveryToken();
+        const { validateRecoveryToken, consumeRecoveryToken } = require('../config-manager');
+        expect(validateRecoveryToken(token)).toBe(true);
+        consumeRecoveryToken();
+        expect(validateRecoveryToken(token)).toBe(false);
+    });
+});
+
+// ── Token not leaked in responses ──
+
+describe('Setup — token security', () => {
+    test('/auto-detect does not return recovery token in response body', async () => {
+        setSetupCompleted(false);
+        const res = await request(app).post('/api/setup/auto-detect');
+        expect(res.body.recoveryToken).toBeUndefined();
+        // Restore
+        setSetupCompleted(true);
+    });
+
+    test('/generate-recovery does not return token value over HTTP', async () => {
+        setSetupCompleted(true);
+        const bcrypt2 = require('bcryptjs');
+        const hash = await bcrypt2.hash('genrecovtest', 10);
+        await pool.query(
+            `INSERT INTO users (name, username, password_hash, role, is_active) VALUES (?, ?, ?, 'Deputy Officer', 1)`,
+            ['Recovery Gen Test', 'test_gen_recovery', hash]
+        );
+        const loginRes = await request(app)
+            .post('/api/auth/login')
+            .send({ username: 'test_gen_recovery', password: 'genrecovtest' });
+
+        const res = await request(app)
+            .post('/api/setup/generate-recovery')
+            .set('Authorization', `Bearer ${loginRes.body.session_token}`);
+
+        expect(res.body.token).toBeUndefined();
+        expect(res.body.message).toContain('file system');
+
+        // Cleanup
+        await pool.query('DELETE FROM login_attempts WHERE username = ?', ['test_gen_recovery']);
+        await pool.query('DELETE FROM user_sessions WHERE user_id IN (SELECT id FROM users WHERE username = ?)', ['test_gen_recovery']);
+        await pool.query('DELETE FROM audit_logs WHERE user_id IN (SELECT id FROM users WHERE username = ?)', ['test_gen_recovery']);
+        await pool.query('DELETE FROM login_history WHERE username = ?', ['test_gen_recovery']);
+        await pool.query('DELETE FROM users WHERE username = ?', ['test_gen_recovery']);
     });
 });

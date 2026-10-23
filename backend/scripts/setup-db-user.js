@@ -43,8 +43,8 @@ async function main() {
 
     try {
         // ── Runtime user ──
-        // DML for normal operations + CREATE/ALTER for startup migrations
-        // (testConnection() runs CREATE TABLE IF NOT EXISTS and ALTER TABLE)
+        // DML only — DDL migrations run separately via scripts/migrate.js
+        // using root or a dedicated migration account.
         await conn.query(
             `CREATE USER IF NOT EXISTS '${APP_USER}'@'localhost' IDENTIFIED BY ?`,
             [appPass]
@@ -54,7 +54,7 @@ async function main() {
             [appPass]
         );
         await conn.query(
-            `GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER ON \`${DB_NAME}\`.* TO '${APP_USER}'@'localhost'`
+            `GRANT SELECT, INSERT, UPDATE, DELETE ON \`${DB_NAME}\`.* TO '${APP_USER}'@'localhost'`
         );
 
         // ── Backup user ──
@@ -82,8 +82,9 @@ async function main() {
         });
 
         const checks = [
-            { label: 'DROP TABLE', sql: 'DROP TABLE IF EXISTS __priv_test_nonexistent__' },
-            { label: 'GRANT',      sql: `GRANT SELECT ON \`${DB_NAME}\`.* TO '${APP_USER}'@'localhost'` },
+            { label: 'DROP TABLE',    sql: 'DROP TABLE IF EXISTS __priv_test_nonexistent__' },
+            { label: 'CREATE TABLE',  sql: 'CREATE TABLE __priv_test_verify__ (id INT PRIMARY KEY)' },
+            { label: 'GRANT',         sql: `GRANT SELECT ON \`${DB_NAME}\`.* TO '${APP_USER}'@'localhost'` },
         ];
 
         let allBlocked = true;
@@ -92,27 +93,20 @@ async function main() {
                 await verifyConn.query(sql);
                 console.warn(`⚠️  ${APP_USER} was NOT blocked from ${label} — review grants!`);
                 allBlocked = false;
+                // Clean up test table if it was created
+                if (label === 'CREATE TABLE') {
+                    try { await verifyConn.query('DROP TABLE IF EXISTS __priv_test_verify__'); } catch {}
+                }
             } catch {
                 console.log(`✅ ${APP_USER} correctly blocked from ${label}`);
             }
-        }
-
-        // Verify DDL works (CREATE + ALTER needed by migrations)
-        try {
-            await verifyConn.query(`CREATE TABLE IF NOT EXISTS __priv_test__ (id INT PRIMARY KEY)`);
-            await verifyConn.query(`ALTER TABLE __priv_test__ ADD COLUMN IF NOT EXISTS test_col VARCHAR(10)`);
-            await verifyConn.query(`DROP TABLE IF EXISTS __priv_test__`);
-            console.log(`✅ ${APP_USER} can CREATE/ALTER tables (needed for migrations)`);
-        } catch (err) {
-            console.warn(`⚠️  ${APP_USER} cannot CREATE/ALTER — migrations will fail: ${err.message}`);
-            allBlocked = false;
         }
 
         await verifyConn.end();
 
         console.log('\n══════════════════════════════════════════════════════');
         console.log(`  Runtime user: ${APP_USER}@localhost`);
-        console.log(`  Privileges:   SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER on ${DB_NAME}`);
+        console.log(`  Privileges:   SELECT, INSERT, UPDATE, DELETE on ${DB_NAME}`);
         console.log(`  Password:     ${appPass}`);
         console.log('');
         console.log(`  Backup user:  ${BACKUP_USER}@localhost`);

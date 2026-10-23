@@ -361,76 +361,9 @@ async function testConnection() {
         }
     }
 
-    // Per-street risk decay (Patrol Decision Support): each completed
-    // patrol schedule shaves a bit off that street's recommended risk
-    // score, and a new incident there wipes the decay so the street can
-    // surface as high-risk again. Created here (not just in schema.sql)
-    // so the feature works without a manual migration step.
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS area_risk_decay (
-            location VARCHAR(100) PRIMARY KEY,
-            decay_amount DECIMAL(5,2) NOT NULL DEFAULT 0,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Adds the 'Team Leader' staff role (manages patrol schedules,
-    // same view access as Decision-Maker) to the users.role ENUM.
-    // Migrate old role names to new ones (safe to re-run)
-    try {
-        await pool.query(`ALTER TABLE users MODIFY COLUMN role VARCHAR(50) NOT NULL`);
-        await pool.query(`UPDATE users SET role = 'Deputy Officer' WHERE role = 'Administrator'`);
-        await pool.query(`UPDATE users SET role = 'Kagawad' WHERE role IN ('Decision-Maker', 'Captain')`);
-        await pool.query(`UPDATE users SET role = 'Team Leader' WHERE role = 'Desk Officer'`);
-    } catch (e) { /* ignore if already migrated */ }
-
-    await pool.query(`
-        ALTER TABLE users
-        MODIFY COLUMN role ENUM('Deputy Officer', 'Kagawad', 'Team Leader') NOT NULL
-    `);
-
-    try {
-        // Needed so the forgot-password flow can actually email a reset
-        // link (see sendPasswordResetEmail) instead of only logging the
-        // token to the Audit Trail. "ADD COLUMN IF NOT EXISTS" isn't
-        // valid syntax on this MySQL version, so idempotency is done
-        // the same manual way as team_id above.
-        await pool.query(`ALTER TABLE users ADD COLUMN email VARCHAR(150) DEFAULT NULL`);
-    } catch (err) {
-        if (err.code !== 'ER_DUP_FIELDNAME') throw err;
-    }
-
-    // Legacy single-table migrations below only apply while `incidents` is still
-    // a BASE TABLE. After the Option A cutover (migrations 001-003) it is a
-    // compatibility VIEW over blotter_records / incident_records and these
-    // columns live on the base tables, so skip them rather than ALTER the view.
-    const [incMetaRows] = await pool.query(
-        "SELECT TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'incidents'"
-    );
-    if (incMetaRows[0] && incMetaRows[0].TABLE_TYPE === 'BASE TABLE') {
-        // New blotter-logbook fields (severity, respondent info, age).
-        for (const col of [
-            "ADD COLUMN severity ENUM('High','Medium','Low') DEFAULT 'Low'",
-            "ADD COLUMN respondent_name VARCHAR(255) DEFAULT NULL",
-            "ADD COLUMN respondent_address VARCHAR(500) DEFAULT NULL",
-            "ADD COLUMN age INT DEFAULT NULL"
-        ]) {
-            try { await pool.query(`ALTER TABLE incidents ${col}`); }
-            catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
-        }
-
-        // form_type distinguishes blotter vs crime incident records.
-        try { await pool.query("ALTER TABLE incidents ADD COLUMN form_type ENUM('blotter','crime') DEFAULT 'blotter'"); }
-        catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
-
-        // Backfill: records without a blotter_number and without a description
-        // were entered through the crime form.
-        await pool.query("UPDATE incidents SET form_type = 'crime' WHERE form_type = 'blotter' AND (blotter_number IS NULL OR blotter_number = '') AND (description IS NULL OR description = '')");
-    }
-
-    // Archive of everything deleted (see archive.js) - created here too so
-    // existing databases get it without a manual migration.
-    await archive.ensureArchiveTable();
+    // DDL migrations have been extracted to scripts/migrate.js.
+    // Run `node scripts/migrate.js` before first startup or after
+    // schema changes. The runtime account needs only SIUD privileges.
 }
 
 // ============================================================
