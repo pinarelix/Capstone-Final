@@ -627,10 +627,7 @@
             <button class="tab-btn active" data-tab="system-details">
                 <i class="fa-solid fa-id-card"></i> System Details
             </button>
-            <button class="tab-btn" data-tab="system-settings">
-                <i class="fa-solid fa-sliders"></i> System Settings
-            </button>
-            <button class="tab-btn" data-tab="audit-trail">
+<button class="tab-btn" data-tab="audit-trail">
                 <i class="fa-solid fa-list-check"></i> Audit Trail
             </button>
             <button class="tab-btn admin-only" data-tab="archive">
@@ -644,193 +641,8 @@
         <!-- =========================================================
              TAB 1: SYSTEM SETTINGS
         ========================================================== -->
-        <div id="tab-system-settings" class="tab-content">
-        <div style="display:flex;gap:20px;align-items:stretch;flex-wrap:wrap;">
-        <section class="settings-grid" style="flex:1;min-width:340px;display:flex;flex-direction:column;">
-            <!-- =========================================================
-                 🆕 CARD 7: SYSTEM SETTINGS (FULL WIDTH)
-            ========================================================== -->
-            <div class="settings-card full-width" style="flex:1;">
-                <div class="card-header">
-                    <div class="icon blue">
-                        <i class="fa-solid fa-sliders"></i>
-                    </div>
-                    <div>
-                        <h2>System Settings</h2>
-                        <p>Configure system parameters and security options</p>
-                    </div>
-                    <span style="margin-left: auto; font-size: 0.7rem; color: #94a3b8;" id="settingsStatus">Loading...</span>
-                </div>
-
-                <div class="settings-form">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
-                        <div class="form-group">
-                            <label for="settingSessionTimeout">Session Timeout (minutes)</label>
-                            <input type="number" id="settingSessionTimeout" class="form-input" min="5" max="120" placeholder="30">
-                        </div>
-                        <div class="form-group">
-                            <label for="settingMaxLoginAttempts">Max Login Attempts</label>
-                            <input type="number" id="settingMaxLoginAttempts" class="form-input" min="3" max="10" placeholder="5">
-                        </div>
-                        <div class="form-group">
-                            <label for="settingAuditRetention">Audit Log Retention (days)</label>
-                            <input type="number" id="settingAuditRetention" class="form-input" min="30" max="365" placeholder="90">
-                        </div>
-                        <div class="form-group">
-                            <label for="settingCartVersion">CART Model Version</label>
-                            <input type="text" id="settingCartVersion" class="form-input" placeholder="v1.0" maxlength="20">
-                        </div>
-                        <div class="form-group">
-                            <label for="settingThresholdHigh">High Risk Threshold</label>
-                            <input type="number" id="settingThresholdHigh" class="form-input" min="50" max="100" placeholder="67">
-                        </div>
-                        <div class="form-group">
-                            <label for="settingThresholdModerate">Moderate Risk Threshold</label>
-                            <input type="number" id="settingThresholdModerate" class="form-input" min="20" max="66" placeholder="34">
-                        </div>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 10px;">
-                        <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="settingEnableAuditLogging" style="width: 18px; height: 18px;">
-                            <label for="settingEnableAuditLogging" style="margin: 0; font-size: 0.8rem;">Enable Audit Logging</label>
-                        </div>
-                        <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="settingStrongPassword" style="width: 18px; height: 18px;">
-                            <label for="settingStrongPassword" style="margin: 0; font-size: 0.8rem;">Require Strong Password</label>
-                        </div>
-                        <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="settingEnable2FA" style="width: 18px; height: 18px;">
-                            <label for="settingEnable2FA" style="margin: 0; font-size: 0.8rem;">Enable 2FA (Future)</label>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
-                        <button type="button" class="btn-save" id="saveSettingsBtn">
-                            <i class="fa-solid fa-save"></i> Save All Settings
-                        </button>
-                        <button type="button" class="btn-secondary" id="refreshSettingsBtn" style="padding: 10px 20px; border: none; border-radius: 8px; background: #f1f5f9; color: #475569; font-weight: 600; cursor: pointer;">
-                            <i class="fa-solid fa-rotate"></i> Refresh
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- =========================================================
-             CART WEIGHTS CARD (admin only)
-        ========================================================== -->
-        <section class="settings-grid admin-only" style="flex:1;min-width:340px;display:flex;flex-direction:column;">
-            <div class="settings-card full-width" style="flex:1;">
-                <div class="card-header">
-                    <div class="icon blue">
-                        <i class="fa-solid fa-scale-balanced"></i>
-                    </div>
-                    <div>
-                        <h2>CART Scoring Weights</h2>
-                        <p>Control how much each factor influences the overall risk score. All five weights must add up to exactly <strong>100%</strong>.</p>
-                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:16px;">
-
-                    <!-- Time of Day -->
-                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                            <span style="width:30px;height:30px;background:#dbeafe;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-                                <i class="fa-solid fa-clock" style="color:#2563eb;font-size:0.8rem;"></i>
-                            </span>
-                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Time of Day</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <input type="number" id="weightTime" min="1" max="98" placeholder="25"
-                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
-                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
-                        </div>
-                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 25%</div>
-                    </div>
-
-                    <!-- Day Type -->
-                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                            <span style="width:30px;height:30px;background:#fef9c3;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-                                <i class="fa-solid fa-calendar-days" style="color:#ca8a04;font-size:0.8rem;"></i>
-                            </span>
-                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Day Type</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <input type="number" id="weightDay" min="1" max="98" placeholder="15"
-                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
-                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
-                        </div>
-                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 15%</div>
-                    </div>
-
-                    <!-- Incident Type -->
-                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                            <span style="width:30px;height:30px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-                                <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;font-size:0.8rem;"></i>
-                            </span>
-                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Incident Type</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <input type="number" id="weightType" min="1" max="98" placeholder="30"
-                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
-                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
-                        </div>
-                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 30%</div>
-                    </div>
-
-                    <!-- Location History -->
-                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                            <span style="width:30px;height:30px;background:#dcfce7;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-                                <i class="fa-solid fa-location-dot" style="color:#16a34a;font-size:0.8rem;"></i>
-                            </span>
-                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Location History</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <input type="number" id="weightLocation" min="1" max="98" placeholder="20"
-                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
-                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
-                        </div>
-                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 20%</div>
-                    </div>
-
-                    <!-- Recent Frequency -->
-                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 12px;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                            <span style="width:30px;height:30px;background:#f3e8ff;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-                                <i class="fa-solid fa-chart-line" style="color:#9333ea;font-size:0.8rem;"></i>
-                            </span>
-                            <span style="font-size:0.75rem;font-weight:700;color:#0f172a;">Recent Frequency</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <input type="number" id="weightFrequency" min="1" max="98" placeholder="10"
-                                style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:6px;padding:0 10px;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;box-sizing:border-box;">
-                            <span style="font-size:0.85rem;font-weight:600;color:#64748b;white-space:nowrap;">%</span>
-                        </div>
-                        <div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">default: 10%</div>
-                    </div>
-
-                </div>
-
-                <div style="display:flex;align-items:center;gap:14px;margin-top:18px;padding-top:16px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
-                    <div id="weightTotal" style="font-size:0.82rem;font-weight:700;padding:7px 16px;border-radius:20px;background:#f1f5f9;color:#64748b;transition:background 0.2s,color 0.2s;">
-                        Total: <span id="weightTotalValue">—</span>
-                    </div>
-                    <button type="button" class="btn-save" id="saveWeightsBtn">
-                        <i class="fa-solid fa-save"></i> Save Weights
-                    </button>
-                    <button type="button" class="btn-secondary" id="resetWeightsBtn" style="padding:10px 20px;border:none;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:600;cursor:pointer;">
-                        <i class="fa-solid fa-rotate-left"></i> Reset to Defaults
-                    </button>
-                </div>
-            </div>
-        </section>
-        </div><!-- end flex row -->
-        </div><!-- end tab-system-settings -->
+        <!-- System Settings & CART Weights tab removed (developer-level settings) -->
+        <div id="tab-system-settings" class="tab-content" style="display:none!important;"></div>
 
         <!-- =========================================================
              TAB 3: AUDIT TRAIL
@@ -2393,8 +2205,8 @@ async function loadLoginHistory() {
         }
 
         // Settings listeners
-        document.getElementById('saveSettingsBtn').addEventListener('click', saveAllSettings);
-        document.getElementById('refreshSettingsBtn').addEventListener('click', loadSystemSettings);
+        document.getElementById('saveSettingsBtn')?.addEventListener('click', saveAllSettings);
+        document.getElementById('refreshSettingsBtn')?.addEventListener('click', loadSystemSettings);
 
         // ── CART Weights ──────────────────────────────────────────────
         const weightIds = ['weightTime','weightDay','weightType','weightLocation','weightFrequency'];
@@ -2423,7 +2235,9 @@ async function loadLoginHistory() {
             try {
                 const res = await apiFetch('/cart/weights');
                 const data = await res.json();
-                document.getElementById('weightTime').value = data.time ?? 25;
+                const wt = document.getElementById('weightTime');
+                if (!wt) return;
+                wt.value = data.time ?? 25;
                 document.getElementById('weightDay').value = data.day ?? 15;
                 document.getElementById('weightType').value = data.type ?? 30;
                 document.getElementById('weightLocation').value = data.location ?? 20;
@@ -2460,7 +2274,9 @@ async function loadLoginHistory() {
         });
 
         document.getElementById('resetWeightsBtn')?.addEventListener('click', () => {
-            document.getElementById('weightTime').value = 25;
+            const wt = document.getElementById('weightTime');
+            if (!wt) return;
+            wt.value = 25;
             document.getElementById('weightDay').value = 15;
             document.getElementById('weightType').value = 30;
             document.getElementById('weightLocation').value = 20;
