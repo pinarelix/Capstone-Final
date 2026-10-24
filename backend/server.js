@@ -485,7 +485,12 @@ const reportExportSchema = Joi.object({
 const userSchema = Joi.object({
     name: Joi.string().max(100).pattern(/^[A-Za-z\s.\-']+$/).required().messages({ 'string.pattern.base': 'Name must contain only letters, spaces, dots, hyphens and apostrophes.' }),
     username: Joi.string().min(3).max(50).pattern(/^[A-Za-z._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, dots and underscores.' }),
-    password: Joi.string().min(8).max(128).required(),
+    password: Joi.string().min(8).max(128)
+        .pattern(/[A-Z]/, 'uppercase').message('Password must contain at least one uppercase letter.')
+        .pattern(/[a-z]/, 'lowercase').message('Password must contain at least one lowercase letter.')
+        .pattern(/[0-9]/, 'digit').message('Password must contain at least one number.')
+        .pattern(/[^A-Za-z0-9]/, 'special').message('Password must contain at least one special character.')
+        .required(),
     role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     contact_no: Joi.string().max(20).allow('', null),
     email: Joi.string().email({ tlds: false }).max(100).required()
@@ -507,7 +512,12 @@ const forgotPasswordSchema = Joi.object({
 
 const changePasswordSchema = Joi.object({
     current_password: Joi.string().max(128).required(),
-    new_password: Joi.string().min(8).max(128).required()
+    new_password: Joi.string().min(8).max(128)
+        .pattern(/[A-Z]/, 'uppercase').message('New password must contain at least one uppercase letter.')
+        .pattern(/[a-z]/, 'lowercase').message('New password must contain at least one lowercase letter.')
+        .pattern(/[0-9]/, 'digit').message('New password must contain at least one number.')
+        .pattern(/[^A-Za-z0-9]/, 'special').message('New password must contain at least one special character.')
+        .required()
 });
 
 const resetPasswordSchema = Joi.object({
@@ -1578,7 +1588,12 @@ const userUpdateSchema = Joi.object({
     username: Joi.string().min(3).max(50).pattern(/^[A-Za-z._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, dots and underscores.' }),
     role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     email: Joi.string().email({ tlds: false }).max(100).required(),
-    password: Joi.string().min(8).max(128).allow('', null).optional()
+    password: Joi.string().min(8).max(128)
+        .pattern(/[A-Z]/, 'uppercase').message('Password must contain at least one uppercase letter.')
+        .pattern(/[a-z]/, 'lowercase').message('Password must contain at least one lowercase letter.')
+        .pattern(/[0-9]/, 'digit').message('Password must contain at least one number.')
+        .pattern(/[^A-Za-z0-9]/, 'special').message('Password must contain at least one special character.')
+        .allow('', null).optional()
 });
 
 app.put('/api/users/:id', authenticate, requireRole(['Executive Officer']), validate(userUpdateSchema), async (req, res) => {

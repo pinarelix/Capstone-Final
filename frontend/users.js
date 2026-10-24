@@ -201,7 +201,32 @@ async function addUser() {
     }
 
     if (password.length < 8) {
-        showToast("Password must contain at least 8 characters.", "error");
+        showToast("Password must be at least 8 characters.", "error");
+        passwordInput.focus();
+        return;
+    }
+    if (password.length > 128) {
+        showToast("Password must not exceed 128 characters.", "error");
+        passwordInput.focus();
+        return;
+    }
+    if (!/[A-Z]/.test(password)) {
+        showToast("Password must contain at least one uppercase letter.", "error");
+        passwordInput.focus();
+        return;
+    }
+    if (!/[a-z]/.test(password)) {
+        showToast("Password must contain at least one lowercase letter.", "error");
+        passwordInput.focus();
+        return;
+    }
+    if (!/[0-9]/.test(password)) {
+        showToast("Password must contain at least one number.", "error");
+        passwordInput.focus();
+        return;
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+        showToast("Password must contain at least one special character (e.g. !@#$%^&*).", "error");
         passwordInput.focus();
         return;
     }
@@ -414,6 +439,26 @@ async function saveEditUser() {
     }
     if (password && password.length < 8) {
         showToast('New password must be at least 8 characters.', 'error');
+        return;
+    }
+    if (password && password.length > 128) {
+        showToast('New password must not exceed 128 characters.', 'error');
+        return;
+    }
+    if (password && !/[A-Z]/.test(password)) {
+        showToast('New password must contain at least one uppercase letter.', 'error');
+        return;
+    }
+    if (password && !/[a-z]/.test(password)) {
+        showToast('New password must contain at least one lowercase letter.', 'error');
+        return;
+    }
+    if (password && !/[0-9]/.test(password)) {
+        showToast('New password must contain at least one number.', 'error');
+        return;
+    }
+    if (password && !/[^A-Za-z0-9]/.test(password)) {
+        showToast('New password must contain at least one special character (e.g. !@#$%^&*).', 'error');
         return;
     }
 
