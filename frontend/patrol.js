@@ -1081,10 +1081,8 @@ function applyRecommendationToScheduleForm(idx) {
 
     // Applying a suggestion always starts a fresh schedule, not an edit.
     document.getElementById('editScheduleId').value = '';
-    document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
+    document.getElementById('scheduleFormTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule';
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
-    document.getElementById('scheduleFormCard')?.classList.remove('edit-modal-mode');
-    dockScheduleFormCard();
 
     const locationSelect = document.getElementById('scheduleLocation');
     if ([...locationSelect.options].some(opt => opt.value === rec.area)) {
@@ -1098,10 +1096,18 @@ function applyRecommendationToScheduleForm(idx) {
         document.getElementById('scheduleEnd').value = timeParts[1];
     }
 
+    if (rec.priority === 'high') {
+        document.getElementById('schedulePriority').value = 'High';
+    } else if (rec.priority === 'medium') {
+        document.getElementById('schedulePriority').value = 'Moderate';
+    } else {
+        document.getElementById('schedulePriority').value = 'Low';
+    }
+
     document.getElementById('scheduleReason').value =
         `Suggested from CART priority recommendation: ${rec.reason}. ${rec.action}`;
 
-    document.getElementById('scheduleFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    openScheduleModal();
     showToast(`Prefilled from "${rec.area}" — suggested ${rec.personnel} personnel. Review the day before saving.`, 'info');
 }
 
