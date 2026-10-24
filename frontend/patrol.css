@@ -77,6 +77,42 @@
 /* ============================================================
    FILTER BAR
 ============================================================ */
+.patrol-command-panel {
+    background: #fff;
+    border: 1px solid #94a3b8;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+}
+
+.patrol-command-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.patrol-command-head h1 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.15rem;
+}
+
+.patrol-command-head h1 i { color: #0ea5e9; margin-right: 8px; }
+.patrol-command-head p { margin: 3px 0 0; color: #64748b; font-size: .76rem; }
+.patrol-command-head .filter-control { min-width: 220px; }
+.patrol-command-head .filter-control label {
+    display: block;
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: .65rem;
+    font-weight: 800;
+    letter-spacing: .45px;
+    text-transform: uppercase;
+}
+
 .patrol-filter-bar {
     display: flex;
     justify-content: space-between;
@@ -136,6 +172,26 @@
     gap: 16px;
     margin-bottom: 24px;
 }
+
+.patrol-command-panel .patrol-metrics {
+    gap: 0;
+    margin: 0;
+    border-top: 1px solid #e2e8f0;
+}
+
+.patrol-command-panel .metric-card {
+    min-width: 0;
+    padding: 12px 14px 4px;
+    border: 0;
+    border-right: 1px solid #e2e8f0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.patrol-command-panel .metric-card:last-child { border-right: 0; }
+.patrol-command-panel .metric-card:hover { transform: none; box-shadow: none; }
+.patrol-command-panel .metric-icon { width: 36px; height: 36px; font-size: 1rem; }
+.patrol-command-panel .metric-info h4 { font-size: 1rem; }
 
 .metric-card {
     display: flex;
@@ -201,7 +257,7 @@
    RECOMMENDATIONS
 ============================================================ */
 .patrol-recommendations {
-    margin-top: 8px;
+    margin-top: 0;
 }
 
 .section-header {
@@ -908,3 +964,43 @@ body.role-decision-maker .cart-score-chip {
 .recommendations-listbox .rec-card .rec-details, .recommendations-listbox .rec-card .danger-level, .recommendations-listbox .rec-card .rec-card-view-hint { display:none; }
 .recommendations-listbox .rec-card:hover, .recommendations-listbox .rec-card[aria-selected="true"] { background:#f0f9ff; transform:none; }
 .recommendations-listbox .rec-card:focus-visible { outline:3px solid #0284c7; outline-offset:-3px; }
+.patrol-table-search {
+    width: min(240px, 28vw);
+    min-height: 36px;
+}
+
+@media (min-width: 1366px) and (min-height: 700px) {
+    .patrol-table-card .table-responsive {
+        max-height: 250px;
+        overflow: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+    }
+
+    .patrol-table-card .data-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f8fafc;
+    }
+
+    .recommendations-listbox {
+        max-height: min(42vh, 330px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+}
+
+@media (max-width: 760px) {
+    .patrol-command-head { align-items: stretch; flex-direction: column; }
+    .patrol-command-head .filter-control { min-width: 0; width: 100%; }
+    .patrol-command-panel .patrol-metrics { grid-template-columns: 1fr 1fr; }
+    .patrol-command-panel .metric-card:nth-child(2) { border-right: 0; }
+    .patrol-command-panel .metric-card:nth-child(-n+2) { border-bottom: 1px solid #e2e8f0; }
+}
+
+@media (max-width: 480px) {
+    .patrol-command-panel .patrol-metrics { grid-template-columns: 1fr; }
+    .patrol-command-panel .metric-card { border-right: 0; border-bottom: 1px solid #e2e8f0; }
+    .patrol-command-panel .metric-card:last-child { border-bottom: 0; }
+}

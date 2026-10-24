@@ -9,6 +9,14 @@ const dateOnlySchema = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value
     const date = new Date(value + 'T00:00:00Z');
     return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : helpers.error('any.invalid');
 });
+const MAP_PAGE_SIZE = 500;
+const mapQuerySchema = Joi.object({
+    granularity: Joi.string().valid('day', 'week', 'month').default('month'),
+    period: dateOnlySchema.default(() => new Date().toISOString().slice(0, 10)),
+    page: Joi.number().integer().min(1).max(100000).default(1),
+    window_days: Joi.string().valid('90', 'all'),
+    limit: Joi.number().integer().min(1).max(1000)
+}).unknown(false);
 
 function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, requireRole, validate,
     resolveRegistry, computeCartRiskFactors, computeTimeOfDay, getDayOfWeek, isDateWeekend,
@@ -18,12 +26,29 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
 
     async function mapRecords(options = {}) {
         await configureCart();
-        const windowDays = options.window_days === 'all' ? null : Math.min(3650, Math.max(1, Number(options.window_days) || 90));
-        const paging = pagination(options, 500, 1000);
+        const paging = pagination({ page: options.page, limit: MAP_PAGE_SIZE }, MAP_PAGE_SIZE, MAP_PAGE_SIZE);
         const where = ["i.is_draft = 0", "TRIM(i.status) != 'Resolved'", 'i.latitude IS NOT NULL', 'i.longitude IS NOT NULL'];
         const values = [];
         if (options.id) { where.push('i.id = ?'); values.push(options.id); }
-        else if (windowDays) { where.push('i.date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)'); values.push(windowDays); }
+        else {
+            if (options.window_days === '90') {
+                where.push('i.date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)');
+            } else if (options.window_days === 'all') {
+                // Legacy/report callers may request all dates, but the fixed
+                // page boundary above still prevents an unbounded transfer.
+            } else if (!options.granularity) {
+                // Preserve the existing /api/heatmap/incidents contract for
+                // older consumers that do not send the calendar filters.
+                where.push('i.date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)');
+            } else if (options.granularity === 'day') {
+                where.push('i.date = ?'); values.push(options.period);
+            } else if (options.granularity === 'week') {
+                where.push('i.date BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)'); values.push(options.period, options.period);
+            } else {
+                where.push("i.date >= DATE_FORMAT(?, '%Y-%m-01') AND i.date < DATE_ADD(DATE_FORMAT(?, '%Y-%m-01'), INTERVAL 1 MONTH)");
+                values.push(options.period, options.period);
+            }
+        }
         const clause = where.join(' AND ');
         const [totals] = await pool.query(`SELECT COUNT(*) AS total FROM incidents i WHERE ${clause}`, values);
         const [rows] = await pool.query(`
@@ -73,7 +98,7 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
             return { ...row, ...patrolDecision(row, cartEngine.thresholds, count), nearby_recent_count: count };
         });
         if (!options.withMeta) return result;
-        return { records: result.filter(row=>row.eligible), thresholds: {...cartEngine.thresholds}, window_days: windowDays,
+        return { records: result.filter(row=>row.eligible), thresholds: {...cartEngine.thresholds},
             pagination: {page:paging.page, pageSize:paging.limit, totalCandidates:Number(totals[0].total), totalPages:Math.ceil(Number(totals[0].total)/paging.limit)} };
     }
 
@@ -112,7 +137,9 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
         });
         app.get('/api/heatmap/records', authenticate, readRoles, async (req, res) => {
             try {
-                res.json(await mapRecords({...req.query, withMeta:true}));
+                const { value, error } = mapQuerySchema.validate(req.query, { abortEarly: false, stripUnknown: false });
+                if (error) return res.status(400).json({ error: 'Invalid map filter', details: error.details.map(item => item.message) });
+                res.json(await mapRecords({...value, withMeta:true}));
             } catch (err) { res.status(500).json({ error: 'Failed to load patrol map records' }); }
         });
         app.patch('/api/incidents/:id/patrol-details', authenticate, writeRole, validate(patchSchema), async (req, res) => {

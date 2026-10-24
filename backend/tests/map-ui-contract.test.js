@@ -48,19 +48,19 @@ describe('Record map UI contract', () => {
         return { context, element, source, handlers, mapStub };
     }
 
-    test('both map layers, legend, and high-risk KPI bind to the returned CART thresholds', async () => {
+    test('both map layers and the high-risk KPI bind to thresholds while the legend stays plain-language', async () => {
         const { context, handlers, mapStub, source, element } = harness();
         context.initializeMap(); handlers['style.load'](); await context.loadRealData();
         expect(mapStub.setPaintProperty.mock.calls.at(-1)[2]).toEqual(['step', ['get','cart_score'], '#10b981', 40, '#f59e0b', 80, '#ef4444']);
-        expect(element('legendHigh').textContent).toContain('80');
+        expect(element('legendHigh').textContent).toBe('');
         expect(element('kpi-high').textContent).toBe(1);
         expect(source.setData.mock.calls.at(-1)[0].features.map(feature => feature.properties.id)).toEqual([1,2]);
     });
 
-    test('click selection is restricted to records currently visible after filtering', async () => {
+    test('click selection is restricted to the category currently visible after filtering', async () => {
         const { context, handlers, mapStub, element } = harness();
         context.initializeMap(); handlers['style.load'](); await context.loadRealData();
-        element('heatmapGranularity').value = 'month'; element('heatmapPeriod').value = '2026-10';
+        element('heatmapIncidentType').value = 'Property Crimes';
         context.applyFilterAndRender();
         mapStub.queryRenderedFeatures.mockReturnValue([{ properties: { id: 1 } }, { properties: { id: 2 } }]);
         handlers.click({ point: { x: 100, y: 100 } });
@@ -83,33 +83,18 @@ describe('Record map UI contract', () => {
         context.initializeMap(); // No style/tiles completion event yet.
         await context.loadRealData();
         expect(element('kpi-incidents').textContent).toBe(2);
-        expect(element('mapRecordList').children).toHaveLength(2);
+        expect(element('kpi-high').textContent).toBe(1);
     });
 
-    test('browser is a descending-score listbox with addresses, keyboard selection and the chosen initial record', async () => {
-        const {context,element} = harness(); await context.loadRealData();
-        const options = element('mapRecordList').children;
-        expect(options.map(option => option.dataset.id)).toEqual(['2','1']);
-        expect(options[0].getAttribute('role')).toBe('option');
-        expect(options.map(option => option.tabIndex)).toEqual([0,-1]);
-        expect(options[0].children[0].textContent).toContain('Address not recorded');
-        options[0].handlers.keydown({key:'ArrowDown',preventDefault:jest.fn()});
-        expect(options.map(option => option.tabIndex)).toEqual([-1,0]);
-        expect(context.openRecordGroup).not.toHaveBeenCalled();
-        options[1].handlers.click();
-        expect(context.openRecordGroup.mock.calls[0][1]).toBe(1);
-        expect(context.openRecordGroup.mock.calls[0][0]).toHaveLength(2);
-    });
-
-    test('polling preserves browser selection and keyboard focus', async () => {
-        const {context,element} = harness(); await context.loadRealData();
-        const option = element('mapRecordList').children[1];
-        context.selectBrowserRecord(option); option.focus();
+    test('period filters are sent to the server instead of loading a record window', async () => {
+        const {context,element} = harness();
+        element('heatmapGranularity').value = 'month';
+        element('heatmapPeriod').value = '2026-10';
         await context.loadRealData();
-        const selected = element('mapRecordList').children.find(item => item.tabIndex === 0);
-        expect(selected.dataset.id).toBe('1'); expect(context.document.activeElement).toBe(selected);
-        element('heatmapIncidentType').value = 'Missing category'; context.applyFilterAndRender();
-        expect(element('mapRecordEmpty').hidden).toBe(false);
+        const requested = String(context.apiFetch.mock.calls[0][0]);
+        expect(requested).toContain('granularity=month');
+        expect(requested).toContain('period=2026-10-01');
+        expect(requested).not.toContain('window_days');
     });
 });
 
@@ -151,11 +136,12 @@ describe('Light record detail panel', () => {
         const html=element('mapRecordDetail').innerHTML;
         expect(html).toContain('id="mapNotes" disabled'); expect(html).toContain('class="record-map-actions" hidden');
     });
-    test('popup and browser use shared light design tokens rather than dark form colors',()=>{
+    test('popup uses shared light design tokens and the redundant page-level browser is absent',()=>{
         const css=fs.readFileSync(path.join(__dirname,'../../frontend/record-map.css'),'utf8');
         expect(css).toContain('background: var(--bg-card)'); expect(css).toContain('color: var(--text-primary)');
         expect(css).not.toContain('#142138'); expect(css).not.toContain('#0f1b2e');
         const html=fs.readFileSync(path.join(__dirname,'../../frontend/grid-heatmap.html'),'utf8');
-        expect(html).toMatch(/id="mapRecordList"[^>]+role="listbox"/);
+        expect(html).not.toContain('id="mapRecordList"');
+        expect(html).toMatch(/id="mapRecordListbox"[^>]+role="listbox"/);
     });
 });

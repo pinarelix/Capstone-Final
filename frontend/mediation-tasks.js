@@ -10,6 +10,95 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorMessage = document.getElementById('mediationTaskError');
     let currentTask = null;
 
+    const assignDialog = document.getElementById('mediationAssignDialog');
+    const assignForm = document.getElementById('dashboardMediationAssignForm');
+    const assignButton = document.getElementById('openMediationAssign');
+    const blotterSearch = document.getElementById('mediationBlotterSearch');
+    const blotterSelect = document.getElementById('mediationBlotterSelect');
+    const kagawadSelect = document.getElementById('mediationKagawadSelect');
+    const assignDate = document.getElementById('mediationAssignDate');
+    const assignMessage = document.getElementById('mediationAssignDashboardMessage');
+    const currentUser = getCurrentUser();
+
+    async function loadBlotterChoices(search = '') {
+        if (!blotterSelect) return;
+        const selected = blotterSelect.value;
+        blotterSelect.innerHTML = '<option value="">Loading blotter records...</option>';
+        const response = await apiFetch('/incidents?' + new URLSearchParams({
+            page: 1,
+            limit: 10,
+            form_type: 'blotter',
+            ...(search ? { search } : {})
+        }));
+        if (!response.ok) throw new Error('Unable to load blotter records');
+        const data = await response.json();
+        const rows = Array.isArray(data) ? data : (data.incidents || []);
+        blotterSelect.innerHTML = '<option value="">Choose a blotter record</option>';
+        rows.forEach(record => {
+            const option = document.createElement('option');
+            option.value = record.id;
+            option.textContent = `${record.blotter_number || `Blotter #${record.id}`} · ${record.incident_type || 'Unclassified'} · ${record.street_name || 'No location'}`;
+            blotterSelect.appendChild(option);
+        });
+        if (selected && [...blotterSelect.options].some(option => option.value === selected)) blotterSelect.value = selected;
+    }
+
+    async function loadKagawadChoices() {
+        if (!kagawadSelect) return;
+        const response = await apiFetch('/users-list?role=Kagawad');
+        if (!response.ok) throw new Error('Unable to load Kagawad accounts');
+        const rows = await response.json();
+        kagawadSelect.innerHTML = '<option value="">Choose a Kagawad</option>';
+        rows.forEach(user => kagawadSelect.add(new Option(user.name, String(user.id))));
+    }
+
+    if (assignDialog && assignForm && currentUser?.role === 'Executive Officer') {
+        assignButton.hidden = false;
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        assignDate.min = now.toISOString().slice(0, 16);
+
+        assignButton.addEventListener('click', async () => {
+            assignMessage.textContent = '';
+            assignDialog.showModal();
+            try {
+                await Promise.all([loadBlotterChoices(), loadKagawadChoices()]);
+            } catch (error) {
+                assignMessage.textContent = error.message;
+            }
+        });
+        document.getElementById('closeMediationAssign').addEventListener('click', () => assignDialog.close());
+        document.getElementById('cancelMediationAssign').addEventListener('click', () => assignDialog.close());
+
+        let blotterSearchDelay;
+        blotterSearch.addEventListener('input', () => {
+            clearTimeout(blotterSearchDelay);
+            blotterSearchDelay = setTimeout(() => loadBlotterChoices(blotterSearch.value.trim()).catch(error => {
+                assignMessage.textContent = error.message;
+            }), 250);
+        });
+
+        assignForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            assignMessage.textContent = 'Scheduling mediation...';
+            try {
+                const response = await apiFetch('/mediation-tasks', {
+                    method: 'POST',
+                    body: JSON.stringify(Object.fromEntries(new FormData(assignForm)))
+                });
+                if (!response.ok) {
+                    const body = await response.json().catch(() => ({}));
+                    throw new Error(body.error || 'Unable to schedule mediation');
+                }
+                assignMessage.textContent = 'Mediation appointment assigned.';
+                assignForm.reset();
+                assignDate.min = now.toISOString().slice(0, 16);
+            } catch (error) {
+                assignMessage.textContent = error.message;
+            }
+        });
+    }
+
     function syncRescheduleField() {
         const isRescheduled = status.value === 'Rescheduled';
         newDateWrap.hidden = !isRescheduled;

@@ -33,7 +33,8 @@
         #mapWrap { 
             position: relative; 
             width: 100%; 
-            height: 550px; 
+            height: 100%;
+            min-height: 320px;
             overflow: hidden; 
             border: 1px solid #94a3b8; 
             border-radius: 10px; 
@@ -373,6 +374,8 @@
             background: linear-gradient(135deg, #eff6ff, #eef2f7);
             border: 1px solid #dbe3ee;
             border-radius: 14px;
+            position: relative;
+            z-index: 3000;
         }
 
         .gh-filter-chip {
@@ -436,6 +439,59 @@
             font-weight: 700;
             padding: 7px 14px;
             border-radius: 10px;
+        }
+
+        .gh-calendar-control {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .gh-calendar-step,
+        .gh-calendar-trigger {
+            min-height: 34px;
+            border: 0;
+            background: transparent;
+            color: #334155;
+            font: inherit;
+            font-size: 0.76rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .gh-calendar-step { width: 30px; border-radius: 8px; }
+        .gh-calendar-step:hover { background: #eff6ff; color: #1d4ed8; }
+        .gh-calendar-trigger { min-width: 144px; padding: 7px 8px; text-align: left; }
+        .gh-calendar-trigger:focus-visible,
+        .gh-calendar-step:focus-visible { outline: 2px solid #0284c7; outline-offset: 1px; }
+
+        .gh-calendar-popover {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            z-index: 4000;
+            width: 280px;
+            padding: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, .22);
+        }
+
+        .gh-calendar-popover[hidden] { display: none; }
+        .gh-calendar-popover label { display: block; margin-bottom: 8px; color: #475569; font-size: .72rem; font-weight: 700; }
+        .gh-calendar-input { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 9px; color: #0f172a; font: inherit; }
+
+        .map-card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: visible; }
+        .map-card .chart-header { position: relative; z-index: 3000; overflow: visible; }
+        .map-card #mapWrap { flex: 1 1 auto; z-index: 1; }
+
+        @media (min-width: 1366px) and (min-height: 700px) {
+            body.heatmap-page .main-content { height: 100dvh; overflow: hidden; padding: 20px 24px; gap: 12px; }
+            body.heatmap-page .top-header { margin-bottom: 0; }
+            body.heatmap-page .heatmap-kpi-grid { margin-bottom: 0; padding: 12px 0; }
+            body.heatmap-page .heatmap-metric-flat { padding: 0 16px; }
         }
 
         /* ============================================================
@@ -617,7 +673,7 @@
 <link rel="stylesheet" href="sidebar-drag.css">
 <link rel="stylesheet" href="record-map.css">
 </head>
-<body>
+<body class="heatmap-page">
 
 <div class="app-container">
 
@@ -742,8 +798,7 @@
         <div class="map-card card" style="padding: 14px; min-width: 0;">
             <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
                 <div>
-                    <h2>Barangay 179 — Geospatial Risk Heatmap</h2>
-                    <span class="map-subtitle">Exact record pins with live CART thresholds</span>
+                    <h2>Barangay 179 heatmap</h2>
                 </div>
                 <div class="gh-toolbar">
                     <div class="gh-filter-chip">
@@ -755,45 +810,36 @@
                     <div class="gh-filter-chip">
                         <span class="gh-filter-icon"><i class="fa-solid fa-clock"></i></span>
                         <select id="heatmapGranularity" class="gh-select">
-                            <option value="all">All Time</option>
                             <option value="day">Day</option>
                             <option value="week">Week</option>
-                            <option value="month">Month</option>
+                            <option value="month" selected>Month</option>
                         </select>
                     </div>
-                    <div class="gh-filter-chip" id="heatmapPeriodChip" style="display: none;">
+                    <div class="gh-filter-chip gh-calendar-control" id="heatmapPeriodChip">
                         <span class="gh-filter-icon"><i class="fa-solid fa-calendar-days"></i></span>
-                        <select id="heatmapPeriod" class="gh-select"></select>
+                        <button type="button" class="gh-calendar-step" id="heatmapPreviousPeriod" aria-label="Previous period"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button type="button" class="gh-calendar-trigger" id="heatmapCalendarTrigger" aria-haspopup="dialog" aria-expanded="false"></button>
+                        <button type="button" class="gh-calendar-step" id="heatmapNextPeriod" aria-label="Next period"><i class="fa-solid fa-chevron-right"></i></button>
+                        <div class="gh-calendar-popover" id="heatmapCalendarPopover" role="dialog" aria-label="Choose heatmap period" hidden>
+                            <label for="heatmapPeriod">Choose a date</label>
+                            <input id="heatmapPeriod" class="gh-calendar-input" type="month">
+                        </div>
                     </div>
-                    <span class="gh-science-badge"><i class="fa-solid fa-flask"></i> Geospatial Analysis</span>
                 </div>
             </div>
 
             <div id="mapWrap">
                 <div id="map"></div>
                 <div class="grid-legend">
-                    <strong>RECORD CART SCORE</strong>
+                    <strong>RISK LEVEL</strong>
                     <div class="legend-row"><span class="legend-square high"></span> <span id="legendHigh">High</span></div>
-                    <div class="legend-row"><span class="legend-square moderate"></span> <span id="legendModerate">Moderate</span></div>
+                    <div class="legend-row"><span class="legend-square moderate"></span> <span id="legendModerate">Medium</span></div>
                     <div class="legend-row"><span class="legend-square low"></span> <span id="legendLow">Low</span></div>
-                    <div class="legend-row"><span class="legend-square no-data"></span> No Data</div>
                 </div>
             </div>
         </div>
 
-        <div class="record-map-actions">
-            <label for="mapWindowDays">Record window</label>
-            <select id="mapWindowDays"><option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option><option value="365">Last year</option><option value="all">All dates (paged)</option></select>
-            <button id="mapPreviousPage" type="button" class="btn btn-secondary" disabled>Previous page</button>
-            <button id="mapNextPage" type="button" class="btn btn-secondary" disabled>Next page</button>
-        </div>
-        <p id="mapLoadStatus" role="status">Loading patrol map...</p>
-        <section class="card record-browser" aria-labelledby="mapRecordBrowserTitle">
-            <h2 id="mapRecordBrowserTitle">Browse visible records <span id="mapRecordCount" class="record-map-badge">0 records</span></h2>
-            <p id="mapRecordBrowserHelp" class="record-browser-help">Highest CART score first. Click a record to open details, or use arrow keys to browse and Enter to open.</p>
-            <div id="mapRecordList" class="record-browser-list" role="listbox" aria-label="Visible patrol records by CART score" aria-describedby="mapRecordBrowserHelp" aria-orientation="vertical"></div>
-            <p id="mapRecordEmpty" class="record-browser-empty" hidden>No patrol-eligible records match the selected filters.</p>
-        </section>
+        <p id="mapLoadStatus" class="sr-only" role="status">Loading patrol map...</p>
         <div id="mapRecordModal" class="record-map-modal" hidden>
             <section class="record-map-dialog" role="dialog" aria-modal="true" aria-labelledby="mapRecordTitle">
                 <header class="record-map-header"><div><h2 id="mapRecordTitle">Record details</h2><p>Records are ordered by CART score, highest first.</p></div>

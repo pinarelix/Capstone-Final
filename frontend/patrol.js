@@ -56,8 +56,17 @@ let schedulePage = 1;
 let logPage = 1;
 let scheduleTotal = 0, logTotal = 0;
 let scheduleChoices = [];
-function scheduleListUrl() { return '/patrol-schedules/all?' + new URLSearchParams({page:schedulePage,limit:10,status:document.getElementById('scheduleStatusFilter')?.value||''}); }
-function logListUrl() { return '/patrol-logs?' + new URLSearchParams({page:logPage,limit:10}); }
+function scheduleListUrl() { return '/patrol-schedules/all?' + new URLSearchParams({
+    page: schedulePage,
+    limit: 10,
+    status: document.getElementById('scheduleStatusFilter')?.value || '',
+    search: document.getElementById('scheduleSearch')?.value.trim() || ''
+}); }
+function logListUrl() { return '/patrol-logs?' + new URLSearchParams({
+    page: logPage,
+    limit: 10,
+    search: document.getElementById('logSearch')?.value.trim() || ''
+}); }
 const rowsPerPage = 10;
 
 // ============================================================
@@ -102,6 +111,20 @@ document.addEventListener("DOMContentLoaded", function () {
             schedulePage = 1;
             refreshSchedulesOnly();
             updateCounts();
+        });
+    }
+
+    for (const [id, refresh, resetPage] of [
+        ['scheduleSearch', refreshSchedulesOnly, () => { schedulePage = 1; }],
+        ['logSearch', refreshPatrolLogsOnly, () => { logPage = 1; }]
+    ]) {
+        const input = document.getElementById(id);
+        if (!input) continue;
+        let debounce;
+        input.addEventListener('input', () => {
+            clearTimeout(debounce);
+            resetPage();
+            debounce = setTimeout(refresh, 250);
         });
     }
     
@@ -745,7 +768,6 @@ function updateDashboardWithCartData(selectedMonth) {
         console.warn('No incidents available');
         updateMetricsEmptyState();
         currentRecommendations = [];
-        renderScheduleSuggestions([]);
         return;
     }
     
@@ -801,9 +823,9 @@ function updateDashboardWithCartData(selectedMonth) {
     const container = document.getElementById('recommendationsContainer');
     renderCartRecommendationCards(recommendations, container);
 
-    // Keep the Schedules tab's suggestions in sync with the same data.
+    // These recommendations are the schedule suggestions; keep one source
+    // of truth and let its detail dialog open the scheduling form.
     currentRecommendations = recommendations;
-    renderScheduleSuggestions(recommendations);
 }
 
 function updateMetricsEmptyState() {
@@ -1018,58 +1040,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') closeStreetDetailModal();
     });
 });
-
-// ============================================================
-// 9b. 🔥 NEW: SURFACE RECOMMENDATIONS ON THE SCHEDULES TAB
-// Compact version of the same CART recommendations, shown above the
-// "Add Patrol Schedule" form so admins see the priority areas without
-// switching back to the Recommendations tab. "Use This" prefills the
-// form below instead of building the schedule from scratch.
-// ============================================================
-
-function renderScheduleSuggestions(recs) {
-    const section = document.getElementById('scheduleSuggestionsSection');
-    const container = document.getElementById('scheduleSuggestionsContainer');
-    if (!section || !container) return;
-
-    // Placeholder entries (no CART data / no incidents this month) carry
-    // count: 0 — real recommendations always have at least one incident.
-    const validRecs = (recs || []).filter(rec => rec.count > 0);
-
-    if (validRecs.length === 0) {
-        section.style.display = 'none';
-        container.innerHTML = '';
-        return;
-    }
-
-    section.style.display = '';
-    container.innerHTML = '';
-
-    validRecs.forEach(rec => {
-        const idx = recs.indexOf(rec);
-        const card = document.createElement('div');
-        card.className = `rec-card ${rec.priority}`;
-
-        card.innerHTML = `
-            <div class="rec-card-header">
-                <h3>${escapeHTML(rec.area)}</h3>
-                <span class="priority-badge ${rec.priority}">${rec.priority.toUpperCase()} PRIORITY</span>
-            </div>
-            <div class="danger-level ${rec.priority}">${escapeHTML(rec.level)}</div>
-            <div class="rec-details">
-                <div><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
-                <div style="margin-top: 4px;"><strong>Incidents Here:</strong><br>
-                    ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 2)}
-                </div>
-                <div><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
-            </div>
-            <button type="button" class="use-this-btn" onclick="applyRecommendationToScheduleForm(${idx})">
-                <i class="fa-solid fa-arrow-turn-down"></i> Use This
-            </button>
-        `;
-        container.appendChild(card);
-    });
-}
 
 // Prefills the Add Patrol Schedule form from a recommendation card.
 // Only location, time, and reason are inferable from CART's monthly

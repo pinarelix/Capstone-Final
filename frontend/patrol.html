@@ -87,14 +87,6 @@
         ========================================================== -->
         <main class="main-content">
 
-            <!-- HEADER -->
-            <header class="top-header">
-                <div class="header-titles">
-                    <h1><i class="fa-solid fa-shield-halved"></i> Patrol Decision Support</h1>
-                    <p>Priority patrol recommendations based on CART risk analysis, recurrence, and incident timing.</p>
-                </div>
-            </header>
-
             <!-- =====================================================
                  TABS
             ====================================================== -->
@@ -112,21 +104,21 @@
             ====================================================== -->
             <div id="tab-recommendations" class="patrol-tab-content active">
 
-                <!-- Month Filter -->
-                <div class="patrol-filter-bar">
-                    <div class="filter-info">
-                        <h3><i class="fa-regular fa-calendar"></i> Monthly Patrol Insights</h3>
-                        <p>Select a month to view CART-based patrol recommendations.</p>
+                <section class="patrol-command-panel" aria-labelledby="patrolDecisionTitle">
+                    <div class="patrol-command-head">
+                        <div>
+                            <h1 id="patrolDecisionTitle"><i class="fa-solid fa-shield-halved"></i> Patrol Decision Support</h1>
+                            <p>Weekly deployment planning from current priority recommendations.</p>
+                        </div>
+                        <div class="filter-control">
+                            <label for="monthSelect">Recommendation month</label>
+                            <select id="monthSelect" class="form-select">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
                     </div>
-                    <div class="filter-control" style="display: flex; gap: 10px; align-items: center;">
-                        <select id="monthSelect" class="form-select">
-                            <!-- Populated dynamically -->
-                        </select>
-                    </div>
-                </div>
 
-                <!-- Metrics - UPDATED with CART Risk Score -->
-                <div class="patrol-metrics">
+                    <div class="patrol-metrics">
                     <div class="metric-card">
                         <div class="metric-icon"><i class="fa-solid fa-location-dot"></i></div>
                         <div class="metric-info">
@@ -160,27 +152,17 @@
                             <p id="topRiskBadge" style="font-size: 0.65rem; padding: 2px 10px; border-radius: 12px; display: inline-block; background: #94a3b8; color: white;">Loading CART data...</p>
                         </div>
                     </div>
-                </div>
+                    </div>
+                </section>
 
                 <!-- Recommendations Grid -->
                 <div class="patrol-recommendations">
                     <div class="section-header">
                         <h3><i class="fa-solid fa-flag"></i> Active Priority Recommendations</h3>
-                        <span class="badge-subtle" id="cartEnhancedBadge">CART-Enhanced</span>
                     </div>
-                    <p>Last 90 days, up to 500 active candidate records. Older records remain accessible through Records and the map's date-window filter.</p>
                     <label for="patrolRecommendationSearch" style="display:block;margin:12px 0">Search recommendations <input id="patrolRecommendationSearch" type="search" placeholder="Filter by street, priority, reason or keyword" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px"></label><div id="patrolSearchCount" role="status" aria-live="polite" style="margin-bottom:8px;color:#64748b;font-size:0.85rem"></div><div class="recommendations-listbox" id="recommendationsContainer" role="listbox" aria-label="Active priority recommendations" aria-orientation="vertical">
                         <!-- Injected by JavaScript -->
                     </div>
-                </div>
-
-                <!-- Suggested From Active Priority Recommendations -->
-                <div class="patrol-recommendations" id="scheduleSuggestionsSection" style="display: none; margin-bottom: 24px;">
-                    <div class="section-header">
-                        <h3><i class="fa-solid fa-lightbulb"></i> Suggested From Active Priority Recommendations</h3>
-                        <span class="badge-subtle">Click "Use This" to prefill the form below</span>
-                    </div>
-                    <div class="recommendations-grid" id="scheduleSuggestionsContainer"></div>
                 </div>
 
                 <!-- Add Schedule Form -->
@@ -290,6 +272,8 @@
                     <div class="table-header">
                         <h3><i class="fa-solid fa-list"></i> Patrol Schedules</h3>
                         <div class="schedule-header-tools">
+                            <label class="sr-only" for="scheduleSearch">Search schedules</label>
+                            <input id="scheduleSearch" class="form-control patrol-table-search" type="search" maxlength="100" placeholder="Search schedules">
                             <label for="scheduleStatusFilter" class="schedule-filter-label">Status</label>
                             <select id="scheduleStatusFilter" class="form-select schedule-status-filter">
                                 <option value="">All</option>
@@ -373,7 +357,11 @@
                 <div class="patrol-table-card">
                     <div class="table-header">
                         <h3><i class="fa-solid fa-clipboard-list"></i> Patrol Logs</h3>
-                        <span class="badge-subtle" id="logCount">0 logs</span>
+                        <div class="schedule-header-tools">
+                            <label class="sr-only" for="logSearch">Search patrol logs</label>
+                            <input id="logSearch" class="form-control patrol-table-search" type="search" maxlength="100" placeholder="Search logs">
+                            <span class="badge-subtle" id="logCount">0 logs</span>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="data-table">
