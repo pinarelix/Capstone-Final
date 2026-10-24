@@ -10,7 +10,6 @@ const MB_BOUNDS = window.BarangayGeometry.bounds;
 
 function createMapboxMap(container) {
     if (typeof maplibregl === 'undefined') throw new Error('The bundled map renderer could not load. Restart the app after updating.');
-    if (!maplibregl.supported()) throw new Error('WebGL is unavailable. Enable graphics acceleration to display the map.');
 
     const map = new maplibregl.Map({
         container: container,
