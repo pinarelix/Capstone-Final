@@ -489,3 +489,46 @@ body {
         overflow-x: auto;
     }
 }
+
+/* =========================================================
+   PAGINATION
+   ========================================================= */
+.report-pagination {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 0 4px;
+    flex-wrap: wrap;
+}
+
+.report-pagination button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.report-pagination button:hover:not(:disabled) {
+    background: #0f172a;
+    color: #fff;
+    border-color: #0f172a;
+}
+
+.report-pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.report-pagination span {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 500;
+}
