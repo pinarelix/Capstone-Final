@@ -59,6 +59,85 @@ function secretsMatch(candidate, expected) {
         && crypto.timingSafeEqual(candidateBuffer, expectedBuffer);
 }
 
+
+// Opens a short-lived MySQL connection and reports version/table count.
+// Shared by /test (user-supplied fields) and /test-saved (already-saved config)
+// so both paths behave identically. Never returns the password.
+async function testDbConfig(db) {
+    const database = db.name || db.database || 'brgydata';
+    let conn;
+    try {
+        conn = await mysql.createConnection({
+            host:     db.host || 'localhost',
+            port:     Number(db.port) || 3306,
+            user:     db.user || 'root',
+            password: db.password || '',
+            database,
+        });
+
+        const [[versionRow]] = await conn.query('SELECT VERSION() AS version');
+        const [[tableRow]] = await conn.query(
+            'SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = ?',
+            [database]
+        );
+
+        return { ok: true, version: versionRow.version, tables: tableRow.count };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    } finally {
+        if (conn) {
+            try { conn.destroy(); } catch (_) { /* ignore */ }
+        }
+    }
+}
+
+// ── Pre-guard localhost endpoints ────────────────────────────────
+// These are registered BEFORE setupGuard. They never return or accept the
+// password and never mutate configuration, so they are safe to expose
+// to the local desktop app before a Deputy Officer logs in. They are
+// what lets the startup gate recognise "already configured" instead of
+// dead-ending on a 401.
+
+router.get('/status', (req, res) => {
+    if (!isLocalhostRequest(req)) {
+        return res.status(403).json({ error: 'Setup status is only available from the local machine.' });
+    }
+
+    try {
+        const config = loadConfig();
+        const db = config.db || {};
+        res.json({
+            setup_completed: isSetupCompleted(),
+            has_saved_config: Boolean(db.name),
+            db: {
+                host: db.host || 'localhost',
+                port: db.port || 3306,
+                user: db.user || 'root',
+                name: db.name || 'brgydata',
+            },
+        });
+    } catch (err) {
+        console.error('Setup /status error:', err.message);
+        res.status(500).json({ error: 'Failed to read setup status.' });
+    }
+});
+
+router.post('/test-saved', async (req, res) => {
+    if (!isLocalhostRequest(req)) {
+        return res.status(403).json({ ok: false, error: 'Saved-config testing is only available from the local machine.' });
+    }
+    if (!isSetupCompleted()) {
+        return res.status(400).json({ ok: false, error: 'Setup is not complete yet.' });
+    }
+
+    const config = loadConfig();
+    if (!config.db || !config.db.name) {
+        return res.status(400).json({ ok: false, error: 'No saved database configuration.' });
+    }
+
+    res.json(await testDbConfig(config.db));
+});
+
 // ── security middleware ───────────────────────────────────────────
 
 async function setupGuard(req, res, next) {
@@ -206,33 +285,7 @@ router.post('/test', async (req, res) => {
         realPassword = saved.db.password;
     }
 
-    let conn;
-    try {
-        conn = await mysql.createConnection({
-            host:     host     || 'localhost',
-            port:     Number(port) || 3306,
-            user:     user     || 'root',
-            password: realPassword || '',
-            database: database || 'brgydata',
-        });
-
-        const [[versionRow]] = await conn.query('SELECT VERSION() AS version');
-        const version = versionRow.version;
-
-        const [[tableRow]] = await conn.query(
-            'SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = ?',
-            [database || 'brgydata']
-        );
-        const tables = tableRow.count;
-
-        res.json({ ok: true, version, tables });
-    } catch (err) {
-        res.json({ ok: false, error: err.message });
-    } finally {
-        if (conn) {
-            try { conn.destroy(); } catch (_) { /* ignore */ }
-        }
-    }
+    res.json(await testDbConfig({ host, port, user, password: realPassword, name: database }));
 });
 
 // ── POST /api/setup/save ─────────────────────────────────────────

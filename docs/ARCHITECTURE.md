@@ -5,6 +5,9 @@ GitHub renders them inline, and they can be exported to PNG/SVG via the
 [Mermaid Live Editor](https://mermaid.live) (paste the code block, then Export) for
 inclusion in the printed document.
 
+The Data Flow Diagrams (Level 0 context and Level 1 decomposition, plus the data
+dictionary) are in [`DFD.md`](DFD.md).
+
 ## 1. System Architecture
 
 Barangay 179 Crime BI is a **single Node.js process** (`backend/server.js`) that both

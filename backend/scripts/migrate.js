@@ -158,6 +158,69 @@ async function migrate() {
         await runSqlMigration(conn, '20261023_task_manager.sql');
         await migrateRecordPatrol(conn);
 
+        // 8. Respondent structured address columns
+        for (const tbl of ['blotter_records', 'incident_records']) {
+            for (const col of [
+                "ADD COLUMN resp_addr_street VARCHAR(100) DEFAULT NULL",
+                "ADD COLUMN resp_addr_block VARCHAR(50) DEFAULT NULL",
+                "ADD COLUMN resp_addr_lot VARCHAR(50) DEFAULT NULL",
+                "ADD COLUMN resp_addr_house_no VARCHAR(50) DEFAULT NULL",
+                "ADD COLUMN resp_addr_unit VARCHAR(50) DEFAULT NULL",
+            ]) {
+                try { await conn.query(`ALTER TABLE \`${tbl}\` ${col}`); }
+                catch (err) { if (err.code !== 'ER_DUP_FIELDNAME') throw err; }
+            }
+        }
+        console.log('  ✓ respondent structured address columns');
+
+        // Recreate the incidents VIEW to include the new columns
+        await conn.query('DROP VIEW IF EXISTS incidents');
+        await conn.query(`
+            CREATE VIEW incidents AS
+            SELECT
+                r.registry_id AS id,
+                b.incident_type, b.\`date\`, b.\`time\`, b.latitude, b.longitude,
+                b.street_name, b.address, b.reporter_id, b.status, b.description,
+                b.recommended_action, b.danger_level, b.created_at, b.updated_at,
+                b.time_of_day, b.day_of_week, b.is_weekend, b.photo_path,
+                r.public_number AS blotter_number,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', b.complainant_first, b.complainant_middle, b.complainant_last)), ''), b.reported_by_name) AS reported_by_name,
+                b.statement, NULL AS persons_involved, b.priority, b.severity,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', b.respondent_first, b.respondent_middle, b.respondent_last)), ''), b.respondent_name) AS respondent_name,
+                b.respondent_address, b.respondent_age AS age, 'blotter' AS form_type,
+                r.registry_id, r.source, r.public_number, b.type_code, b.is_draft, b.data_origin,
+                b.complainant_first, b.complainant_middle, b.complainant_last, b.complainant_contact,
+                b.respondent_first, b.respondent_middle, b.respondent_last,
+                b.reporter_first, b.reporter_middle, b.reporter_last, b.reporter_address, b.reporter_contact,
+                b.addr_block, b.addr_lot, b.addr_house_no, b.addr_street, b.addr_unit,
+                b.no_evidence, b.no_evidence_reason,
+                b.resp_addr_street, b.resp_addr_block, b.resp_addr_lot, b.resp_addr_house_no, b.resp_addr_unit
+            FROM record_registry r
+            JOIN blotter_records b ON r.source = 'blotter' AND r.source_id = b.id
+            UNION ALL
+            SELECT
+                r.registry_id,
+                i.incident_type, i.\`date\`, i.\`time\`, i.latitude, i.longitude,
+                i.street_name, i.address, i.reporter_id, i.status, i.description,
+                i.recommended_action, i.danger_level, i.created_at, i.updated_at,
+                i.time_of_day, i.day_of_week, i.is_weekend, i.photo_path,
+                r.public_number,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', i.complainant_first, i.complainant_middle, i.complainant_last)), ''), i.reported_by_name),
+                i.statement, NULL, i.priority, i.severity,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', i.respondent_first, i.respondent_middle, i.respondent_last)), ''), i.respondent_name),
+                i.respondent_address, i.respondent_age, 'crime',
+                r.registry_id, r.source, r.public_number, i.type_code, i.is_draft, i.data_origin,
+                i.complainant_first, i.complainant_middle, i.complainant_last, i.complainant_contact,
+                i.respondent_first, i.respondent_middle, i.respondent_last,
+                i.reporter_first, i.reporter_middle, i.reporter_last, i.reporter_address, i.reporter_contact,
+                i.addr_block, i.addr_lot, i.addr_house_no, i.addr_street, i.addr_unit,
+                i.no_evidence, i.no_evidence_reason,
+                i.resp_addr_street, i.resp_addr_block, i.resp_addr_lot, i.resp_addr_house_no, i.resp_addr_unit
+            FROM record_registry r
+            JOIN incident_records i ON r.source = 'incident' AND r.source_id = i.id
+        `);
+        console.log('  ✓ incidents VIEW updated with resp_addr + structured fields');
+
         console.log('✅ All migrations complete.');
     } finally {
         await conn.end();

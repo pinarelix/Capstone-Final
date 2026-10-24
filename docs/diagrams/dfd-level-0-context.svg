@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1000" viewBox="0 0 1800 1000">
+  <defs>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10.5" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 1 L 11 6 L 0 11 z" fill="#3d4a56"/>
+    </marker>
+  </defs>
+  <rect width="1800" height="1000" fill="#ffffff"/>
+<rect x="70" y="120" width="310" height="120" rx="6" fill="#FCF4E4" stroke="#B7791F" stroke-width="1.8"/>
+<text x="225.0" y="169.0" font-family="Segoe UI, Arial, sans-serif" font-size="29" font-weight="600" fill="#1f2933" text-anchor="middle">Deputy Officer</text>
+<text x="225.0" y="199.0" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#5b4a2f" text-anchor="middle">(Administrator)</text>
+<rect x="70" y="440" width="310" height="110" rx="6" fill="#FCF4E4" stroke="#B7791F" stroke-width="1.8"/>
+<text x="225.0" y="484.0" font-family="Segoe UI, Arial, sans-serif" font-size="29" font-weight="600" fill="#1f2933" text-anchor="middle">Team Leader</text>
+<text x="225.0" y="514.0" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#5b4a2f" text-anchor="middle">records &amp; patrol access</text>
+<rect x="70" y="760" width="310" height="110" rx="6" fill="#FCF4E4" stroke="#B7791F" stroke-width="1.8"/>
+<text x="225.0" y="804.0" font-family="Segoe UI, Arial, sans-serif" font-size="29" font-weight="600" fill="#1f2933" text-anchor="middle">Kagawad</text>
+<text x="225.0" y="834.0" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#5b4a2f" text-anchor="middle">view &amp; analytics access</text>
+<rect x="1250" y="80" width="470" height="840" rx="30" fill="#E8F1FB" stroke="#2B6CB0" stroke-width="2.2"/>
+<text x="1485.0" y="420.0" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="600" fill="#12283F" text-anchor="middle">0</text>
+<text x="1485.0" y="475.0" font-family="Segoe UI, Arial, sans-serif" font-size="31" font-weight="600" fill="#12283F" text-anchor="middle">Barangay 179</text>
+<text x="1485.0" y="520.0" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="600" fill="#12283F" text-anchor="middle">Crime BI &amp; Patrol</text>
+<text x="1485.0" y="558.0" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="600" fill="#12283F" text-anchor="middle">Decision Support System</text>
+<line x1="380" y1="150" x2="1250" y2="150" stroke="#3d4a56" stroke-width="1.9" marker-end="url(#arrow)"/>
+<line x1="1250" y1="210" x2="380" y2="210" stroke="#3d4a56" stroke-width="1.9" marker-end="url(#arrow)"/>
+<line x1="380" y1="465" x2="1250" y2="465" stroke="#3d4a56" stroke-width="1.9" marker-end="url(#arrow)"/>
+<line x1="1250" y1="525" x2="380" y2="525" stroke="#3d4a56" stroke-width="1.9" marker-end="url(#arrow)"/>
+<line x1="380" y1="785" x2="1250" y2="785" stroke="#3d4a56" stroke-width="1.9" marker-end="url(#arrow)"/>
+<line x1="1250" y1="845" x2="380" y2="845" stroke="#3d4a56" stroke-width="1.9" marker-end="url(#arrow)"/>
+<rect x="525.0" y="52" width="580" height="94" rx="5" fill="#ffffff" fill-opacity="0.97"/>
+<text font-family="Segoe UI, Arial, sans-serif" font-size="23" fill="#1f2933" text-anchor="middle"><tspan x="815" y="80">login; records &amp; evidence;</tspan><tspan x="815" y="111">admin settings, CART weights, users &amp; archive;</tspan><tspan x="815" y="142">analysis &amp; report requests</tspan></text>
+<rect x="525.0" y="225" width="580" height="94" rx="5" fill="#ffffff" fill-opacity="0.97"/>
+<text font-family="Segoe UI, Arial, sans-serif" font-size="23" fill="#1f2933" text-anchor="middle"><tspan x="815" y="253">session; confirmations &amp; records;</tspan><tspan x="815" y="284">risk &amp; decisions; dashboards &amp; reports;</tspan><tspan x="815" y="315">patrol plans; audit/restore; alerts</tspan></text>
+<rect x="525.0" y="370" width="580" height="94" rx="5" fill="#ffffff" fill-opacity="0.97"/>
+<text font-family="Segoe UI, Arial, sans-serif" font-size="23" fill="#1f2933" text-anchor="middle"><tspan x="815" y="398">login; records &amp; evidence;</tspan><tspan x="815" y="429">patrol schedules &amp; logs;</tspan><tspan x="815" y="460">analysis &amp; report requests</tspan></text>
+<rect x="525.0" y="540" width="580" height="94" rx="5" fill="#ffffff" fill-opacity="0.97"/>
+<text font-family="Segoe UI, Arial, sans-serif" font-size="23" fill="#1f2933" text-anchor="middle"><tspan x="815" y="568">session; confirmations &amp; records;</tspan><tspan x="815" y="599">risk &amp; decisions; dashboards &amp; reports;</tspan><tspan x="815" y="630">patrol plans; alerts</tspan></text>
+<rect x="525.0" y="690" width="580" height="63" rx="5" fill="#ffffff" fill-opacity="0.97"/>
+<text font-family="Segoe UI, Arial, sans-serif" font-size="23" fill="#1f2933" text-anchor="middle"><tspan x="815" y="718">login; search criteria;</tspan><tspan x="815" y="749">what-if &amp; report requests</tspan></text>
+<rect x="525.0" y="860" width="580" height="94" rx="5" fill="#ffffff" fill-opacity="0.97"/>
+<text font-family="Segoe UI, Arial, sans-serif" font-size="23" fill="#1f2933" text-anchor="middle"><tspan x="815" y="888">session; read-only records &amp; patrol data;</tspan><tspan x="815" y="919">risk &amp; decisions; dashboards &amp; reports;</tspan><tspan x="815" y="950">alerts</tspan></text>
+</svg>
