@@ -135,6 +135,20 @@ function setupForm() {
         event.preventDefault();
         addUser();
     });
+
+    function stripInvalid(input, regex) {
+        input.addEventListener('input', function () {
+            const cleaned = this.value.replace(regex, '');
+            if (cleaned !== this.value) this.value = cleaned;
+        });
+    }
+    stripInvalid(document.getElementById('userName'), /[^A-Za-z\s.\-']/g);
+    stripInvalid(document.getElementById('username'), /[^A-Za-z._]/g);
+
+    const editName = document.getElementById('editUserName');
+    const editUsername = document.getElementById('editUserUsername');
+    if (editName) stripInvalid(editName, /[^A-Za-z\s.\-']/g);
+    if (editUsername) stripInvalid(editUsername, /[^A-Za-z._]/g);
 }
 
 /* ============================================================
@@ -156,6 +170,20 @@ async function addUser() {
 
     if (!name || !username || !password || !role || !email) {
         showToast("Please complete all required fields.", "error");
+        return;
+    }
+
+    const nameRegex = /^[A-Za-z\s.\-']+$/;
+    if (!nameRegex.test(name)) {
+        showToast("Name must contain only letters, spaces, dots, hyphens and apostrophes.", "error");
+        nameInput.focus();
+        return;
+    }
+
+    const usernameRegex = /^[A-Za-z._]+$/;
+    if (!usernameRegex.test(username)) {
+        showToast("Username must contain only letters, dots and underscores — no numbers or spaces.", "error");
+        usernameInput.focus();
         return;
     }
 
@@ -367,6 +395,16 @@ async function saveEditUser() {
 
     if (!name || !username || !role || !email) {
         showToast('Name, Username, Role, and Email are required.', 'error');
+        return;
+    }
+    const nameRegex = /^[A-Za-z\s.\-']+$/;
+    if (!nameRegex.test(name)) {
+        showToast('Name must contain only letters, spaces, dots, hyphens and apostrophes.', 'error');
+        return;
+    }
+    const usernameRegex = /^[A-Za-z._]+$/;
+    if (!usernameRegex.test(username)) {
+        showToast('Username must contain only letters, dots and underscores — no numbers or spaces.', 'error');
         return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

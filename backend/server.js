@@ -483,8 +483,8 @@ const reportExportSchema = Joi.object({
 
 // User Schema
 const userSchema = Joi.object({
-    name: Joi.string().max(100).required(),
-    username: Joi.string().min(3).max(50).required(),
+    name: Joi.string().max(100).pattern(/^[A-Za-z\s.\-']+$/).required().messages({ 'string.pattern.base': 'Name must contain only letters, spaces, dots, hyphens and apostrophes.' }),
+    username: Joi.string().min(3).max(50).pattern(/^[A-Za-z._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, dots and underscores.' }),
     password: Joi.string().min(8).max(128).required(),
     role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     contact_no: Joi.string().max(20).allow('', null),
@@ -1574,8 +1574,8 @@ app.post('/api/users', authenticate, requireRole(['Executive Officer']), validat
 
 // Full user update (name, username, role, email, optional password)
 const userUpdateSchema = Joi.object({
-    name: Joi.string().max(100).required(),
-    username: Joi.string().min(3).max(50).required(),
+    name: Joi.string().max(100).pattern(/^[A-Za-z\s.\-']+$/).required().messages({ 'string.pattern.base': 'Name must contain only letters, spaces, dots, hyphens and apostrophes.' }),
+    username: Joi.string().min(3).max(50).pattern(/^[A-Za-z._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, dots and underscores.' }),
     role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     email: Joi.string().email({ tlds: false }).max(100).required(),
     password: Joi.string().min(8).max(128).allow('', null).optional()

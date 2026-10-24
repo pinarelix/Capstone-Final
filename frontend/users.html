@@ -219,12 +219,12 @@
                     <form id="userForm" autocomplete="off">
                         <div class="form-group">
                             <label for="userName">Name <span style="color: #ef4444;">*</span></label>
-                            <input type="text" id="userName" class="form-input" placeholder="Full name or position" required maxlength="100">
+                            <input type="text" id="userName" class="form-input" placeholder="Full name or position" required maxlength="100" pattern="[A-Za-z\s.\-']+" title="Letters, spaces, dots, hyphens and apostrophes only">
                         </div>
 
                         <div class="form-group">
                             <label for="username">Username <span style="color: #ef4444;">*</span></label>
-                            <input type="text" id="username" class="form-input" placeholder="username" required maxlength="50">
+                            <input type="text" id="username" class="form-input" placeholder="username" required maxlength="50" pattern="[A-Za-z._]+" title="Letters, dots and underscores only — no numbers or spaces">
                         </div>
 
                         <div class="form-group">
@@ -447,11 +447,11 @@
         <input type="hidden" id="editUserId">
         <div class="form-group" style="margin-bottom:16px;">
             <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Name <span style="color:#ef4444;">*</span></label>
-            <input type="text" id="editUserName" class="form-input" placeholder="Full name or position" maxlength="100">
+            <input type="text" id="editUserName" class="form-input" placeholder="Full name or position" maxlength="100" pattern="[A-Za-z\s.\-']+" title="Letters, spaces, dots, hyphens and apostrophes only">
         </div>
         <div class="form-group" style="margin-bottom:16px;">
             <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Username <span style="color:#ef4444;">*</span></label>
-            <input type="text" id="editUserUsername" class="form-input" placeholder="username" maxlength="50">
+            <input type="text" id="editUserUsername" class="form-input" placeholder="username" maxlength="50" pattern="[A-Za-z._]+" title="Letters, dots and underscores only — no numbers or spaces">
         </div>
         <div class="form-group" style="margin-bottom:16px;">
             <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Role <span style="color:#ef4444;">*</span></label>
