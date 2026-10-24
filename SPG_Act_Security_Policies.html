@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Policies and Governance</title>
+<style>
+  @page { size: portrait; margin: 0.75in; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #1a1a1a; background: #fff; padding: 0.75in; }
+  h1 { font-size: 16pt; font-weight: 700; text-align: center; margin-bottom: 4px; }
+  h2 { font-size: 13pt; font-weight: 700; margin: 20px 0 8px; border-bottom: 2px solid #333; padding-bottom: 3px; }
+  h3 { font-size: 11pt; font-weight: 700; margin: 14px 0 6px; }
+  h4 { font-size: 10pt; font-weight: 700; margin: 10px 0 4px; }
+  .subtitle { text-align: center; font-size: 11pt; color: #444; margin-bottom: 2px; }
+  .course { text-align: center; font-size: 10pt; color: #555; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
+  th, td { border: 1px solid #333; padding: 5px 8px; font-size: 9pt; vertical-align: top; }
+  th { background: #e8e8e8; font-weight: 700; text-align: left; }
+  .meta-table td:first-child { width: 30%; font-weight: 600; background: #f5f5f5; }
+  .risk-table th { text-align: center; font-size: 8.5pt; }
+  .risk-table td { font-size: 8.5pt; }
+  .clause { margin: 6px 0; padding-left: 0; }
+  .clause-num { font-weight: 700; }
+  ol.clauses { padding-left: 20px; }
+  ol.clauses li { margin-bottom: 6px; }
+  .page-break { page-break-before: always; }
+  p { margin: 4px 0; }
+  .priority-high { color: #991b1b; font-weight: 700; }
+  .priority-med { color: #b45309; font-weight: 700; }
+  .priority-low { color: #166534; font-weight: 700; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+
+<h1>Security Policies and Governance</h1>
+<p class="subtitle">Barangay 179 Crime Heatmap Decision Support System</p>
+<p class="subtitle" style="font-size:9pt;">An Application-Based Business Intelligence System Using CART Decision Tree Analytics for Crime Prediction and Prevention, Heatmap-Based Risk Mapping, and Patrol Decision Support in Barangay 179, Amparo, Caloocan City</p>
+<p class="course">IT403-P | Capstone 04 of 38 | Group / Section: _______________</p>
+
+<!-- ==================== POLICY 1 ==================== -->
+<h2>Policy 1: Account Access and Authentication Policy</h2>
+
+<h3>1. Policy Identity and Purpose</h3>
+<table class="meta-table">
+  <tr><td>Title</td><td>Account Access and Authentication Policy</td></tr>
+  <tr><td>Version</td><td>1.0</td></tr>
+  <tr><td>Proposed Effectivity</td><td>Upon deployment of the system to Barangay 179</td></tr>
+  <tr><td>Policy Owner</td><td>System Administrator (Deputy Officer)</td></tr>
+  <tr><td>Approving Role</td><td>Barangay Captain / Deputy Officer</td></tr>
+  <tr><td>Security Objective</td><td>Ensure only authorized barangay personnel can access the system through strong authentication practices and proper account management.</td></tr>
+</table>
+
+<h3>2. Scope and Context</h3>
+<p><strong>System:</strong> Barangay 179 Crime CART desktop application (Electron + Express.js + MySQL).</p>
+<p><strong>Users:</strong> Deputy Officer (admin), Team Leader, Kagawad (view-only), Tanod (self-service).</p>
+<p><strong>Activities Covered:</strong> Account creation, login/logout, password management, session handling.</p>
+<p><strong>Exclusions:</strong> Physical access to the workstation running the app is governed by barangay office procedures, not this policy. Network-based attacks are out of scope since the app runs on localhost only.</p>
+
+<h3>3. Risk Basis</h3>
+<table class="risk-table">
+  <thead>
+    <tr><th>Risk</th><th>Asset</th><th>Threat</th><th>Weakness</th><th>Consequence</th><th>Current Safeguard</th><th>Likelihood</th><th>Impact</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>R1: Unauthorized admin access via demo credentials</td>
+      <td>User accounts, crime data</td>
+      <td>Insider or anyone who views login.js source code</td>
+      <td>Hardcoded demo credentials (admin/admin123) in frontend code and schema.sql</td>
+      <td>Full admin access to all crime records, user management, and system settings</td>
+      <td>None — credentials are openly visible</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">Critical</td>
+    </tr>
+    <tr>
+      <td>R2: Brute-force password guessing</td>
+      <td>User accounts</td>
+      <td>Attacker with access to the login page</td>
+      <td>Weak or default passwords; no server-side complexity requirements</td>
+      <td>Account takeover, unauthorized data access</td>
+      <td>Login lockout (5 attempts/15 min) + rate limiter (8 req/5 min)</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">High</td>
+    </tr>
+    <tr>
+      <td>R3: Session hijacking from exposed tokens</td>
+      <td>Active user sessions</td>
+      <td>Shoulder surfing or console inspection</td>
+      <td>Session token and user role logged to browser console; user data duplicated in localStorage</td>
+      <td>Impersonation of logged-in user</td>
+      <td>Token stored in sessionStorage (cleared on tab close); 30-min idle timeout</td>
+      <td class="priority-low">Low</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-med">Medium</td>
+    </tr>
+  </tbody>
+</table>
+<p><strong>Rating Justification:</strong> R1 is Critical because the credentials are plainly visible in the source code, requiring zero skill to exploit and granting full admin access. R2 is High because the lockout mechanism exists but weak passwords are still allowed by the system. R3 is Low likelihood since it requires physical access to the machine, but Medium impact because a stolen token grants full session access until timeout.</p>
+
+<h3>4. Policy Clauses</h3>
+<ol class="clauses">
+  <li><strong>PC-1.1:</strong> The Deputy Officer must remove all hardcoded demo credentials from frontend source code (login.js) and database seed scripts (schema.sql) before the system goes live.</li>
+  <li><strong>PC-1.2:</strong> All user passwords must be at least 8 characters and contain at least one uppercase letter, one number, and one special character. The server must enforce this via Joi validation on all password creation and change endpoints.</li>
+  <li><strong>PC-1.3:</strong> The Deputy Officer must create unique accounts for each user. Sharing of accounts between barangay personnel is prohibited.</li>
+  <li><strong>PC-1.4:</strong> The Remember Me checkbox must be removed from the login page. Sessions must rely solely on sessionStorage tokens that are cleared when the browser tab is closed.</li>
+  <li><strong>PC-1.5:</strong> All console.log statements that output user credentials, session tokens, or user roles must be removed from both frontend (login.js) and backend (server.js) code before deployment.</li>
+  <li><strong>PC-1.6:</strong> The Deputy Officer must deactivate accounts of personnel who are no longer assigned to Barangay 179 within 3 business days of their departure.</li>
+  <li><strong>PC-1.7:</strong> The localStorage duplication of user data (login.js) must be removed. Session data must only be stored in sessionStorage.</li>
+</ol>
+
+<h3>5. Roles and Enforcement</h3>
+<table>
+  <tr><th>Function</th><th>Responsible</th><th>Details</th></tr>
+  <tr><td>Approval</td><td>Barangay Captain</td><td>Approves the policy and any exceptions to password rules.</td></tr>
+  <tr><td>Implementation</td><td>Development Team / Deputy Officer</td><td>Removes demo credentials, implements password complexity, removes console logs. Deputy Officer manages user accounts.</td></tr>
+  <tr><td>Communication</td><td>Deputy Officer</td><td>Briefs all users on password requirements and no-sharing rule during onboarding.</td></tr>
+  <tr><td>Monitoring</td><td>Deputy Officer</td><td>Reviews audit logs weekly for suspicious login patterns (multiple failed attempts, logins outside office hours).</td></tr>
+  <tr><td>Violation Review</td><td>Barangay Captain + Deputy Officer</td><td>Violations are handled through existing barangay personnel disciplinary procedures. Accounts are suspended pending review.</td></tr>
+</table>
+
+<!-- ==================== POLICY 2 ==================== -->
+<div class="page-break"></div>
+<h2>Policy 2: Data Handling and Privacy Policy</h2>
+
+<h3>1. Policy Identity and Purpose</h3>
+<table class="meta-table">
+  <tr><td>Title</td><td>Data Handling and Privacy Policy</td></tr>
+  <tr><td>Version</td><td>1.0</td></tr>
+  <tr><td>Proposed Effectivity</td><td>Upon deployment of the system to Barangay 179</td></tr>
+  <tr><td>Policy Owner</td><td>Deputy Officer (System Administrator)</td></tr>
+  <tr><td>Approving Role</td><td>Barangay Captain</td></tr>
+  <tr><td>Security Objective</td><td>Protect the confidentiality and integrity of crime records, personal information of residents, and system credentials stored in the database.</td></tr>
+</table>
+
+<h3>2. Scope and Context</h3>
+<p><strong>System:</strong> MySQL database (brgydata) containing incident records, blotter entries, user accounts, tanod information, patrol schedules/logs, and CART analytics data.</p>
+<p><strong>Users:</strong> All system roles that interact with crime data and personal information.</p>
+<p><strong>Activities Covered:</strong> Data entry, viewing, editing, archiving, exporting, and database administration.</p>
+<p><strong>Exclusions:</strong> Physical paper records maintained by the barangay are outside this policy's scope. Data shared with external agencies (PNP) follows their own handling procedures.</p>
+
+<h3>3. Risk Basis</h3>
+<table class="risk-table">
+  <thead>
+    <tr><th>Risk</th><th>Asset</th><th>Threat</th><th>Weakness</th><th>Consequence</th><th>Current Safeguard</th><th>Likelihood</th><th>Impact</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>R1: Full database compromise via root access</td>
+      <td>All database tables</td>
+      <td>SQL injection (if introduced) or app-level vulnerability</td>
+      <td>Application connects as MySQL root user with DROP, GRANT, and FILE privileges</td>
+      <td>Attacker could drop all tables, export the entire DB, or escalate privileges</td>
+      <td>Parameterized queries prevent SQL injection currently</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">Critical</td>
+    </tr>
+    <tr>
+      <td>R2: Credential exposure from .env file</td>
+      <td>Database password, app secrets</td>
+      <td>File system access, accidental git commit</td>
+      <td>DB password stored in plaintext in .env; file was modified and may exist in git history</td>
+      <td>Direct database access bypassing the application entirely</td>
+      <td>.env listed in .gitignore</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">High</td>
+    </tr>
+    <tr>
+      <td>R3: Sensitive data leaked through API responses</td>
+      <td>Password hashes, PIN codes, personal information</td>
+      <td>API consumer or browser inspection</td>
+      <td>Potential for new endpoints to accidentally include sensitive fields</td>
+      <td>Exposure of hashed credentials or personal data</td>
+      <td>TANOD_PUBLIC_COLUMNS excludes pin_code_hash; user queries omit password_hash</td>
+      <td class="priority-low">Low</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-med">Medium</td>
+    </tr>
+  </tbody>
+</table>
+<p><strong>Rating Justification:</strong> R1 is Critical because root DB access means any future vulnerability could escalate to total data loss, even though parameterized queries currently block injection. R2 is High because a plaintext password in a file is one misconfigured backup away from exposure. R3 is Low likelihood due to existing field exclusions, but the pattern must be maintained as new endpoints are added.</p>
+
+<h3>4. Policy Clauses</h3>
+<ol class="clauses">
+  <li><strong>PC-2.1:</strong> The development team must create a dedicated MySQL user (e.g., brgyapp) with only SELECT, INSERT, UPDATE, and DELETE privileges on the brgydata database. The root account must not be used by the application.</li>
+  <li><strong>PC-2.2:</strong> The database password must be rotated before deployment. If the password exists in git history, the history must be scrubbed using git filter-repo or the repository must be recreated.</li>
+  <li><strong>PC-2.3:</strong> All new API endpoints must exclude sensitive fields (password_hash, pin_code_hash) from responses. Code reviews must verify this before merging.</li>
+  <li><strong>PC-2.4:</strong> Crime incident records containing victim or complainant names must only be accessible to Deputy Officer and Team Leader roles. Kagawad sees aggregated analytics only.</li>
+  <li><strong>PC-2.5:</strong> Soft-deleted (archived) records must be retained for a minimum of 1 year for legal and audit purposes. Permanent deletion requires Deputy Officer approval and must be logged in the audit trail.</li>
+  <li><strong>PC-2.6:</strong> No system user may export or copy crime data to personal devices or external storage without written authorization from the Barangay Captain.</li>
+</ol>
+
+<h3>5. Roles and Enforcement</h3>
+<table>
+  <tr><th>Function</th><th>Responsible</th><th>Details</th></tr>
+  <tr><td>Approval</td><td>Barangay Captain</td><td>Approves data handling procedures and any data export requests.</td></tr>
+  <tr><td>Implementation</td><td>Development Team</td><td>Creates least-privilege DB user, rotates credentials, verifies API field exclusions.</td></tr>
+  <tr><td>Communication</td><td>Deputy Officer</td><td>Ensures all users understand data sensitivity and the no-export rule.</td></tr>
+  <tr><td>Monitoring</td><td>Deputy Officer</td><td>Reviews audit logs for unusual data access patterns (bulk reads, off-hours access).</td></tr>
+  <tr><td>Violation Review</td><td>Barangay Captain</td><td>Unauthorized data export or sharing is referred to the Barangay Captain for action under existing personnel procedures.</td></tr>
+</table>
+
+<!-- ==================== POLICY 3 ==================== -->
+<div class="page-break"></div>
+<h2>Policy 3: Audit Logging and Monitoring Policy</h2>
+
+<h3>1. Policy Identity and Purpose</h3>
+<table class="meta-table">
+  <tr><td>Title</td><td>Audit Logging and Monitoring Policy</td></tr>
+  <tr><td>Version</td><td>1.0</td></tr>
+  <tr><td>Proposed Effectivity</td><td>Upon deployment of the system to Barangay 179</td></tr>
+  <tr><td>Policy Owner</td><td>Deputy Officer (System Administrator)</td></tr>
+  <tr><td>Approving Role</td><td>Barangay Captain</td></tr>
+  <tr><td>Security Objective</td><td>Maintain a reliable, tamper-resistant record of all security-relevant actions to support incident investigation, accountability, and compliance.</td></tr>
+</table>
+
+<h3>2. Scope and Context</h3>
+<p><strong>System:</strong> audit_logs and tanod_audit_logs tables, login_attempts table, and server-side logging in server.js.</p>
+<p><strong>Users:</strong> All system users generate log entries. Only the Deputy Officer can view them.</p>
+<p><strong>Activities Covered:</strong> Login/logout events, failed authentication attempts, CRUD operations on all entities, settings changes, password resets.</p>
+<p><strong>Exclusions:</strong> Application performance metrics and server health monitoring are outside this policy. Physical access logs to the barangay office are managed separately.</p>
+
+<h3>3. Risk Basis</h3>
+<table class="risk-table">
+  <thead>
+    <tr><th>Risk</th><th>Asset</th><th>Threat</th><th>Weakness</th><th>Consequence</th><th>Current Safeguard</th><th>Likelihood</th><th>Impact</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>R1: Audit log tampering</td>
+      <td>audit_logs table</td>
+      <td>Malicious admin or compromised app</td>
+      <td>App connects as root (can DELETE/UPDATE audit_logs); no log integrity verification</td>
+      <td>Evidence of unauthorized actions erased, hindering investigation</td>
+      <td>No DELETE/UPDATE API endpoints for logs (append-only at app layer)</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">High</td>
+    </tr>
+    <tr>
+      <td>R2: Insufficient log detail</td>
+      <td>Audit trail completeness</td>
+      <td>Incomplete logging in new features</td>
+      <td>New endpoints might not call logAudit()</td>
+      <td>Gaps in accountability — actions occur without a record</td>
+      <td>Existing logAudit() covers all current CRUD + auth events</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-med">Medium</td>
+    </tr>
+    <tr>
+      <td>R3: Log data accumulation without retention policy</td>
+      <td>Database storage, system performance</td>
+      <td>Unbounded log growth over years of operation</td>
+      <td>No log retention or archiving mechanism</td>
+      <td>Database bloat, slower queries, potential storage exhaustion</td>
+      <td>None</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-low">Low</td>
+      <td class="priority-med">Medium</td>
+    </tr>
+  </tbody>
+</table>
+<p><strong>Rating Justification:</strong> R1 is High because the root DB user (see Policy 2) can bypass the app-layer append-only restriction. Once #14 is fixed with a least-privilege user, log tampering risk drops to Low. R2 is Medium because the current codebase has good coverage but any future feature additions could create gaps. R3 is Medium because while not an immediate threat, years of operation will accumulate significant data.</p>
+
+<h3>4. Policy Clauses</h3>
+<ol class="clauses">
+  <li><strong>PC-3.1:</strong> Every new API endpoint that creates, updates, or deletes any record must include a call to logAudit() or logTanodAudit() with the appropriate action, entity type, and old/new data. Code reviews must verify this.</li>
+  <li><strong>PC-3.2:</strong> The dedicated database user (per Policy 2, PC-2.1) must not have DELETE or UPDATE privileges on the audit_logs and tanod_audit_logs tables, ensuring logs are tamper-proof at the database level.</li>
+  <li><strong>PC-3.3:</strong> The Deputy Officer must review audit logs at least once per week, checking for: failed login spikes, off-hours access, bulk data operations, and unauthorized role escalation attempts.</li>
+  <li><strong>PC-3.4:</strong> Audit log entries must not contain sensitive data such as plaintext passwords, session tokens, or PIN codes. The logAudit() function must strip these fields from old_data and new_data before insertion.</li>
+  <li><strong>PC-3.5:</strong> Audit logs older than 3 years must be exported to a separate archive file and may then be purged from the active database. The archive must be stored securely alongside database backups.</li>
+  <li><strong>PC-3.6:</strong> Any anomalies found during log review (e.g., multiple failed logins from one account, record deletions outside normal hours) must be reported to the Barangay Captain within 24 hours.</li>
+</ol>
+
+<h3>5. Roles and Enforcement</h3>
+<table>
+  <tr><th>Function</th><th>Responsible</th><th>Details</th></tr>
+  <tr><td>Approval</td><td>Barangay Captain</td><td>Approves log retention periods and archive schedule.</td></tr>
+  <tr><td>Implementation</td><td>Development Team</td><td>Restricts DB user privileges on audit tables, ensures logAudit() on all endpoints, builds archive/purge script.</td></tr>
+  <tr><td>Communication</td><td>Deputy Officer</td><td>Informs users that all actions are logged and subject to review.</td></tr>
+  <tr><td>Monitoring</td><td>Deputy Officer</td><td>Conducts weekly log reviews and documents findings.</td></tr>
+  <tr><td>Violation Review</td><td>Barangay Captain + Deputy Officer</td><td>Anomalies and potential violations are investigated using the audit trail. Findings follow existing barangay disciplinary processes.</td></tr>
+</table>
+
+<!-- ==================== POLICY 4 ==================== -->
+<div class="page-break"></div>
+<h2>Policy 4: Backup and Recovery Policy</h2>
+
+<h3>1. Policy Identity and Purpose</h3>
+<table class="meta-table">
+  <tr><td>Title</td><td>Backup and Recovery Policy</td></tr>
+  <tr><td>Version</td><td>1.0</td></tr>
+  <tr><td>Proposed Effectivity</td><td>Upon deployment of the system to Barangay 179</td></tr>
+  <tr><td>Policy Owner</td><td>Deputy Officer (System Administrator)</td></tr>
+  <tr><td>Approving Role</td><td>Barangay Captain</td></tr>
+  <tr><td>Security Objective</td><td>Ensure crime records and system data can be recovered in the event of hardware failure, data corruption, accidental deletion, or other disasters.</td></tr>
+</table>
+
+<h3>2. Scope and Context</h3>
+<p><strong>System:</strong> MySQL database (brgydata), uploaded files (evidence photos/videos), application configuration (.env, config.json).</p>
+<p><strong>Users:</strong> Deputy Officer is the sole authorized person for backup and restore operations.</p>
+<p><strong>Activities Covered:</strong> Scheduled database backups, encrypted storage, restore procedures, and backup verification testing.</p>
+<p><strong>Exclusions:</strong> Physical hardware maintenance (e.g., hard drive replacement) follows barangay IT procurement procedures. Backups of the operating system or Electron runtime are not covered.</p>
+
+<h3>3. Risk Basis</h3>
+<table class="risk-table">
+  <thead>
+    <tr><th>Risk</th><th>Asset</th><th>Threat</th><th>Weakness</th><th>Consequence</th><th>Current Safeguard</th><th>Likelihood</th><th>Impact</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>R1: Data loss from hardware failure</td>
+      <td>Entire brgydata database</td>
+      <td>Hard drive failure, power surge</td>
+      <td>Backups are manual only (npm run backup); no automated schedule</td>
+      <td>Loss of all crime records, user accounts, analytics data since last manual backup</td>
+      <td>Manual backup script with 14-file retention</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">High</td>
+    </tr>
+    <tr>
+      <td>R2: Backup theft exposing sensitive data</td>
+      <td>Backup SQL files</td>
+      <td>Unauthorized file access, stolen USB drive</td>
+      <td>Backup files are plain-text SQL containing all records including personal data</td>
+      <td>Exposure of all crime records, victim info, and password hashes</td>
+      <td>None — files are unencrypted</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">High</td>
+    </tr>
+    <tr>
+      <td>R3: Untested restore process fails when needed</td>
+      <td>Disaster recovery capability</td>
+      <td>Corrupted backup, incompatible schema version</td>
+      <td>No restore script or documented procedure; never tested</td>
+      <td>Inability to recover data even though backups exist</td>
+      <td>None</td>
+      <td class="priority-med">Medium</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">High</td>
+    </tr>
+  </tbody>
+</table>
+<p><strong>Rating Justification:</strong> All three risks are High because backups are the last line of defense against data loss. A backup system that is manual, unencrypted, and untested provides only the illusion of protection. In a law enforcement context, losing crime records could compromise active cases.</p>
+
+<h3>4. Policy Clauses</h3>
+<ol class="clauses">
+  <li><strong>PC-4.1:</strong> Database backups must run automatically at least once daily. The development team must implement a scheduled backup using node-cron or the OS task scheduler.</li>
+  <li><strong>PC-4.2:</strong> All backup files must be encrypted before storage using AES-256 or GPG encryption. Unencrypted SQL dumps must not be retained on disk.</li>
+  <li><strong>PC-4.3:</strong> The Deputy Officer must copy the latest encrypted backup to a separate USB drive or external storage at least once per week and store it in a locked location separate from the workstation.</li>
+  <li><strong>PC-4.4:</strong> A documented restore procedure must be created and tested. The development team must provide a restore script that the Deputy Officer can run to recover from a backup.</li>
+  <li><strong>PC-4.5:</strong> The Deputy Officer must perform a test restore on a separate database at least once per quarter to verify backup integrity. The test date and result must be documented.</li>
+  <li><strong>PC-4.6:</strong> Backup files must be retained for a minimum of 30 days (rolling). The current 14-file retention policy must be adjusted if daily backups produce fewer than 30 days of coverage.</li>
+  <li><strong>PC-4.7:</strong> Uploaded evidence files (photos/videos in the uploads/ directory) must be included in the backup procedure, not just the database.</li>
+</ol>
+
+<h3>5. Roles and Enforcement</h3>
+<table>
+  <tr><th>Function</th><th>Responsible</th><th>Details</th></tr>
+  <tr><td>Approval</td><td>Barangay Captain</td><td>Approves backup schedule, retention period, and off-site storage location.</td></tr>
+  <tr><td>Implementation</td><td>Development Team</td><td>Implements automated scheduling, encryption, and restore script.</td></tr>
+  <tr><td>Communication</td><td>Deputy Officer</td><td>Knows how to initiate manual backup and restore in an emergency.</td></tr>
+  <tr><td>Monitoring</td><td>Deputy Officer</td><td>Checks daily that the automated backup ran (verifies latest file timestamp). Performs quarterly restore test.</td></tr>
+  <tr><td>Violation Review</td><td>Barangay Captain + Deputy Officer</td><td>If a backup is missed for more than 48 hours, the Deputy Officer must investigate and resolve within 24 hours. Chronic failures are escalated to the Captain.</td></tr>
+</table>
+
+<!-- ==================== POLICY 5 ==================== -->
+<div class="page-break"></div>
+<h2>Policy 5: Acceptable Use and Operational Security Policy</h2>
+
+<h3>1. Policy Identity and Purpose</h3>
+<table class="meta-table">
+  <tr><td>Title</td><td>Acceptable Use and Operational Security Policy</td></tr>
+  <tr><td>Version</td><td>1.0</td></tr>
+  <tr><td>Proposed Effectivity</td><td>Upon deployment of the system to Barangay 179</td></tr>
+  <tr><td>Policy Owner</td><td>Deputy Officer (System Administrator)</td></tr>
+  <tr><td>Approving Role</td><td>Barangay Captain</td></tr>
+  <tr><td>Security Objective</td><td>Define proper use of the system, protect the operational environment from misconfiguration and accidental exposure, and ensure the system remains available for its intended purpose.</td></tr>
+</table>
+
+<h3>2. Scope and Context</h3>
+<p><strong>System:</strong> The entire Crime CART application — Electron shell, Express backend, MySQL database, and the workstation it runs on.</p>
+<p><strong>Users:</strong> All barangay personnel who use or administer the system.</p>
+<p><strong>Activities Covered:</strong> Day-to-day system use, software updates, workstation management, network configuration, and handling of system output (reports, heatmaps, patrol routes).</p>
+<p><strong>Assumptions:</strong> The system operates as a standalone desktop application on a single barangay workstation. If the deployment model changes to a networked or cloud environment, this policy must be revised.</p>
+
+<h3>3. Risk Basis</h3>
+<table class="risk-table">
+  <thead>
+    <tr><th>Risk</th><th>Asset</th><th>Threat</th><th>Weakness</th><th>Consequence</th><th>Current Safeguard</th><th>Likelihood</th><th>Impact</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>R1: System unavailable due to broken dependencies</td>
+      <td>Application availability</td>
+      <td>Internet outage or CDN takedown</td>
+      <td>Frontend loads 10+ external CDN resources (fonts, icons, Chart.js, Leaflet, Mapbox, etc.)</td>
+      <td>App UI breaks completely without internet — unusable for field operations</td>
+      <td>Core logic runs locally; only UI assets are external</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">High</td>
+      <td class="priority-high">Critical</td>
+    </tr>
+    <tr>
+      <td>R2: Debug information leaking to users</td>
+      <td>System internals, security posture</td>
+      <td>Curious user opening browser DevTools</td>
+      <td>92 console.log statements in server.js; login.js logs user role and name; route listing on startup</td>
+      <td>Internal system details exposed, aiding potential abuse</td>
+      <td>Electron DevTools can be disabled in production</td>
+      <td class="priority-low">Low</td>
+      <td class="priority-low">Low</td>
+      <td class="priority-low">Low</td>
+    </tr>
+    <tr>
+      <td>R3: Misuse of system for unauthorized purposes</td>
+      <td>Crime data integrity, system reputation</td>
+      <td>Barangay personnel using the system outside its intended purpose</td>
+      <td>No acceptable use guidelines communicated to users</td>
+      <td>Fabricated records, privacy violations, unauthorized data sharing</td>
+      <td>Role-based access limits what each user can do; audit logging tracks actions</td>
+      <td class="priority-low">Low</td>
+      <td class="priority-high">High</td>
+      <td class="priority-med">Medium</td>
+    </tr>
+  </tbody>
+</table>
+<p><strong>Rating Justification:</strong> R1 is Critical because as a law enforcement tool, the system must work reliably even without internet — tanods in the field can't wait for a CDN. R2 is Low because it requires opening DevTools, which most users won't do, and the information is mostly operational, not directly exploitable. R3 is Low likelihood due to existing RBAC and audit trail, but High impact because fabricated crime records could have legal consequences.</p>
+
+<h3>4. Policy Clauses</h3>
+<ol class="clauses">
+  <li><strong>PC-5.1:</strong> The development team must bundle all external CDN dependencies (Google Fonts, Font Awesome, Chart.js, Bootstrap, Leaflet, Mapbox GL JS, Turf.js) locally within the application before deployment. The app must function fully without internet.</li>
+  <li><strong>PC-5.2:</strong> The system must only be used for its intended purpose: recording crime incidents, generating heatmaps, CART analysis, and managing tanod patrols for Barangay 179. Using the system to create false records is prohibited.</li>
+  <li><strong>PC-5.3:</strong> Printed reports, patrol routes, and heatmaps containing crime data must be treated as confidential. They must not be left unattended, photographed, or shared on social media.</li>
+  <li><strong>PC-5.4:</strong> The development team must remove or disable all unnecessary console.log statements in production builds. Server startup must not print route listings or internal configuration details.</li>
+  <li><strong>PC-5.5:</strong> The workstation running the system must have a screen lock with a password. If a user steps away, they must lock the screen or log out of the application.</li>
+  <li><strong>PC-5.6:</strong> The Deputy Officer must not install unrelated software on the system workstation that could introduce malware or conflict with the application. Software changes require prior approval.</li>
+  <li><strong>PC-5.7:</strong> If the system needs to be connected to a network (e.g., for updates or data sharing), TLS/HTTPS must be configured first. The current HTTP-only configuration is acceptable only for localhost desktop use.</li>
+</ol>
+
+<h3>5. Roles and Enforcement</h3>
+<table>
+  <tr><th>Function</th><th>Responsible</th><th>Details</th></tr>
+  <tr><td>Approval</td><td>Barangay Captain</td><td>Approves acceptable use rules and any exceptions (e.g., temporary internet connection for updates).</td></tr>
+  <tr><td>Implementation</td><td>Development Team / Deputy Officer</td><td>Dev team bundles dependencies and removes debug output. Deputy Officer configures workstation security (screen lock, no unauthorized software).</td></tr>
+  <tr><td>Communication</td><td>Deputy Officer</td><td>All users are briefed on acceptable use rules before being given system access. A printed summary is posted near the workstation.</td></tr>
+  <tr><td>Monitoring</td><td>Deputy Officer</td><td>Periodic spot checks that the workstation is locked when unattended. Audit log review for unusual activity.</td></tr>
+  <tr><td>Violation Review</td><td>Barangay Captain</td><td>Violations (false records, unauthorized sharing, unattended unlocked workstation) are handled through existing barangay personnel procedures.</td></tr>
+</table>
+
+<!-- ==================== IMPLEMENTATION STATUS ==================== -->
+<div class="page-break"></div>
+<h2>Implementation Status Summary</h2>
+<p>The table below summarizes the current implementation status of each policy clause, the responsible party, evidence or verification method, and any remaining risks.</p>
+
+<table>
+  <thead>
+    <tr><th style="width:8%">Clause</th><th style="width:30%">Requirement</th><th style="width:12%">Status</th><th style="width:15%">Owner</th><th style="width:20%">Evidence</th><th style="width:15%">Remaining Risk</th></tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="6" style="background:#e8e8e8; font-weight:700;">Policy 1: Account Access and Authentication</td></tr>
+    <tr><td>PC-1.1</td><td>Remove demo credentials</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Inspect login.js lines 36–45, schema.sql lines 681–684</td><td>Full admin access via known credentials</td></tr>
+    <tr><td>PC-1.2</td><td>Password complexity enforcement</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Test creating user with weak password</td><td>Weak passwords accepted</td></tr>
+    <tr><td>PC-1.3</td><td>Unique accounts per user</td><td class="priority-low">Done</td><td>Deputy Officer</td><td>User management page allows individual accounts</td><td>None — operational enforcement</td></tr>
+    <tr><td>PC-1.4</td><td>Remove Remember Me</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Inspect login.html lines 127–132</td><td>Session persistence risk</td></tr>
+    <tr><td>PC-1.5</td><td>Remove console.log of credentials/tokens</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Browser console after login, server stdout</td><td>Token/role exposure via console</td></tr>
+    <tr><td>PC-1.6</td><td>Deactivate departed personnel</td><td class="priority-low">Done</td><td>Deputy Officer</td><td>User management supports deactivation</td><td>None — operational enforcement</td></tr>
+    <tr><td>PC-1.7</td><td>Remove localStorage duplication</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Inspect login.js lines 339–350</td><td>User data persists after tab close</td></tr>
+
+    <tr><td colspan="6" style="background:#e8e8e8; font-weight:700;">Policy 2: Data Handling and Privacy</td></tr>
+    <tr><td>PC-2.1</td><td>Least-privilege MySQL user</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Check .env DB_USER value</td><td>Root access to entire DB</td></tr>
+    <tr><td>PC-2.2</td><td>Rotate DB password, scrub git</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>git log --all -- .env</td><td>Old credentials in history</td></tr>
+    <tr><td>PC-2.3</td><td>Exclude sensitive fields from API</td><td class="priority-low">Done</td><td>Dev Team</td><td>GET /api/users, /api/tanods responses</td><td>Must maintain for new endpoints</td></tr>
+    <tr><td>PC-2.4</td><td>Restrict PII access by role</td><td class="priority-low">Done</td><td>Dev Team</td><td>requireRole() on all routes</td><td>None</td></tr>
+    <tr><td>PC-2.5</td><td>1-year archive retention</td><td class="priority-low">Done</td><td>Deputy Officer</td><td>Soft-delete/archive pattern in code</td><td>No automated purge yet</td></tr>
+    <tr><td>PC-2.6</td><td>No unauthorized data export</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>Deputy Officer</td><td>Operational — user briefing</td><td>No technical export controls</td></tr>
+
+    <tr><td colspan="6" style="background:#e8e8e8; font-weight:700;">Policy 3: Audit Logging and Monitoring</td></tr>
+    <tr><td>PC-3.1</td><td>logAudit() on all endpoints</td><td class="priority-low">Done</td><td>Dev Team</td><td>Code review of all CRUD routes</td><td>Must maintain for new endpoints</td></tr>
+    <tr><td>PC-3.2</td><td>Restrict DB user from modifying logs</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>GRANT statement for app DB user</td><td>Root can delete logs</td></tr>
+    <tr><td>PC-3.3</td><td>Weekly log review</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>Deputy Officer</td><td>Review checklist + sign-off</td><td>Depends on human discipline</td></tr>
+    <tr><td>PC-3.4</td><td>No sensitive data in logs</td><td class="priority-low">Done</td><td>Dev Team</td><td>Inspect audit_logs for password/PIN fields</td><td>None currently</td></tr>
+    <tr><td>PC-3.5</td><td>3-year archive + purge</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Archive/purge script needed</td><td>Unbounded log growth</td></tr>
+    <tr><td>PC-3.6</td><td>Report anomalies within 24h</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>Deputy Officer</td><td>Operational — escalation procedure</td><td>Depends on human discipline</td></tr>
+
+    <tr><td colspan="6" style="background:#e8e8e8; font-weight:700;">Policy 4: Backup and Recovery</td></tr>
+    <tr><td>PC-4.1</td><td>Daily automated backup</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Cron/scheduler configuration</td><td>Data loss if manual backup is forgotten</td></tr>
+    <tr><td>PC-4.2</td><td>Encrypt backups</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Inspect backup file format</td><td>PII in plain text on disk</td></tr>
+    <tr><td>PC-4.3</td><td>Weekly off-site copy</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>Deputy Officer</td><td>USB drive in locked storage</td><td>Depends on human discipline</td></tr>
+    <tr><td>PC-4.4</td><td>Documented restore procedure</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Restore script + documentation</td><td>Can't recover without procedure</td></tr>
+    <tr><td>PC-4.5</td><td>Quarterly restore test</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>Deputy Officer</td><td>Test log with date and result</td><td>Untested backups may be corrupt</td></tr>
+    <tr><td>PC-4.6</td><td>30-day retention</td><td class="priority-med">Partial</td><td>Dev Team</td><td>Current: 14-file retention</td><td>May not cover 30 days</td></tr>
+    <tr><td>PC-4.7</td><td>Include uploads in backup</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>Backup script only covers DB</td><td>Evidence files not backed up</td></tr>
+
+    <tr><td colspan="6" style="background:#e8e8e8; font-weight:700;">Policy 5: Acceptable Use and Operational Security</td></tr>
+    <tr><td>PC-5.1</td><td>Bundle CDN dependencies locally</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>grep HTML for external URLs</td><td>App breaks without internet</td></tr>
+    <tr><td>PC-5.2</td><td>Use system for intended purpose only</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>All Users</td><td>User briefing + audit trail</td><td>Depends on human compliance</td></tr>
+    <tr><td>PC-5.3</td><td>Protect printed reports</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>All Users</td><td>Operational — user briefing</td><td>No technical control possible</td></tr>
+    <tr><td>PC-5.4</td><td>Remove debug console.log</td><td class="priority-high">Not Done</td><td>Dev Team</td><td>grep console.log server.js</td><td>92 log statements active</td></tr>
+    <tr><td>PC-5.5</td><td>Screen lock requirement</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>All Users</td><td>OS group policy or user training</td><td>Depends on user habit</td></tr>
+    <tr><td>PC-5.6</td><td>No unauthorized software</td><td style="color:#b45309; font-weight:700;">Policy Only</td><td>Deputy Officer</td><td>Periodic workstation check</td><td>No technical lockdown</td></tr>
+    <tr><td>PC-5.7</td><td>TLS required for network use</td><td class="priority-low">N/A (localhost)</td><td>Dev Team</td><td>main.js loads http://localhost</td><td>Accepted risk for desktop scope</td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>
