@@ -90,10 +90,23 @@ describe('Record map UI contract', () => {
         expect(patrol).not.toContain('Active Priority Recommendations');
         expect(patrol).not.toContain('id="recommendationsContainer"');
         expect(patrol).not.toContain('patrol-search.js');
+        expect(patrol).toMatch(/id="monthSelect"[^>]+type="date"/);
+        expect(patrol).toContain('id="scheduleRecordSelect"');
+        expect(patrol).toContain('Active heatmap record');
+        expect(patrol).toContain('id="scheduleTeamName"');
+        expect(patrol).toContain('Team members');
+        expect(patrol).not.toContain('id="scheduleMapPicker"');
 
         const heatmap = fs.readFileSync(path.join(__dirname, '../../frontend/grid-heatmap.html'), 'utf8');
         expect(heatmap).toMatch(/id="heatmapPeriod"[^>]+type="date"/);
         expect(heatmap).not.toContain('heatmapCalendarPopover');
+
+        const dashboard = fs.readFileSync(path.join(__dirname, '../../frontend/dashboard.html'), 'utf8');
+        const incident = fs.readFileSync(path.join(__dirname, '../../frontend/incident.html'), 'utf8');
+        expect(dashboard).not.toContain('Assigned Blotter Mediation');
+        expect(dashboard).not.toContain('mediation-tasks.js');
+        expect(incident).not.toContain('mediationAssignPanel');
+        expect(incident).not.toContain('mediation-assign.js');
     });
 
     test('record data remains available before basemap tiles finish loading', async () => {

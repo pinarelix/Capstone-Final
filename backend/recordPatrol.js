@@ -11,7 +11,7 @@ const dateOnlySchema = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value
 });
 const MAP_PAGE_SIZE = 500;
 const mapQuerySchema = Joi.object({
-    granularity: Joi.string().valid('day', 'week', 'month').default('month'),
+    granularity: Joi.string().valid('day', 'week', 'month'),
     period: dateOnlySchema.default(() => new Date().toISOString().slice(0, 10)),
     page: Joi.number().integer().min(1).max(100000).default(1),
     window_days: Joi.string().valid('90', 'all'),
@@ -225,10 +225,17 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
 
     async function saveScheduleExtras(db, id, body, userId) {
         if (['incident_id', 'scheduled_date', 'priority', 'exact_address', 'team_name'].some(key => body[key] !== undefined)) {
+            const teamNameProvided = body.team_name !== undefined;
+            const teamNameUpdate = teamNameProvided ? ', team_name=VALUES(team_name)' : '';
+            let teamName = body.team_name;
+            if (!teamNameProvided) {
+                const [existing] = await db.query('SELECT team_name FROM patrol_schedule_records WHERE schedule_id = ?', [id]);
+                teamName = existing[0]?.team_name || '';
+            }
             await db.query(`INSERT INTO patrol_schedule_records (schedule_id, incident_id, scheduled_date, priority, exact_address, team_name)
                 VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE incident_id=VALUES(incident_id), scheduled_date=VALUES(scheduled_date),
-                priority=VALUES(priority), exact_address=VALUES(exact_address), team_name=VALUES(team_name)`,
-            [id, body.incident_id || null, body.scheduled_date || null, body.priority || 'Low', body.exact_address || '', body.team_name || '']);
+                priority=VALUES(priority), exact_address=VALUES(exact_address)${teamNameUpdate}`,
+            [id, body.incident_id || null, body.scheduled_date || null, body.priority || 'Low', body.exact_address || '', teamName]);
         }
         if (body.tanod_ids !== undefined) {
             await db.query('DELETE FROM patrol_schedule_tanods WHERE schedule_id = ?', [id]);

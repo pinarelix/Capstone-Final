@@ -148,8 +148,9 @@ describe('Archive: deleted records can be listed and restored', () => {
 
     test('deactivated users are archived and restore reactivates them (no secrets in the snapshot)', async () => {
         const created = await request(app).post('/api/users').set('Authorization', `Bearer ${adminToken}`).send({
-            name: 'Archive User', username: 'test_archive_user', password: 'pass1234', role: 'Team Leader', email: 'archive.user@example.com'
+            name: 'Archive User', username: 'test_archive_user', password: 'Pass1234!', role: 'Team Leader', email: 'archive.user@example.com'
         });
+        expect(created.status).toBe(201);
         const userId = created.body.user?.id || (await pool.query("SELECT id FROM users WHERE username = 'test_archive_user'"))[0][0].id;
         cleanup.users.push(userId);
 

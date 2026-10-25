@@ -39,8 +39,6 @@ let allLogs = [];
 // Per-street risk decay from completed patrols - {location: decay_amount},
 // subtracted from that street's CART risk score in recommendations.
 let allAreaDecay = {};
-let scheduleMapPicker;
-let scheduleMarker;
 
 // Latest CART suggestions are rendered as unsaved rows in the same table
 // as confirmed schedules. This keeps planning in one place and leaves the
@@ -61,9 +59,11 @@ function stepPatrolMonth(direction) {
     const input = document.getElementById('monthSelect');
     if (!input) return;
     const base = input.value ? new Date(input.value + 'T12:00:00') : new Date();
+    base.setDate(1);
     base.setMonth(base.getMonth() + direction);
     input.value = localPatrolDateKey(base);
     updateDashboardWithCartData(selectedPatrolMonth());
+    window.populateActiveHeatmapRecords?.();
 }
 
 // Schedule and log records are loaded in server-backed result windows.
@@ -151,6 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (monthSelect) {
         monthSelect.addEventListener('change', function() {
             updateDashboardWithCartData(selectedPatrolMonth());
+            window.populateActiveHeatmapRecords?.();
         });
     }
     document.getElementById('patrolPreviousMonth')?.addEventListener('click', () => stepPatrolMonth(-1));
@@ -205,85 +206,6 @@ function setupTabs() {
     });
 }
 
-/* ============================================================
-   SCHEDULE LOCATION MAP PICKER
-   Mirrors incident.js's initMapPicker()/isPointInsideBarangay() pattern —
-   same libraries (Leaflet + turf.js), same boundary-check approach.
-============================================================ */
-
-function isScheduleLocationInsideBarangay(lat, lng) {
-    const boundaryPolygon = turf.polygon([
-        [...BARANGAY_BOUNDARY_COORDS.map(coord => [coord[1], coord[0]]), [BARANGAY_BOUNDARY_COORDS[0][1], BARANGAY_BOUNDARY_COORDS[0][0]]]
-    ]);
-    return turf.booleanPointInPolygon(turf.point([lng, lat]), boundaryPolygon);
-}
-
-function populateScheduleLocationOptions() {
-    const select = document.getElementById('scheduleLocation');
-    if (!select || typeof BARANGAY_LOCATIONS === 'undefined') return;
-
-    BARANGAY_LOCATIONS.forEach(location => {
-        const option = document.createElement('option');
-        option.value = location;
-        option.textContent = location;
-        select.appendChild(option);
-    });
-}
-
-function initScheduleMapPicker() {
-    const created = createBarangayMap('scheduleMapPicker', {
-        zoom: 16,
-        zoomControl: false,
-        minZoom: 13.5,
-        maxZoom: 19
-    });
-    scheduleMapPicker = created.map;
-
-    scheduleMapPicker.on('click', function (e) {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-        const prompt = document.getElementById('scheduleMapPrompt');
-
-        if (!isScheduleLocationInsideBarangay(lat, lng)) {
-            if (prompt) prompt.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please click inside the barangay boundary!';
-            return;
-        }
-
-        document.getElementById('scheduleLat').value = lat;
-        document.getElementById('scheduleLng').value = lng;
-        placeScheduleMarker(lat, lng);
-
-        if (prompt) prompt.innerHTML = '<i class="fa-solid fa-location-dot"></i> Location pinned!';
-    });
-
-    setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
-}
-
-function placeScheduleMarker(lat, lng) {
-    if (scheduleMarker) {
-        scheduleMapPicker.removeLayer(scheduleMarker);
-    }
-    const customIcon = L.divIcon({
-        className: 'custom-marker',
-        html: '<div style="background: #dc2626; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-    });
-    scheduleMarker = L.marker([lat, lng], { icon: customIcon }).addTo(scheduleMapPicker);
-    scheduleMapPicker.setView([lat, lng], 16);
-}
-
-function resetScheduleMapPicker() {
-    document.getElementById('scheduleLat').value = '';
-    document.getElementById('scheduleLng').value = '';
-    if (scheduleMarker && scheduleMapPicker) {
-        scheduleMapPicker.removeLayer(scheduleMarker);
-        scheduleMarker = null;
-    }
-    const prompt = document.getElementById('scheduleMapPrompt');
-    if (prompt) prompt.textContent = 'Click the map to pin this location - incidents reported here will inherit this exact point on the risk map.';
-}
-
 // ============================================================
 // 5. LOAD ALL DATA - WITH CART INTEGRATION
 // ============================================================
@@ -336,6 +258,7 @@ async function loadAllData() {
         }
         
         populateMonthDropdown(allIncidents);
+        window.populateActiveHeatmapRecords?.();
         
         const monthSelect = document.getElementById('monthSelect');
         if (monthSelect && monthSelect.value) {
@@ -1129,27 +1052,38 @@ function setupScheduleForm() {
 
 async function saveSchedule() {
     const id = document.getElementById('editScheduleId').value;
+    const incidentId = Number(document.getElementById('scheduleRecordId').value);
     const location = document.getElementById('scheduleLocation').value.trim();
     const day_of_week = document.getElementById('scheduleDay').value;
     const start_time = document.getElementById('scheduleStart').value;
     const end_time = document.getElementById('scheduleEnd').value;
     const reason = document.getElementById('scheduleReason').value.trim();
     const status = document.getElementById('scheduleStatus').value;
+    const teamName = document.getElementById('scheduleTeamName').value.trim();
+    const memberIds = [...document.getElementById('scheduleTanods').selectedOptions].map(option => Number(option.value));
     const latRaw = document.getElementById('scheduleLat').value;
     const lngRaw = document.getElementById('scheduleLng').value;
 
-    if (!location || !start_time || !end_time || !day_of_week) {
-        showToast('Please fill in all required fields.', 'error');
+    if (!incidentId || !location) {
+        showToast('Choose an active heatmap record for this patrol.', 'error');
+        return;
+    }
+    if (!teamName || memberIds.length === 0) {
+        showToast('Enter a team name and select at least one team member.', 'error');
+        return;
+    }
+    if (!document.getElementById('scheduleDate').value || !start_time || !end_time || !day_of_week) {
+        showToast('Complete the patrol date and time window.', 'error');
         return;
     }
 
     const payload = {
-        incident_id: document.getElementById('scheduleRecordId').value ? Number(document.getElementById('scheduleRecordId').value) : null,
+        incident_id: incidentId,
         scheduled_date: document.getElementById('scheduleDate').value || null,
         priority: document.getElementById('schedulePriority').value,
         exact_address: document.getElementById('scheduleExactAddress').value,
-        tanod_ids: [...document.getElementById('scheduleTanods').selectedOptions].map(option => Number(option.value)),
-        manual_patrol: document.getElementById('scheduleManualPatrol').checked,
+        team_name: teamName,
+        tanod_ids: memberIds,
         location,
         start_time,
         end_time,
@@ -1188,12 +1122,15 @@ async function saveSchedule() {
 function resetScheduleFormState() {
     document.getElementById('scheduleForm').reset();
     document.getElementById('editScheduleId').value = '';
+    document.getElementById('scheduleRecordId').value = '';
     document.getElementById('scheduleRecordSummary').textContent = '';
-    document.getElementById('manualPatrolLabel').hidden = true;
+    document.getElementById('scheduleLocation').value = '';
+    document.getElementById('scheduleExactAddress').value = '';
+    document.getElementById('scheduleLat').value = '';
+    document.getElementById('scheduleLng').value = '';
     document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
-    updateScheduleLocationIncidents();
-    resetScheduleMapPicker();
+    window.populateActiveHeatmapRecords?.();
     const card = document.getElementById('scheduleFormCard');
     card?.classList.remove('edit-modal-mode');
     if (card) card.hidden = true;
@@ -1233,11 +1170,6 @@ function openScheduleModal() {
     undockScheduleFormCard();
     card.hidden = false;
     card.classList.add('edit-modal-mode');
-    if (!scheduleMapPicker) {
-        initScheduleMapPicker();
-    } else {
-        setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
-    }
 }
 
 function openNewScheduleModal() {
@@ -1373,26 +1305,6 @@ function renderIncidentTypeBadges(location, maxShown = 2) {
     return typeCountsToBadgeHtml(getIncidentTypesForLocation(location), maxShown);
 }
 
-// Updates the Add/Edit Schedule form's "Incidents Reported At This
-// Location" panel to match whatever the Location dropdown currently
-// holds - called on manual selection, and explicitly after any script
-// that sets scheduleLocation.value directly (which doesn't fire 'change').
-function updateScheduleLocationIncidents() {
-    const group = document.getElementById('scheduleLocationIncidentsGroup');
-    const container = document.getElementById('scheduleLocationIncidents');
-    if (!group || !container) return;
-
-    const location = document.getElementById('scheduleLocation')?.value;
-    if (!location) {
-        group.style.display = 'none';
-        container.innerHTML = '';
-        return;
-    }
-
-    container.innerHTML = renderIncidentTypeBadges(location, 6);
-    group.style.display = '';
-}
-
 // Active schedules first, then Completed, then Cancelled - each group in
 // weekday then start-time order - narrowed by the Status dropdown.
 const SCHEDULE_STATUS_ORDER = { Active: 0, Completed: 1, Cancelled: 2 };
@@ -1430,7 +1342,7 @@ function recommendationRow(rec) {
             <td><strong>${escapeHTML(rec.area)}</strong><br><small>${escapeHTML(rec.reason)}</small></td>
             <td><span class="text-muted">Choose date</span></td>
             <td>${escapeHTML(rec.time)}</td>
-            <td>${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 2)}</td>
+            <td><span class="text-muted">Assign team</span></td>
             <td><span class="priority-badge ${escapeHTML(rec.priority)}">${priority} priority</span></td>
             <td class="schedule-row-actions">
                 <button type="button" class="btn-action-view" onclick="showRecommendationDetails(${index})"><i class="fa-regular fa-eye"></i> Details</button>
@@ -1494,10 +1406,10 @@ function renderSchedules(schedules) {
         return groupRow + `
             <tr>
                 <td class="font-bold">${schedule.id}</td>
-                <td>${escapeHTML(schedule.location)}${schedule.exact_address ? '<br><small>' + escapeHTML(schedule.exact_address) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + '</small>' : ''}${schedule.tanods?.length ? '<br><small>Tanods: ' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : ''}</td>
+                <td>${escapeHTML(schedule.location)}${schedule.exact_address ? '<br><small>' + escapeHTML(schedule.exact_address) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + ' risk</small>' : ''}</td>
                 <td>${escapeHTML(schedule.scheduled_date || schedule.day_of_week)}</td>
                 <td>${timeDisplay}</td>
-                <td>${renderIncidentTypeBadges(schedule.location)}</td>
+                <td><strong>${escapeHTML(schedule.team_name || 'Unassigned')}</strong>${schedule.tanods?.length ? '<br><small>' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : '<br><small>No members assigned</small>'}</td>
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
                     <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})"><i class="fa-solid fa-pen"></i> Update</button>
@@ -1515,39 +1427,30 @@ window.editSchedule = async function(id) {
         
         const schedule = await response.json();
         await window.loadScheduleTanods(schedule.tanod_ids || []);
+        window.populateActiveHeatmapRecords?.(schedule.incident_id);
+        const sourceSelect = document.getElementById('scheduleRecordSelect');
+        if (schedule.incident_id && ![...sourceSelect.options].some(option => option.value === String(schedule.incident_id))) {
+            sourceSelect.add(new Option(`Linked historical record #${schedule.incident_id}`, schedule.incident_id));
+        }
+        sourceSelect.value = schedule.incident_id || '';
         document.getElementById('scheduleRecordId').value = schedule.incident_id || '';
         document.getElementById('scheduleDate').value = schedule.scheduled_date || '';
         document.getElementById('schedulePriority').value = schedule.priority || 'Low';
         document.getElementById('scheduleExactAddress').value = schedule.exact_address || '';
         document.getElementById('scheduleRecordSummary').textContent = schedule.incident_id ? 'Linked record #' + schedule.incident_id : '';
+        document.getElementById('scheduleTeamName').value = schedule.team_name || '';
         
         document.getElementById('editScheduleId').value = schedule.id;
         document.getElementById('scheduleLocation').value = schedule.location || '';
-        updateScheduleLocationIncidents();
         document.getElementById('scheduleDay').value = schedule.day_of_week || 'Monday';
         document.getElementById('scheduleStart').value = schedule.start_time ? schedule.start_time.substring(0,5) : '';
         document.getElementById('scheduleEnd').value = schedule.end_time ? schedule.end_time.substring(0,5) : '';
         document.getElementById('scheduleStatus').value = schedule.status || 'Active';
         document.getElementById('scheduleReason').value = schedule.reason || '';
 
-        // Show the popup first: the map picker can only be created (or
-        // measured) once its container is visible - and when editing from
-        // the Patrol Schedules tab the Schedules tab may never have opened.
         openScheduleModal();
-        if (!scheduleMapPicker) initScheduleMapPicker();
-
-        if (scheduleMapPicker) {
-            if (schedule.latitude != null && schedule.longitude != null) {
-                document.getElementById('scheduleLat').value = schedule.latitude;
-                document.getElementById('scheduleLng').value = schedule.longitude;
-                placeScheduleMarker(parseFloat(schedule.latitude), parseFloat(schedule.longitude));
-                const prompt = document.getElementById('scheduleMapPrompt');
-                if (prompt) prompt.innerHTML = '<i class="fa-solid fa-location-dot"></i> Location pinned! Click elsewhere on the map to move it.';
-            } else {
-                resetScheduleMapPicker();
-            }
-            setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
-        }
+        document.getElementById('scheduleLat').value = schedule.latitude ?? '';
+        document.getElementById('scheduleLng').value = schedule.longitude ?? '';
 
         document.getElementById('scheduleFormTitle').textContent = 'Edit Patrol Schedule';
         document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update Schedule';

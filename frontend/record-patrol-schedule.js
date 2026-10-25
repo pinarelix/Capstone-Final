@@ -1,7 +1,10 @@
 "use strict";
 
 function activeScheduleRecords() {
-    return (window.getPatrolHeatmapRecords?.() || []).filter(record => record.eligible !== false);
+    const month = selectedPatrolMonth();
+    return (window.getPatrolHeatmapRecords?.() || [])
+        .filter(record => record.eligible !== false)
+        .filter(record => !month || String(record.date || '').startsWith(month));
 }
 
 function riskLevelFor(record) {
@@ -30,8 +33,9 @@ window.populateActiveHeatmapRecords = function(selectedId = null) {
     const select = document.getElementById('scheduleRecordSelect');
     if (!select) return;
     const previous = selectedId ?? select.value;
-    select.replaceChildren(new Option('Choose an active risk-map record', ''));
-    activeScheduleRecords()
+    const records = activeScheduleRecords();
+    select.replaceChildren(new Option(records.length ? 'Choose an active risk-map record' : 'No active heatmap records in this month', ''));
+    records
         .sort((a, b) => (Number(b.cart_score) || 0) - (Number(a.cart_score) || 0))
         .forEach(record => {
             const level = riskLevelFor(record);
@@ -120,9 +124,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response = await apiFetch('/incidents/' + id + '/patrol-prefill');
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Could not prepare record patrol');
+        if (data.record?.date) {
+            document.getElementById('monthSelect').value = String(data.record.date).slice(0, 10);
+            updateDashboardWithCartData(selectedPatrolMonth());
+        }
         resetScheduleFormState();
         window.populateActiveHeatmapRecords(id);
-        window.selectScheduleRecord(id);
+        if (!window.selectScheduleRecord(id)) {
+            showToast('Could not select the requested active heatmap record.', 'error');
+            return;
+        }
         openScheduleModal();
         history.replaceState(null, '', 'patrol.html');
     } catch (error) { showToast(error.message, 'error'); }

@@ -3138,7 +3138,16 @@ app.put('/api/me/navigation-order', authenticate, async (req, res) => {
     }
 });
 
-// Today's assigned mediation tasks; incident report date is not the appointment date.
+// Blotter mediation is outside this project's early-warning and patrol scope.
+// Keep a clear retired response for stale clients instead of silently falling
+// through to the former assignment handlers below.
+app.use([
+    '/api/mediation-tasks', '/api/mediation-tasks/*',
+    '/api/me/mediation-tasks', '/api/me/mediation-tasks/*'
+], authenticate, (_req, res) => res.status(410).json({ error: 'Blotter mediation has been retired.' }));
+
+// Legacy handlers below are unreachable and retained temporarily for safe
+// deployments whose databases still contain historical mediation records.
 app.get('/api/me/mediation-tasks', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
@@ -3322,17 +3331,18 @@ app.get('/api/patrol-schedules/all', authenticate, requireRole(['Executive Offic
         const {limit,offset,page} = pagination(req.query,10);
         const search = validatedSearch(req.query.search);
         const conditions = [], params = [];
-        if (req.query.status) { conditions.push('status = ?'); params.push(req.query.status); }
+        if (req.query.status) { conditions.push('ps.status = ?'); params.push(req.query.status); }
         if (search) {
-            conditions.push('(location LIKE ? OR day_of_week LIKE ? OR reason LIKE ?)');
+            conditions.push('(ps.location LIKE ? OR ps.day_of_week LIKE ? OR ps.reason LIKE ? OR pr.team_name LIKE ?)');
             const term = `%${search}%`;
-            params.push(term, term, term);
+            params.push(term, term, term, term);
         }
         const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-        const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total FROM patrol_schedules ${where}`,params);
+        const joins = 'FROM patrol_schedules ps LEFT JOIN patrol_schedule_records pr ON pr.schedule_id = ps.id';
+        const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total ${joins} ${where}`,params);
         const [rows] = await pool.query(`
-            SELECT * FROM patrol_schedules ${where}
-            ORDER BY FIELD(status,'Active','Completed','Cancelled'), day_of_week, start_time, id LIMIT ? OFFSET ?
+            SELECT ps.* ${joins} ${where}
+            ORDER BY FIELD(ps.status,'Active','Completed','Cancelled'), ps.day_of_week, ps.start_time, ps.id LIMIT ? OFFSET ?
         `,[...params,limit,offset]);
         res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
         res.json(await Promise.all(rows.map(async row => ({ ...row, ...await recordPatrol.scheduleExtras(row.id) }))));

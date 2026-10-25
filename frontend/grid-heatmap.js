@@ -18,7 +18,7 @@ function localDateKey(date = new Date()) {
 
 function periodRequestValue() {
     const granularity = mapEl('heatmapGranularity').value;
-    const value = mapEl('heatmapPeriod').value;
+    const value = mapEl('heatmapPeriod').value || localDateKey();
     if (granularity === 'month') return `${value.slice(0, 7)}-01`;
     return granularity === 'week' ? getMondayOfWeek(value) : value;
 }
@@ -105,7 +105,10 @@ async function loadRealData() {
         allIncidentsData = data.records.filter(row => isInsideBoundary(Number(row.latitude), Number(row.longitude)));
         if (mapLayersReady) for (const layer of ['incidents-glow', 'incidents-circle']) map.setPaintProperty(layer, 'circle-color', scoreColors());
         mapEl('highCellDescription').textContent = 'High-risk locations in the selected period.';
-        mapEl('mapLoadStatus').textContent = basemapWarning || `Map updated for ${periodLabel()}.`;
+        const hasAdditionalPages = Number(data.pagination?.totalPages) > 1;
+        mapEl('mapLoadStatus').textContent = hasAdditionalPages
+            ? `Map updated for ${periodLabel()}. Showing the first page only; additional records are not displayed.`
+            : basemapWarning || `Map updated for ${periodLabel()}.`;
         applyFilterAndRender();
     } catch (error) {
         mapEl('mapLoadStatus').textContent = 'Could not refresh records. Please check the server connection.';

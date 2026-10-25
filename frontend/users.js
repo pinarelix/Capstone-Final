@@ -108,6 +108,11 @@ async function loadUsers() {
         
         users = (await response.json()).map(user => ({ ...user, role: user.role === 'Deputy Officer' ? 'Executive Officer' : user.role }));
         updateUserPagination(response);
+        if (userTotal > 0 && userPage > userTotalPages) {
+            userPage = userTotalPages;
+            await loadUsers();
+            return;
+        }
         renderUsers();
         updateAccountCount();
         
