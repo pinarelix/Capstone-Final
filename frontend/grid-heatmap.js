@@ -19,7 +19,7 @@ function localDateKey(date = new Date()) {
 function periodRequestValue() {
     const granularity = mapEl('heatmapGranularity').value;
     const value = mapEl('heatmapPeriod').value;
-    if (granularity === 'month') return `${value}-01`;
+    if (granularity === 'month') return `${value.slice(0, 7)}-01`;
     return granularity === 'week' ? getMondayOfWeek(value) : value;
 }
 
@@ -33,13 +33,14 @@ function periodLabel() {
 }
 
 function configureCalendar(preserveDate = true) {
-    const granularity = mapEl('heatmapGranularity').value;
     const input = mapEl('heatmapPeriod');
-    const current = preserveDate && input.value ? (input.value.length === 7 ? `${input.value}-01` : input.value) : localDateKey();
-    input.type = granularity === 'month' ? 'month' : 'date';
-    input.value = granularity === 'month' ? current.slice(0, 7) : current;
-    mapEl('heatmapCalendarPopover').querySelector('label').textContent = granularity === 'month' ? 'Choose a month' : granularity === 'week' ? 'Choose any date in the week' : 'Choose a date';
-    mapEl('heatmapCalendarTrigger').textContent = periodLabel();
+    input.type = 'date';
+    if (!preserveDate || !input.value) input.value = localDateKey();
+    input.setAttribute('aria-label', mapEl('heatmapGranularity').value === 'month'
+        ? 'Choose a date in the month'
+        : mapEl('heatmapGranularity').value === 'week'
+            ? 'Choose a date in the week'
+            : 'Choose a date');
 }
 
 function stepPeriod(direction) {
@@ -47,8 +48,7 @@ function stepPeriod(direction) {
     const date = new Date(periodRequestValue() + 'T00:00:00');
     if (granularity === 'month') date.setMonth(date.getMonth() + direction);
     else date.setDate(date.getDate() + direction * (granularity === 'week' ? 7 : 1));
-    mapEl('heatmapPeriod').value = granularity === 'month' ? localDateKey(date).slice(0, 7) : localDateKey(date);
-    mapEl('heatmapCalendarTrigger').textContent = periodLabel();
+    mapEl('heatmapPeriod').value = localDateKey(date);
     loadRealData();
 }
 
@@ -135,28 +135,10 @@ document.addEventListener('DOMContentLoaded', () => {
     Object.keys(INCIDENT_CATEGORIES).forEach(category => mapEl('heatmapIncidentType').add(new Option(category, category)));
     configureCalendar(false);
     mapEl('heatmapIncidentType').addEventListener('change', applyFilterAndRender);
-    mapEl('heatmapPeriod').addEventListener('change', () => {
-        mapEl('heatmapCalendarTrigger').textContent = periodLabel();
-        mapEl('heatmapCalendarPopover').hidden = true;
-        mapEl('heatmapCalendarTrigger').setAttribute('aria-expanded', 'false');
-        loadRealData();
-    });
+    mapEl('heatmapPeriod').addEventListener('change', loadRealData);
     mapEl('heatmapGranularity').addEventListener('change', () => { configureCalendar(); loadRealData(); });
     mapEl('heatmapPreviousPeriod').addEventListener('click', () => stepPeriod(-1));
     mapEl('heatmapNextPeriod').addEventListener('click', () => stepPeriod(1));
-    mapEl('heatmapCalendarTrigger').addEventListener('click', () => {
-        const popover = mapEl('heatmapCalendarPopover');
-        popover.hidden = !popover.hidden;
-        mapEl('heatmapCalendarTrigger').setAttribute('aria-expanded', String(!popover.hidden));
-        if (!popover.hidden) mapEl('heatmapPeriod').focus();
-    });
-    document.addEventListener('click', event => {
-        const control = mapEl('heatmapPeriodChip');
-        if (!control.contains(event.target)) {
-            mapEl('heatmapCalendarPopover').hidden = true;
-            mapEl('heatmapCalendarTrigger').setAttribute('aria-expanded', 'false');
-        }
-    });
     initializeMap();
     loadRealData();
     startLivePolling(loadRealData, 15000);

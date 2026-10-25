@@ -251,8 +251,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function loadPatrolLogs() {
         const request=++patrolReportRequest;
         try {
-            // No pagination/limit support on this endpoint (unlike
-            // /incidents) - it already returns every row.
+            // The API performs the search/filtering and returns one bounded
+            // page, matching the incident report table.
             const response = await apiFetch('/patrol-logs?'+patrolReportParams());
             if (!response.ok) throw new Error('Failed to load patrol logs');
 

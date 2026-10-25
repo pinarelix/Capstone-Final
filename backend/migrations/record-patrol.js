@@ -25,6 +25,13 @@ async function migrateRecordPatrol(conn) {
         FOREIGN KEY (incident_id) REFERENCES record_registry(registry_id) ON DELETE SET NULL,
         INDEX idx_patrol_record (incident_id)
     )`);
+    const [teamNameColumns] = await conn.query(`
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'patrol_schedule_records' AND COLUMN_NAME = 'team_name'
+    `);
+    if (teamNameColumns.length === 0) {
+        await conn.query("ALTER TABLE patrol_schedule_records ADD COLUMN team_name VARCHAR(100) NOT NULL DEFAULT '' AFTER exact_address");
+    }
     await conn.query(`CREATE TABLE IF NOT EXISTS patrol_schedule_tanods (
         schedule_id INT NOT NULL,
         tanod_id INT NOT NULL,

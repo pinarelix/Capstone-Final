@@ -441,15 +441,9 @@
             border-radius: 10px;
         }
 
-        .gh-calendar-control {
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+        .gh-calendar-control { display: flex; align-items: center; gap: 4px; }
 
-        .gh-calendar-step,
-        .gh-calendar-trigger {
+        .gh-calendar-step {
             min-height: 34px;
             border: 0;
             background: transparent;
@@ -462,26 +456,19 @@
 
         .gh-calendar-step { width: 30px; border-radius: 8px; }
         .gh-calendar-step:hover { background: #eff6ff; color: #1d4ed8; }
-        .gh-calendar-trigger { min-width: 144px; padding: 7px 8px; text-align: left; }
-        .gh-calendar-trigger:focus-visible,
         .gh-calendar-step:focus-visible { outline: 2px solid #0284c7; outline-offset: 1px; }
-
-        .gh-calendar-popover {
-            position: absolute;
-            top: calc(100% + 10px);
-            right: 0;
-            z-index: 4000;
-            width: 280px;
-            padding: 14px;
+        .gh-calendar-input {
+            width: 150px;
+            min-height: 34px;
+            padding: 6px 8px;
             border: 1px solid #cbd5e1;
-            border-radius: 14px;
-            background: #ffffff;
-            box-shadow: 0 18px 45px rgba(15, 23, 42, .22);
+            border-radius: 8px;
+            background: #fff;
+            color: #0f172a;
+            font: inherit;
+            font-size: .76rem;
         }
-
-        .gh-calendar-popover[hidden] { display: none; }
-        .gh-calendar-popover label { display: block; margin-bottom: 8px; color: #475569; font-size: .72rem; font-weight: 700; }
-        .gh-calendar-input { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 9px; color: #0f172a; font: inherit; }
+        .gh-calendar-input:focus { border-color: #0ea5e9; outline: 0; box-shadow: 0 0 0 3px rgba(14,165,233,.12); }
 
         .map-card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: visible; }
         .map-card .chart-header { position: relative; z-index: 3000; overflow: visible; }
@@ -673,7 +660,7 @@
 <link rel="stylesheet" href="sidebar-drag.css">
 <link rel="stylesheet" href="record-map.css">
 </head>
-<body class="heatmap-page">
+<body class="heatmap-page workspace-page">
 
 <div class="app-container">
 
@@ -818,12 +805,9 @@
                     <div class="gh-filter-chip gh-calendar-control" id="heatmapPeriodChip">
                         <span class="gh-filter-icon"><i class="fa-solid fa-calendar-days"></i></span>
                         <button type="button" class="gh-calendar-step" id="heatmapPreviousPeriod" aria-label="Previous period"><i class="fa-solid fa-chevron-left"></i></button>
-                        <button type="button" class="gh-calendar-trigger" id="heatmapCalendarTrigger" aria-haspopup="dialog" aria-expanded="false"></button>
+                        <label for="heatmapPeriod" class="sr-only">Choose heatmap date</label>
+                        <input id="heatmapPeriod" class="gh-calendar-input form-control" type="date">
                         <button type="button" class="gh-calendar-step" id="heatmapNextPeriod" aria-label="Next period"><i class="fa-solid fa-chevron-right"></i></button>
-                        <div class="gh-calendar-popover" id="heatmapCalendarPopover" role="dialog" aria-label="Choose heatmap period" hidden>
-                            <label for="heatmapPeriod">Choose a date</label>
-                            <input id="heatmapPeriod" class="gh-calendar-input" type="month">
-                        </div>
                     </div>
                 </div>
             </div>

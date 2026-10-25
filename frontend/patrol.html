@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="vendor/css/leaflet-1.9.4.css">
 <link rel="stylesheet" href="sidebar-drag.css">
 </head>
-<body>
+<body class="patrol-page workspace-page">
 
     <div class="app-container">
 
@@ -92,10 +92,10 @@
             ====================================================== -->
             <div class="patrol-tabs">
                 <button class="patrol-tab active" data-tab="recommendations">
-                    <i class="fa-solid fa-shield-halved"></i> Recommendations & Schedules
+                    <i class="fa-solid fa-shield-halved"></i> Patrol Planning
                 </button>
                 <button class="patrol-tab" data-tab="schedule-list">
-                    <i class="fa-solid fa-list"></i> Patrol Schedules & Logs
+                    <i class="fa-solid fa-clipboard-list"></i> Patrol Logs
                 </button>
             </div>
 
@@ -108,13 +108,16 @@
                     <div class="patrol-command-head">
                         <div>
                             <h1 id="patrolDecisionTitle"><i class="fa-solid fa-shield-halved"></i> Patrol Decision Support</h1>
-                            <p>Weekly deployment planning from current priority recommendations.</p>
+                            <p>Review risk-based suggestions and turn them into deployable patrol schedules.</p>
                         </div>
                         <div class="filter-control">
-                            <label for="monthSelect">Recommendation month</label>
-                            <select id="monthSelect" class="form-select">
-                                <!-- Populated dynamically -->
-                            </select>
+                            <label for="monthSelect">Risk map month</label>
+                            <div class="patrol-calendar-control">
+                                <button type="button" id="patrolPreviousMonth" class="patrol-calendar-step" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></button>
+                                <input id="monthSelect" class="form-control patrol-calendar-input" type="date" aria-label="Choose a date in the risk map month">
+                                <button type="button" id="patrolNextMonth" class="patrol-calendar-step" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                            <small>Uses active heatmap records from the selected month.</small>
                         </div>
                     </div>
 
@@ -155,23 +158,56 @@
                     </div>
                 </section>
 
-                <!-- Recommendations Grid -->
-                <div class="patrol-recommendations">
-                    <div class="section-header">
-                        <h3><i class="fa-solid fa-flag"></i> Active Priority Recommendations</h3>
+                <!-- Suggested and saved patrols share one planning table. -->
+                <div class="patrol-table-card patrol-planning-table">
+                    <div class="table-header">
+                        <div>
+                            <h3><i class="fa-solid fa-list-check"></i> Patrol Schedules</h3>
+                            <p class="table-header-help">Suggested rows come from the selected month’s risk analysis; saved rows are confirmed deployments.</p>
+                        </div>
+                        <div class="schedule-header-tools">
+                            <label class="sr-only" for="scheduleSearch">Search schedules</label>
+                            <input id="scheduleSearch" class="form-control patrol-table-search" type="search" maxlength="100" placeholder="Search suggestions and schedules">
+                            <label for="scheduleStatusFilter" class="schedule-filter-label">Status</label>
+                            <select id="scheduleStatusFilter" class="form-select schedule-status-filter">
+                                <option value="">All</option>
+                                <option value="Suggested">Suggested</option>
+                                <option value="Active">Active</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                            <button type="button" id="newScheduleBtn" class="btn btn-primary admin-action"><i class="fa-solid fa-plus"></i> New schedule</button>
+                            <span class="badge-subtle" id="scheduleCount">0 schedules</span>
+                        </div>
                     </div>
-                    <label for="patrolRecommendationSearch" style="display:block;margin:12px 0">Search recommendations <input id="patrolRecommendationSearch" type="search" placeholder="Filter by street, priority, reason or keyword" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px"></label><div id="patrolSearchCount" role="status" aria-live="polite" style="margin-bottom:8px;color:#64748b;font-size:0.85rem"></div><div class="recommendations-listbox" id="recommendationsContainer" role="listbox" aria-label="Active priority recommendations" aria-orientation="vertical">
-                        <!-- Injected by JavaScript -->
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Location</th>
+                                    <th>Date / Day</th>
+                                    <th>Time</th>
+                                    <th>Team</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <ul class="pagination-controls" id="schedulePaginationControls"></ul>
                     </div>
                 </div>
 
-                <!-- Add Schedule Form -->
-                <div class="patrol-form-card" id="scheduleFormCard">
+                <!-- Add/Edit Schedule Form -->
+                <div class="patrol-form-card" id="scheduleFormCard" hidden>
                     <div class="schedule-form-inner">
                     <div class="form-header">
                         <div>
                             <h3 id="scheduleFormTitle"><i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule</h3>
-                            <p>Create a new patrol schedule for deployment.</p>
+                            <p>Build a deployment from an active heatmap record and assign its patrol team.</p>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <span class="badge-subtle admin-badge">Admin Only</span>
@@ -184,47 +220,39 @@
                     <form id="scheduleForm">
                         <input type="hidden" id="editScheduleId">
                         <input type="hidden" id="scheduleRecordId">
-                        <p id="scheduleRecordSummary" role="status"></p>
+                        <div class="form-group">
+                            <label for="scheduleRecordSelect">Active heatmap record <span class="req">*</span></label>
+                            <select id="scheduleRecordSelect" class="form-select" required>
+                                <option value="">Choose an active risk-map record</option>
+                            </select>
+                            <small id="scheduleSourceHelp">Only unresolved, geocoded, patrol-eligible records currently available to the heatmap can be scheduled.</small>
+                        </div>
+                        <p id="scheduleRecordSummary" class="schedule-record-summary" role="status"></p>
                         <div class="form-grid-2">
                             <div class="form-group"><label for="scheduleDate">Recommended patrol date</label><input type="date" id="scheduleDate" class="form-control"></div>
-                            <div class="form-group"><label for="schedulePriority">CART priority</label><select id="schedulePriority" class="form-select"><option>Low</option><option>Moderate</option><option>High</option></select></div>
+                            <div class="form-group"><label for="schedulePriority">Risk level</label><select id="schedulePriority" class="form-select" disabled><option>Low</option><option>Moderate</option><option>High</option></select></div>
                         </div>
-                        <div class="form-group"><label for="scheduleExactAddress">Exact patrol address</label><input id="scheduleExactAddress" class="form-control" maxlength="255"></div>
-                        <div class="form-group"><label for="scheduleTanods">Assign tanods (select one or more)</label><select multiple id="scheduleTanods" class="form-select" size="4"></select></div>
-                        <div class="form-group"><label for="newTanodName">Add tanod to roster</label><div style="display:flex;gap:8px"><input id="newTanodName" class="form-control" maxlength="100" placeholder="Full name"><button type="button" id="addTanodBtn" class="btn btn-secondary">Add</button></div></div>
-                        <label id="manualPatrolLabel" hidden><input type="checkbox" id="scheduleManualPatrol"> Manual patrol override for this record</label>
-
-                        <div class="form-group">
-                            <label for="scheduleLocation">Location</label>
-                            <select id="scheduleLocation" class="form-select" required>
-                                <option value="">Select Location</option>
-                            </select>
+                        <div class="form-grid-2">
+                            <div class="form-group"><label for="scheduleLocation">Heatmap location</label><input id="scheduleLocation" class="form-control" readonly required></div>
+                            <div class="form-group"><label for="scheduleExactAddress">Patrol address</label><input id="scheduleExactAddress" class="form-control" maxlength="255" readonly></div>
                         </div>
 
-                        <div class="form-group" id="scheduleLocationIncidentsGroup" style="display: none;">
-                            <label>Incidents Reported At This Location</label>
-                            <div id="scheduleLocationIncidents"></div>
-                        </div>
+                        <input type="hidden" id="scheduleLat">
+                        <input type="hidden" id="scheduleLng">
 
-                        <div class="form-group">
-                            <label>Map Pin (optional)</label>
-                            <div id="scheduleMapPicker" style="height: 220px; width: 100%; border-radius: 8px; border: 1px solid #94a3b8; cursor: pointer;"></div>
-                            <input type="hidden" id="scheduleLat">
-                            <input type="hidden" id="scheduleLng">
-                            <small id="scheduleMapPrompt" style="color: #64748b; margin-top: 4px; display: block;">Click the map to pin this location — incidents reported here will inherit this exact point on the risk map.</small>
+                        <div class="deployment-team-card">
+                            <div class="deployment-team-heading">
+                                <div><strong>Deployment team</strong><span>Name the unit and select the members assigned to this patrol.</span></div>
+                                <i class="fa-solid fa-people-group" aria-hidden="true"></i>
+                            </div>
+                            <div class="form-group"><label for="scheduleTeamName">Team name <span class="req">*</span></label><input id="scheduleTeamName" class="form-control" maxlength="100" placeholder="e.g. Night Patrol Team A" required></div>
+                            <div class="form-group"><label for="scheduleTanods">Team members <span class="req">*</span></label><select multiple id="scheduleTanods" class="form-select" size="4" required></select><small>Select one or more active roster members.</small></div>
+                            <div class="form-group"><label for="newTanodName">Add a member to the roster</label><div class="member-add-row"><input id="newTanodName" class="form-control" maxlength="100" placeholder="Full name"><button type="button" id="addTanodBtn" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add member</button></div></div>
                         </div>
 
                         <div class="form-group">
-                            <label for="scheduleDay">Day of Week</label>
-                            <select id="scheduleDay" class="form-select" required>
-                                <option value="Monday">Monday</option>
-                                <option value="Tuesday">Tuesday</option>
-                                <option value="Wednesday">Wednesday</option>
-                                <option value="Thursday">Thursday</option>
-                                <option value="Friday">Friday</option>
-                                <option value="Saturday">Saturday</option>
-                                <option value="Sunday">Sunday</option>
-                            </select>
+                            <label for="scheduleDay">Day of week</label>
+                            <input id="scheduleDay" class="form-control" readonly required>
                         </div>
 
                         <div class="form-grid-2">
@@ -263,50 +291,9 @@
             </div>
 
             <!-- =====================================================
-                 TAB 2: PATROL SCHEDULES & LOGS
+                 TAB 2: PATROL LOGS
             ====================================================== -->
             <div id="tab-schedule-list" class="patrol-tab-content">
-
-                <!-- Schedules Table -->
-                <div class="patrol-table-card">
-                    <div class="table-header">
-                        <h3><i class="fa-solid fa-list"></i> Patrol Schedules</h3>
-                        <div class="schedule-header-tools">
-                            <label class="sr-only" for="scheduleSearch">Search schedules</label>
-                            <input id="scheduleSearch" class="form-control patrol-table-search" type="search" maxlength="100" placeholder="Search schedules">
-                            <label for="scheduleStatusFilter" class="schedule-filter-label">Status</label>
-                            <select id="scheduleStatusFilter" class="form-select schedule-status-filter">
-                                <option value="">All</option>
-                                <option value="Active">Active</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
-                            <span class="badge-subtle" id="scheduleCount">0 schedules</span>
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Location</th>
-                                    <th>Day</th>
-                                    <th>Time</th>
-                                    <th>Incident Types</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="scheduleTableBody">
-                                <!-- Injected by JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="pagination-bar">
-                        <ul class="pagination-controls" id="schedulePaginationControls"></ul>
-                    </div>
-                </div>
-
                 <!-- Add Log Form -->
                 <div class="patrol-form-card" id="logFormCard" style="margin-top: 24px;">
                     <div class="form-header">
@@ -872,6 +859,5 @@
         });
     </script>
 
-<script src="patrol-search.js"></script>
 </body>
 </html>

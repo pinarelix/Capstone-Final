@@ -99,10 +99,9 @@
         }
     </style>
 <link rel="stylesheet" href="sidebar-drag.css">
-<link rel="stylesheet" href="mediation-tasks.css">
 </head>
 
-<body class="dashboard-page">
+<body class="dashboard-page workspace-page">
 
 <!-- =========================================================
      LOGOUT CONFIRMATION MODAL
@@ -312,79 +311,6 @@
             </div>
 
         </header>
-
-        <section class="today-task-widget" aria-label="Blotter mediation tasks">
-            <div class="mediation-widget-head">
-                <div>
-                    <h2>Today's Assigned Blotter Mediation</h2>
-                    <p>Highest priority first, then earliest appointment.</p>
-                </div>
-                <button type="button" id="openMediationAssign" class="mediation-schedule-button" hidden>
-                    <i class="fa-solid fa-calendar-plus"></i> Schedule mediation
-                </button>
-            </div>
-            <div id="mediationTaskList" aria-live="polite">Loading tasks…</div>
-        </section>
-
-        <dialog id="mediationAssignDialog">
-            <form id="dashboardMediationAssignForm">
-                <div class="mediation-dialog-head">
-                    <div>
-                        <h3>Schedule blotter mediation</h3>
-                        <p>Assign an active blotter record to a Kagawad.</p>
-                    </div>
-                    <button type="button" id="closeMediationAssign" aria-label="Close mediation scheduler">&times;</button>
-                </div>
-                <label>Find blotter record
-                    <input type="search" id="mediationBlotterSearch" maxlength="100" placeholder="Search ID, type, location or description">
-                </label>
-                <label>Blotter record
-                    <select name="incident_id" id="mediationBlotterSelect" required><option value="">Choose a blotter record</option></select>
-                </label>
-                <label>Assign to Kagawad
-                    <select name="assigned_user_id" id="mediationKagawadSelect" required><option value="">Choose a Kagawad</option></select>
-                </label>
-                <label>Mediation date and time
-                    <input name="scheduled_at" id="mediationAssignDate" type="datetime-local" required>
-                </label>
-                <div class="task-actions">
-                    <button type="button" id="cancelMediationAssign">Cancel</button>
-                    <button type="submit">Schedule mediation</button>
-                </div>
-                <p id="mediationAssignDashboardMessage" role="status"></p>
-            </form>
-        </dialog>
-
-        <dialog id="mediationTaskDialog">
-            <form id="mediationTaskForm">
-                <h3>Update mediation task</h3>
-                <p id="mediationTaskHeading"></p>
-                <label>
-                    Status
-                    <select id="mediationTaskStatus">
-                        <option>Pending</option>
-                        <option>In Progress</option>
-                        <option>Canceled</option>
-                        <option>Rescheduled</option>
-                    </select>
-                </label>
-                <label id="mediationNewDateWrap" hidden>
-                    New date and time
-                    <input type="datetime-local" id="mediationNewDate">
-                </label>
-                <label>
-                    Note
-                    <textarea id="mediationTaskNote" maxlength="4000" rows="3" placeholder="Add a note to the task history"></textarea>
-                </label>
-                <h4>History</h4>
-                <div id="mediationTaskHistory"></div>
-                <div class="task-actions">
-                    <button type="button" id="mediationClose">Close</button>
-                    <button type="submit">Save update</button>
-                </div>
-                <p id="mediationTaskError" role="alert"></p>
-            </form>
-        </dialog>
 
         <!-- =====================================================
              TABS: Overview / Analytics
@@ -946,8 +872,6 @@
 ============================================================ -->
 <script src="apiHelper.js"></script>
 <script src="dashboard.js"></script>
-<script src="mediation-tasks.js"></script>
-
 <script>
     // Admin-only sidebar links are hidden via dashboard.js calling
     // apiHelper.js's applyRoleBasedUI() (adds a role-* class to <body>

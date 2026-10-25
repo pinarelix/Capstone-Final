@@ -224,11 +224,11 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
     }
 
     async function saveScheduleExtras(db, id, body, userId) {
-        if (['incident_id', 'scheduled_date', 'priority', 'exact_address'].some(key => body[key] !== undefined)) {
-            await db.query(`INSERT INTO patrol_schedule_records (schedule_id, incident_id, scheduled_date, priority, exact_address)
-                VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE incident_id=VALUES(incident_id), scheduled_date=VALUES(scheduled_date),
-                priority=VALUES(priority), exact_address=VALUES(exact_address)`,
-            [id, body.incident_id || null, body.scheduled_date || null, body.priority || 'Low', body.exact_address || '']);
+        if (['incident_id', 'scheduled_date', 'priority', 'exact_address', 'team_name'].some(key => body[key] !== undefined)) {
+            await db.query(`INSERT INTO patrol_schedule_records (schedule_id, incident_id, scheduled_date, priority, exact_address, team_name)
+                VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE incident_id=VALUES(incident_id), scheduled_date=VALUES(scheduled_date),
+                priority=VALUES(priority), exact_address=VALUES(exact_address), team_name=VALUES(team_name)`,
+            [id, body.incident_id || null, body.scheduled_date || null, body.priority || 'Low', body.exact_address || '', body.team_name || '']);
         }
         if (body.tanod_ids !== undefined) {
             await db.query('DELETE FROM patrol_schedule_tanods WHERE schedule_id = ?', [id]);

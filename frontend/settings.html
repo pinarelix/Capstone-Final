@@ -549,6 +549,28 @@
         .audit-badge.export { background: #ede9fe; color: #6d28d9; }
         .audit-badge.default { background: #e2e8f0; color: #475569; }
 
+        /* Desktop workspace: each tab is a bounded panel. Tables and dense
+           settings cards scroll internally; the application shell stays put. */
+        @media (min-width: 1366px) and (min-height: 700px) {
+            body.settings-page .main-content { padding: 14px 20px; gap: 10px; }
+            body.settings-page .top-header { padding-bottom: 2px; }
+            body.settings-page .tab-navigation { margin: 0; }
+            body.settings-page .tab-content.active { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+            body.settings-page .tab-content.active > .settings-grid { height: 100%; min-height: 0; gap: 10px; }
+            body.settings-page #tab-system-details.active > .settings-grid { grid-template-rows: repeat(2,minmax(0,1fr)); }
+            body.settings-page .settings-card { min-height: 0; padding: 14px; overflow: auto; overscroll-behavior: contain; }
+            body.settings-page .settings-card .card-header { margin-bottom: 10px; }
+            body.settings-page .settings-card .card-header > div:last-child { min-width: 0; }
+            body.settings-page .settings-card .card-header p { margin: 2px 0 0; overflow-wrap: anywhere; }
+            body.settings-page .status-item { display: grid; grid-template-columns: minmax(0,1fr) minmax(96px,auto); gap: 10px; }
+            body.settings-page .status-dot { max-width: 100%; }
+            body.settings-page #tab-audit-trail.active .settings-card,
+            body.settings-page #tab-archive.active .settings-card { display: flex; flex-direction: column; overflow: hidden; }
+            body.settings-page .audit-filter-bar { flex: 0 0 auto; }
+            body.settings-page .audit-log-container { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+            body.settings-page .settings-table-pagination { flex: 0 0 auto; }
+        }
+
         /* Responsive */
         @media (max-width: 1200px) {
             .settings-grid { grid-template-columns: repeat(2, 1fr); }
@@ -570,7 +592,7 @@
 <link rel="stylesheet" href="sidebar-drag.css">
 </head>
 
-<body>
+<body class="settings-page workspace-page">
 
 <div class="app-container">
 
@@ -1680,10 +1702,10 @@ async function loadLoginHistory() {
             }
 
             try {
-                const userResponse = await apiFetch('/users');
+                const userResponse = await apiFetch('/users?page=1&limit=1');
                 if (userResponse.ok) {
-                    const users = await userResponse.json();
-                    document.getElementById('totalUsers').textContent = users.length;
+                    await userResponse.json();
+                    document.getElementById('totalUsers').textContent = userResponse.headers.get('X-Total-Count') || '0';
                 } else {
                     document.getElementById('totalUsers').textContent = 'Error';
                 }

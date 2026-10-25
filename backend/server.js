@@ -532,6 +532,7 @@ const scheduleSchema = Joi.object({
     scheduled_date: dateOnlySchema.allow(null, ''),
     priority: Joi.string().valid('High', 'Moderate', 'Low'),
     exact_address: Joi.string().max(255).allow(''),
+    team_name: Joi.string().trim().max(100).allow(''),
     tanod_ids: Joi.array().items(Joi.number().integer().positive()).unique().max(30),
     manual_patrol: Joi.boolean(),
     location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),

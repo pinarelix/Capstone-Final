@@ -2062,6 +2062,21 @@ body.role-desk-officer .admin-section {
 /* Compact desktop workspace: page-level scrolling is replaced with
    bounded content regions so operational controls remain visible. */
 @media (min-width: 1366px) and (min-height: 700px) {
+    body.workspace-page .main-content {
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    body.workspace-page .top-header,
+    body.workspace-page .tab-navigation {
+        flex: 0 0 auto;
+    }
+
+    body.workspace-page .tab-content.active {
+        min-height: 0;
+    }
+
     .main-content {
         padding: 16px 20px;
         gap: 12px;

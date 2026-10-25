@@ -78,6 +78,24 @@ describe('Record map UI contract', () => {
         }
     });
 
+    test('desktop workspaces use bounded page shells and patrol suggestions share the schedules table', () => {
+        const pages = ['dashboard.html','incident.html','incident-view.html','grid-heatmap.html','patrol.html','report.html','users.html','settings.html'];
+        for (const filename of pages) {
+            const html = fs.readFileSync(path.join(__dirname, '../../frontend', filename), 'utf8');
+            expect(html).toMatch(/<body[^>]*class="[^"]*workspace-page/);
+        }
+        const patrol = fs.readFileSync(path.join(__dirname, '../../frontend/patrol.html'), 'utf8');
+        expect(patrol).toContain('Patrol Planning');
+        expect(patrol).toContain('<option value="Suggested">Suggested</option>');
+        expect(patrol).not.toContain('Active Priority Recommendations');
+        expect(patrol).not.toContain('id="recommendationsContainer"');
+        expect(patrol).not.toContain('patrol-search.js');
+
+        const heatmap = fs.readFileSync(path.join(__dirname, '../../frontend/grid-heatmap.html'), 'utf8');
+        expect(heatmap).toMatch(/id="heatmapPeriod"[^>]+type="date"/);
+        expect(heatmap).not.toContain('heatmapCalendarPopover');
+    });
+
     test('record data remains available before basemap tiles finish loading', async () => {
         const { context,element } = harness();
         context.initializeMap(); // No style/tiles completion event yet.
@@ -89,7 +107,7 @@ describe('Record map UI contract', () => {
     test('period filters are sent to the server instead of loading a record window', async () => {
         const {context,element} = harness();
         element('heatmapGranularity').value = 'month';
-        element('heatmapPeriod').value = '2026-10';
+        element('heatmapPeriod').value = '2026-10-15';
         await context.loadRealData();
         const requested = String(context.apiFetch.mock.calls[0][0]);
         expect(requested).toContain('granularity=month');

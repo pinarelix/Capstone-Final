@@ -381,8 +381,36 @@
 .users-pagination > div { display: flex; gap: 8px; }
 
 @media (min-width: 1366px) and (min-height: 700px) {
-    .users-card .table-responsive {
-        max-height: 286px;
+    body.users-page .main-content { padding: 14px 20px; gap: 10px; }
+    body.users-page .top-header { padding-bottom: 2px; }
+    body.users-page .management-grid {
+        flex: 0 0 250px;
+        min-height: 0;
+        gap: 12px;
+    }
+    body.users-page .management-grid > .card {
+        min-height: 0;
+        height: 250px;
+        padding: 14px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+    body.users-page .management-grid .card-title-bar { margin-bottom: 12px; }
+    body.users-page .management-grid .form-group { margin-bottom: 12px; }
+    body.users-page .management-grid .form-input,
+    body.users-page .management-grid .form-select-full { height: 38px; }
+    body.users-page .users-card {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 14px;
+    }
+    body.users-page .users-card .card-title-bar { flex: 0 0 auto; margin-bottom: 10px; }
+    body.users-page .users-card .table-responsive {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
         overflow: auto;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
@@ -394,6 +422,9 @@
         z-index: 2;
         background: #f8fafc;
     }
+
+    body.users-page .security-notice { flex: 0 0 auto; padding: 9px 14px; }
+    body.users-page .security-notice p { margin: 2px 0 0; }
 }
 
 /* ============================================================
