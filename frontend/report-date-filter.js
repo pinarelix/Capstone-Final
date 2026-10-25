@@ -21,17 +21,21 @@
         };
     }
 
-    function dateWithinBounds(value, bounds) {
-        return DATE_PATTERN.test(String(value || '')) &&
-            value >= bounds.firstDay && value <= bounds.lastDay;
+    function validDate(value) {
+        if (!DATE_PATTERN.test(String(value || ''))) return false;
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        return date.getUTCFullYear() === year &&
+            date.getUTCMonth() === month - 1 &&
+            date.getUTCDate() === day;
     }
 
     function normalizeRange(monthKey, dateFrom = '', dateTo = '', changedField = '') {
         const bounds = monthBounds(monthKey);
         if (!bounds) return { firstDay: '', lastDay: '', dateFrom: '', dateTo: '' };
 
-        let normalizedFrom = dateWithinBounds(dateFrom, bounds) ? dateFrom : '';
-        let normalizedTo = dateWithinBounds(dateTo, bounds) ? dateTo : '';
+        let normalizedFrom = validDate(dateFrom) ? dateFrom : '';
+        let normalizedTo = validDate(dateTo) ? dateTo : '';
 
         // A single selected date means an exact-day filter. The user can
         // subsequently change the other endpoint to expand it into a range.
@@ -49,9 +53,10 @@
 
     function effectiveRange(monthKey, dateFrom = '', dateTo = '') {
         const range = normalizeRange(monthKey, dateFrom, dateTo);
+        const hasExplicitRange = Boolean(range.dateFrom || range.dateTo);
         return {
-            dateFrom: range.dateFrom || range.firstDay,
-            dateTo: range.dateTo || range.lastDay
+            dateFrom: hasExplicitRange ? range.dateFrom : range.firstDay,
+            dateTo: hasExplicitRange ? range.dateTo : range.lastDay
         };
     }
 

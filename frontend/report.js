@@ -53,8 +53,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const exportCsvBtn = document.getElementById("exportCsvBtn");
     const viewPatrolBtn = document.getElementById("viewPatrolBtn");
 
-    // Refine-within-the-month filters - all optional, combined with the
-    // month filter (and each other) as AND conditions.
+    // The month is the default report period. An explicit date selection
+    // overrides it and may span any month or year.
     const filterDateFrom = document.getElementById("filterDateFrom");
     const reportSearch = document.getElementById("reportSearch");
     const filterDateTo = document.getElementById("filterDateTo");
@@ -73,10 +73,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             changedField
         );
 
-        filterDateFrom.min = range.firstDay;
-        filterDateFrom.max = range.lastDay;
-        filterDateTo.min = range.firstDay;
-        filterDateTo.max = range.lastDay;
+        filterDateFrom.removeAttribute('min');
+        filterDateFrom.removeAttribute('max');
+        filterDateTo.removeAttribute('min');
+        filterDateTo.removeAttribute('max');
         filterDateFrom.value = range.dateFrom;
         filterDateTo.value = range.dateTo;
     }
@@ -407,8 +407,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // Applies the month filter plus every optional refine-within-month
-    // filter (date range, status, type, location) as AND conditions.
+    // Applies either the explicit date range or the default month, plus
+    // every other optional filter as AND conditions.
     // Shared by the table, CSV export, and the Patrol Recommendation
     // modal so all three always agree on what's "in view".
     function applyFilters(monthKey, allData) {
@@ -420,9 +420,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const type = filterType?.value || '';
         const formType = filterFormType?.value || '';
         const location = filterLocation?.value || '';
+        const hasExplicitDateRange = Boolean(dateFrom || dateTo);
 
         return allData.filter(item => {
-            if (!item.date || !item.date.startsWith(monthKey)) return false;
+            if (!item.date || (!hasExplicitDateRange && !item.date.startsWith(monthKey))) return false;
             if (dateFrom && item.date < dateFrom) return false;
             if (dateTo && item.date > dateTo) return false;
 
@@ -489,9 +490,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         const filteredIncidents = applyFilters(monthKey, allData);
 
         if (monthBadge) {
-            const [year, month] = monthKey.split('-');
-            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            monthBadge.textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
+            const dateFrom = filterDateFrom?.value || '';
+            const dateTo = filterDateTo?.value || '';
+            if (dateFrom && dateTo) {
+                monthBadge.textContent = dateFrom === dateTo ? dateFrom : `${dateFrom} to ${dateTo}`;
+            } else {
+                const [year, month] = monthKey.split('-');
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                monthBadge.textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
+            }
         }
 
         if (tableBody) {
@@ -691,6 +698,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     if (monthSelect) {
         monthSelect.addEventListener("change", (e) => {
+            if (filterDateFrom) filterDateFrom.value = '';
+            if (filterDateTo) filterDateTo.value = '';
             syncReportDateInputs();
             reportPage=1;loadIncidents();
         });
