@@ -61,8 +61,7 @@ process.on('setup-config-changed', () => {
 let serverPort = 3000;
 
 // ── Window creation ─────────────────────────────────────────────────
-// Always opens setup.html first (the mandatory connection gate).
-// setup.js navigates to login.html once a live DB connection is confirmed.
+// Opens login.html directly on launch.
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -85,14 +84,7 @@ function createWindow() {
         mainWindow.show();
     });
 
-    // ── Mandatory gate: always land on the setup wizard first ────────
-    // The wizard auto-tests the saved config. If it passes, the user
-    // clicks "Connect & Continue" (one click) and setup.js navigates
-    // to login.html. On first run or a broken connection they stay in
-    // the wizard until they fix it.
-    mainWindow.loadURL(
-        `http://localhost:${serverPort}/setup.html?boot_token=${encodeURIComponent(setupBootToken)}`
-    );
+    mainWindow.loadURL(`http://localhost:${serverPort}/login.html`);
 }
 
 Menu.setApplicationMenu(null);
