@@ -41,9 +41,7 @@ function validCoordinates(row) {
 function patrolDecision(row, { level3 = 67 } = {}, nearbyCount = 1) {
     const inactive = Number(row.is_draft) === 1 || String(row.status).trim() === 'Resolved';
     if (inactive || !validCoordinates(row)) return { eligible: false, policy_class: 'INACTIVE', reason: 'Inactive record or missing location' };
-    if (row.patrol_override === 'exclude') return { eligible: false, policy_class: 'MANUAL', reason: 'Marked no patrol required' };
-    if (row.patrol_override === 'include') return { eligible: true, policy_class: 'MANUAL', reason: 'Executive Officer manual inclusion' };
-    const high = Number.isFinite(Number(row.cart_score)) && row.cart_score != null && Number(row.cart_score) >= level3;
+    const high = row.severity === 'High' || (Number.isFinite(Number(row.cart_score)) && row.cart_score != null && Number(row.cart_score) >= level3);
     if (TIER_1.has(row.incident_type)) return { eligible: true, policy_class: 'TIER_1', reason: 'Location-based patrol type' };
     if (TIER_2.has(row.incident_type)) return {
         eligible: high || nearbyCount >= 2,

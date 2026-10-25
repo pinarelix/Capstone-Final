@@ -407,7 +407,7 @@ async function testConnection() {
 // Incident Schema
 const incidentSchema = Joi.object({
     patrol_notes: notesSchema,
-    patrol_override: overrideSchema,
+    patrol_override: Joi.any().strip(),
     incident_type: Joi.string().max(150).required(),
     date: Joi.date().required(),
     time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
@@ -481,16 +481,23 @@ const reportExportSchema = Joi.object({
     recordCount: Joi.number().integer().min(0).allow(null)
 });
 
+const PASSWORD_POLICY_MESSAGE = 'Must be at least 8 characters with at least one uppercase, one lowercase, one number and one special character.';
+const strongPasswordSchema = Joi.string().min(8).max(128)
+    .pattern(/[A-Z]/).pattern(/[a-z]/).pattern(/[0-9]/).pattern(/[^A-Za-z0-9]/)
+    .messages({
+        'string.base': PASSWORD_POLICY_MESSAGE,
+        'string.empty': PASSWORD_POLICY_MESSAGE,
+        'string.min': PASSWORD_POLICY_MESSAGE,
+        'string.max': PASSWORD_POLICY_MESSAGE,
+        'string.pattern.base': PASSWORD_POLICY_MESSAGE,
+        'any.required': PASSWORD_POLICY_MESSAGE
+    });
+
 // User Schema
 const userSchema = Joi.object({
     name: Joi.string().max(100).pattern(/^[A-Za-z\s.\-']+$/).required().messages({ 'string.pattern.base': 'Name must contain only letters, spaces, dots, hyphens and apostrophes.' }),
     username: Joi.string().min(3).max(50).pattern(/^[A-Za-z._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, dots and underscores.' }),
-    password: Joi.string().min(8).max(128)
-        .pattern(/[A-Z]/, 'uppercase').message('Password must contain at least one uppercase letter.')
-        .pattern(/[a-z]/, 'lowercase').message('Password must contain at least one lowercase letter.')
-        .pattern(/[0-9]/, 'digit').message('Password must contain at least one number.')
-        .pattern(/[^A-Za-z0-9]/, 'special').message('Password must contain at least one special character.')
-        .required(),
+    password: strongPasswordSchema.required(),
     role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     contact_no: Joi.string().max(20).allow('', null),
     email: Joi.string().email({ tlds: false }).max(100).required()
@@ -512,18 +519,13 @@ const forgotPasswordSchema = Joi.object({
 
 const changePasswordSchema = Joi.object({
     current_password: Joi.string().max(128).required(),
-    new_password: Joi.string().min(8).max(128)
-        .pattern(/[A-Z]/, 'uppercase').message('New password must contain at least one uppercase letter.')
-        .pattern(/[a-z]/, 'lowercase').message('New password must contain at least one lowercase letter.')
-        .pattern(/[0-9]/, 'digit').message('New password must contain at least one number.')
-        .pattern(/[^A-Za-z0-9]/, 'special').message('New password must contain at least one special character.')
-        .required()
+    new_password: strongPasswordSchema.required()
 });
 
 const resetPasswordSchema = Joi.object({
     username: Joi.string().max(50).required(),
     reset_token: Joi.string().min(8).max(64).required(),
-    new_password: Joi.string().min(8).max(128).required()
+    new_password: strongPasswordSchema.required()
 });
 
 // Patrol Schedule Schema
@@ -534,7 +536,6 @@ const scheduleSchema = Joi.object({
     exact_address: Joi.string().max(255).allow(''),
     team_name: Joi.string().trim().max(100).allow(''),
     tanod_ids: Joi.array().items(Joi.number().integer().positive()).unique().max(30),
-    manual_patrol: Joi.boolean(),
     location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
     start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
@@ -542,7 +543,14 @@ const scheduleSchema = Joi.object({
     latitude: Joi.number().min(-90).max(90).allow(null),
     longitude: Joi.number().min(-180).max(180).allow(null),
     reason: Joi.string().max(1000).allow('', null),
-    status: Joi.string().valid('Active', 'Completed', 'Cancelled').default('Active')
+    status: Joi.string().valid('Active', 'Completed', 'Cancelled').default('Active'),
+    team_id: Joi.number().integer().positive().allow(null),
+    recurrence_type: Joi.string().valid('single', 'daily', 'weekly', 'custom').default('single'),
+    recurrence_interval: Joi.number().integer().min(1).max(30).default(1),
+    recurrence_days: Joi.array().items(Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')).max(7).unique().default([]),
+    recurrence_end_date: dateOnlySchema.allow(null, ''),
+    conflict_override: Joi.boolean().default(false),
+    override_justification: Joi.string().trim().max(500).allow('')
 });
 
 // Patrol Log Schema
@@ -2370,6 +2378,18 @@ app.get('/api/heatmap/street-analysis', authenticate, requireRole(['Executive Of
     res.status(410).json({ error: 'Street analysis has been retired. Use /api/heatmap/records for individual record locations and CART scores.' });
 });
 
+async function validatePinnedLocation(streetName, latitude, longitude) {
+    const [pins] = await pool.query('SELECT latitude, longitude FROM location_coordinates WHERE location = ?', [streetName]);
+    if (!pins.length) return { valid: false, reason: 'This street has not been pinned on the Risk Map yet.' };
+    const pin = pins[0];
+    // The saved street pin represents the valid street area, not one exact
+    // household. Keep a small barangay-scale envelope for house/lot detail
+    // while still rejecting coordinates outside the pinned street area.
+    const valid = Math.abs(Number(pin.latitude) - Number(latitude)) <= 0.01 &&
+        Math.abs(Number(pin.longitude) - Number(longitude)) <= 0.01;
+    return valid ? { valid: true } : { valid: false, reason: 'The incident location must match the saved street pin.' };
+}
+
 app.post('/api/incidents', authenticate, requireRole(['Executive Officer', 'Team Leader']), validate(incidentSchema), async (req, res) => {
     if (req.userRole !== 'Executive Officer' && (req.body.patrol_notes !== undefined || req.body.patrol_override !== undefined)) {
         return res.status(403).json({ error: 'Only the Executive Officer can edit patrol notes or eligibility' });
@@ -2391,6 +2411,9 @@ app.post('/api/incidents', authenticate, requireRole(['Executive Officer', 'Team
         const finalStreetName = street_name || null;
         const finalAddress = address || null;
         const finalReporterId = req.userId || null;
+
+        const pin = await validatePinnedLocation(finalStreetName, latitude, longitude);
+        if (!pin.valid) return res.status(400).json({ error: 'A valid pinned location is required.', details: [pin.reason] });
 
         if (form_type === 'blotter' && !req.body.is_draft) {
             const missing = [];
@@ -2490,6 +2513,9 @@ app.put('/api/incidents/:id', authenticate, requireRole(['Executive Officer']), 
         const finalStreetName = street_name || null;
         const finalAddress = address || null;
         const finalReporterId = oldData[0]?.reporter_id ?? null;
+
+        const pin = await validatePinnedLocation(finalStreetName, latitude, longitude);
+        if (!pin.valid) return res.status(400).json({ error: 'A valid pinned location is required.', details: [pin.reason] });
 
         const timeOfDay = computeTimeOfDay(time);
         const dayOfWeek = getDayOfWeek(date);
@@ -3312,6 +3338,64 @@ app.patch('/api/me/mediation-tasks/:id', authenticate, async (req, res) => {
     }
 });
 
+function scheduleDateKey(date) {
+    return new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10);
+}
+function addScheduleDays(date, days) {
+    const result = new Date(`${date}T12:00:00Z`);
+    result.setUTCDate(result.getUTCDate() + days);
+    return result.toISOString().slice(0, 10);
+}
+function scheduleDayName(date) {
+    return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+}
+function scheduleOccurrences(body) {
+    const type = body.recurrence_type || 'single';
+    if (type === 'single') return [body.scheduled_date ? scheduleDateKey(body.scheduled_date) : null];
+    const start = scheduleDateKey(body.scheduled_date);
+    if (!body.recurrence_end_date) throw Object.assign(new Error('A recurrence end date is required.'), { statusCode: 400 });
+    const end = scheduleDateKey(body.recurrence_end_date);
+    if (end < start) throw Object.assign(new Error('Recurrence end date must be on or after the start date.'), { statusCode: 400 });
+    const days = new Set((body.recurrence_days || []).map(String));
+    const result = [];
+    for (let current = start; current <= end && result.length <= 366; current = addScheduleDays(current, 1)) {
+        const matches = type === 'daily'
+            ? Math.floor((new Date(`${current}T12:00:00Z`) - new Date(`${start}T12:00:00Z`)) / 86400000) % (body.recurrence_interval || 1) === 0
+            : type === 'weekly'
+                ? Math.floor((new Date(`${current}T12:00:00Z`) - new Date(`${start}T12:00:00Z`)) / 86400000 / 7) % (body.recurrence_interval || 1) === 0 && (!days.size || days.has(scheduleDayName(current)))
+                : days.has(scheduleDayName(current));
+        if (matches) result.push(current);
+    }
+    if (result.length > 366) throw Object.assign(new Error('Recurring schedules are limited to 366 occurrences.'), { statusCode: 400 });
+    return result;
+}
+async function scheduleConflictsOrNull(req, scheduleId = null) {
+    if (!req.body.scheduled_date || req.body.status === 'Cancelled') return [];
+    const conflicts = [];
+    for (const date of scheduleOccurrences(req.body)) {
+        conflicts.push(...await recordPatrol.getScheduleConflicts({
+            tanodIds: req.body.tanod_ids || [], scheduledDate: date,
+            startTime: req.body.start_time, endTime: req.body.end_time, excludeId: scheduleId
+        }));
+    }
+    return [...new Map(conflicts.map(item => [`${item.schedule_id}:${item.tanod_id}:${item.date}`, item])).values()];
+}
+
+app.get('/api/patrol-calendar', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
+    try {
+        const date = scheduleDateKey(req.query.date || new Date().toISOString().slice(0, 10));
+        const view = ['day', 'week', 'month'].includes(req.query.view) ? req.query.view : 'week';
+        const start = view === 'day' ? date : view === 'week' ? addScheduleDays(date, -new Date(`${date}T12:00:00Z`).getUTCDay() + 1) : `${date.slice(0, 7)}-01`;
+        const end = view === 'day' ? date : view === 'week' ? addScheduleDays(start, 6) : addScheduleDays(addScheduleDays(start, 32).slice(0, 8) + '01', -1);
+        const [rows] = await pool.query(`SELECT ps.*, pr.incident_id, pr.scheduled_date, pr.priority, pr.exact_address, pr.team_name,
+                i.blotter_number, i.form_type, i.street_name, i.address
+            FROM patrol_schedules ps LEFT JOIN patrol_schedule_records pr ON pr.schedule_id=ps.id
+            LEFT JOIN incidents i ON i.id=pr.incident_id
+            WHERE pr.scheduled_date BETWEEN ? AND ? ORDER BY pr.scheduled_date, ps.start_time, ps.id`, [start, end]);
+        res.json(await Promise.all(rows.map(async row => ({ ...row, ...await recordPatrol.scheduleExtras(row.id) }))));
+    } catch (error) { res.status(error.statusCode || 500).json({ error: error.message || 'Failed to load patrol calendar' }); }
+});
+
 app.get('/api/patrol-schedules', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const {limit,offset} = pagination(req.query,100);
@@ -3338,10 +3422,12 @@ app.get('/api/patrol-schedules/all', authenticate, requireRole(['Executive Offic
             params.push(term, term, term, term);
         }
         const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-        const joins = 'FROM patrol_schedules ps LEFT JOIN patrol_schedule_records pr ON pr.schedule_id = ps.id';
+        const joins = 'FROM patrol_schedules ps LEFT JOIN patrol_schedule_records pr ON pr.schedule_id = ps.id LEFT JOIN incidents i ON i.id = pr.incident_id';
         const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total ${joins} ${where}`,params);
         const [rows] = await pool.query(`
-            SELECT ps.* ${joins} ${where}
+            SELECT ps.*, pr.incident_id, pr.scheduled_date, pr.priority, pr.exact_address, pr.team_name,
+                   i.blotter_number, i.form_type, i.address, i.street_name
+                   ${joins} ${where}
             ORDER BY FIELD(ps.status,'Active','Completed','Cancelled'), ps.day_of_week, ps.start_time, ps.id LIMIT ? OFFSET ?
         `,[...params,limit,offset]);
         res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
@@ -3385,24 +3471,33 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Executive Officer'
     let conn;
     try {
         const { location, start_time, end_time, day_of_week, latitude, longitude, reason } = req.body;
+        if (req.body.conflict_override && (!req.body.override_justification || req.body.override_justification.trim().length < 10)) {
+            return res.status(400).json({ error: 'A conflict override justification of at least 10 characters is required.' });
+        }
+        const conflicts = await scheduleConflictsOrNull(req);
+        if (conflicts.length && !req.body.conflict_override) return res.status(409).json({ error: 'Tanod schedule conflict', conflicts });
+        const occurrenceDates = scheduleOccurrences(req.body);
 
         conn = await pool.getConnection();
         await conn.beginTransaction();
-        const [result] = await conn.query(`
-            INSERT INTO patrol_schedules
-            (location, start_time, end_time, day_of_week, latitude, longitude, reason)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
-            location, start_time, end_time, day_of_week,
-            latitude ?? null, longitude ?? null, reason || null
-        ]);
-
-        await recordPatrol.saveScheduleExtras(conn, result.insertId, req.body, req.userId);
+        let seriesId = null;
+        if ((req.body.recurrence_type || 'single') !== 'single') {
+            const [series] = await conn.query(`INSERT INTO patrol_schedule_series
+                (recurrence_type, recurrence_interval, recurrence_days, starts_on, ends_on, created_by)
+                VALUES (?, ?, ?, ?, ?, ?)`, [req.body.recurrence_type, req.body.recurrence_interval || 1,
+                JSON.stringify(req.body.recurrence_days || []), occurrenceDates[0], req.body.recurrence_end_date || null, req.userId]);
+            seriesId = series.insertId;
+        }
+        const created = [];
+        for (const occurrenceDate of occurrenceDates) {
+            const [result] = await conn.query(`INSERT INTO patrol_schedules
+                (location, start_time, end_time, day_of_week, latitude, longitude, reason, series_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [location, start_time, end_time, occurrenceDate ? scheduleDayName(occurrenceDate) : day_of_week, latitude ?? null, longitude ?? null, reason || null, seriesId]);
+            await recordPatrol.saveScheduleExtras(conn, result.insertId, { ...req.body, scheduled_date: occurrenceDate, day_of_week: occurrenceDate ? scheduleDayName(occurrenceDate) : req.body.day_of_week }, req.userId);
+            created.push(result.insertId);
+        }
         await conn.commit();
-        const [newSchedule] = await pool.query(
-            'SELECT * FROM patrol_schedules WHERE id = ?',
-            [result.insertId]
-        );
+        const [newSchedule] = await pool.query('SELECT * FROM patrol_schedules WHERE id IN (?) ORDER BY id', [created]);
 
         const userId = req.userId;
 
@@ -3411,20 +3506,22 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Executive Officer'
                 userId,
                 'CREATE_SCHEDULE',
                 'patrol_schedules',
-                result.insertId,
+                created[0],
                 null,
                 { location, day_of_week, start_time, end_time },
                 req
             );
         }
+        if (conflicts.length) await logAudit(req.userId, 'OVERRIDE_PATROL_CONFLICT', 'patrol_schedules', created[0], null, { conflicts, justification: req.body.override_justification }, req);
 
         res.status(201).json({
             message: 'Patrol schedule created successfully',
-            schedule: { ...newSchedule[0], ...await recordPatrol.scheduleExtras(result.insertId) }
+            schedule: { ...newSchedule[0], ...await recordPatrol.scheduleExtras(created[0]) },
+            occurrence_ids: created
         });
     } catch (error) {
         if (conn) await conn.rollback();
-        res.status(500).json({ error: 'Failed to create schedule' });
+        res.status(error.statusCode || 500).json({ error: error.message || 'Failed to create schedule' });
     } finally { if (conn) conn.release(); }
 });
 
@@ -3433,6 +3530,12 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Executive Offic
     try {
         const { location, start_time, end_time, day_of_week, latitude, longitude, reason, status } = req.body;
         const id = req.params.id;
+
+        if (req.body.conflict_override && (!req.body.override_justification || req.body.override_justification.trim().length < 10)) {
+            return res.status(400).json({ error: 'A conflict override justification of at least 10 characters is required.' });
+        }
+        const conflicts = await scheduleConflictsOrNull(req, id);
+        if (conflicts.length && !req.body.conflict_override) return res.status(409).json({ error: 'Tanod schedule conflict', conflicts });
 
         const [oldData] = await pool.query('SELECT * FROM patrol_schedules WHERE id = ?', [id]);
 
@@ -3479,6 +3582,7 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Executive Offic
                 req
             );
         }
+        if (conflicts.length) await logAudit(req.userId, 'OVERRIDE_PATROL_CONFLICT', 'patrol_schedules', id, oldData[0], { conflicts, justification: req.body.override_justification }, req);
 
         res.json({
             message: 'Patrol schedule updated successfully',

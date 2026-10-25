@@ -301,6 +301,67 @@
 
             </section>
 
+            <!-- PATROL TEAM MANAGEMENT -->
+            <section class="patrol-team-management">
+                <div class="card patrol-team-form-card">
+                    <div class="card-title-bar">
+                        <div>
+                            <h2>Form a Patrol Team</h2>
+                            <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Create a reusable team for future patrol scheduling.</p>
+                        </div>
+                        <span class="section-label">Executive Officer Only</span>
+                    </div>
+                    <form id="patrolTeamForm" autocomplete="off">
+                        <input type="hidden" id="patrolTeamId">
+                        <div class="form-group">
+                            <label for="patrolTeamName">Team name <span style="color: #ef4444;">*</span></label>
+                            <input type="text" id="patrolTeamName" class="form-input" placeholder="e.g. Night Watch Team A" required maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="patrolTeamLeader">Team leader <span style="color: #ef4444;">*</span></label>
+                            <select id="patrolTeamLeader" class="form-select-full" required>
+                                <option value="">Select a Team Leader account</option>
+                            </select>
+                            <small class="field-hint">Each team can have one Team Leader.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="patrolTeamTanods">Tanods</label>
+                            <select id="patrolTeamTanods" class="form-select-full" multiple size="5"></select>
+                            <small class="field-hint">Hold Ctrl or Command to select more than one Tanod.</small>
+                        </div>
+                        <label class="field-check"><input type="checkbox" id="patrolTeamActive" checked> Active team</label>
+                        <div class="patrol-team-form-actions">
+                            <button type="submit" class="btn btn-add" id="patrolTeamSubmitBtn"><i class="fa-solid fa-people-group"></i> Save Patrol Team</button>
+                            <button type="button" class="btn btn-secondary" id="patrolTeamCancelBtn" hidden>Cancel edit</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card tanod-form-card">
+                    <div class="card-title-bar">
+                        <div>
+                            <h2>Add a Tanod</h2>
+                            <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Save basic personal and contact information for team assignment.</p>
+                        </div>
+                    </div>
+                    <form id="tanodForm" autocomplete="off">
+                        <div class="form-group"><label for="tanodName">Full name <span style="color: #ef4444;">*</span></label><input id="tanodName" class="form-input" required maxlength="100" placeholder="Full name"></div>
+                        <div class="form-group"><label for="tanodContact">Contact number</label><input id="tanodContact" class="form-input" maxlength="30" placeholder="09XX XXX XXXX"></div>
+                        <div class="form-group"><label for="tanodAddress">Home address</label><input id="tanodAddress" class="form-input" maxlength="255" placeholder="House no., street, barangay"></div>
+                        <div class="form-group"><label for="tanodBirthDate">Birth date</label><input id="tanodBirthDate" class="form-input" type="date"></div>
+                        <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add Tanod to roster</button>
+                    </form>
+                </div>
+            </section>
+
+            <section class="card patrol-teams-card">
+                <div class="card-title-bar users-header">
+                    <div><h2>Patrol Teams</h2><p class="table-description">Saved teams can be selected when patrol scheduling is added.</p></div>
+                    <span class="badge-subtle" id="patrolTeamCount">0 teams</span>
+                </div>
+                <div id="patrolTeamsList" class="patrol-teams-list"></div>
+            </section>
+
             <!-- SYSTEM USERS TABLE -->
             <section class="card users-card">
                 <div class="card-title-bar users-header">
