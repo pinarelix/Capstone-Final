@@ -251,13 +251,10 @@
             gap: 6px;
             font-size: 0.75rem;
             font-weight: 600;
-            min-width: 0;
-            max-width: 48%;
-            white-space: normal;
-            flex-shrink: 1;
+            white-space: nowrap;
+            flex-shrink: 0;
             justify-content: flex-end;
             text-align: right;
-            overflow-wrap: anywhere;
         }
 
         #systemStatus { min-width: 0; overflow: hidden; }
@@ -555,8 +552,8 @@
             body.settings-page .main-content { padding: 14px 20px; gap: 10px; }
             body.settings-page .top-header { padding-bottom: 2px; }
             body.settings-page .tab-navigation { margin: 0; }
-            body.settings-page .tab-content.active { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-            body.settings-page .tab-content.active > .settings-grid { height: 100%; min-height: 0; gap: 10px; }
+            body.settings-page .tab-content.active { flex: 1 1 auto; min-height: 0; overflow: auto; }
+            body.settings-page .tab-content.active > .settings-grid { min-height: 0; gap: 10px; }
             body.settings-page #tab-system-details.active > .settings-grid { grid-template-rows: repeat(2,minmax(0,1fr)); }
             body.settings-page .settings-card { min-height: 0; padding: 14px; overflow: auto; overscroll-behavior: contain; }
             body.settings-page .settings-card .card-header { margin-bottom: 10px; }
@@ -907,6 +904,39 @@
                     </div>
                 </form>
             </div>
+            <!-- Database Backup & Restore -->
+            <div class="settings-card full-width">
+                <div class="card-header">
+                    <div class="icon green"><i class="fa-solid fa-box-archive"></i></div>
+                    <div>
+                        <h2>Database Backup & Restore</h2>
+                        <p>Create and manage database backups as compressed ZIP files</p>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="font-weight:600;font-size:0.85rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Backup Folder</label>
+                    <div id="backupDir" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:0.85rem;color:#334155;margin-top:4px;word-break:break-all;">Loading...</div>
+                </div>
+
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
+                    <button type="button" id="btnCreateBackup" class="btn-save" style="background:linear-gradient(135deg,#10b981,#059669);border:none;">
+                        <i class="fa-solid fa-download"></i> Create Backup
+                    </button>
+                    <button type="button" id="btnRefreshBackups" class="btn-save" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">
+                        <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                    </button>
+                </div>
+
+                <div id="backupStatus" style="display:none;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:0.9rem;"></div>
+
+                <div>
+                    <label style="font-weight:600;font-size:0.85rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;display:block;">Available Backups</label>
+                    <div id="backupList" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                        <div style="padding:24px;text-align:center;color:#94a3b8;">Loading backups...</div>
+                    </div>
+                </div>
+            </div>
         </section>
         </div>
 
@@ -1137,6 +1167,23 @@
         </div>
 
     </main>
+
+    <!-- Backup Confirm Modal -->
+    <div id="backupConfirmModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:12px;padding:24px;max-width:440px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;font-size:1.1rem;"></i>
+                </div>
+                <h3 id="backupConfirmTitle" style="margin:0;font-size:1.05rem;color:#1e293b;">Confirm</h3>
+            </div>
+            <p id="backupConfirmMsg" style="margin:0 0 20px;color:#475569;font-size:0.9rem;line-height:1.5;"></p>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button id="backupConfirmCancel" style="padding:8px 20px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;cursor:pointer;font-size:0.85rem;font-weight:500;">Cancel</button>
+                <button id="backupConfirmOk" style="padding:8px 20px;border-radius:8px;border:none;background:#dc2626;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">Confirm</button>
+            </div>
+        </div>
+    </div>
 
 </div>
 
@@ -2517,6 +2564,113 @@ async function loadLoginHistory() {
             document.querySelector('.tab-btn[data-tab="db-connection"]')?.addEventListener('click', function () {
                 if (!cfgLoaded) { cfgLoaded = true; cfgLoadConfig(); }
             });
+        });
+    })();
+
+    // ── Backup & Restore ──
+    (function () {
+        const API = (window.API_URL || (window.location.origin + '/api'));
+        const hdr = () => ({ 'Authorization': 'Bearer ' + sessionStorage.getItem('token'), 'Content-Type': 'application/json' });
+
+        function showStatus(msg, ok) {
+            const el = document.getElementById('backupStatus');
+            el.style.display = 'block';
+            el.style.background = ok ? '#ecfdf5' : '#fef2f2';
+            el.style.color = ok ? '#065f46' : '#991b1b';
+            el.style.border = '1px solid ' + (ok ? '#a7f3d0' : '#fecaca');
+            el.textContent = msg;
+            setTimeout(() => { el.style.display = 'none'; }, 8000);
+        }
+
+        function fmtSize(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : (b/1048576).toFixed(1) + ' MB'; }
+
+        async function loadBackups() {
+            try {
+                const r = await fetch(API + '/backup/list', { headers: hdr() });
+                const d = await r.json();
+                document.getElementById('backupDir').textContent = d.backupDir || '—';
+                const list = document.getElementById('backupList');
+                if (!d.backups || d.backups.length === 0) {
+                    list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;">No backups yet</div>';
+                    return;
+                }
+                list.innerHTML = d.backups.map(b => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f1f5f9;gap:8px;flex-wrap:wrap;">
+                        <div style="min-width:0;">
+                            <div style="font-weight:600;font-size:0.9rem;color:#1e293b;word-break:break-all;">${b.name}</div>
+                            <div style="font-size:0.8rem;color:#94a3b8;">${new Date(b.created).toLocaleString()} — ${fmtSize(b.size)}</div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-shrink:0;">
+                            <button onclick="backupActions.download('${b.name}')" class="btn-save" style="padding:6px 12px;font-size:0.8rem;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">
+                                <i class="fa-solid fa-download"></i>
+                            </button>
+                            <button onclick="backupActions.restore('${b.name}')" class="btn-save" style="padding:6px 12px;font-size:0.8rem;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">
+                                <i class="fa-solid fa-clock-rotate-left"></i> Restore
+                            </button>
+                            <button onclick="backupActions.remove('${b.name}')" class="btn-save" style="padding:6px 12px;font-size:0.8rem;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { document.getElementById('backupList').innerHTML = '<div style="padding:24px;text-align:center;color:#ef4444;">Failed to load backups</div>'; }
+        }
+
+        function backupConfirm(title, msg, btnText, btnColor) {
+            return new Promise(resolve => {
+                const modal = document.getElementById('backupConfirmModal');
+                document.getElementById('backupConfirmTitle').textContent = title;
+                document.getElementById('backupConfirmMsg').textContent = msg;
+                const okBtn = document.getElementById('backupConfirmOk');
+                okBtn.textContent = btnText || 'Confirm';
+                okBtn.style.background = btnColor || '#dc2626';
+                modal.style.display = 'flex';
+                const close = (val) => { modal.style.display = 'none'; resolve(val); };
+                okBtn.onclick = () => close(true);
+                document.getElementById('backupConfirmCancel').onclick = () => close(false);
+                modal.onclick = (e) => { if (e.target === modal) close(false); };
+            });
+        }
+
+        window.backupActions = {
+            async download(name) { window.open(API + '/backup/download/' + encodeURIComponent(name) + '?token=' + sessionStorage.getItem('token'), '_blank'); },
+            async restore(name) {
+                const ok = await backupConfirm('Restore Database', 'This will overwrite the current database with the backup "' + name + '". This action cannot be undone. Are you sure?', 'Restore', '#d97706');
+                if (!ok) return;
+                showStatus('Restoring database…', true);
+                try {
+                    const r = await fetch(API + '/backup/restore/' + encodeURIComponent(name), { method: 'POST', headers: hdr() });
+                    const d = await r.json();
+                    if (r.ok) showStatus('✅ ' + d.message, true); else showStatus('❌ ' + (d.error || 'Restore failed'), false);
+                } catch (e) { showStatus('❌ Restore error: ' + e.message, false); }
+            },
+            async remove(name) {
+                const ok = await backupConfirm('Delete Backup', 'Are you sure you want to delete "' + name + '"? This cannot be undone.', 'Delete', '#dc2626');
+                if (!ok) return;
+                try {
+                    const r = await fetch(API + '/backup/' + encodeURIComponent(name), { method: 'DELETE', headers: hdr() });
+                    if (r.ok) { showStatus('Backup deleted', true); loadBackups(); } else showStatus('Failed to delete', false);
+                } catch (e) { showStatus('Error: ' + e.message, false); }
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('btnCreateBackup')?.addEventListener('click', async function () {
+                this.disabled = true;
+                this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating backup…';
+                showStatus('Creating backup… this may take a moment.', true);
+                try {
+                    const r = await fetch(API + '/backup/create', { method: 'POST', headers: hdr() });
+                    const d = await r.json();
+                    if (r.ok) { showStatus('✅ Backup created: ' + d.file + ' (' + fmtSize(d.size) + ')', true); loadBackups(); }
+                    else showStatus('❌ ' + (d.error || 'Backup failed'), false);
+                } catch (e) { showStatus('❌ Error: ' + e.message, false); }
+                this.disabled = false;
+                this.innerHTML = '<i class="fa-solid fa-download"></i> Create Backup';
+            });
+            document.getElementById('btnRefreshBackups')?.addEventListener('click', loadBackups);
+            document.querySelector('.tab-btn[data-tab="db-connection"]')?.addEventListener('click', loadBackups);
+            if (document.querySelector('.tab-btn[data-tab="db-connection"]')?.classList.contains('active')) loadBackups();
         });
     })();
 </script>
