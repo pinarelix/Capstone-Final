@@ -345,9 +345,9 @@
                         </div>
                     </div>
                     <form id="tanodForm" autocomplete="off">
-                        <div class="form-group"><label for="tanodName">Full name <span style="color: #ef4444;">*</span></label><input id="tanodName" class="form-input" required minlength="2" maxlength="100" pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+" title="Use letters, spaces, periods, apostrophes, or hyphens only." placeholder="Full name"></div>
+                        <div class="form-group"><label for="tanodName">Full name <span style="color: #ef4444;">*</span></label><input id="tanodName" class="form-input" required minlength="2" maxlength="25" pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+" title="Use letters, spaces, periods, apostrophes, or hyphens only." placeholder="Full name"></div>
                         <div class="form-group"><label for="tanodContact">Contact number</label><input id="tanodContact" class="form-input" maxlength="16" inputmode="tel" pattern="(?:09|\\+639)[0-9 ]{9,13}" title="Use a Philippine mobile number, such as 09XX XXX XXXX." placeholder="09XX XXX XXXX"></div>
-                        <div class="form-group"><label for="tanodAddress">Home address</label><input id="tanodAddress" class="form-input" maxlength="255" pattern="[^<>\\x00-\\x1F]{5,}" title="Enter a valid home address (at least 5 characters)." placeholder="House no., street, barangay"></div>
+                        <div class="form-group"><label for="tanodAddress">Home address</label><input id="tanodAddress" class="form-input" maxlength="30" pattern="[^<>\\x00-\\x1F]{5,}" title="Enter a valid home address (at least 5 characters)." placeholder="House no., street, barangay"></div>
                         <div class="form-group"><label for="tanodBirthDate">Birth date</label><input id="tanodBirthDate" class="form-input" type="date" max=""></div>
                         <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add Tanod to roster</button>
                     </form>

@@ -753,6 +753,18 @@ function setupPatrolTeamForms() {
     const tanodForm = document.getElementById('tanodForm');
     if (teamForm) teamForm.addEventListener('submit', savePatrolTeam);
     if (tanodForm) tanodForm.addEventListener('submit', addPatrolTanod);
+    const nameInput = document.getElementById('tanodName');
+    const contactInput = document.getElementById('tanodContact');
+    const addressInput = document.getElementById('tanodAddress');
+    if (nameInput) {
+        nameInput.maxLength = 25;
+        nameInput.addEventListener('input', () => { nameInput.value = nameInput.value.replace(/[^A-Za-z .'-]/g, '').slice(0, 25); });
+    }
+    contactInput?.addEventListener('input', () => { contactInput.value = contactInput.value.replace(/[^0-9 +]/g, '').slice(0, 16); });
+    if (addressInput) {
+        addressInput.maxLength = 30;
+        addressInput.addEventListener('input', () => { addressInput.value = addressInput.value.replace(/[<>\x00-\x1F]/g, '').slice(0, 30); });
+    }
     document.getElementById('patrolTeamCancelBtn')?.addEventListener('click', resetPatrolTeamForm);
 }
 

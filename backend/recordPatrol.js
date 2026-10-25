@@ -186,9 +186,9 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
         });
         app.post('/api/tanods', authenticate, writeRole,
             validate(Joi.object({
-                name: Joi.string().trim().min(2).max(100).pattern(/^[A-Za-zÀ-ÖØ-öø-ÿ .'-]+$/).required(),
+                name: Joi.string().trim().min(2).max(25).pattern(/^[A-Za-zÀ-ÖØ-öø-ÿ .'-]+$/).required(),
                 contact_no: Joi.string().trim().max(16).pattern(/^(?:09|\+639)[0-9 ]{9,13}$/).allow(''),
-                address: Joi.string().trim().min(5).max(255).pattern(/^[^<>\x00-\x1F]+$/).allow(''),
+                address: Joi.string().trim().min(5).max(30).pattern(/^[^<>\x00-\x1F]+$/).allow(''),
                 birth_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value, helpers) => {
                     if (value > new Date().toISOString().slice(0, 10)) return helpers.error('date.max');
                     return value;
