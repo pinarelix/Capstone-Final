@@ -44,10 +44,17 @@ describe('report date filter', () => {
         });
     });
 
-    test('discards dates outside the selected month', () => {
+    test('allows a date range to span months and years', () => {
         expect(normalizeRange('2026-10', '2026-09-30', '2026-11-01')).toMatchObject({
-            dateFrom: '',
-            dateTo: ''
+            dateFrom: '2026-09-30',
+            dateTo: '2026-11-01'
+        });
+    });
+
+    test('an explicit cross-month range overrides the selected month', () => {
+        expect(effectiveRange('2026-10', '2025-12-15', '2026-01-10')).toEqual({
+            dateFrom: '2025-12-15',
+            dateTo: '2026-01-10'
         });
     });
 
