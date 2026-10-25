@@ -8,6 +8,35 @@
 
 // Global user data
 let users = [];
+let userPage = 1;
+let userTotalPages = 1;
+let userTotal = 0;
+const USER_PAGE_SIZE = 10;
+
+function usersUrl() {
+    const search = document.getElementById('searchUsers')?.value.trim() || '';
+    const role = document.getElementById('userRoleFilter')?.value || '';
+    const path = search ? '/users/search' : '/users';
+    return `${path}?${new URLSearchParams({
+        page: userPage,
+        limit: USER_PAGE_SIZE,
+        ...(search ? { q: search } : {}),
+        ...(role ? { role } : {})
+    })}`;
+}
+
+function updateUserPagination(response) {
+    userTotal = Number(response.headers.get('X-Total-Count')) || 0;
+    userTotalPages = Math.max(1, Number(response.headers.get('X-Total-Pages')) || 1);
+    const start = userTotal ? (userPage - 1) * USER_PAGE_SIZE + 1 : 0;
+    const end = Math.min(userPage * USER_PAGE_SIZE, userTotal);
+    const range = document.getElementById('userRangeText');
+    if (range) range.textContent = userTotal ? `${start}–${end} of ${userTotal} users` : '0 users';
+    const previous = document.getElementById('usersPrevious');
+    const next = document.getElementById('usersNext');
+    if (previous) previous.disabled = userPage <= 1;
+    if (next) next.disabled = userPage >= userTotalPages;
+}
 
 /* ============================================================
    🔥 FIXED: Gumamit ng functions mula sa apiHelper.js
@@ -56,6 +85,10 @@ document.addEventListener("DOMContentLoaded", function () {
     setupPasswordToggle();
     setupRippleEffect();
 
+    document.getElementById('usersPrevious')?.addEventListener('click', () => { if (userPage > 1) { userPage--; loadUsers(); } });
+    document.getElementById('usersNext')?.addEventListener('click', () => { if (userPage < userTotalPages) { userPage++; loadUsers(); } });
+    document.getElementById('userRoleFilter')?.addEventListener('change', () => { userPage = 1; loadUsers(); });
+
     startLivePolling(refreshUsersOnly, 15000);
 });
 
@@ -67,13 +100,19 @@ async function loadUsers() {
     try {
         showLoadingState();
         
-        const response = await apiFetch('/users');
+        const response = await apiFetch(usersUrl());
         
         if (!response.ok) {
             throw new Error('Failed to fetch users');
         }
         
         users = (await response.json()).map(user => ({ ...user, role: user.role === 'Deputy Officer' ? 'Executive Officer' : user.role }));
+        updateUserPagination(response);
+        if (userTotal > 0 && userPage > userTotalPages) {
+            userPage = userTotalPages;
+            await loadUsers();
+            return;
+        }
         renderUsers();
         updateAccountCount();
         
@@ -94,10 +133,11 @@ async function loadUsers() {
 // the unfiltered list).
 async function refreshUsersOnly() {
     try {
-        const response = await apiFetch('/users');
+        const response = await apiFetch(usersUrl());
         if (!response.ok) return;
 
         users = (await response.json()).map(user => ({ ...user, role: user.role === 'Deputy Officer' ? 'Executive Officer' : user.role }));
+        updateUserPagination(response);
 
         const searchInput = document.getElementById('searchUsers');
         if (searchInput && searchInput.value.trim()) return;
@@ -493,7 +533,7 @@ window.saveEditUser = saveEditUser;
 function updateAccountCount() {
     const accountCount = document.getElementById("accountCount");
     if (accountCount) {
-        const count = users.length;
+        const count = userTotal;
         accountCount.textContent = `${count} account${count === 1 ? "" : "s"}`;
     }
 }
@@ -563,22 +603,11 @@ function setupSearch() {
         clearTimeout(searchTimeout);
         
         const searchTerm = this.value.trim();
+        userPage = 1;
         
         searchTimeout = setTimeout(async function() {
             try {
-                if (!searchTerm) {
-                    await loadUsers();
-                    return;
-                }
-
-                const response = await apiFetch(`/users/search?q=${encodeURIComponent(searchTerm)}`);
-                
-                if (!response.ok) {
-                    throw new Error('Search failed');
-                }
-                
-                const results = await response.json();
-                renderUsers(results);
+                await loadUsers();
                 
             } catch (error) {
                 console.error('Error searching:', error);

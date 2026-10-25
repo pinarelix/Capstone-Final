@@ -39,25 +39,52 @@ let allLogs = [];
 // Per-street risk decay from completed patrols - {location: decay_amount},
 // subtracted from that street's CART risk score in recommendations.
 let allAreaDecay = {};
-let scheduleMapPicker;
-let scheduleMarker;
 
-// Latest CART recommendations, kept around so the Schedules tab can
-// surface the same "Active Priority Recommendations" without
-// recomputing them itself.
+// Latest CART suggestions are rendered as unsaved rows in the same table
+// as confirmed schedules. This keeps planning in one place and leaves the
+// data model ready for the future Kanban workflow.
 let currentRecommendations = [];
+window.getPatrolHeatmapRecords = () => allIncidents;
 
-// Client-side table pagination — allSchedules/allLogs stay fully loaded
-// (other features on this page need the complete list: the "Select
-// Schedule" dropdown on the log form, getScheduleName() cross-reference
-// lookups, and the CART recommendations tab), only the rendered table
-// rows are paginated.
+function localPatrolDateKey(date = new Date()) {
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function selectedPatrolMonth() {
+    return document.getElementById('monthSelect')?.value.slice(0, 7) || '';
+}
+
+function stepPatrolMonth(direction) {
+    const input = document.getElementById('monthSelect');
+    if (!input) return;
+    const base = input.value ? new Date(input.value + 'T12:00:00') : new Date();
+    base.setDate(1);
+    base.setMonth(base.getMonth() + direction);
+    input.value = localPatrolDateKey(base);
+    updateDashboardWithCartData(selectedPatrolMonth());
+    window.populateActiveHeatmapRecords?.();
+}
+
+// Schedule and log records are loaded in server-backed result windows.
+// scheduleChoices separately supplies the log form's schedule selector.
 let schedulePage = 1;
 let logPage = 1;
 let scheduleTotal = 0, logTotal = 0;
 let scheduleChoices = [];
-function scheduleListUrl() { return '/patrol-schedules/all?' + new URLSearchParams({page:schedulePage,limit:10,status:document.getElementById('scheduleStatusFilter')?.value||''}); }
-function logListUrl() { return '/patrol-logs?' + new URLSearchParams({page:logPage,limit:10}); }
+function scheduleListUrl() { return '/patrol-schedules/all?' + new URLSearchParams({
+    page: schedulePage,
+    limit: 10,
+    status: document.getElementById('scheduleStatusFilter')?.value === 'Suggested'
+        ? ''
+        : document.getElementById('scheduleStatusFilter')?.value || '',
+    search: document.getElementById('scheduleSearch')?.value.trim() || ''
+}); }
+function logListUrl() { return '/patrol-logs?' + new URLSearchParams({
+    page: logPage,
+    limit: 10,
+    search: document.getElementById('logSearch')?.value.trim() || ''
+}); }
 const rowsPerPage = 10;
 
 // ============================================================
@@ -84,7 +111,6 @@ document.addEventListener("DOMContentLoaded", function () {
     applyRoleBasedUI();
     setupTabs();
     loadAllData();
-    populateScheduleLocationOptions();
     setupScheduleForm();
     setupLogForm();
 
@@ -104,13 +130,32 @@ document.addEventListener("DOMContentLoaded", function () {
             updateCounts();
         });
     }
+
+    document.getElementById('newScheduleBtn')?.addEventListener('click', openNewScheduleModal);
+
+    for (const [id, refresh, resetPage] of [
+        ['scheduleSearch', refreshSchedulesOnly, () => { schedulePage = 1; }],
+        ['logSearch', refreshPatrolLogsOnly, () => { logPage = 1; }]
+    ]) {
+        const input = document.getElementById(id);
+        if (!input) continue;
+        let debounce;
+        input.addEventListener('input', () => {
+            clearTimeout(debounce);
+            resetPage();
+            debounce = setTimeout(refresh, 250);
+        });
+    }
     
     const monthSelect = document.getElementById('monthSelect');
     if (monthSelect) {
         monthSelect.addEventListener('change', function() {
-            updateDashboardWithCartData(this.value);
+            updateDashboardWithCartData(selectedPatrolMonth());
+            window.populateActiveHeatmapRecords?.();
         });
     }
+    document.getElementById('patrolPreviousMonth')?.addEventListener('click', () => stepPatrolMonth(-1));
+    document.getElementById('patrolNextMonth')?.addEventListener('click', () => stepPatrolMonth(1));
     
     // 🔥 NEW: Listen for CART data updates from cart.js
     window.addEventListener('cartDataUpdated', function() {
@@ -157,98 +202,8 @@ function setupTabs() {
                 targetContent.classList.add('active');
             }
 
-            // Leaflet can't measure a hidden (display:none) container, so
-            // the schedule map picker is lazy-initialized the first time
-            // its tab is actually shown, and re-measured on every
-            // subsequent visit in case its size was stale while hidden.
-            if (tabId === 'recommendations') {
-                if (!scheduleMapPicker) {
-                    initScheduleMapPicker();
-                } else {
-                    setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
-                }
-            }
         });
     });
-}
-
-/* ============================================================
-   SCHEDULE LOCATION MAP PICKER
-   Mirrors incident.js's initMapPicker()/isPointInsideBarangay() pattern —
-   same libraries (Leaflet + turf.js), same boundary-check approach.
-============================================================ */
-
-function isScheduleLocationInsideBarangay(lat, lng) {
-    const boundaryPolygon = turf.polygon([
-        [...BARANGAY_BOUNDARY_COORDS.map(coord => [coord[1], coord[0]]), [BARANGAY_BOUNDARY_COORDS[0][1], BARANGAY_BOUNDARY_COORDS[0][0]]]
-    ]);
-    return turf.booleanPointInPolygon(turf.point([lng, lat]), boundaryPolygon);
-}
-
-function populateScheduleLocationOptions() {
-    const select = document.getElementById('scheduleLocation');
-    if (!select || typeof BARANGAY_LOCATIONS === 'undefined') return;
-
-    BARANGAY_LOCATIONS.forEach(location => {
-        const option = document.createElement('option');
-        option.value = location;
-        option.textContent = location;
-        select.appendChild(option);
-    });
-}
-
-function initScheduleMapPicker() {
-    const created = createBarangayMap('scheduleMapPicker', {
-        zoom: 16,
-        zoomControl: false,
-        minZoom: 13.5,
-        maxZoom: 19
-    });
-    scheduleMapPicker = created.map;
-
-    scheduleMapPicker.on('click', function (e) {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-        const prompt = document.getElementById('scheduleMapPrompt');
-
-        if (!isScheduleLocationInsideBarangay(lat, lng)) {
-            if (prompt) prompt.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please click inside the barangay boundary!';
-            return;
-        }
-
-        document.getElementById('scheduleLat').value = lat;
-        document.getElementById('scheduleLng').value = lng;
-        placeScheduleMarker(lat, lng);
-
-        if (prompt) prompt.innerHTML = '<i class="fa-solid fa-location-dot"></i> Location pinned!';
-    });
-
-    setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
-}
-
-function placeScheduleMarker(lat, lng) {
-    if (scheduleMarker) {
-        scheduleMapPicker.removeLayer(scheduleMarker);
-    }
-    const customIcon = L.divIcon({
-        className: 'custom-marker',
-        html: '<div style="background: #dc2626; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-    });
-    scheduleMarker = L.marker([lat, lng], { icon: customIcon }).addTo(scheduleMapPicker);
-    scheduleMapPicker.setView([lat, lng], 16);
-}
-
-function resetScheduleMapPicker() {
-    document.getElementById('scheduleLat').value = '';
-    document.getElementById('scheduleLng').value = '';
-    if (scheduleMarker && scheduleMapPicker) {
-        scheduleMapPicker.removeLayer(scheduleMarker);
-        scheduleMarker = null;
-    }
-    const prompt = document.getElementById('scheduleMapPrompt');
-    if (prompt) prompt.textContent = 'Click the map to pin this location - incidents reported here will inherit this exact point on the risk map.';
 }
 
 // ============================================================
@@ -267,6 +222,7 @@ async function loadAllData() {
             const incData = await incResponse.json();
             allIncidents = incData.records || [];
             patrolThresholds = incData.thresholds;
+            window.populateActiveHeatmapRecords?.();
             console.log('✅ Incidents loaded:', allIncidents.length);
         } else {
             console.warn('⚠️ Failed to load incidents:', incResponse.status);
@@ -302,11 +258,12 @@ async function loadAllData() {
         }
         
         populateMonthDropdown(allIncidents);
+        window.populateActiveHeatmapRecords?.();
         
         const monthSelect = document.getElementById('monthSelect');
         if (monthSelect && monthSelect.value) {
             // 🔥 UPDATED: Use CART-enhanced dashboard
-            updateDashboardWithCartData(monthSelect.value);
+            updateDashboardWithCartData(selectedPatrolMonth());
         }
         
         renderSchedules(allSchedules);
@@ -374,6 +331,7 @@ async function refreshRecommendationsOnly() {
             const incData = await incResponse.json();
             allIncidents = incData.records || [];
             patrolThresholds = incData.thresholds;
+            window.populateActiveHeatmapRecords?.();
         }
         await loadAreaDecay();
         await loadCartDataOnly();
@@ -408,7 +366,7 @@ async function loadCartDataOnly() {
             // Update dashboard with new data
             const monthSelect = document.getElementById('monthSelect');
             if (monthSelect && monthSelect.value) {
-                updateDashboardWithCartData(monthSelect.value);
+                updateDashboardWithCartData(selectedPatrolMonth());
             }
         }
     } catch (error) {
@@ -447,56 +405,16 @@ async function loadAreaDecay() {
 // ============================================================
 
 function populateMonthDropdown(incidents) {
-    const monthSelect = document.getElementById('monthSelect');
-    if (!monthSelect) return;
-
-    const monthSet = new Set();
-    incidents.forEach(item => {
-        if (item.date) {
-            const parts = item.date.split('-');
-            if (parts.length === 3) {
-                const key = `${parts[0]}-${parts[1]}`;
-                monthSet.add(key);
-            }
-        }
-    });
-
-    const sorted = Array.from(monthSet).sort((a, b) => b.localeCompare(a));
-    monthSelect.innerHTML = "";
-
-    if (sorted.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = "";
-        opt.textContent = "No data available";
-        monthSelect.appendChild(opt);
-        return;
+    const calendar = document.getElementById('monthSelect');
+    if (!calendar) return;
+    if (!calendar.value) {
+        const newestRecordDate = incidents
+            .map(item => String(item.date || '').slice(0, 10))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a))[0];
+        calendar.value = newestRecordDate || localPatrolDateKey();
     }
-
-    // "All Dates" sits above the individual months - a separate sentinel
-    // value (not an empty string, which updateDashboardWithCartData()
-    // already treats as "nothing selected") that skips the month filter
-    // entirely in getCartBasedPatrolRecommendations() below.
-    const allOpt = document.createElement('option');
-    allOpt.value = 'all';
-    allOpt.textContent = 'Loaded records (last 90 days)';
-    monthSelect.appendChild(allOpt);
-
-    sorted.forEach(key => {
-        const [year, month] = key.split('-');
-        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        const opt = document.createElement('option');
-        opt.value = key;
-        opt.textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
-        monthSelect.appendChild(opt);
-    });
-
-    // Default to the most recent month (not "All Dates") so the normal,
-    // most-common view is unchanged - "All Dates" is there for whoever
-    // wants it, one click away.
-    if (monthSelect.options.length > 1) {
-        monthSelect.value = monthSelect.options[1].value;
-        updateDashboardWithCartData(monthSelect.value);
-    }
+    updateDashboardWithCartData(selectedPatrolMonth());
 }
 
 // ============================================================
@@ -745,7 +663,8 @@ function updateDashboardWithCartData(selectedMonth) {
         console.warn('No incidents available');
         updateMetricsEmptyState();
         currentRecommendations = [];
-        renderScheduleSuggestions([]);
+        renderSchedules(allSchedules);
+        updateCounts();
         return;
     }
     
@@ -797,13 +716,10 @@ function updateDashboardWithCartData(selectedMonth) {
         }
     }
     
-    // Render recommendation cards
-    const container = document.getElementById('recommendationsContainer');
-    renderCartRecommendationCards(recommendations, container);
-
-    // Keep the Schedules tab's suggestions in sync with the same data.
+    // Recommendations and saved schedules now share the planning table.
     currentRecommendations = recommendations;
-    renderScheduleSuggestions(recommendations);
+    renderSchedules(allSchedules);
+    updateCounts();
 }
 
 function updateMetricsEmptyState() {
@@ -1019,58 +935,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ============================================================
-// 9b. 🔥 NEW: SURFACE RECOMMENDATIONS ON THE SCHEDULES TAB
-// Compact version of the same CART recommendations, shown above the
-// "Add Patrol Schedule" form so admins see the priority areas without
-// switching back to the Recommendations tab. "Use This" prefills the
-// form below instead of building the schedule from scratch.
-// ============================================================
-
-function renderScheduleSuggestions(recs) {
-    const section = document.getElementById('scheduleSuggestionsSection');
-    const container = document.getElementById('scheduleSuggestionsContainer');
-    if (!section || !container) return;
-
-    // Placeholder entries (no CART data / no incidents this month) carry
-    // count: 0 — real recommendations always have at least one incident.
-    const validRecs = (recs || []).filter(rec => rec.count > 0);
-
-    if (validRecs.length === 0) {
-        section.style.display = 'none';
-        container.innerHTML = '';
-        return;
-    }
-
-    section.style.display = '';
-    container.innerHTML = '';
-
-    validRecs.forEach(rec => {
-        const idx = recs.indexOf(rec);
-        const card = document.createElement('div');
-        card.className = `rec-card ${rec.priority}`;
-
-        card.innerHTML = `
-            <div class="rec-card-header">
-                <h3>${escapeHTML(rec.area)}</h3>
-                <span class="priority-badge ${rec.priority}">${rec.priority.toUpperCase()} PRIORITY</span>
-            </div>
-            <div class="danger-level ${rec.priority}">${escapeHTML(rec.level)}</div>
-            <div class="rec-details">
-                <div><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
-                <div style="margin-top: 4px;"><strong>Incidents Here:</strong><br>
-                    ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 2)}
-                </div>
-                <div><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
-            </div>
-            <button type="button" class="use-this-btn" onclick="applyRecommendationToScheduleForm(${idx})">
-                <i class="fa-solid fa-arrow-turn-down"></i> Use This
-            </button>
-        `;
-        container.appendChild(card);
-    });
-}
-
 // Prefills the Add Patrol Schedule form from a recommendation card.
 // Only location, time, and reason are inferable from CART's monthly
 // aggregate — day of week is still a human call, so that field is left
@@ -1084,11 +948,15 @@ function applyRecommendationToScheduleForm(idx) {
     document.getElementById('scheduleFormTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule';
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
 
-    const locationSelect = document.getElementById('scheduleLocation');
-    if ([...locationSelect.options].some(opt => opt.value === rec.area)) {
-        locationSelect.value = rec.area;
+    const sourceRecord = [...(rec.incidents || [])]
+        .filter(record => allIncidents.some(active => Number(active.id) === Number(record.id)))
+        .sort((a, b) => (Number(b.cart_score) || 0) - (Number(a.cart_score) || 0))[0];
+    if (!sourceRecord) {
+        showToast('This suggestion no longer has an active heatmap record.', 'error');
+        return;
     }
-    updateScheduleLocationIncidents();
+    window.populateActiveHeatmapRecords?.(sourceRecord.id);
+    window.selectScheduleRecord?.(sourceRecord.id, { keepReason: true });
 
     const timeParts = rec.time.split(' – ');
     if (timeParts.length === 2) {
@@ -1108,7 +976,7 @@ function applyRecommendationToScheduleForm(idx) {
         `Suggested from CART priority recommendation: ${rec.reason}. ${rec.action}`;
 
     openScheduleModal();
-    showToast(`Prefilled from "${rec.area}" — suggested ${rec.personnel} personnel. Review the day before saving.`, 'info');
+    showToast(`Prepared from the highest-risk active record in ${rec.area}. Assign a team before saving.`, 'info');
 }
 
 // ============================================================
@@ -1169,11 +1037,6 @@ async function confirmDelete(endpoint, id, successMsg, errorMsg) {
 function setupScheduleForm() {
     setupFormSubmit('scheduleForm', saveSchedule);
 
-    const locationSelect = document.getElementById('scheduleLocation');
-    if (locationSelect) {
-        locationSelect.addEventListener('change', updateScheduleLocationIncidents);
-    }
-
     const closeBtn = document.getElementById('closeScheduleModalBtn');
     if (closeBtn) closeBtn.addEventListener('click', closeScheduleModal);
 
@@ -1189,27 +1052,38 @@ function setupScheduleForm() {
 
 async function saveSchedule() {
     const id = document.getElementById('editScheduleId').value;
+    const incidentId = Number(document.getElementById('scheduleRecordId').value);
     const location = document.getElementById('scheduleLocation').value.trim();
     const day_of_week = document.getElementById('scheduleDay').value;
     const start_time = document.getElementById('scheduleStart').value;
     const end_time = document.getElementById('scheduleEnd').value;
     const reason = document.getElementById('scheduleReason').value.trim();
     const status = document.getElementById('scheduleStatus').value;
+    const teamName = document.getElementById('scheduleTeamName').value.trim();
+    const memberIds = [...document.getElementById('scheduleTanods').selectedOptions].map(option => Number(option.value));
     const latRaw = document.getElementById('scheduleLat').value;
     const lngRaw = document.getElementById('scheduleLng').value;
 
-    if (!location || !start_time || !end_time || !day_of_week) {
-        showToast('Please fill in all required fields.', 'error');
+    if (!incidentId || !location) {
+        showToast('Choose an active heatmap record for this patrol.', 'error');
+        return;
+    }
+    if (!teamName || memberIds.length === 0) {
+        showToast('Enter a team name and select at least one team member.', 'error');
+        return;
+    }
+    if (!document.getElementById('scheduleDate').value || !start_time || !end_time || !day_of_week) {
+        showToast('Complete the patrol date and time window.', 'error');
         return;
     }
 
     const payload = {
-        incident_id: document.getElementById('scheduleRecordId').value ? Number(document.getElementById('scheduleRecordId').value) : null,
+        incident_id: incidentId,
         scheduled_date: document.getElementById('scheduleDate').value || null,
         priority: document.getElementById('schedulePriority').value,
         exact_address: document.getElementById('scheduleExactAddress').value,
-        tanod_ids: [...document.getElementById('scheduleTanods').selectedOptions].map(option => Number(option.value)),
-        manual_patrol: document.getElementById('scheduleManualPatrol').checked,
+        team_name: teamName,
+        tanod_ids: memberIds,
         location,
         start_time,
         end_time,
@@ -1248,13 +1122,18 @@ async function saveSchedule() {
 function resetScheduleFormState() {
     document.getElementById('scheduleForm').reset();
     document.getElementById('editScheduleId').value = '';
+    document.getElementById('scheduleRecordId').value = '';
     document.getElementById('scheduleRecordSummary').textContent = '';
-    document.getElementById('manualPatrolLabel').hidden = true;
+    document.getElementById('scheduleLocation').value = '';
+    document.getElementById('scheduleExactAddress').value = '';
+    document.getElementById('scheduleLat').value = '';
+    document.getElementById('scheduleLng').value = '';
     document.getElementById('scheduleFormTitle').textContent = 'Add Patrol Schedule';
     document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
-    updateScheduleLocationIncidents();
-    resetScheduleMapPicker();
-    document.getElementById('scheduleFormCard')?.classList.remove('edit-modal-mode');
+    window.populateActiveHeatmapRecords?.();
+    const card = document.getElementById('scheduleFormCard');
+    card?.classList.remove('edit-modal-mode');
+    if (card) card.hidden = true;
     dockScheduleFormCard();
 }
 
@@ -1289,10 +1168,14 @@ function openScheduleModal() {
     const card = document.getElementById('scheduleFormCard');
     if (!card) return;
     undockScheduleFormCard();
+    card.hidden = false;
     card.classList.add('edit-modal-mode');
-    if (scheduleMapPicker) {
-        setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
-    }
+}
+
+function openNewScheduleModal() {
+    resetScheduleFormState();
+    document.getElementById('scheduleFormTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule';
+    openScheduleModal();
 }
 
 function closeScheduleModal() {
@@ -1422,26 +1305,6 @@ function renderIncidentTypeBadges(location, maxShown = 2) {
     return typeCountsToBadgeHtml(getIncidentTypesForLocation(location), maxShown);
 }
 
-// Updates the Add/Edit Schedule form's "Incidents Reported At This
-// Location" panel to match whatever the Location dropdown currently
-// holds - called on manual selection, and explicitly after any script
-// that sets scheduleLocation.value directly (which doesn't fire 'change').
-function updateScheduleLocationIncidents() {
-    const group = document.getElementById('scheduleLocationIncidentsGroup');
-    const container = document.getElementById('scheduleLocationIncidents');
-    if (!group || !container) return;
-
-    const location = document.getElementById('scheduleLocation')?.value;
-    if (!location) {
-        group.style.display = 'none';
-        container.innerHTML = '';
-        return;
-    }
-
-    container.innerHTML = renderIncidentTypeBadges(location, 6);
-    group.style.display = '';
-}
-
 // Active schedules first, then Completed, then Cancelled - each group in
 // weekday then start-time order - narrowed by the Status dropdown.
 const SCHEDULE_STATUS_ORDER = { Active: 0, Completed: 1, Cancelled: 2 };
@@ -1459,22 +1322,62 @@ function getVisibleSchedules(schedules) {
         );
 }
 
+function getVisibleRecommendations() {
+    const status = document.getElementById('scheduleStatusFilter')?.value || '';
+    if (status && status !== 'Suggested') return [];
+    const search = document.getElementById('scheduleSearch')?.value.trim().toLowerCase() || '';
+    return (currentRecommendations || [])
+        .filter(rec => rec.count > 0)
+        .filter(rec => !search || [rec.area, rec.priority, rec.level, rec.reason, rec.action, rec.time]
+            .some(value => String(value || '').toLowerCase().includes(search)))
+        .sort((a, b) => (b.maxRisk || 0) - (a.maxRisk || 0));
+}
+
+function recommendationRow(rec) {
+    const index = currentRecommendations.indexOf(rec);
+    const priority = rec.priority === 'high' ? 'High' : rec.priority === 'medium' ? 'Medium' : 'Low';
+    return `
+        <tr class="schedule-suggestion-row">
+            <td><span class="source-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> Suggested</span></td>
+            <td><strong>${escapeHTML(rec.area)}</strong><br><small>${escapeHTML(rec.reason)}</small></td>
+            <td><span class="text-muted">Choose date</span></td>
+            <td>${escapeHTML(rec.time)}</td>
+            <td><span class="text-muted">Assign team</span></td>
+            <td><span class="priority-badge ${escapeHTML(rec.priority)}">${priority} priority</span></td>
+            <td class="schedule-row-actions">
+                <button type="button" class="btn-action-view" onclick="showRecommendationDetails(${index})"><i class="fa-regular fa-eye"></i> Details</button>
+                <button type="button" class="btn-action-edit admin-action" onclick="applyRecommendationToScheduleForm(${index})"><i class="fa-solid fa-calendar-plus"></i> Schedule</button>
+            </td>
+        </tr>`;
+}
+
+window.showRecommendationDetails = function(index) {
+    const recommendation = currentRecommendations[Number(index)];
+    if (recommendation) showStreetDetailModal(recommendation);
+};
+
 function renderSchedules(schedules) {
     const tbody = document.getElementById('scheduleTableBody');
     if (!tbody) return;
 
-    const visible = getVisibleSchedules(schedules);
+    const statusFilter = document.getElementById('scheduleStatusFilter')?.value || '';
+    const visible = statusFilter === 'Suggested' ? [] : getVisibleSchedules(schedules);
+    const suggestions = getVisibleRecommendations();
 
-    if (visible.length === 0) {
+    if (visible.length === 0 && suggestions.length === 0) {
         const filter = document.getElementById('scheduleStatusFilter')?.value;
         tbody.innerHTML = emptyTableRow(7, 'fa-calendar-times', filter ? `No ${filter.toLowerCase()} patrol schedules.` : 'No patrol schedules found.');
         document.getElementById('schedulePaginationControls').innerHTML = '';
         return;
     }
 
+    const suggestionOnly = statusFilter === 'Suggested';
     const { pageItems } = renderPaginatedTable(
-        visible, schedulePage, 'schedulePaginationControls',
-        (p) => { schedulePage = p; refreshSchedulesOnly(); }, scheduleTotal
+        suggestionOnly ? suggestions : visible,
+        schedulePage,
+        'schedulePaginationControls',
+        (p) => { schedulePage = p; suggestionOnly ? renderSchedules(allSchedules) : refreshSchedulesOnly(); },
+        suggestionOnly ? undefined : scheduleTotal
     );
 
     const groupCounts = {};
@@ -1484,10 +1387,16 @@ function renderSchedules(schedules) {
     // A divider row starts each status group (and repeats at the top of a
     // page that continues a group), so Active and Completed never blend.
     let previousStatus = null;
-    tbody.innerHTML = pageItems.map(schedule => {
+    const suggestionRows = suggestionOnly
+        ? pageItems.map(recommendationRow).join('')
+        : schedulePage === 1 && suggestions.length
+            ? `<tr class="schedule-group-row schedule-suggested-group"><td colspan="7"><i class="fa-solid fa-wand-magic-sparkles"></i> Suggested patrols<span class="schedule-group-count">(${suggestions.length})</span></td></tr>` + suggestions.slice(0, 5).map(recommendationRow).join('')
+            : '';
+
+    const savedRows = (suggestionOnly ? [] : pageItems).map(schedule => {
         const status = schedule.status || 'Active';
         const groupRow = status !== previousStatus
-            ? `<tr class="schedule-group-row"><td colspan="8"><i class="fa-solid ${groupIcons[status] || 'fa-list'}"></i> ${escapeHTML(status)} schedules<span class="schedule-group-count">(${groupCounts[status]})</span></td></tr>`
+            ? `<tr class="schedule-group-row"><td colspan="7"><i class="fa-solid ${groupIcons[status] || 'fa-list'}"></i> ${escapeHTML(status)} schedules<span class="schedule-group-count">(${groupCounts[status]})</span></td></tr>`
             : '';
         previousStatus = status;
         const statusClass = schedule.status === 'Active' ? 'badge-open' :
@@ -1497,10 +1406,10 @@ function renderSchedules(schedules) {
         return groupRow + `
             <tr>
                 <td class="font-bold">${schedule.id}</td>
-                <td>${escapeHTML(schedule.location)}${schedule.exact_address ? '<br><small>' + escapeHTML(schedule.exact_address) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + '</small>' : ''}${schedule.tanods?.length ? '<br><small>Tanods: ' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : ''}</td>
+                <td>${escapeHTML(schedule.location)}${schedule.exact_address ? '<br><small>' + escapeHTML(schedule.exact_address) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + ' risk</small>' : ''}</td>
                 <td>${escapeHTML(schedule.scheduled_date || schedule.day_of_week)}</td>
                 <td>${timeDisplay}</td>
-                <td>${renderIncidentTypeBadges(schedule.location)}</td>
+                <td><strong>${escapeHTML(schedule.team_name || 'Unassigned')}</strong>${schedule.tanods?.length ? '<br><small>' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : '<br><small>No members assigned</small>'}</td>
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
                     <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})"><i class="fa-solid fa-pen"></i> Update</button>
@@ -1508,6 +1417,7 @@ function renderSchedules(schedules) {
             </tr>
         `;
     }).join('');
+    tbody.innerHTML = suggestionRows + savedRows;
 }
 
 window.editSchedule = async function(id) {
@@ -1517,39 +1427,30 @@ window.editSchedule = async function(id) {
         
         const schedule = await response.json();
         await window.loadScheduleTanods(schedule.tanod_ids || []);
+        window.populateActiveHeatmapRecords?.(schedule.incident_id);
+        const sourceSelect = document.getElementById('scheduleRecordSelect');
+        if (schedule.incident_id && ![...sourceSelect.options].some(option => option.value === String(schedule.incident_id))) {
+            sourceSelect.add(new Option(`Linked historical record #${schedule.incident_id}`, schedule.incident_id));
+        }
+        sourceSelect.value = schedule.incident_id || '';
         document.getElementById('scheduleRecordId').value = schedule.incident_id || '';
         document.getElementById('scheduleDate').value = schedule.scheduled_date || '';
         document.getElementById('schedulePriority').value = schedule.priority || 'Low';
         document.getElementById('scheduleExactAddress').value = schedule.exact_address || '';
         document.getElementById('scheduleRecordSummary').textContent = schedule.incident_id ? 'Linked record #' + schedule.incident_id : '';
+        document.getElementById('scheduleTeamName').value = schedule.team_name || '';
         
         document.getElementById('editScheduleId').value = schedule.id;
         document.getElementById('scheduleLocation').value = schedule.location || '';
-        updateScheduleLocationIncidents();
         document.getElementById('scheduleDay').value = schedule.day_of_week || 'Monday';
         document.getElementById('scheduleStart').value = schedule.start_time ? schedule.start_time.substring(0,5) : '';
         document.getElementById('scheduleEnd').value = schedule.end_time ? schedule.end_time.substring(0,5) : '';
         document.getElementById('scheduleStatus').value = schedule.status || 'Active';
         document.getElementById('scheduleReason').value = schedule.reason || '';
 
-        // Show the popup first: the map picker can only be created (or
-        // measured) once its container is visible - and when editing from
-        // the Patrol Schedules tab the Schedules tab may never have opened.
         openScheduleModal();
-        if (!scheduleMapPicker) initScheduleMapPicker();
-
-        if (scheduleMapPicker) {
-            if (schedule.latitude != null && schedule.longitude != null) {
-                document.getElementById('scheduleLat').value = schedule.latitude;
-                document.getElementById('scheduleLng').value = schedule.longitude;
-                placeScheduleMarker(parseFloat(schedule.latitude), parseFloat(schedule.longitude));
-                const prompt = document.getElementById('scheduleMapPrompt');
-                if (prompt) prompt.innerHTML = '<i class="fa-solid fa-location-dot"></i> Location pinned! Click elsewhere on the map to move it.';
-            } else {
-                resetScheduleMapPicker();
-            }
-            setTimeout(() => scheduleMapPicker.invalidateSize(), 50);
-        }
+        document.getElementById('scheduleLat').value = schedule.latitude ?? '';
+        document.getElementById('scheduleLng').value = schedule.longitude ?? '';
 
         document.getElementById('scheduleFormTitle').textContent = 'Edit Patrol Schedule';
         document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update Schedule';
@@ -1764,9 +1665,12 @@ function updateCounts() {
     if (scheduleCount) {
         const total = scheduleTotal;
         const filter = document.getElementById('scheduleStatusFilter')?.value;
-        scheduleCount.textContent = filter
+        const suggested = getVisibleRecommendations().length;
+        scheduleCount.textContent = filter === 'Suggested'
+            ? `${suggested} suggestion${suggested === 1 ? '' : 's'}`
+            : filter
             ? `${total} ${filter.toLowerCase()} schedules (paged)`
-            : `${total} schedules`;
+            : `${total} saved · ${suggested} suggested`;
     }
 
     if (logCount) {

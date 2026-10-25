@@ -251,10 +251,17 @@
             gap: 6px;
             font-size: 0.75rem;
             font-weight: 600;
-            white-space: nowrap;
-            flex-shrink: 0;
+            min-width: 0;
+            max-width: 48%;
+            white-space: normal;
+            flex-shrink: 1;
+            justify-content: flex-end;
             text-align: right;
+            overflow-wrap: anywhere;
         }
+
+        #systemStatus { min-width: 0; overflow: hidden; }
+        #systemStatus .status-item > span { min-width: 0; }
 
         .status-dot .dot {
             width: 8px;
@@ -502,6 +509,28 @@
             outline: none;
         }
 
+        .settings-table-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            padding-top: 12px;
+            color: #64748b;
+            font-size: .75rem;
+        }
+
+        .settings-table-pagination button {
+            padding: 7px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: #fff;
+            color: #334155;
+            cursor: pointer;
+        }
+
+        .settings-table-pagination button:disabled { opacity: .45; cursor: not-allowed; }
+        .audit-log-container thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; }
+
         .audit-badge {
             display: inline-block;
             padding: 2px 10px;
@@ -519,6 +548,28 @@
         .audit-badge.view { background: #f1f5f9; color: #475569; }
         .audit-badge.export { background: #ede9fe; color: #6d28d9; }
         .audit-badge.default { background: #e2e8f0; color: #475569; }
+
+        /* Desktop workspace: each tab is a bounded panel. Tables and dense
+           settings cards scroll internally; the application shell stays put. */
+        @media (min-width: 1366px) and (min-height: 700px) {
+            body.settings-page .main-content { padding: 14px 20px; gap: 10px; }
+            body.settings-page .top-header { padding-bottom: 2px; }
+            body.settings-page .tab-navigation { margin: 0; }
+            body.settings-page .tab-content.active { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+            body.settings-page .tab-content.active > .settings-grid { height: 100%; min-height: 0; gap: 10px; }
+            body.settings-page #tab-system-details.active > .settings-grid { grid-template-rows: repeat(2,minmax(0,1fr)); }
+            body.settings-page .settings-card { min-height: 0; padding: 14px; overflow: auto; overscroll-behavior: contain; }
+            body.settings-page .settings-card .card-header { margin-bottom: 10px; }
+            body.settings-page .settings-card .card-header > div:last-child { min-width: 0; }
+            body.settings-page .settings-card .card-header p { margin: 2px 0 0; overflow-wrap: anywhere; }
+            body.settings-page .status-item { display: grid; grid-template-columns: minmax(0,1fr) minmax(96px,auto); gap: 10px; }
+            body.settings-page .status-dot { max-width: 100%; }
+            body.settings-page #tab-audit-trail.active .settings-card,
+            body.settings-page #tab-archive.active .settings-card { display: flex; flex-direction: column; overflow: hidden; }
+            body.settings-page .audit-filter-bar { flex: 0 0 auto; }
+            body.settings-page .audit-log-container { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+            body.settings-page .settings-table-pagination { flex: 0 0 auto; }
+        }
 
         /* Responsive */
         @media (max-width: 1200px) {
@@ -541,7 +592,7 @@
 <link rel="stylesheet" href="sidebar-drag.css">
 </head>
 
-<body>
+<body class="settings-page workspace-page">
 
 <div class="app-container">
 
@@ -663,6 +714,7 @@
 
                 <!-- Filter Bar -->
                 <div class="audit-filter-bar">
+                    <input id="auditSearch" type="search" maxlength="100" placeholder="Search user, action or entity" aria-label="Search audit logs">
                     <select id="auditFilterAction" class="form-select audit-filter-select">
                         <option value="">All Actions</option>
                         <option value="LOGIN">Login</option>
@@ -728,6 +780,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="settings-table-pagination" id="auditPagination"></div>
             </div>
         </section>
         </div>
@@ -754,6 +807,7 @@
                 </div>
 
                 <div class="audit-filter-bar">
+                    <input id="archiveSearch" type="search" maxlength="100" placeholder="Search archived records" aria-label="Search archive">
                     <select id="archiveFilterType" class="form-select audit-filter-select" aria-label="Filter archive by type">
                         <option value="">All Types</option>
                         <option value="incident">Incidents</option>
@@ -795,6 +849,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="settings-table-pagination" id="archivePagination"></div>
             </div>
         </section>
         </div>
@@ -1647,10 +1702,10 @@ async function loadLoginHistory() {
             }
 
             try {
-                const userResponse = await apiFetch('/users');
+                const userResponse = await apiFetch('/users?page=1&limit=1');
                 if (userResponse.ok) {
-                    const users = await userResponse.json();
-                    document.getElementById('totalUsers').textContent = users.length;
+                    await userResponse.json();
+                    document.getElementById('totalUsers').textContent = userResponse.headers.get('X-Total-Count') || '0';
                 } else {
                     document.getElementById('totalUsers').textContent = 'Error';
                 }
@@ -1687,6 +1742,24 @@ async function loadLoginHistory() {
     // AUDIT LOGS
     // =========================================================
     let auditLogDataById = {};
+    let auditPage = 1;
+    let archivePage = 1;
+    const SETTINGS_PAGE_SIZE = 10;
+
+    function renderSettingsPager(containerId, page, total, totalPages, loadPage) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.replaceChildren();
+        const label = document.createElement('span');
+        label.textContent = `${total} result${total === 1 ? '' : 's'} · Page ${page} of ${Math.max(1, totalPages)}`;
+        for (const [text, nextPage, disabled] of [['Previous', page - 1, page <= 1], ['Next', page + 1, page >= totalPages]]) {
+            const button = document.createElement('button');
+            button.type = 'button'; button.textContent = text; button.disabled = disabled;
+            button.addEventListener('click', () => loadPage(nextPage));
+            container.append(button);
+        }
+        container.append(label);
+    }
 
     function viewAuditLogDetails(id) {
         const entry = auditLogDataById[id];
@@ -1751,22 +1824,30 @@ async function loadLoginHistory() {
         return new Date(value).toLocaleString('en-PH', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
-    async function loadArchive() {
+    async function loadArchive(requestedPage = archivePage) {
         const tbody = document.getElementById('archiveBody');
         const countEl = document.getElementById('archiveCount');
         if (!tbody) return;
 
+        archivePage = requestedPage;
         const type = document.getElementById('archiveFilterType').value;
         const state = document.getElementById('archiveFilterState').value;
+        const search = document.getElementById('archiveSearch').value.trim();
 
         try {
-            const response = await apiFetch(`/archive?state=${encodeURIComponent(state)}${type ? `&type=${encodeURIComponent(type)}` : ''}`);
+            const params = new URLSearchParams({ state, page: archivePage, limit: SETTINGS_PAGE_SIZE });
+            if (type) params.set('type', type);
+            if (search) params.set('search', search);
+            const response = await apiFetch('/archive?' + params);
             if (!response.ok) throw new Error('Failed to fetch archive');
             const entries = await response.json();
 
             archiveEntriesById = {};
             entries.forEach(e => { archiveEntriesById[e.id] = e; });
-            if (countEl) countEl.textContent = `${entries.length} record${entries.length === 1 ? '' : 's'}`;
+            const total = Number(response.headers.get('X-Total-Count')) || 0;
+            const totalPages = Number(response.headers.get('X-Total-Pages')) || 1;
+            if (countEl) countEl.textContent = `${total} record${total === 1 ? '' : 's'}`;
+            renderSettingsPager('archivePagination', archivePage, total, totalPages, page => loadArchive(page));
 
             if (entries.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
@@ -1890,27 +1971,32 @@ async function loadLoginHistory() {
     window.viewArchiveEntry = viewArchiveEntry;
     window.restoreArchiveEntry = restoreArchiveEntry;
 
-    async function loadAuditLogs() {
+    async function loadAuditLogs(requestedPage = auditPage) {
         const tbody = document.getElementById('auditLogBody');
         const countEl = document.getElementById('auditLogCount');
         if (!tbody) return;
 
+        auditPage = requestedPage;
         const actionFilter = document.getElementById('auditFilterAction').value;
         const entityFilter = document.getElementById('auditFilterEntity').value;
+        const search = document.getElementById('auditSearch').value.trim();
 
         try {
-            let url = '/audit-logs?limit=100';
-            if (actionFilter) url += `&action=${encodeURIComponent(actionFilter)}`;
-            if (entityFilter) url += `&entity_type=${encodeURIComponent(entityFilter)}`;
+            const params = new URLSearchParams({ page: auditPage, limit: SETTINGS_PAGE_SIZE });
+            if (actionFilter) params.set('action', actionFilter);
+            if (entityFilter) params.set('entity_type', entityFilter);
+            if (search) params.set('search', search);
+            const url = '/audit-logs?' + params;
 
             const response = await apiFetch(url);
             if (!response.ok) throw new Error('Failed to fetch audit logs');
 
             const logs = await response.json();
 
-            if (countEl) {
-                countEl.textContent = `${logs.length} logs`;
-            }
+            const total = Number(response.headers.get('X-Total-Count')) || 0;
+            const totalPages = Number(response.headers.get('X-Total-Pages')) || 1;
+            if (countEl) countEl.textContent = `${total} logs`;
+            renderSettingsPager('auditPagination', auditPage, total, totalPages, page => loadAuditLogs(page));
 
             if (logs.length === 0) {
                 tbody.innerHTML = `
@@ -2190,18 +2276,28 @@ async function loadLoginHistory() {
         loadSystemSettings();
 
         // Filter listeners
-        document.getElementById('auditFilterAction').addEventListener('change', loadAuditLogs);
-        document.getElementById('auditFilterEntity').addEventListener('change', loadAuditLogs);
-        document.getElementById('auditRefreshBtn').addEventListener('click', loadAuditLogs);
+        document.getElementById('auditFilterAction').addEventListener('change', () => { auditPage = 1; loadAuditLogs(); });
+        document.getElementById('auditFilterEntity').addEventListener('change', () => { auditPage = 1; loadAuditLogs(); });
+        document.getElementById('auditRefreshBtn').addEventListener('click', () => loadAuditLogs());
+        let auditSearchDelay;
+        document.getElementById('auditSearch').addEventListener('input', () => {
+            clearTimeout(auditSearchDelay); auditPage = 1;
+            auditSearchDelay = setTimeout(() => loadAuditLogs(), 250);
+        });
 
         // Archive (admin only - the API returns 403 for anyone else, so
         // don't call it for other roles)
         if (typeof isAdmin === 'function' && isAdmin()) {
             loadArchive();
-            document.getElementById('archiveFilterType').addEventListener('change', loadArchive);
-            document.getElementById('archiveFilterState').addEventListener('change', loadArchive);
-            document.getElementById('archiveRefreshBtn').addEventListener('click', loadArchive);
-            document.querySelector('.tab-btn[data-tab="archive"]')?.addEventListener('click', loadArchive);
+            document.getElementById('archiveFilterType').addEventListener('change', () => { archivePage = 1; loadArchive(); });
+            document.getElementById('archiveFilterState').addEventListener('change', () => { archivePage = 1; loadArchive(); });
+            document.getElementById('archiveRefreshBtn').addEventListener('click', () => loadArchive());
+            document.querySelector('.tab-btn[data-tab="archive"]')?.addEventListener('click', () => loadArchive());
+            let archiveSearchDelay;
+            document.getElementById('archiveSearch').addEventListener('input', () => {
+                clearTimeout(archiveSearchDelay); archivePage = 1;
+                archiveSearchDelay = setTimeout(() => loadArchive(), 250);
+            });
         }
 
         // Settings listeners

@@ -5,10 +5,52 @@ let mapThresholds = { level2: 34, level3: 67 };
 let mapRefreshBusy = false;
 let mapLayersReady = false;
 let basemapWarning = '';
-let mapRecordPage = 1;
-let mapPageInfo = {page:1,totalPages:1};
 const mapEl = id => document.getElementById(id);
 const { INCIDENT_CATEGORIES, filterIncidents, getMondayOfWeek, calculatePointKPIs } = window.HeatmapAnalytics;
+const MAP_PAGE = '1';
+
+function localDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function periodRequestValue() {
+    const granularity = mapEl('heatmapGranularity').value;
+    const value = mapEl('heatmapPeriod').value || localDateKey();
+    if (granularity === 'month') return `${value.slice(0, 7)}-01`;
+    return granularity === 'week' ? getMondayOfWeek(value) : value;
+}
+
+function periodLabel() {
+    const granularity = mapEl('heatmapGranularity').value;
+    const selected = new Date(periodRequestValue() + 'T00:00:00');
+    if (granularity === 'day') return selected.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    if (granularity === 'month') return selected.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const end = new Date(selected); end.setDate(end.getDate() + 6);
+    return `${selected.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+}
+
+function configureCalendar(preserveDate = true) {
+    const input = mapEl('heatmapPeriod');
+    input.type = 'date';
+    if (!preserveDate || !input.value) input.value = localDateKey();
+    input.setAttribute('aria-label', mapEl('heatmapGranularity').value === 'month'
+        ? 'Choose a date in the month'
+        : mapEl('heatmapGranularity').value === 'week'
+            ? 'Choose a date in the week'
+            : 'Choose a date');
+}
+
+function stepPeriod(direction) {
+    const granularity = mapEl('heatmapGranularity').value;
+    const date = new Date(periodRequestValue() + 'T00:00:00');
+    if (granularity === 'month') date.setMonth(date.getMonth() + direction);
+    else date.setDate(date.getDate() + direction * (granularity === 'week' ? 7 : 1));
+    mapEl('heatmapPeriod').value = localDateKey(date);
+    loadRealData();
+}
 
 function isInsideBoundary(lat, lng) {
     return window.BarangayGeometry.contains(lat, lng);
@@ -43,7 +85,7 @@ function initializeMap() {
         applyFilterAndRender();
     });
     map.on('error', event => {
-        basemapWarning = 'Basemap tiles are unavailable; record highlights and the record list remain usable.';
+        basemapWarning = 'Basemap tiles are unavailable. Please check the network connection.';
         mapEl('mapLoadStatus').textContent = basemapWarning;
         console.error(event.error || event);
     });
@@ -52,45 +94,32 @@ async function loadRealData() {
     if (mapRefreshBusy) return;
     mapRefreshBusy = true;
     try {
-        const days = mapEl('mapWindowDays')?.value || '90';
-        const response = await apiFetch('/heatmap/records?' + new URLSearchParams({window_days:days, page:mapRecordPage, limit:500}));
+        const response = await apiFetch('/heatmap/records?' + new URLSearchParams({
+            granularity: mapEl('heatmapGranularity').value,
+            period: periodRequestValue(),
+            page: MAP_PAGE
+        }));
         if (!response.ok) throw new Error('Unable to load map records');
         const data = await response.json();
         mapThresholds = data.thresholds;
-        mapPageInfo = data.pagination || {page:1,totalPages:1};
-        mapEl('mapPreviousPage').disabled = mapRecordPage <= 1;
-        mapEl('mapNextPage').disabled = mapRecordPage >= mapPageInfo.totalPages;
         allIncidentsData = data.records.filter(row => isInsideBoundary(Number(row.latitude), Number(row.longitude)));
         if (mapLayersReady) for (const layer of ['incidents-glow', 'incidents-circle']) map.setPaintProperty(layer, 'circle-color', scoreColors());
-        mapEl('legendHigh').textContent = 'High: score ≥ ' + mapThresholds.level3;
-        mapEl('legendModerate').textContent = 'Moderate: ' + mapThresholds.level2 + ' to < ' + mapThresholds.level3;
-        mapEl('legendLow').textContent = 'Low: score < ' + mapThresholds.level2;
-        mapEl('highCellDescription').textContent = 'Cells with average CART score ≥ ' + mapThresholds.level3 + '.';
-        const synthetic = allIncidentsData.filter(row => row.data_origin === 'synthetic').length;
-        mapEl('mapLoadStatus').textContent = allIncidentsData.length + ' patrol-eligible records on page ' + mapRecordPage + ' of ' + Math.max(1,mapPageInfo.totalPages) +
-            (days === 'all' ? ' (all dates).' : ' (last ' + days + ' days).') + ' Map KPIs describe this page, not the entire database. Colors follow current CART thresholds. ' +
-            (synthetic ? synthetic + ' are SYNTHETIC TEST records. ' : '') + basemapWarning;
-        populateHeatmapPeriodOptions();
+        mapEl('highCellDescription').textContent = 'High-risk locations in the selected period.';
+        const hasAdditionalPages = Number(data.pagination?.totalPages) > 1;
+        mapEl('mapLoadStatus').textContent = hasAdditionalPages
+            ? `Map updated for ${periodLabel()}. Showing the first page only; additional records are not displayed.`
+            : basemapWarning || `Map updated for ${periodLabel()}.`;
         applyFilterAndRender();
     } catch (error) {
         mapEl('mapLoadStatus').textContent = 'Could not refresh records. Please check the server connection.';
         console.error(error);
     } finally { mapRefreshBusy = false; }
 }
-function populateHeatmapPeriodOptions() {
-    const granularity = mapEl('heatmapGranularity').value;
-    const select = mapEl('heatmapPeriod'), previous = select.value;
-    select.replaceChildren();
-    mapEl('heatmapPeriodChip').style.display = granularity === 'all' ? 'none' : '';
-    if (granularity === 'all') return;
-    const keys = new Set(allIncidentsData.filter(row => row.date).map(row => granularity === 'week' ? getMondayOfWeek(row.date) : granularity === 'month' ? row.date.slice(0, 7) : row.date));
-    [...keys].sort().reverse().forEach(key => select.add(new Option(granularity === 'week' ? 'Week of ' + key : key, key)));
-    if (!keys.size) select.add(new Option('No records', ''));
-    if (keys.has(previous)) select.value = previous;
-}
 function applyFilterAndRender() {
-    visibleIncidents = filterIncidents(allIncidentsData, { granularity: mapEl('heatmapGranularity').value,
-        period: mapEl('heatmapPeriod').value, category: mapEl('heatmapIncidentType').value });
+    visibleIncidents = filterIncidents(allIncidentsData, {
+        granularity: 'all',
+        category: mapEl('heatmapIncidentType').value
+    });
     const features = visibleIncidents.slice().sort((a, b) => a.cart_score - b.cart_score).map(row => ({
         type: 'Feature', geometry: { type: 'Point', coordinates: [Number(row.longitude), Number(row.latitude)] },
         properties: { id: row.id, cart_score: Number(row.cart_score) }
@@ -102,53 +131,17 @@ function applyFilterAndRender() {
     mapEl('kpi-peak').textContent = kpi.peakCount;
     mapEl('kpi-high').textContent = kpi.highRiskCells;
     mapEl('kpi-hotspot').textContent = visibleIncidents.filter(row => Number(row.active_patrol_count) > 0).length + ' records have active patrol schedules';
-    renderRecordBrowser();
-}
-function renderRecordBrowser() {
-    const list = mapEl('mapRecordList');
-    const previous = [...list.querySelectorAll('[role=option]')].find(option => option.getAttribute('aria-selected') === 'true');
-    const focused = list.contains(document.activeElement), scrollTop = list.scrollTop;
-    const rows = visibleIncidents.slice().sort((a, b) => b.cart_score - a.cart_score || a.id - b.id);
-    const selected = rows.find(row => String(row.id) === previous?.dataset.id) || rows[0];
-    list.replaceChildren();
-    mapEl('mapRecordCount').textContent = rows.length + (rows.length === 1 ? ' record' : ' records');
-    mapEl('mapRecordEmpty').hidden = rows.length > 0;
-    rows.forEach(row => {
-        const button = document.createElement('button');
-        button.type = 'button'; button.className = 'record-map-option'; button.dataset.id = String(row.id);
-        button.setAttribute('role', 'option'); button.setAttribute('aria-selected', String(row.id === selected.id));
-        button.tabIndex = row.id === selected.id ? 0 : -1;
-        button.textContent = row.blotter_number + ' · CART ' + Number(row.cart_score).toFixed(2) + ' · ' + row.incident_type;
-        const address = document.createElement('small');
-        address.textContent = (row.form_type === 'crime' ? 'Incident' : 'Blotter') + ' · ' + (row.address || row.street_name || 'Address not recorded');
-        button.append(address);
-        button.addEventListener('click', () => { selectBrowserRecord(button); openRecordGroup(rows, row.id); });
-        button.addEventListener('keydown', event => {
-            if (!['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
-            const options = [...list.querySelectorAll('[role=option]')], index = options.indexOf(button);
-            const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : Math.max(0, Math.min(options.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
-            event.preventDefault(); selectBrowserRecord(options[next]); options[next].focus();
-        });
-        list.append(button);
-    });
-    list.scrollTop = scrollTop;
-    if (focused) [...list.querySelectorAll('[role=option]')].find(option => option.tabIndex === 0)?.focus();
-}
-function selectBrowserRecord(selected) {
-    mapEl('mapRecordList').querySelectorAll('[role=option]').forEach(option => {
-        option.setAttribute('aria-selected', String(option === selected)); option.tabIndex = option === selected ? 0 : -1;
-    });
 }
 document.addEventListener('DOMContentLoaded', () => {
     if (!getCurrentUser()) { window.location.href = 'login.html'; return; }
     applyRoleBasedUI();
-    mapEl('mapWindowDays').addEventListener('change', () => { mapRecordPage = 1; loadRealData(); });
-    mapEl('mapPreviousPage').addEventListener('click', () => { if(mapRecordPage>1){mapRecordPage--;loadRealData();} });
-    mapEl('mapNextPage').addEventListener('click', () => { if(mapRecordPage<mapPageInfo.totalPages){mapRecordPage++;loadRealData();} });
     Object.keys(INCIDENT_CATEGORIES).forEach(category => mapEl('heatmapIncidentType').add(new Option(category, category)));
+    configureCalendar(false);
     mapEl('heatmapIncidentType').addEventListener('change', applyFilterAndRender);
-    mapEl('heatmapPeriod').addEventListener('change', applyFilterAndRender);
-    mapEl('heatmapGranularity').addEventListener('change', () => { mapEl('heatmapPeriod').value = ''; populateHeatmapPeriodOptions(); applyFilterAndRender(); });
+    mapEl('heatmapPeriod').addEventListener('change', loadRealData);
+    mapEl('heatmapGranularity').addEventListener('change', () => { configureCalendar(); loadRealData(); });
+    mapEl('heatmapPreviousPeriod').addEventListener('click', () => stepPeriod(-1));
+    mapEl('heatmapNextPeriod').addEventListener('click', () => stepPeriod(1));
     initializeMap();
     loadRealData();
     startLivePolling(loadRealData, 15000);

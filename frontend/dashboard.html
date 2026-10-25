@@ -99,10 +99,9 @@
         }
     </style>
 <link rel="stylesheet" href="sidebar-drag.css">
-<link rel="stylesheet" href="mediation-tasks.css">
 </head>
 
-<body>
+<body class="dashboard-page workspace-page">
 
 <!-- =========================================================
      LOGOUT CONFIRMATION MODAL
@@ -312,43 +311,6 @@
             </div>
 
         </header>
-
-        <section class="today-task-widget" aria-label="My mediation tasks">
-            <h2>Today's Assigned Blotter Mediation</h2>
-            <p>Highest priority first, then earliest appointment. Only your assignments are shown.</p>
-            <div id="mediationTaskList" aria-live="polite">Loading tasks…</div>
-        </section>
-
-        <dialog id="mediationTaskDialog">
-            <form id="mediationTaskForm">
-                <h3>Update mediation task</h3>
-                <p id="mediationTaskHeading"></p>
-                <label>
-                    Status
-                    <select id="mediationTaskStatus">
-                        <option>Pending</option>
-                        <option>In Progress</option>
-                        <option>Canceled</option>
-                        <option>Rescheduled</option>
-                    </select>
-                </label>
-                <label id="mediationNewDateWrap" hidden>
-                    New date and time
-                    <input type="datetime-local" id="mediationNewDate">
-                </label>
-                <label>
-                    Note
-                    <textarea id="mediationTaskNote" maxlength="4000" rows="3" placeholder="Add a note to the task history"></textarea>
-                </label>
-                <h4>History</h4>
-                <div id="mediationTaskHistory"></div>
-                <div class="task-actions">
-                    <button type="button" id="mediationClose">Close</button>
-                    <button type="submit">Save update</button>
-                </div>
-                <p id="mediationTaskError" role="alert"></p>
-            </form>
-        </dialog>
 
         <!-- =====================================================
              TABS: Overview / Analytics
@@ -624,11 +586,16 @@
                         </h2>
                     </div>
 
-                    <span
-                        class="badge-subtle"
-                    >
-                        Latest Records
-                    </span>
+                    <div class="recent-record-controls">
+                        <label class="sr-only" for="recentIncidentSearch">Search recent records</label>
+                        <input type="search" id="recentIncidentSearch" maxlength="100" placeholder="Search records">
+                        <label class="sr-only" for="recentIncidentStatus">Filter status</label>
+                        <select id="recentIncidentStatus">
+                            <option value="">All status</option>
+                            <option value="Open">Open</option>
+                            <option value="Monitoring">Monitoring</option>
+                        </select>
+                    </div>
 
                 </div>
 
@@ -905,8 +872,6 @@
 ============================================================ -->
 <script src="apiHelper.js"></script>
 <script src="dashboard.js"></script>
-<script src="mediation-tasks.js"></script>
-
 <script>
     // Admin-only sidebar links are hidden via dashboard.js calling
     // apiHelper.js's applyRoleBasedUI() (adds a role-* class to <body>

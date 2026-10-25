@@ -59,6 +59,7 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         start_time: '20:00',
         end_time: '22:00',
         day_of_week: 'Monday',
+        team_name: 'Night Patrol Team A',
         reason: 'created by an automated test'
     });
 
@@ -70,6 +71,7 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
 
         expect(res.status).toBe(201);
         expect(res.body.schedule.location).toBe('Balite Street');
+        expect(res.body.schedule.team_name).toBe('Night Patrol Team A');
         createdScheduleId = res.body.schedule.id;
 
         const getRes = await request(app)

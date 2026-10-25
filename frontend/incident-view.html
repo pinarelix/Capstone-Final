@@ -650,11 +650,28 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+
+        @media (min-width: 1366px) and (min-height: 700px) {
+            body.incident-view-page .main-content { padding: 14px 20px; gap: 10px; }
+            body.incident-view-page .top-header { padding-bottom: 2px; }
+            body.incident-view-page .view-stats-grid { flex: 0 0 82px; }
+            body.incident-view-page .view-stats-grid .kpi-card { min-height: 0; padding: 9px 12px; }
+            body.incident-view-page .view-stats-grid .kpi-value { font-size: 1.4rem; }
+            body.incident-view-page .view-stats-grid .kpi-desc { margin-top: 2px; font-size: .65rem; }
+            body.incident-view-page .filter-section { flex: 0 0 auto; padding: 10px 14px; margin: 0; }
+            body.incident-view-page .filter-section .form-label { margin-bottom: 3px; }
+            body.incident-view-page .filter-section .form-control,
+            body.incident-view-page .filter-section .form-select,
+            body.incident-view-page .filter-section .btn-refresh { min-height: 34px; padding-top: 5px; padding-bottom: 5px; }
+            body.incident-view-page .incident-table-card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+            body.incident-view-page .incident-table-card .table-responsive { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+            body.incident-view-page .incident-table-card thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; }
+        }
     </style>
 <link rel="stylesheet" href="sidebar-drag.css">
 </head>
 
-<body>
+<body class="incident-view-page workspace-page">
 
 <!-- =========================================================
      LOGOUT CONFIRMATION MODAL

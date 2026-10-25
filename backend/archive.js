@@ -1,3 +1,5 @@
+const { pagination, validatedSearch } = require('./recordQueries');
+
 // ============================================================
 // ARCHIVE - nothing a user deletes is gone for good.
 //
@@ -154,11 +156,21 @@ function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, 
     app.get('/api/archive', authenticate, requireRole(['Executive Officer']), async (req, res) => {
         try {
             const { type = '', state = 'archived' } = req.query;
+            const { page, limit, offset } = pagination(req.query, 10);
+            const search = validatedSearch(req.query.search);
             const where = [];
             const params = [];
             if (type) { where.push('a.entity_type = ?'); params.push(type); }
             if (state === 'archived') where.push('a.restored_at IS NULL');
             else if (state === 'restored') where.push('a.restored_at IS NOT NULL');
+            if (search) {
+                where.push('(a.label LIKE ? OR a.entity_type LIKE ? OR du.name LIKE ?)');
+                const term = `%${search}%`;
+                params.push(term, term, term);
+            }
+            const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+            const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM archived_records a
+                LEFT JOIN users du ON du.id = a.deleted_by ${whereClause}`, params);
 
             const [rows] = await pool.query(`
                 SELECT a.id, a.entity_type, a.entity_id, a.label, a.data, a.files,
@@ -167,12 +179,14 @@ function registerArchiveRoutes(app, { pool, archive, authenticate, requireRole, 
                 FROM archived_records a
                 LEFT JOIN users du ON du.id = a.deleted_by
                 LEFT JOIN users ru ON ru.id = a.restored_by
-                ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+                ${whereClause}
                 ORDER BY COALESCE(a.restored_at, a.deleted_at) DESC, a.id DESC
-                LIMIT 500
-            `, params);
+                LIMIT ? OFFSET ?
+            `, [...params, limit, offset]);
+            res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
             res.json(rows);
         } catch (error) {
+            if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
             console.error('❌ Error fetching archive:', error);
             res.status(500).json({ error: 'Failed to fetch archive' });
         }

@@ -18,7 +18,7 @@ const { BARANGAY_LOCATIONS } = require('./locationList');
 const { createArchive, registerArchiveRoutes } = require('./archive');
 const { isSetupCompleted, markSetupCompleted, generateRecoveryToken } = require('./config-manager');
 const { hashToken, generateSessionToken, generateResetToken } = require('./token-utils');
-const { pagination, appendDateFilters, registerRecordSummaries } = require('./recordQueries');
+const { pagination, validatedSearch, appendDateFilters, registerRecordSummaries } = require('./recordQueries');
 
 // The installed desktop app passes APP_CONFIG_PATH/UPLOADS_DIR (see
 // main.js) so settings and uploaded files live in the user's AppData
@@ -532,6 +532,7 @@ const scheduleSchema = Joi.object({
     scheduled_date: dateOnlySchema.allow(null, ''),
     priority: Joi.string().valid('High', 'Moderate', 'Low'),
     exact_address: Joi.string().max(255).allow(''),
+    team_name: Joi.string().trim().max(100).allow(''),
     tanod_ids: Joi.array().items(Joi.number().integer().positive()).unique().max(30),
     manual_patrol: Joi.boolean(),
     location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
@@ -1439,14 +1440,25 @@ recordPatrol.register(app);
 
 app.get('/api/users', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
+        const { limit, offset, page } = pagination(req.query, 10);
+        const role = req.query.role ? normalizeRole(req.query.role) : '';
+        if (role && !['Executive Officer', 'Kagawad', 'Team Leader'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role filter.' });
+        }
+        const roleClause = role === 'Executive Officer' ? ' AND u.role IN (?, ?)' : role ? ' AND u.role = ?' : '';
+        const params = role === 'Executive Officer' ? [role, LEGACY_EXECUTIVE] : role ? [role] : [];
+        const where = `WHERE u.is_active = 1${roleClause}`;
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM users u ${where}`, params);
         const [rows] = await pool.query(`
             SELECT
                 u.id, u.name, u.username, u.role,
                 u.contact_no, u.email, u.is_active, u.last_login_at, u.created_at, u.updated_at
             FROM users u
-            WHERE u.is_active = 1
+            ${where}
             ORDER BY u.id
-        `);
+            LIMIT ? OFFSET ?
+        `, [...params, limit, offset]);
+        res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
         res.json(rows);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch users' });
@@ -1458,21 +1470,37 @@ app.get('/api/users', authenticate, requireRole(['Executive Officer']), async (r
 // (as a literal id value, 404ing instead of ever reaching this handler).
 app.get('/api/users/search', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
-        const { q } = req.query;
+        const q = validatedSearch(req.query.q);
+        const { limit, offset, page } = pagination(req.query, 10);
+        const role = req.query.role ? normalizeRole(req.query.role) : '';
+        if (role && !['Executive Officer', 'Kagawad', 'Team Leader'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role filter.' });
+        }
 
         if (!q) {
+            const roleClause = role === 'Executive Officer' ? ' AND u.role IN (?, ?)' : role ? ' AND u.role = ?' : '';
+            const params = role === 'Executive Officer' ? [role, LEGACY_EXECUTIVE] : role ? [role] : [];
+            const where = `WHERE u.is_active = 1${roleClause}`;
+            const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM users u ${where}`, params);
             const [rows] = await pool.query(`
                 SELECT
                     u.id, u.name, u.username, u.role,
                     u.contact_no, u.email, u.is_active, u.last_login_at
                 FROM users u
-                WHERE u.is_active = 1
+                ${where}
                 ORDER BY u.id
-            `);
+                LIMIT ? OFFSET ?
+            `, [...params, limit, offset]);
+            res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
             return res.json(rows);
         }
 
         const searchTerm = `%${q}%`;
+        const roleClause = role === 'Executive Officer' ? ' AND u.role IN (?, ?)' : role ? ' AND u.role = ?' : '';
+        const roleParams = role === 'Executive Officer' ? [role, LEGACY_EXECUTIVE] : role ? [role] : [];
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM users u
+            WHERE u.is_active = 1 AND (u.name LIKE ? OR u.username LIKE ? OR u.role LIKE ?)${roleClause}`,
+            [searchTerm, searchTerm, searchTerm, ...roleParams]);
         const [rows] = await pool.query(`
             SELECT
                 u.id, u.name, u.username, u.role,
@@ -1481,13 +1509,16 @@ app.get('/api/users/search', authenticate, requireRole(['Executive Officer']), a
             WHERE u.is_active = 1
               AND (u.name LIKE ?
                OR u.username LIKE ?
-               OR u.role LIKE ?)
+               OR u.role LIKE ?)${roleClause}
             ORDER BY u.id
-        `, [searchTerm, searchTerm, searchTerm]);
+            LIMIT ? OFFSET ?
+        `, [searchTerm, searchTerm, searchTerm, ...roleParams, limit, offset]);
 
+        res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
         res.json(rows);
 
     } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
         res.status(500).json({ error: 'Search failed' });
     }
 });
@@ -1715,8 +1746,15 @@ app.delete('/api/users/:id', authenticate, requireRole(['Executive Officer']), a
 
 app.get('/api/users-list', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
+        const role = req.query.role ? normalizeRole(req.query.role) : '';
+        if (role && !['Executive Officer', 'Kagawad', 'Team Leader'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role filter.' });
+        }
+        const roleClause = role === 'Executive Officer' ? ' AND role IN (?, ?)' : role ? ' AND role = ?' : '';
+        const params = role === 'Executive Officer' ? [role, LEGACY_EXECUTIVE] : role ? [role] : [];
         const [rows] = await pool.query(
-            'SELECT id, name FROM users WHERE is_active = 1 ORDER BY name'
+            `SELECT id, name, role FROM users WHERE is_active = 1${roleClause} ORDER BY name`,
+            params
         );
         res.json(rows);
     } catch (error) {
@@ -2084,7 +2122,8 @@ registerRecordSummaries(app, { pool, authenticate, readRoles: requireRole(['Exec
 app.get('/api/incidents', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const { page, limit, offset: skip } = pagination(req.query);
-        const { search = '', type = '', danger = '', date = '', status = '', include_resolved = '', form_type = '' } = req.query;
+        const { type = '', danger = '', date = '', status = '', include_resolved = '', form_type = '' } = req.query;
+        const search = validatedSearch(req.query.search);
 
         // Search/filter moved server-side (was previously done client-side
         // over the whole loaded array) so real pagination doesn't silently
@@ -2151,6 +2190,7 @@ app.get('/api/incidents', authenticate, requireRole(['Executive Officer', 'Kagaw
 
         res.json({ incidents: rows, total, totalPages, currentPage: parseInt(page) });
     } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
         res.status(500).json({ error: 'Failed to fetch incidents' });
     }
 });
@@ -2175,7 +2215,8 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         }
 
         const { page, limit, offset: skip } = pagination(req.query, 10);
-        const { search = '', type = '', status = '', include_resolved = '', form_type = '' } = req.query;
+        const { type = '', status = '', include_resolved = '', form_type = '' } = req.query;
+        const search = validatedSearch(req.query.search);
 
         let filter = ['incidents.is_draft = 0'];
         let params = [];
@@ -2243,6 +2284,7 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         });
 
     } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
         res.status(500).json({ error: 'Failed to fetch incidents' });
     }
 });
@@ -3096,7 +3138,16 @@ app.put('/api/me/navigation-order', authenticate, async (req, res) => {
     }
 });
 
-// Today's assigned mediation tasks; incident report date is not the appointment date.
+// Blotter mediation is outside this project's early-warning and patrol scope.
+// Keep a clear retired response for stale clients instead of silently falling
+// through to the former assignment handlers below.
+app.use([
+    '/api/mediation-tasks', '/api/mediation-tasks/*',
+    '/api/me/mediation-tasks', '/api/me/mediation-tasks/*'
+], authenticate, (_req, res) => res.status(410).json({ error: 'Blotter mediation has been retired.' }));
+
+// Legacy handlers below are unreachable and retained temporarily for safe
+// deployments whose databases still contain historical mediation records.
 app.get('/api/me/mediation-tasks', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const [rows] = await pool.query(`
@@ -3165,11 +3216,11 @@ app.post('/api/mediation-tasks', authenticate, requireRole(['Executive Officer',
             [incidentId]
         );
         const [users] = await pool.query(
-            'SELECT id FROM users WHERE id = ? AND is_active = 1',
+            "SELECT id FROM users WHERE id = ? AND is_active = 1 AND role = 'Kagawad'",
             [assignedUserId]
         );
         if (records.length === 0 || users.length === 0) {
-            return res.status(400).json({ error: 'Active user and blotter incident required' });
+            return res.status(400).json({ error: 'Active Kagawad and blotter incident required' });
         }
 
         conn = await pool.getConnection();
@@ -3278,26 +3329,39 @@ app.get('/api/patrol-schedules', authenticate, requireRole(['Executive Officer',
 app.get('/api/patrol-schedules/all', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
         const {limit,offset,page} = pagination(req.query,10);
-        const where = req.query.status ? 'WHERE status = ?' : '';
-        const params = req.query.status ? [req.query.status] : [];
-        const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total FROM patrol_schedules ${where}`,params);
+        const search = validatedSearch(req.query.search);
+        const conditions = [], params = [];
+        if (req.query.status) { conditions.push('ps.status = ?'); params.push(req.query.status); }
+        if (search) {
+            conditions.push('(ps.location LIKE ? OR ps.day_of_week LIKE ? OR ps.reason LIKE ? OR pr.team_name LIKE ?)');
+            const term = `%${search}%`;
+            params.push(term, term, term, term);
+        }
+        const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+        const joins = 'FROM patrol_schedules ps LEFT JOIN patrol_schedule_records pr ON pr.schedule_id = ps.id';
+        const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total ${joins} ${where}`,params);
         const [rows] = await pool.query(`
-            SELECT * FROM patrol_schedules ${where}
-            ORDER BY FIELD(status,'Active','Completed','Cancelled'), day_of_week, start_time, id LIMIT ? OFFSET ?
+            SELECT ps.* ${joins} ${where}
+            ORDER BY FIELD(ps.status,'Active','Completed','Cancelled'), ps.day_of_week, ps.start_time, ps.id LIMIT ? OFFSET ?
         `,[...params,limit,offset]);
         res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
         res.json(await Promise.all(rows.map(async row => ({ ...row, ...await recordPatrol.scheduleExtras(row.id) }))));
     } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
         res.status(500).json({ error: 'Failed to fetch schedules' });
     }
 });
 
 app.get('/api/patrol-schedules/options', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req,res) => {
     try {
+        const search = validatedSearch(req.query.search);
         const [rows] = await pool.query(`SELECT id, location, day_of_week, start_time, end_time, status FROM patrol_schedules
-            WHERE location LIKE ? ORDER BY status='Active' DESC, id DESC LIMIT 50`, ['%'+String(req.query.search||'').slice(0,100)+'%']);
+            WHERE location LIKE ? ORDER BY status='Active' DESC, id DESC LIMIT 50`, [`%${search}%`]);
         res.json(rows);
-    } catch {res.status(500).json({error:'Could not load schedule choices'});}
+    } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+        res.status(500).json({error:'Could not load schedule choices'});
+    }
 });
 
 app.get('/api/patrol-schedules/:id', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
@@ -3489,6 +3553,12 @@ app.get('/api/patrol-logs', authenticate, requireRole(['Executive Officer', 'Kag
         for (const [name,field,operator] of [['date_from','pl.patrol_date','>='],['date_to','pl.patrol_date','<='],['status','pl.status','='],['location','ps.location','=']]) {
             if(req.query[name]){conditions.push(`${field} ${operator} ?`);params.push(req.query[name]);}
         }
+        const search = validatedSearch(req.query.search);
+        if (search) {
+            conditions.push('(ps.location LIKE ? OR pl.report LIKE ? OR pl.status LIKE ?)');
+            const term = `%${search}%`;
+            params.push(term, term, term);
+        }
         const where=conditions.join(' AND ');
         const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total FROM patrol_logs pl LEFT JOIN patrol_schedules ps ON pl.schedule_id=ps.id WHERE ${where}`,params);
         const [rows] = await pool.query(`
@@ -3504,6 +3574,7 @@ app.get('/api/patrol-logs', authenticate, requireRole(['Executive Officer', 'Kag
         res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
         res.json(rows);
     } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
         res.status(500).json({ error: 'Failed to fetch patrol logs' });
     }
 });
@@ -3998,43 +4069,40 @@ app.post('/api/reports/log-export', authenticate, validate(reportExportSchema), 
 
 app.get('/api/audit-logs', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
-        const { limit = 100, offset = 0, action, entity_type, user_id } = req.query;
+        const { action, entity_type, user_id } = req.query;
+        const { page, limit, offset } = pagination(req.query, 10);
+        const search = validatedSearch(req.query.search);
 
-        // Staff audit trail, newest first.
-        let query = `
+        const conditions = ['1=1'];
+        const params = [];
+        if (action) { conditions.push('al.action = ?'); params.push(action); }
+        if (entity_type) { conditions.push('al.entity_type = ?'); params.push(entity_type); }
+        if (user_id) { conditions.push('u.id = ?'); params.push(user_id); }
+        if (search) {
+            conditions.push('(u.name LIKE ? OR u.username LIKE ? OR al.action LIKE ? OR al.entity_type LIKE ?)');
+            const term = `%${search}%`;
+            params.push(term, term, term, term);
+        }
+        const where = conditions.join(' AND ');
+        const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM audit_logs al
+            LEFT JOIN users u ON al.user_id = u.id WHERE ${where}`, params);
+
+        const query = `
             SELECT
                 al.id, al.action, al.entity_type, al.entity_id,
                 al.ip_address, al.created_at, al.old_data, al.new_data,
                 u.name as user_name, u.username, 'staff' as actor_type
             FROM audit_logs al
             LEFT JOIN users u ON al.user_id = u.id
-            WHERE 1=1
+            WHERE ${where}
+            ORDER BY al.created_at DESC LIMIT ? OFFSET ?
         `;
-
-        const params = [];
-
-        if (action) {
-            query += ' AND action = ?';
-            params.push(action);
-        }
-
-        if (entity_type) {
-            query += ' AND entity_type = ?';
-            params.push(entity_type);
-        }
-
-        if (user_id) {
-            query += ' AND username = (SELECT username FROM users WHERE id = ?)';
-            params.push(user_id);
-        }
-
-        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-        params.push(parseInt(limit), parseInt(offset));
-
-        const [rows] = await pool.query(query, params);
+        const [rows] = await pool.query(query, [...params, limit, offset]);
+        res.set({'X-Total-Count':String(total),'X-Total-Pages':String(Math.ceil(total/limit)),'X-Current-Page':String(page)});
         res.json(rows);
 
     } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
         res.status(500).json({ error: 'Failed to fetch audit logs' });
     }
 });

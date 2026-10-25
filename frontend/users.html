@@ -122,7 +122,7 @@
 <link rel="stylesheet" href="sidebar-drag.css">
 </head>
 
-<body>
+<body class="users-page workspace-page">
 
 <div class="app-container">
 
@@ -309,9 +309,15 @@
                         <p class="table-description">Manage registered accounts and their system roles.</p>
                     </div>
                     <div class="table-controls">
+                        <select id="userRoleFilter" class="user-filter" aria-label="Filter users by role">
+                            <option value="">All roles</option>
+                            <option value="Executive Officer">Executive Officer</option>
+                            <option value="Kagawad">Kagawad</option>
+                            <option value="Team Leader">Team Leader</option>
+                        </select>
                         <div class="search-box">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="searchUsers" placeholder="Search users..." maxlength="100">
+                            <input type="search" id="searchUsers" placeholder="Search users..." maxlength="100">
                         </div>
                         <span class="badge-subtle" id="accountCount">0 account/s</span>
                     </div>
@@ -333,6 +339,13 @@
                             <!-- JavaScript generated -->
                         </tbody>
                     </table>
+                </div>
+                <div class="users-pagination" aria-label="User result pages">
+                    <span id="userRangeText">0 users</span>
+                    <div>
+                        <button type="button" id="usersPrevious" class="btn btn-secondary">Previous</button>
+                        <button type="button" id="usersNext" class="btn btn-secondary">Next</button>
+                    </div>
                 </div>
         </section>
 

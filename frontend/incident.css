@@ -471,3 +471,21 @@ body.role-decision-maker .cart-only {
     100% { transform: scale(1) translateY(0); opacity: 1; }
 }
 #incidentPlanPatrol[hidden] { display: none !important; }
+
+/* Desktop workspace: keep the page shell fixed and give the long form and
+   record table their own bounded scrolling regions. Smaller windows retain
+   the existing adaptive page scroll. */
+@media (min-width: 1366px) and (min-height: 700px) {
+    body.incident-page .main-content { padding: 14px 20px; gap: 10px; }
+    body.incident-page .top-header { padding-bottom: 2px; }
+    body.incident-page .tab-navigation { margin: 0; }
+    body.incident-page .tab-content.active { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    body.incident-page #tab-new-incident.active { display: flex; }
+    body.incident-page #tab-new-incident > .form-card { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    body.incident-page #tab-incident-records.active { display: flex; flex-direction: column; gap: 10px; }
+    body.incident-page #tab-incident-records > .controls-card { flex: 0 0 auto; margin: 0 !important; padding: 12px 14px; }
+    body.incident-page #tab-incident-records > .controls-card .card-title-bar { margin-bottom: 8px !important; }
+    body.incident-page #tab-incident-records > section.card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    body.incident-page #tab-incident-records .table-responsive { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+    body.incident-page #tab-incident-records .data-table thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; }
+}

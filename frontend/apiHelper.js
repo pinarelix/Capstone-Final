@@ -28,6 +28,26 @@ function escapeHTML(value) {
         .replace(/'/g, "&#039;");
 }
 
+// Search fields accept only characters needed for names, record numbers,
+// locations, and ordinary phrases. The server repeats this validation and
+// always binds the resulting value as a SQL parameter.
+const SEARCH_INPUT_PATTERN = /[^\p{L}\p{N}\s.,'#()\/-]/gu;
+function normalizeSearchInput(value, maximumLength = 100) {
+    return String(value ?? '').replace(SEARCH_INPUT_PATTERN, '').slice(0, maximumLength);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('input[type="search"], input[id*="search" i], input[name*="search" i]').forEach(input => {
+        input.maxLength = Math.min(Number(input.maxLength) > 0 ? Number(input.maxLength) : 100, 100);
+        input.autocomplete = 'off';
+        input.inputMode = 'search';
+        input.addEventListener('input', () => {
+            const validated = normalizeSearchInput(input.value, input.maxLength);
+            if (validated !== input.value) input.value = validated;
+        });
+    });
+});
+
 // ============================================================
 // 1c. SIDEBAR COLLAPSE/EXPAND (click the logo)
 // Self-running since apiHelper.js is loaded on every admin page -

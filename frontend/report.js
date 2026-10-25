@@ -56,6 +56,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Refine-within-the-month filters - all optional, combined with the
     // month filter (and each other) as AND conditions.
     const filterDateFrom = document.getElementById("filterDateFrom");
+    const reportSearch = document.getElementById("reportSearch");
     const filterDateTo = document.getElementById("filterDateTo");
     const filterStatus = document.getElementById("filterStatus");
     const filterType = document.getElementById("filterType");
@@ -69,6 +70,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const printPatrolLogBtn = document.getElementById("printPatrolLogBtn");
     const exportPatrolLogCsvBtn = document.getElementById("exportPatrolLogCsvBtn");
     const filterPatrolDateFrom = document.getElementById("filterPatrolDateFrom");
+    const patrolReportSearch = document.getElementById("patrolReportSearch");
     const filterPatrolDateTo = document.getElementById("filterPatrolDateTo");
     const filterPatrolStatus = document.getElementById("filterPatrolStatus");
     const filterPatrolLocation = document.getElementById("filterPatrolLocation");
@@ -92,7 +94,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const reportPager = document.createElement('div');
     reportPager.className = 'report-pagination'; reportPager.setAttribute('role','navigation'); reportPager.setAttribute('aria-label','Report record pages');
     tableBody?.closest('table')?.after(reportPager);
-    function reportParams(page = reportPage, limit = 50) {
+    function reportParams(page = reportPage, limit = 10) {
         const month = monthSelect.value;
         const [year,number] = month.split('-').map(Number);
         const last = new Date(year,number,0).getDate();
@@ -101,11 +103,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             date_from:filterDateFrom?.value > firstDay ? filterDateFrom.value : firstDay,
             date_to:filterDateTo?.value && filterDateTo.value < lastDay ? filterDateTo.value : lastDay});
         for (const [key,field] of [['status',filterStatus],['type',filterType],['form_type',filterFormType],['location',filterLocation]]) if(field?.value) params.set(key,field.value);
+        if (reportSearch?.value.trim()) params.set('search', reportSearch.value.trim());
         return params;
     }
     function renderReportPager(totalPages) {
         reportPager.replaceChildren();
-        const label = document.createElement('span'); label.textContent = `${reportTotal} matching records · Page ${reportPage} of ${Math.max(1,totalPages)} · 50 records per page`;
+        const label = document.createElement('span'); label.textContent = `${reportTotal} matching records · Page ${reportPage} of ${Math.max(1,totalPages)} · 10 records per page`;
         for (const [text,delta,disabled] of [['Previous',-1,reportPage<=1],['Next',1,reportPage>=totalPages]]) {
             const button = document.createElement('button'); button.type='button'; button.className='btn btn-secondary'; button.textContent=text; button.disabled=disabled;
             button.addEventListener('click',()=>{reportPage+=delta;loadIncidents();}); reportPager.append(button);
@@ -226,9 +229,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const patrolReportPager=document.createElement('div');
     patrolReportPager.className='report-pagination';patrolReportPager.setAttribute('role','navigation');patrolReportPager.setAttribute('aria-label','Patrol log report pages');
     patrolLogTableBody?.closest('table')?.after(patrolReportPager);
-    function patrolReportParams(page=patrolReportPage,limit=50) {
+    function patrolReportParams(page=patrolReportPage,limit=10) {
         const params=new URLSearchParams({page,limit});
         for(const [name,field] of [['date_from',filterPatrolDateFrom],['date_to',filterPatrolDateTo],['status',filterPatrolStatus],['location',filterPatrolLocation]]) if(field?.value) params.set(name,field.value);
+        if (patrolReportSearch?.value.trim()) params.set('search', patrolReportSearch.value.trim());
         return params;
     }
     async function exportPatrolRecords() {
@@ -247,8 +251,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function loadPatrolLogs() {
         const request=++patrolReportRequest;
         try {
-            // No pagination/limit support on this endpoint (unlike
-            // /incidents) - it already returns every row.
+            // The API performs the search/filtering and returns one bounded
+            // page, matching the incident report table.
             const response = await apiFetch('/patrol-logs?'+patrolReportParams());
             if (!response.ok) throw new Error('Failed to load patrol logs');
 
@@ -685,9 +689,22 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
         });
 
+    for (const [field, reset, load] of [
+        [reportSearch, () => { reportPage = 1; }, loadIncidents],
+        [patrolReportSearch, () => { patrolReportPage = 1; }, loadPatrolLogs]
+    ]) {
+        if (!field) continue;
+        let debounce;
+        field.addEventListener('input', () => {
+            clearTimeout(debounce);
+            reset();
+            debounce = setTimeout(load, 250);
+        });
+    }
+
     if (clearFiltersBtn) {
         clearFiltersBtn.addEventListener("click", () => {
-            [filterDateFrom, filterDateTo, filterStatus, filterType, filterFormType, filterLocation]
+            [reportSearch, filterDateFrom, filterDateTo, filterStatus, filterType, filterFormType, filterLocation]
                 .filter(Boolean)
                 .forEach(field => { field.value = ""; });
             reportPage=1;loadIncidents();
@@ -704,7 +721,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (clearPatrolFiltersBtn) {
         clearPatrolFiltersBtn.addEventListener("click", () => {
-            [filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolLocation]
+            [patrolReportSearch, filterPatrolDateFrom, filterPatrolDateTo, filterPatrolStatus, filterPatrolLocation]
                 .filter(Boolean)
                 .forEach(field => { field.value = ""; });
             patrolReportPage=1;loadPatrolLogs();

@@ -222,6 +222,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // TABS: Overview / Analytics
     // ============================================================
     setupTabs();
+
+    let recentSearchDelay;
+    document.getElementById('recentIncidentSearch')?.addEventListener('input', () => {
+        clearTimeout(recentSearchDelay);
+        recentSearchDelay = setTimeout(loadIncidentsTable, 250);
+    });
+    document.getElementById('recentIncidentStatus')?.addEventListener('change', loadIncidentsTable);
 });
 
 /* ============================================================
@@ -338,7 +345,12 @@ async function loadIncidentsTable() {
         // Incident Records page) — this widget only ever shows 5 rows,
         // so it asks the server for exactly that instead of fetching
         // everything and slicing client-side.
-        const response = await apiFetch('/incidents?limit=5');
+        const params = new URLSearchParams({ limit: 5 });
+        const search = document.getElementById('recentIncidentSearch')?.value.trim();
+        const status = document.getElementById('recentIncidentStatus')?.value;
+        if (search) params.set('search', search);
+        if (status) params.set('status', status);
+        const response = await apiFetch('/incidents?' + params);
         if (!response.ok) throw new Error('Failed to fetch incidents');
 
         const data = await response.json();

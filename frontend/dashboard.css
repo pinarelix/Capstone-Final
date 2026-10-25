@@ -1471,6 +1471,21 @@ html[data-sidebar-collapsed="true"] .sidebar .nav-item {
     overflow-x: auto;
 }
 
+@media (min-width: 1366px) and (min-height: 700px) {
+    .table-responsive {
+        max-height: min(42vh, 360px);
+        overflow: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+    }
+
+    .data-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+}
+
 /* The Recent Incident Table's 6 columns (at .data-table's shared 12px/13px
    padding, used as-is on 7 other pages) were a few pixels wider than this
    half-width dashboard card, clipping the Danger Level column with no
@@ -1485,6 +1500,25 @@ html[data-sidebar-collapsed="true"] .sidebar .nav-item {
     margin-right: 5px;
     color: #3b82f6;
     font-size: 0.7rem;
+}
+
+.recent-record-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.recent-record-controls input,
+.recent-record-controls select {
+    min-height: 34px;
+    max-width: 150px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    background: #f8fafc;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: .72rem;
 }
 
 
@@ -2023,4 +2057,131 @@ body.role-desk-officer .admin-section {
 
 .access-denied .btn {
     margin-top: 10px;
+}
+
+/* Compact desktop workspace: page-level scrolling is replaced with
+   bounded content regions so operational controls remain visible. */
+@media (min-width: 1366px) and (min-height: 700px) {
+    body.workspace-page .main-content {
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    body.workspace-page .top-header,
+    body.workspace-page .tab-navigation {
+        flex: 0 0 auto;
+    }
+
+    body.workspace-page .tab-content.active {
+        min-height: 0;
+    }
+
+    .main-content {
+        padding: 16px 20px;
+        gap: 12px;
+    }
+
+    .top-header { padding: 0 0 6px; }
+    .card { padding: 14px; }
+
+    body.dashboard-page .main-content {
+        height: 100dvh;
+        overflow: hidden;
+    }
+
+    body.dashboard-page .top-header { flex: 0 0 auto; }
+    body.dashboard-page .top-header .header-titles p { margin: 3px 0 0; }
+    body.dashboard-page .tab-navigation { flex: 0 0 auto; margin: 0; }
+    body.dashboard-page .tab-btn { padding: 7px 12px; }
+
+    body.dashboard-page #tab-overview.active {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 78px) minmax(0, 1fr);
+        gap: 8px;
+        overflow: hidden;
+    }
+
+    body.dashboard-page #tab-overview > .kpi-group,
+    body.dashboard-page #tab-overview > .kpi-group > .kpi-group-grid {
+        display: contents;
+    }
+
+    body.dashboard-page #tab-overview .dash-section-label { display: none; }
+    body.dashboard-page #tab-overview .kpi-card {
+        min-height: 0;
+        padding: 9px 11px;
+        border: 1px solid var(--border-card);
+        border-radius: 10px;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    body.dashboard-page #tab-overview .kpi-label { margin-bottom: 3px; font-size: .58rem; }
+    body.dashboard-page #tab-overview .kpi-value { font-size: 1.45rem; }
+    body.dashboard-page #tab-overview .kpi-value.text-lg { font-size: .92rem; }
+    body.dashboard-page #tab-overview .kpi-desc { margin-top: 3px; font-size: .62rem; line-height: 1.2; }
+
+    body.dashboard-page #tab-overview > .data-grid {
+        grid-column: 1 / -1;
+        min-height: 0;
+        height: 100%;
+        gap: 10px;
+    }
+
+    body.dashboard-page #tab-overview .data-card {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    body.dashboard-page #tab-overview .card-title-bar { margin-bottom: 8px; }
+    body.dashboard-page #tab-overview .table-responsive,
+    body.dashboard-page #tab-overview .hotspot-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+        overflow: auto;
+        overscroll-behavior: contain;
+    }
+
+    body.dashboard-page #tab-analytics.active {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        overflow: hidden;
+    }
+
+    body.dashboard-page #tab-analytics > .dash-section-label { display: none; }
+    body.dashboard-page #tab-analytics > .charts-grid { display: contents; }
+    body.dashboard-page #tab-analytics .chart-card {
+        min-height: 0;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: none;
+    }
+
+    body.dashboard-page #tab-analytics .chart-header { margin-bottom: 4px; }
+    body.dashboard-page #tab-analytics .chart-header p { display: none; }
+    body.dashboard-page #tab-analytics .chart-container {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+    }
+
+    body.dashboard-page #crimeLegendPanel.open {
+        display: block;
+        position: fixed;
+        inset: 12vh max(40px, 18vw);
+        z-index: 12000;
+        overflow: auto;
+    }
 }

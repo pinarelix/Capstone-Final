@@ -151,11 +151,10 @@ async function migrate() {
             throw new Error('Cannot apply migration 002: the incidents table/view is missing.');
         }
 
-        // These migrations are safe to re-run: 003 uses IF NOT EXISTS, 004
-        // replaces its view, and the task-manager migration uses IF NOT EXISTS.
+        // These migrations are safe to re-run: 003 uses IF NOT EXISTS and
+        // 004 replaces its view. Blotter mediation was retired from scope.
         await runSqlMigration(conn, '003_record_type_catalog.sql');
         await runSqlMigration(conn, '004_unified_analytics_view.sql');
-        await runSqlMigration(conn, '20261023_task_manager.sql');
         await migrateRecordPatrol(conn);
 
         // 8. Respondent structured address columns

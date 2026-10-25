@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "test": "jest --runInBand",
     "test:analytics": "jest --runInBand tests/cart-engine.test.js tests/heatmap-analytics.test.js tests/heatmap-api.test.js tests/record-patrol.test.js tests/map-ui-contract.test.js tests/map-sidebar-regressions.test.js tests/qa-generator.test.js tests/settings-cart-reports.test.js",
+    "migrate": "node scripts/migrate.js",
     "backup": "node scripts/backup-database.js",
     "restore": "node scripts/restore-database.js",
     "setup-db-user": "node scripts/setup-db-user.js"

@@ -532,3 +532,34 @@ body {
     color: #64748b;
     font-weight: 500;
 }
+
+/* Fixed desktop report workspace. The result table scrolls independently;
+   filters and export actions remain reachable without moving the page. */
+@media (min-width: 1366px) and (min-height: 700px) {
+    body.report-page .main-content { padding: 14px 20px; gap: 10px; }
+    body.report-page .top-header { padding-bottom: 2px; }
+    body.report-page .tab-navigation { margin: 0; }
+    body.report-page .tab-content.active { flex: 1 1 auto; min-height: 0; overflow: hidden; display: grid; grid-template-rows: auto auto minmax(0,1fr); gap: 10px; }
+    body.report-page .filter-section { margin: 0; padding: 10px 14px; gap: 8px; }
+    body.report-page .filter-section h2 { font-size: .92rem; }
+    body.report-page .filter-section p { margin: 2px 0 0; font-size: .7rem; }
+    body.report-page .report-filters-divider { margin: 6px 0 0; padding-top: 6px; }
+    body.report-page .report-filters-grid { gap: 8px; }
+    body.report-page .report-filter-field label { margin-bottom: 3px; font-size: .62rem; }
+    body.report-page .report-filter-field input,
+    body.report-page .report-filter-field select { min-height: 32px; padding: 5px 9px; }
+    body.report-page .report-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 0; }
+    body.report-page #tab-patrol-logs .report-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    body.report-page .report-action-card { min-height: 0 !important; padding: 8px 12px !important; display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 8px; }
+    body.report-page .report-action-card .icon-wrapper { width: 28px; height: 28px; margin: 0; }
+    body.report-page .report-action-card h3 { margin: 0; font-size: .78rem; }
+    body.report-page .report-action-card p { display: none; }
+    body.report-page .report-action-card .btn-report { margin: 0; padding: 7px 10px; white-space: nowrap; }
+    body.report-page .report-table-card { min-height: 0; padding: 10px 14px; display: flex; flex-direction: column; }
+    body.report-page .report-table-card .card-header { flex: 0 0 auto; margin-bottom: 6px; }
+    body.report-page .report-table-card .card-header h2 { font-size: .9rem; }
+    body.report-page .report-meta { display: none; }
+    body.report-page .report-table-card .table-responsive { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+    body.report-page .report-table-card .data-table thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; }
+    body.report-page .report-pagination { flex: 0 0 auto; padding: 8px 0 0; }
+}
