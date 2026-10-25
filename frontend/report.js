@@ -64,6 +64,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     const filterLocation = document.getElementById("filterLocation");
     const clearFiltersBtn = document.getElementById("clearFiltersBtn");
 
+    function syncReportDateInputs(changedField = '') {
+        if (!filterDateFrom || !filterDateTo) return;
+        const range = ReportDateFilter.normalizeRange(
+            monthSelect.value,
+            filterDateFrom.value,
+            filterDateTo.value,
+            changedField
+        );
+
+        filterDateFrom.min = range.firstDay;
+        filterDateFrom.max = range.lastDay;
+        filterDateTo.min = range.firstDay;
+        filterDateTo.max = range.lastDay;
+        filterDateFrom.value = range.dateFrom;
+        filterDateTo.value = range.dateTo;
+    }
+
     // Patrol Logs tab
     const patrolLogTableBody = document.getElementById("patrolLogTableBody");
     const patrolLogCount = document.getElementById("patrolLogCount");
@@ -96,12 +113,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     tableBody?.closest('table')?.after(reportPager);
     function reportParams(page = reportPage, limit = 10) {
         const month = monthSelect.value;
-        const [year,number] = month.split('-').map(Number);
-        const last = new Date(year,number,0).getDate();
-        const firstDay = month + '-01', lastDay = month + '-' + String(last).padStart(2,'0');
+        const range = ReportDateFilter.effectiveRange(month, filterDateFrom?.value, filterDateTo?.value);
         const params = new URLSearchParams({page,limit,include_resolved:'1',
-            date_from:filterDateFrom?.value > firstDay ? filterDateFrom.value : firstDay,
-            date_to:filterDateTo?.value && filterDateTo.value < lastDay ? filterDateTo.value : lastDay});
+            date_from:range.dateFrom,
+            date_to:range.dateTo});
         for (const [key,field] of [['status',filterStatus],['type',filterType],['form_type',filterFormType],['location',filterLocation]]) if(field?.value) params.set(key,field.value);
         if (reportSearch?.value.trim()) params.set('search', reportSearch.value.trim());
         return params;
@@ -142,6 +157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 populateLocationDropdown(); reportPeriodsLoaded=true;
             }
             if(!monthSelect.value) { reportTotal=0;renderReportPager(0);return; }
+            syncReportDateInputs();
             const params = reportParams();
             const [response,summary] = await Promise.all([apiFetch('/incidents?' + params),apiFetch('/incidents/summary?' + params)]);
             if (!response.ok) throw new Error('Failed to load incidents');
@@ -675,13 +691,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     if (monthSelect) {
         monthSelect.addEventListener("change", (e) => {
+            syncReportDateInputs();
             reportPage=1;loadIncidents();
         });
     }
 
     // Every refine-within-month filter re-renders the same table on
     // change - no separate "Apply" step.
-    [filterDateFrom, filterDateTo, filterStatus, filterType, filterFormType, filterLocation]
+    [[filterDateFrom, 'from'], [filterDateTo, 'to']]
+        .filter(([field]) => Boolean(field))
+        .forEach(([field, changedField]) => {
+            field.addEventListener("change", () => {
+                syncReportDateInputs(changedField);
+                reportPage=1;loadIncidents();
+            });
+        });
+
+    [filterStatus, filterType, filterFormType, filterLocation]
         .filter(Boolean)
         .forEach(field => {
             field.addEventListener("change", () => {
