@@ -316,6 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${formBadge}</td>
                     <td><strong>${escapeHTML(incident.incident_type || 'N/A')}</strong></td>
                     <td>${escapeHTML(location)}</td>
+                    <td>${escapeHTML(incident.address || 'N/A')}</td>
                     <td>${formattedDate}</td>
                     <td><span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span></td>
                     <td><span class="badge ${dangerClass}">${escapeHTML(danger || 'Not assessed')}</span></td>
@@ -726,10 +727,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    refreshBtn.addEventListener('click', () => {
-        loadIncidents();
-        loadStats();
-        showToast('Refreshed successfully!', 'success');
+    let refreshLocked = false;
+    refreshBtn.addEventListener('click', async () => {
+        // Prevent rapid repeated clicks from starting duplicate requests and
+        // stacking identical success notifications.
+        if (refreshLocked) return;
+        refreshLocked = true;
+        refreshBtn.disabled = true;
+        try {
+            await Promise.all([loadIncidents(), loadStats()]);
+            showToast('Refreshed successfully!', 'success');
+        } finally {
+            setTimeout(() => {
+                refreshLocked = false;
+                refreshBtn.disabled = false;
+            }, 750);
+        }
     });
 
     // =========================================================

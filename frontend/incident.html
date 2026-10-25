@@ -622,12 +622,7 @@
                             <textarea id="incidentPatrolNotes" class="form-control" rows="2" maxlength="200" placeholder="Location access, visibility patrol, or follow-up instructions"></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="incidentPatrolOverride">Patrol eligibility</label>
-                            <select id="incidentPatrolOverride" class="form-select">
-                                <option value="auto">Use type and CART policy</option>
-                                <option value="include">Manual: include for patrol</option>
-                                <option value="exclude">No patrol required</option>
-                            </select>
+                            <p class="form-help">Patrol eligibility is assigned automatically by the server's risk policy.</p>
                             <button type="button" id="incidentPlanPatrol" class="btn btn-secondary" hidden>Open patrol scheduling for this record</button>
                         </div>
                         <!-- No Evidence checkbox -->
@@ -812,6 +807,7 @@
                                     <th>TYPE</th>
                                     <th>DATE / TIME</th>
                                     <th>LOCATION</th>
+                                    <th>ADDRESS</th>
                                     <th>REPORTED BY</th>
                                     <th>SEVERITY</th>
                                     <th>STATUS</th>

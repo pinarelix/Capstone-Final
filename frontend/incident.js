@@ -84,7 +84,7 @@ async function generateBlotterNumber() {
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
-    for (const id of ['incidentPatrolNotes', 'incidentPatrolOverride']) {
+    for (const id of ['incidentPatrolNotes']) {
         const field = document.getElementById(id);
         if (field) field.disabled = !isAdmin();
     }
@@ -559,18 +559,7 @@ function formatDate(dateStr) {
 }
 
 function formatTime(timeStr) {
-    if (!timeStr) return 'N/A';
-    try {
-        if (typeof timeStr === 'string') {
-            const parts = timeStr.split(':');
-            if (parts.length >= 2) {
-                return `${String(parts[0]).padStart(2, '0')}:${String(parts[1]).padStart(2, '0')}`;
-            }
-        }
-        return timeStr;
-    } catch (e) {
-        return timeStr;
-    }
+    return window.formatDisplayTime ? (window.formatDisplayTime(timeStr) || 'N/A') : (timeStr || 'N/A');
 }
 
 function renderTable(dataToRender) {
@@ -631,6 +620,7 @@ function renderTable(dataToRender) {
                 <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                 <td class="text-secondary">${formattedDate} ${formattedTime}</td>
                 <td>${escapeHTML(locationDisplay)}</td>
+                <td>${escapeHTML(item.address || 'N/A')}</td>
                 <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
                 <td><span class="badge ${severityClass}">${escapeHTML(item.severity || 'N/A')}</span></td>
                 <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
@@ -868,8 +858,7 @@ function setupForm() {
                 snap.respUnit === respUnit &&
                 snap.noEvidence === noEvidence &&
                 snap.noEvidenceReason === noEvidenceReason &&
-                (snap.patrolNotes || '') === (document.getElementById('incidentPatrolNotes')?.value || '') &&
-                (snap.patrolOverride || 'auto') === (document.getElementById('incidentPatrolOverride')?.value || 'auto');
+                (snap.patrolNotes || '') === (document.getElementById('incidentPatrolNotes')?.value || '');
             if (nothingChanged) {
                 showErrorModal('No Changes Detected', 'You haven\'t made any changes. Please update the details first before saving.');
                 restoreBtn();
@@ -892,10 +881,7 @@ function setupForm() {
             const idempotencyKey = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
             const payload = {
-                ...(isAdmin() ? {
-                    patrol_notes: document.getElementById('incidentPatrolNotes').value,
-                    patrol_override: document.getElementById('incidentPatrolOverride').value
-                } : {}),
+                ...(isAdmin() ? { patrol_notes: document.getElementById('incidentPatrolNotes').value } : {}),
                 incident_type: type,
                 date,
                 time,
@@ -1165,7 +1151,6 @@ window.deleteEvidenceFile = deleteEvidenceFile;
 
 function clearForm() {
     document.getElementById('incidentPatrolNotes').value = '';
-    document.getElementById('incidentPatrolOverride').value = 'auto';
     document.getElementById('incidentPlanPatrol').hidden = true;
     // Closes the edit popup too, if it was open - a no-op otherwise
     // since removing an absent class does nothing.
@@ -1380,7 +1365,6 @@ window.editIncident = async (id) => {
         document.getElementById('incidentStatus').value = record.status || 'Open';
         document.getElementById('incidentDesc').value = record.description || '';
         document.getElementById('incidentPatrolNotes').value = record.patrol_notes || '';
-        document.getElementById('incidentPatrolOverride').value = record.patrol_override || 'auto';
         const planPatrol = document.getElementById('incidentPlanPatrol');
         planPatrol.hidden = !isAdmin();
         planPatrol.onclick = () => { window.location.href = 'patrol.html?record=' + encodeURIComponent(record.id); };
@@ -1457,7 +1441,6 @@ window.editIncident = async (id) => {
 
         window._incidentEditSnapshot = {
             patrolNotes: record.patrol_notes || '',
-            patrolOverride: record.patrol_override || 'auto',
             type: record.incident_type || '',
             date: record.date ? record.date.split('T')[0] : '',
             time: record.time ? record.time.substring(0, 5) : '',

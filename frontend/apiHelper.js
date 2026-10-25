@@ -716,6 +716,30 @@ const PatrolAPI = {
     })
 };
 
+// Keep user-facing time consistent across the desktop app. Database values
+// remain in 24-hour format so forms and sorting continue to work normally.
+function formatDisplayTime(timeValue) {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return '';
+    const raw = String(timeValue).trim();
+    const match = raw.match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return raw;
+    const hour = Number(match[1]);
+    const minute = match[2];
+    if (!Number.isFinite(hour) || hour < 0 || hour > 23) return raw;
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minute} ${suffix}`;
+}
+
+function formatDisplayTimeRange(start, end, separator = ' - ') {
+    const first = formatDisplayTime(start);
+    const second = formatDisplayTime(end);
+    return first && second ? `${first}${separator}${second}` : first || second || '';
+}
+
+window.formatDisplayTime = formatDisplayTime;
+window.formatDisplayTimeRange = formatDisplayTimeRange;
+
 /**
  * API para sa CART Analytics
  */

@@ -85,14 +85,14 @@ describe('Record map UI contract', () => {
             expect(html).toMatch(/<body[^>]*class="[^"]*workspace-page/);
         }
         const patrol = fs.readFileSync(path.join(__dirname, '../../frontend/patrol.html'), 'utf8');
-        expect(patrol).toContain('Patrol Planning');
+        expect(patrol).toContain('Patrol Calendar');
         expect(patrol).toContain('<option value="Suggested">Suggested</option>');
         expect(patrol).not.toContain('Active Priority Recommendations');
         expect(patrol).not.toContain('id="recommendationsContainer"');
         expect(patrol).not.toContain('patrol-search.js');
         expect(patrol).toMatch(/id="monthSelect"[^>]+type="date"/);
         expect(patrol).toContain('id="scheduleRecordSelect"');
-        expect(patrol).toContain('Active heatmap record');
+        expect(patrol).toContain('active risk-map record');
         expect(patrol).toContain('id="scheduleTeamName"');
         expect(patrol).toContain('Team members');
         expect(patrol).not.toContain('id="scheduleMapPicker"');
@@ -127,6 +127,18 @@ describe('Record map UI contract', () => {
         expect(requested).toContain('period=2026-10-01');
         expect(requested).not.toContain('window_days');
     });
+
+    test('User Management exposes the clean reset-state copy and quick actions', () => {
+        const html = fs.readFileSync(path.join(__dirname, '../../frontend/users.html'), 'utf8');
+        const js = fs.readFileSync(path.join(__dirname, '../../frontend/users.js'), 'utf8');
+        expect(html).toContain('id="addPersonnelBtn"');
+        expect(html).toContain('id="createPatrolTeamBtn"');
+        expect(html).toContain('id="personnelCount">0 personnel');
+        expect(html).toContain('id="patrolTeamCount">0 teams');
+        expect(js).toContain('No personnel registered yet.');
+        expect(js).toContain('No patrol teams created yet.');
+        expect(js).toContain('`${people.length} personnel`');
+    });
 });
 
 describe('Light record detail panel', () => {
@@ -150,7 +162,7 @@ describe('Light record detail panel', () => {
         const html=element('mapRecordDetail').innerHTML;
         expect(html).toContain('Incident Reporter'); expect(html).toContain('Encoded by'); expect(html).toContain('Encoding Staff');
         for(const text of ['Complainant','Respondent','CART assessment details','Statement and evidence','Hidden statement','Hidden assessment','mapEvidenceList']) expect(html).not.toContain(text);
-        expect(html).toContain('CART score'); expect(html).toContain('&lt;img'); expect(html).not.toContain('<img');
+        expect(html).toContain('Risk analysis'); expect(html).toContain('&lt;img'); expect(html).not.toContain('<img');
         expect(html).toContain('maxlength="200"'); expect(html).toContain('fieldset');
         expect(context.ensureFileToken).not.toHaveBeenCalled();
     });

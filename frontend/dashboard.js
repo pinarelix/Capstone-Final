@@ -274,8 +274,7 @@ function formatDate(dateStr) {
 }
 
 function formatTime(timeStr) {
-    if (!timeStr) return '';
-    return timeStr.substring(0, 5);
+    return window.formatDisplayTime ? window.formatDisplayTime(timeStr) : (timeStr || '');
 }
 
 function formatHour(hour) {
@@ -402,6 +401,7 @@ function renderTable(rows) {
             <td>${escapeHTML(row.incident_type)}</td>
             <td class="text-secondary">${formatDate(row.date)} ${formatTime(row.time)}</td>
             <td>${escapeHTML(row.location || row.street_name || 'N/A')}</td>
+            <td>${escapeHTML(row.address || 'N/A')}</td>
             <td><span class="badge ${statusClass}">${escapeHTML(row.status)}</span></td>
             <td><span class="badge ${dangerClass}" title="${escapeHTML(row.danger_level || '')}">${dangerShort}</span></td>
         `;
@@ -450,6 +450,7 @@ async function loadHotspots() {
                     tagClass = 'tag-soft-yellow';
                 }
                 return {
+                    location,
                     title: `#${index + 1} ${location}`,
                     danger: dangerLevel,
                     levelClass: levelClass,
@@ -479,6 +480,9 @@ function renderHotspots(hotspots) {
     hotspots.forEach((item, index) => {
         const div = document.createElement("div");
         div.className = "hotspot-item";
+        div.tabIndex = 0;
+        div.setAttribute('role', 'button');
+        div.setAttribute('aria-label', `Open risk map for ${item.location || item.title}`);
         div.style.animation = `hotspotIn 0.5s ease ${index * 0.12}s both`;
 
         div.innerHTML = `
@@ -494,6 +498,9 @@ function renderHotspots(hotspots) {
             </div>
         `;
         container.appendChild(div);
+        const openRiskMap = () => { window.location.href = 'grid-heatmap.html?location=' + encodeURIComponent(item.location || item.title.replace(/^#\d+\s+/, '')); };
+        div.addEventListener('click', openRiskMap);
+        div.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRiskMap(); } });
     });
 }
 

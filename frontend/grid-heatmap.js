@@ -8,6 +8,10 @@ let basemapWarning = '';
 const mapEl = id => document.getElementById(id);
 const { INCIDENT_CATEGORIES, filterIncidents, getMondayOfWeek, calculatePointKPIs } = window.HeatmapAnalytics;
 const MAP_PAGE = '1';
+const targetLocation = typeof window !== 'undefined' && window.location
+    ? new URLSearchParams(window.location.search || '').get('location') || ''
+    : '';
+let targetLocationOpened = false;
 
 function localDateKey(date = new Date()) {
     const year = date.getFullYear();
@@ -94,22 +98,27 @@ async function loadRealData() {
     if (mapRefreshBusy) return;
     mapRefreshBusy = true;
     try {
-        const response = await apiFetch('/heatmap/records?' + new URLSearchParams({
-            granularity: mapEl('heatmapGranularity').value,
-            period: periodRequestValue(),
-            page: MAP_PAGE
-        }));
+        const query = targetLocation
+            ? { window_days: 'all', location: targetLocation, limit: '1000' }
+            : { granularity: mapEl('heatmapGranularity').value, period: periodRequestValue(), page: MAP_PAGE };
+        const response = await apiFetch('/heatmap/records?' + new URLSearchParams(query));
         if (!response.ok) throw new Error('Unable to load map records');
         const data = await response.json();
         mapThresholds = data.thresholds;
         allIncidentsData = data.records.filter(row => isInsideBoundary(Number(row.latitude), Number(row.longitude)));
         if (mapLayersReady) for (const layer of ['incidents-glow', 'incidents-circle']) map.setPaintProperty(layer, 'circle-color', scoreColors());
-        mapEl('highCellDescription').textContent = 'High-risk locations in the selected period.';
+        mapEl('highCellDescription').textContent = targetLocation ? `All active records at ${targetLocation}.` : 'High-risk locations in the selected period.';
         const hasAdditionalPages = Number(data.pagination?.totalPages) > 1;
         mapEl('mapLoadStatus').textContent = hasAdditionalPages
             ? `Map updated for ${periodLabel()}. Showing the first page only; additional records are not displayed.`
             : basemapWarning || `Map updated for ${periodLabel()}.`;
         applyFilterAndRender();
+        if (targetLocation && !targetLocationOpened && allIncidentsData.length) {
+            targetLocationOpened = true;
+            const first = allIncidentsData[0];
+            if (map?.flyTo) map.flyTo({ center: [Number(first.longitude), Number(first.latitude)], zoom: 16 });
+            openRecordGroup(allIncidentsData);
+        }
     } catch (error) {
         mapEl('mapLoadStatus').textContent = 'Could not refresh records. Please check the server connection.';
         console.error(error);

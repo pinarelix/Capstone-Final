@@ -44,6 +44,9 @@ let allAreaDecay = {};
 // as confirmed schedules. This keeps planning in one place and leaves the
 // data model ready for the future Kanban workflow.
 let currentRecommendations = [];
+let selectedPatrolSourceIds = [];
+window.getSelectedPatrolSourceIds = () => [...selectedPatrolSourceIds];
+window.setSelectedPatrolSourceIds = ids => { selectedPatrolSourceIds = [...new Set((ids || []).map(Number).filter(Number.isFinite))]; };
 window.getPatrolHeatmapRecords = () => allIncidents;
 
 function localPatrolDateKey(date = new Date()) {
@@ -112,6 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
     setupTabs();
     loadAllData();
     setupScheduleForm();
+    setupPatrolCalendar();
     setupLogForm();
 
     // Keeps all three tabs current without the admin needing to
@@ -132,6 +136,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     document.getElementById('newScheduleBtn')?.addEventListener('click', openNewScheduleModal);
+    document.getElementById('calendarNewScheduleBtn')?.addEventListener('click', openNewScheduleModal);
 
     for (const [id, refresh, resetPage] of [
         ['scheduleSearch', refreshSchedulesOnly, () => { schedulePage = 1; }],
@@ -200,6 +205,10 @@ function setupTabs() {
             const targetContent = document.getElementById(`tab-${tabId}`);
             if (targetContent) {
                 targetContent.classList.add('active');
+            }
+            if (tabId === 'calendar') {
+                loadPatrolCalendar();
+                loadPatrolAnalytics();
             }
 
         });
@@ -270,6 +279,8 @@ async function loadAllData() {
         renderLogs(allLogs);
         
         await loadScheduleChoices();
+        loadPatrolCalendar();
+        loadPatrolAnalytics();
 
         updateCounts();
         
@@ -606,11 +617,16 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             }
         });
         const sortedHours = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
+        let startTime = '';
+        let endTime = '';
         let time = 'Flexible Timing';
         if (sortedHours.length > 0) {
             const peak = parseInt(sortedHours[0][0]);
             const end = (peak + 2) % 24;
             time = `${String(peak).padStart(2, '0')}:00 – ${String(end).padStart(2, '0')}:00`;
+            startTime = `${String(peak).padStart(2, '0')}:00`;
+            endTime = `${String(end).padStart(2, '0')}:00`;
+            time = formatDisplayTimeRange(startTime, endTime);
         }
         
         // Get risk level distribution for display
@@ -628,8 +644,10 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             priority: priority,
             level: levelText,
             time: time,
-            reason: `CART analysis detected ${dominantLevel} risk with ${count} incident${count > 1 ? 's' : ''} (avg risk score: ${avgRisk.toFixed(1)})`,
-            pattern: `${count} incident${count > 1 ? 's' : ''} recorded in this area. Risk distribution: ${riskSummary || 'No risk data available'}`,
+            startTime: startTime,
+            endTime: endTime,
+            reason: `This location has ${dominantLevel === 'Level 3' ? 'high' : dominantLevel === 'Level 2' ? 'moderate' : 'low'} risk based on ${count} reported incident${count > 1 ? 's' : ''}.`,
+            pattern: `${count} incident${count > 1 ? 's' : ''} recorded here. Risk levels: ${riskSummary || 'not available'}.`,
             riskDist: riskDist,
             personnel: personnel,
             action: action,
@@ -663,6 +681,7 @@ function updateDashboardWithCartData(selectedMonth) {
         console.warn('No incidents available');
         updateMetricsEmptyState();
         currentRecommendations = [];
+        renderCalendarRiskPanel([]);
         renderSchedules(allSchedules);
         updateCounts();
         return;
@@ -679,6 +698,7 @@ function updateDashboardWithCartData(selectedMonth) {
         allAreaDecay
     );
     
+    /* legacy metric rendering disabled
     // Update metrics
     if (recommendations.length > 0 && recommendations[0].area !== 'No CART Data Available') {
         const topRec = recommendations[0];
@@ -691,10 +711,10 @@ function updateDashboardWithCartData(selectedMonth) {
         const riskScoreEl = document.getElementById('topRiskScore');
         if (riskBadge) {
             if (topRec.avgRisk > 0) {
-                riskBadge.textContent = `CART Score: ${topRec.avgRisk.toFixed(1)}`;
+                riskBadge.textContent = `Risk analysis: ${topRec.avgRisk.toFixed(1)}`;
                 riskBadge.style.backgroundColor = topRec.riskBadgeColor;
             } else {
-                riskBadge.textContent = 'No CART Score';
+                riskBadge.textContent = 'Risk analysis unavailable';
                 riskBadge.style.backgroundColor = '#94a3b8';
             }
         }
@@ -716,13 +736,31 @@ function updateDashboardWithCartData(selectedMonth) {
         }
     }
     
+    */
     // Recommendations and saved schedules now share the planning table.
     currentRecommendations = recommendations;
+    renderCalendarRiskPanel(recommendations);
     renderSchedules(allSchedules);
     updateCounts();
 }
 
+function renderCalendarRiskPanel(recommendations) {
+    const panel = document.getElementById('calendarRiskRecommendations');
+    if (!panel) return;
+    const groups = (recommendations || []).filter(item => item.count > 0);
+    document.getElementById('calendarRiskCount').textContent = groups.length + ' areas';
+    panel.innerHTML = groups.map(rec => {
+        const records = (rec.incidents || []).filter(record => allIncidents.some(active => Number(active.id) === Number(record.id) && active.eligible !== false && active.street_name === rec.area));
+        return '<article class="calendar-risk-item"><strong>' + escapeHTML(rec.area) + '</strong>' + records.map(record =>
+            '<div class="risk-record-row"><span><strong>' + escapeHTML(recordIdentifier(record)) + '</strong><br>' + escapeHTML(record.incident_type || '') + '<small>' + escapeHTML(recordStreetDetails(record)) + '</small></span>' +
+            (isAdmin() ? '<button type="button" class="btn btn-secondary" data-risk-record="' + Number(record.id) + '">Schedule</button>' : '') + '</div>'
+        ).join('') + '</article>';
+    }).join('') || '<p>No active records available for this period.</p>';
+    panel.querySelectorAll('[data-risk-record]').forEach(button => button.addEventListener('click', () => window.scheduleRiskRecord(Number(button.dataset.riskRecord))));
+}
+
 function updateMetricsEmptyState() {
+    return;
     document.getElementById('topArea').textContent = 'No Data';
     document.getElementById('topTime').textContent = 'N/A';
     document.getElementById('topPersonnel').textContent = '0';
@@ -755,8 +793,8 @@ function renderCartRecommendationCards(recs, container) {
         container.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;">
                 <i class="fa-regular fa-circle" style="font-size: 2rem; display: block; margin-bottom: 12px;"></i>
-                <p>No CART-based recommendations available for this month.</p>
-                <p style="font-size: 0.8rem; margin-top: 8px;">Run CART analysis on incidents to generate recommendations.</p>
+                <p>No risk-based recommendations available for this month.</p>
+                <p style="font-size: 0.8rem; margin-top: 8px;">Run the risk analysis on incidents to generate recommendations.</p>
             </div>
         `;
         return;
@@ -781,10 +819,10 @@ function renderCartRecommendationCards(recs, container) {
         // 🔥 NEW: CART risk score badge
         const riskBadge = rec.avgRisk !== undefined && rec.avgRisk > 0 ? 
             `<span class="cart-risk-badge" style="background: ${rec.riskBadgeColor || '#0f172a'}; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 700; display: inline-block;">
-                CART Score: ${rec.avgRisk.toFixed(1)}
+                Risk analysis: ${rec.avgRisk.toFixed(1)}
             </span>` : 
             `<span class="cart-risk-badge" style="background: #94a3b8; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 700; display: inline-block;">
-                No CART Score
+                Risk analysis unavailable
             </span>`;
         
         card.innerHTML = `
@@ -801,20 +839,18 @@ function renderCartRecommendationCards(recs, container) {
             <div style="margin: 6px 0;">
                 ${riskBadge}
                 ${rec.maxRisk > 0 ? `<span class="cart-risk-badge" style="background: #1e293b; color: #e2e8f0; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 700; display: inline-block; margin-left: 6px;">
-                    Peak: ${rec.maxRisk}
+                    Highest risk observed: ${rec.maxRisk}
                 </span>` : ''}
             </div>
             <div class="rec-details">
-                <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
-                <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
-                <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
+                <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Usual incident time:</strong> ${escapeHTML(displayRecommendationTime(rec.time))}</div>
+                <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Why this area needs attention:</strong> ${escapeHTML(rec.reason)}</div>
+                <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>What has been reported:</strong> ${escapeHTML(rec.pattern)}</div>
                 ${riskDistBadgeHtml(rec.riskDist)}
                 <div style="margin-top: 6px;"><i class="fa-solid fa-tags rec-detail-icon"></i><strong>${incidentsLabel}</strong><br>
                     ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 4)}
                 </div>
                 ${incidentListItemsHtml(rec.incidents, 4)}
-                <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
-                <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
             </div>
             <div class="rec-card-view-hint"><i class="fa-solid fa-expand"></i> Click for full street details</div>
         `;
@@ -849,7 +885,7 @@ function fullIncidentListHtml(incidents) {
 
     const rows = sorted.map(inc => {
         const statusClass = statusClassMap[inc.status] || 'badge-open';
-        const cartScore = inc.cart_score != null ? `<span class="badge-subtle cart-score-chip" style="font-size: 0.62rem;">CART ${parseFloat(inc.cart_score).toFixed(0)}</span>` : '';
+        const cartScore = inc.cart_score != null ? `<span class="badge-subtle cart-score-chip" style="font-size: 0.62rem;">Risk analysis ${parseFloat(inc.cart_score).toFixed(0)}</span>` : '';
         return `
             <div class="street-modal-incident-row">
                 <div class="street-modal-incident-main">
@@ -873,8 +909,8 @@ function showStreetDetailModal(rec) {
     if (!modal || !content || !rec) return;
 
     const riskBadge = rec.avgRisk > 0
-        ? `<span class="cart-risk-badge" style="background: ${rec.riskBadgeColor || '#0f172a'}; color: white;">CART Score: ${rec.avgRisk.toFixed(1)}</span>`
-        : `<span class="cart-risk-badge" style="background: #94a3b8; color: white;">No CART Score</span>`;
+        ? `<span class="cart-risk-badge" style="background: ${rec.riskBadgeColor || '#0f172a'}; color: white;">Risk analysis: ${rec.avgRisk.toFixed(1)}</span>`
+        : `<span class="cart-risk-badge" style="background: #94a3b8; color: white;">Risk analysis unavailable</span>`;
 
     content.innerHTML = `
         <div class="rec-card-header" style="margin-bottom: 4px;">
@@ -889,24 +925,26 @@ function showStreetDetailModal(rec) {
         <div class="danger-level ${rec.priority}" style="margin-bottom: 10px;">${escapeHTML(rec.level)}</div>
         <div style="margin-bottom: 10px;">
             ${riskBadge}
-            ${rec.maxRisk > 0 ? `<span class="cart-risk-badge" style="background: #1e293b; color: #e2e8f0; margin-left: 6px;">Peak: ${rec.maxRisk}</span>` : ''}
+            ${rec.maxRisk > 0 ? `<span class="cart-risk-badge" style="background: #1e293b; color: #e2e8f0; margin-left: 6px;">Highest risk observed: ${rec.maxRisk}</span>` : ''}
         </div>
         <div class="rec-details">
-            <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
-            <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
-            <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
+            <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Usual incident time:</strong> ${escapeHTML(displayRecommendationTime(rec.time))}</div>
+            <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Why this area needs attention:</strong> ${escapeHTML(rec.reason)}</div>
+            <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>What has been reported:</strong> ${escapeHTML(rec.pattern)}</div>
             ${riskDistBadgeHtml(rec.riskDist)}
-            <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
-            <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
         </div>
         <div class="street-modal-section-label"><i class="fa-solid fa-list-ul"></i> All Incidents at This Location (${rec.incidents?.length || 0})</div>
         ${fullIncidentListHtml(rec.incidents)}
         <div style="text-align: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0;">
             <button type="button" id="modalAddScheduleBtn" class="btn btn-primary" style="padding: 10px 28px; font-size: 0.95rem; border-radius: 8px; cursor: pointer;">
-                <i class="fa-solid fa-calendar-plus"></i> Add Patrol Schedule
+                <i class="fa-solid fa-calendar-plus"></i> Open in Patrol Calendar
             </button>
         </div>
     `;
+
+    content.querySelectorAll('.street-modal-incident-date').forEach(element => {
+        element.innerHTML = element.innerHTML.replace(/\b(\d{1,2}):(\d{2})\b/g, (_, hour, minute) => formatDisplayTime(`${hour}:${minute}`));
+    });
 
     document.getElementById('modalAddScheduleBtn')?.addEventListener('click', () => {
         closeStreetDetailModal();
@@ -940,44 +978,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // aggregate — day of week is still a human call, so that field is left
 // for the admin to set.
 function applyRecommendationToScheduleForm(idx) {
-    const rec = currentRecommendations[idx];
-    if (!rec) return;
-
-    // Applying a suggestion always starts a fresh schedule, not an edit.
-    document.getElementById('editScheduleId').value = '';
-    document.getElementById('scheduleFormTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule';
-    document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
-
-    const sourceRecord = [...(rec.incidents || [])]
-        .filter(record => allIncidents.some(active => Number(active.id) === Number(record.id)))
-        .sort((a, b) => (Number(b.cart_score) || 0) - (Number(a.cart_score) || 0))[0];
-    if (!sourceRecord) {
-        showToast('This suggestion no longer has an active heatmap record.', 'error');
-        return;
-    }
-    window.populateActiveHeatmapRecords?.(sourceRecord.id);
-    window.selectScheduleRecord?.(sourceRecord.id, { keepReason: true });
-
-    const timeParts = rec.time.split(' – ');
-    if (timeParts.length === 2) {
-        document.getElementById('scheduleStart').value = timeParts[0];
-        document.getElementById('scheduleEnd').value = timeParts[1];
-    }
-
-    if (rec.priority === 'high') {
-        document.getElementById('schedulePriority').value = 'High';
-    } else if (rec.priority === 'medium') {
-        document.getElementById('schedulePriority').value = 'Moderate';
-    } else {
-        document.getElementById('schedulePriority').value = 'Low';
-    }
-
-    document.getElementById('scheduleReason').value =
-        `Suggested from CART priority recommendation: ${rec.reason}. ${rec.action}`;
-
-    openScheduleModal();
-    showToast(`Prepared from the highest-risk active record in ${rec.area}. Assign a team before saving.`, 'info');
+    const recommendation = currentRecommendations[idx];
+    if (!recommendation) return;
+    document.querySelector('.patrol-tab[data-tab="calendar"]')?.click();
+    showToast('Choose one active record in this street from Risk Analysis.', 'info');
+    document.getElementById('calendarRiskPanel')?.scrollIntoView({ block: 'nearest' });
 }
+window.scheduleRiskRecord = function(id) {
+    if (!isAdmin()) return;
+    const date = document.getElementById('calendarDate').value;
+    resetScheduleFormState();
+    if (!window.selectScheduleRecord(id)) return showToast('This record is no longer active.', 'error');
+    document.getElementById('scheduleDate').value = date || localPatrolDateKey();
+    setScheduleDayFromDate();
+    const start = document.getElementById('scheduleStart').value || '09:00';
+    document.getElementById('scheduleStart').value = start;
+    document.getElementById('scheduleEnd').value = String((Number(start.slice(0,2)) + 1) % 24).padStart(2, '0') + start.slice(2);
+    document.querySelector('.patrol-tab[data-tab="calendar"]')?.click();
+    openScheduleModal();
+};
 
 // ============================================================
 // 10. SCHEDULES CRUD
@@ -1048,6 +1067,7 @@ function setupScheduleForm() {
             }
         });
     }
+
 }
 
 async function saveSchedule() {
@@ -1060,16 +1080,23 @@ async function saveSchedule() {
     const reason = document.getElementById('scheduleReason').value.trim();
     const status = document.getElementById('scheduleStatus').value;
     const teamName = document.getElementById('scheduleTeamName').value.trim();
-    const memberIds = [...document.getElementById('scheduleTanods').selectedOptions].map(option => Number(option.value));
+    const selectedPersonnel = [...document.querySelectorAll('#scheduleTanods input[name="schedule-personnel"]:checked')].map(option => { const [person_type, rawId] = option.value.split(':'); return { person_type: person_type || 'Tanod', person_id: Number(rawId || option.value), assignment_type: 'Primary' }; });
+    const memberIds = selectedPersonnel.filter(person => person.person_type === 'Tanod').map(person => person.person_id);
     const latRaw = document.getElementById('scheduleLat').value;
     const lngRaw = document.getElementById('scheduleLng').value;
+    const savedTeam = document.getElementById('scheduleSavedTeam');
+    const recurrenceType = document.getElementById('scheduleRecurrence')?.value || 'single';
+    const recurrenceEnd = document.getElementById('scheduleRecurrenceEnd')?.value || '';
+    const recurrenceDays = [...document.querySelectorAll('#scheduleRecurrenceDays input:checked')].map(input => input.value);
+    const editScope = document.getElementById('scheduleEditScope')?.value || 'single';
 
-    if (!incidentId || !location) {
-        showToast('Choose an active heatmap record for this patrol.', 'error');
+
+     if (!location || !incidentId) {
+         showToast('Choose one active record from Risk Analysis.', 'error');
         return;
     }
-    if (!teamName || memberIds.length === 0) {
-        showToast('Enter a team name and select at least one team member.', 'error');
+     if (!savedTeam?.value || !teamName || selectedPersonnel.length === 0) {
+         showToast('Choose a saved team and select its assigned personnel.', 'error');
         return;
     }
     if (!document.getElementById('scheduleDate').value || !start_time || !end_time || !day_of_week) {
@@ -1078,12 +1105,15 @@ async function saveSchedule() {
     }
 
     const payload = {
-        incident_id: incidentId,
+        incident_id: incidentId || null,
+         source_record_ids: incidentId ? [incidentId] : [],
         scheduled_date: document.getElementById('scheduleDate').value || null,
         priority: document.getElementById('schedulePriority').value,
         exact_address: document.getElementById('scheduleExactAddress').value,
         team_name: teamName,
         tanod_ids: memberIds,
+        personnel: selectedPersonnel,
+        team_id: savedTeam?.value ? Number(savedTeam.value) : null,
         location,
         start_time,
         end_time,
@@ -1091,7 +1121,11 @@ async function saveSchedule() {
         latitude: latRaw ? parseFloat(latRaw) : null,
         longitude: lngRaw ? parseFloat(lngRaw) : null,
         reason,
-        status
+        status,
+        recurrence_type: recurrenceType,
+        recurrence_end_date: recurrenceEnd || null,
+        recurrence_days: recurrenceDays,
+        edit_scope: editScope
     };
 
     const method = id ? 'PUT' : 'POST';
@@ -1115,6 +1149,88 @@ async function saveSchedule() {
     }
 }
 
+function calendarDateKey(date = new Date()) { return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function calendarShift(date, days) { const next = new Date(`${date}T12:00:00`); next.setDate(next.getDate() + days); return calendarDateKey(next); }
+function setupPatrolCalendar() {
+    const date = document.getElementById('calendarDate'); if (!date) return;
+    date.value = calendarDateKey();
+    document.getElementById('calendarView')?.addEventListener('change', loadPatrolCalendar);
+    date.addEventListener('change', loadPatrolCalendar);
+    document.getElementById('calendarPrevious')?.addEventListener('click', () => shiftPatrolCalendar(-1));
+    document.getElementById('calendarNext')?.addEventListener('click', () => shiftPatrolCalendar(1));
+    document.getElementById('scheduleRecurrence')?.addEventListener('change', updateRecurrenceFields);
+    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const holder = document.getElementById('scheduleRecurrenceDays');
+    if (holder) holder.innerHTML = days.map(day => `<label><input type="checkbox" value="${day}"> ${day.slice(0,3)}</label>`).join(' ');
+    updateRecurrenceFields();
+    loadPatrolCalendar();
+}
+
+async function loadPatrolAnalytics() {
+    const container = document.getElementById('patrolAnalyticsSummary');
+    if (!container) return;
+    try {
+        const response = await window.apiFetch('/patrol-analytics?days=30');
+        if (!response.ok) throw new Error('Unable to load analytics');
+        const data = await response.json();
+        const summary = data.summary || {};
+        const attendance = data.attendance || {};
+        const workload = data.workload || [];
+        container.innerHTML = `
+            <article class="patrol-analytics-metric"><span>Scheduled</span><strong>${Number(summary.scheduled || 0)}</strong><small>last ${Number(data.window_days || 30)} days</small></article>
+            <article class="patrol-analytics-metric"><span>Completion rate</span><strong>${Math.round(Number(summary.completion_rate || 0) * 100)}%</strong><small>${Number(summary.completed || 0)} completed</small></article>
+            <article class="patrol-analytics-metric"><span>Attendance</span><strong>${Number(attendance.present || 0)} present</strong><small>${Number(attendance.absent || 0)} absent · ${Number(attendance.late || 0)} late</small></article>
+            <article class="patrol-analytics-metric"><span>Team workload</span><strong>${workload.length}</strong><small>${workload[0] ? escapeHTML(workload[0].team_name) : 'No assignments yet'}</small></article>`;
+    } catch (error) {
+        container.innerHTML = `<span class="analytics-error">${escapeHTML(error.message)}</span>`;
+    }
+}
+function updateRecurrenceFields() {
+    const type = document.getElementById('scheduleRecurrence')?.value || 'single';
+    const end = document.getElementById('scheduleRecurrenceEnd');
+    const days = document.getElementById('scheduleRecurrenceDaysGroup');
+    if (end) end.required = type !== 'single';
+    if (days) days.hidden = !['weekly','custom'].includes(type);
+}
+function shiftPatrolCalendar(direction) {
+    const input = document.getElementById('calendarDate'); const view = document.getElementById('calendarView')?.value || 'week';
+    const amount = view === 'month' ? 28 : view === 'week' ? 7 : 1;
+    input.value = calendarShift(input.value || calendarDateKey(), direction * amount); loadPatrolCalendar();
+}
+function calendarDaysFor(date, view) {
+    if (view === 'day') return [date];
+    const first = view === 'month' ? `${date.slice(0, 7)}-01` : calendarShift(date, -((new Date(`${date}T12:00:00`).getDay() + 6) % 7));
+    return Array.from({ length: view === 'week' ? 7 : 35 }, (_, index) => calendarShift(first, index));
+}
+function renderHourlyCalendar(schedules, date, view) {
+    const days = calendarDaysFor(date, view);
+    const eventHtml = (day, hour) => schedules.filter(item => String(item.scheduled_date).slice(0, 10) === day && Number(String(item.start_time).slice(0, 2)) === hour).map(item => `<div class="patrol-calendar-event-wrap"><button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time, item.end_time)}</strong>${escapeHTML(item.team_name || item.route_name || item.location || 'Patrol')}</button>${item.status !== 'Completed' ? `<button type="button" class="calendar-complete-event" data-complete-schedule-id="${item.id}">Complete</button>` : ''}</div>`).join('');
+    return `<div class="calendar-hourly-header"><div class="calendar-time-label">Time</div>${days.map(day => `<div class="calendar-day-label">${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</div>`).join('')}</div><div class="calendar-hourly-body">${Array.from({ length: 24 }, (_, hour) => `<div class="calendar-hour-row"><div class="calendar-time-label">${formatDisplayTime(`${String(hour).padStart(2, '0')}:00`)}</div>${days.map(day => `<div class="calendar-hour-cell">${eventHtml(day, hour)}<button type="button" class="calendar-empty-slot" data-calendar-slot="${day}|${hour}" aria-label="Create patrol on ${day} at ${formatDisplayTime(`${String(hour).padStart(2, '0')}:00`)}"></button></div>`).join('')}</div>`).join('')}</div>`;
+}
+function openScheduleAtCalendarSlot(day, hour) {
+    if (!isAdmin()) return;
+    document.getElementById('calendarDate').value = day;
+    showToast('Choose one active record in Risk Analysis to schedule this date.', 'info');
+    document.getElementById('calendarRiskPanel')?.scrollIntoView({ block: 'nearest' });
+}
+async function loadPatrolCalendar() {
+    const grid = document.getElementById('patrolCalendarGrid'); if (!grid) return;
+    const date = document.getElementById('calendarDate').value || calendarDateKey();
+    const view = document.getElementById('calendarView').value;
+    try {
+        const response = await window.apiFetch('/patrol-calendar?' + new URLSearchParams({ date, view }));
+        if (!response.ok) throw new Error('Unable to load calendar');
+        const schedules = await response.json();
+        grid.className = `patrol-calendar-grid calendar-${view}`;
+        grid.innerHTML = view === 'month'
+            ? `<div class="calendar-month-grid">${calendarDaysFor(date, view).map(day => `<div class="patrol-calendar-day"><h4>${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</h4>${schedules.filter(item => String(item.scheduled_date).slice(0,10) === day).map(item => `<div class="patrol-calendar-event-wrap"><button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time,item.end_time)}</strong>${escapeHTML(item.team_name || item.route_name || item.location || 'Patrol')}</button>${item.status !== 'Completed' ? `<button type="button" class="calendar-complete-event" data-complete-schedule-id="${item.id}">Complete</button>` : ''}</div>`).join('') || '<small>No patrols</small>'}<button type="button" class="calendar-empty-slot month-slot" data-calendar-slot="${day}|9">+ Add patrol</button></div>`).join('')}</div>`
+            : renderHourlyCalendar(schedules, date, view);
+        grid.querySelectorAll('[data-schedule-id]').forEach(button => button.addEventListener('click', () => window.editSchedule(Number(button.dataset.scheduleId))));
+        grid.querySelectorAll('[data-complete-schedule-id]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); window.openCompletionLog(Number(button.dataset.completeScheduleId)); }));
+        grid.querySelectorAll('[data-calendar-slot]').forEach(button => button.addEventListener('click', () => { const [day, hour] = button.dataset.calendarSlot.split('|'); openScheduleAtCalendarSlot(day, Number(hour)); }));
+    } catch (error) { grid.innerHTML = `<p class="empty-content">${escapeHTML(error.message)}</p>`; }
+}
+
 // Resets the Add/Edit Patrol Schedule form back to its "Add" state and,
 // if it was popped up as a modal to edit an existing schedule, closes
 // that modal too - shared by a successful save, the close (X) button,
@@ -1122,7 +1238,10 @@ async function saveSchedule() {
 function resetScheduleFormState() {
     document.getElementById('scheduleForm').reset();
     document.getElementById('editScheduleId').value = '';
+    document.getElementById('scheduleEditScope').value = 'single';
+    document.getElementById('scheduleEditScopeGroup').hidden = true;
     document.getElementById('scheduleRecordId').value = '';
+    window.setSelectedPatrolSourceIds?.([]);
     document.getElementById('scheduleRecordSummary').textContent = '';
     document.getElementById('scheduleLocation').value = '';
     document.getElementById('scheduleExactAddress').value = '';
@@ -1137,8 +1256,8 @@ function resetScheduleFormState() {
     dockScheduleFormCard();
 }
 
-// The schedules table lives in its own "Patrol Schedules" tab, but the
-// Add/Edit form card lives in the "Schedules" tab. A fixed-position popup
+// The planning table is read-only; the Add/Edit form card lives in the
+// calendar and opens as a fixed-position popup
 // still disappears while its tab is display:none, so for editing the card
 // is moved to <body> and put back in its tab spot when the popup closes.
 let scheduleFormCardHome = null;
@@ -1173,9 +1292,9 @@ function openScheduleModal() {
 }
 
 function openNewScheduleModal() {
-    resetScheduleFormState();
-    document.getElementById('scheduleFormTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule';
-    openScheduleModal();
+    if (!isAdmin()) return;
+    showToast('Choose one active record from Risk Analysis to create a patrol.', 'info');
+    document.getElementById('calendarRiskPanel')?.scrollIntoView({ block: 'nearest' });
 }
 
 function closeScheduleModal() {
@@ -1333,15 +1452,33 @@ function getVisibleRecommendations() {
         .sort((a, b) => (b.maxRisk || 0) - (a.maxRisk || 0));
 }
 
+function recordIdentifier(record) {
+    if (!record) return '—';
+    if (record.blotter_number) return record.blotter_number;
+    return `${record.form_type === 'crime' ? 'Incident' : 'Blotter'} #${record.id}`;
+}
+
+function recordStreetDetails(record) {
+    if (!record) return '—';
+    return record.address || record.exact_address || record.street_name || record.location || '—';
+}
+
+function displayRecommendationTime(value) {
+    if (!value) return 'Flexible timing';
+    return String(value).split(/\s+[–-]\s+/).map(part => formatDisplayTime(part.trim())).join(' - ');
+}
+
 function recommendationRow(rec) {
     const index = currentRecommendations.indexOf(rec);
     const priority = rec.priority === 'high' ? 'High' : rec.priority === 'medium' ? 'Medium' : 'Low';
+    const sourceRecord = rec.incidents?.[0];
+    const relatedCount = Math.max(0, (rec.incidents?.length || 0) - 1);
     return `
         <tr class="schedule-suggestion-row">
-            <td><span class="source-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> Suggested</span></td>
-            <td><strong>${escapeHTML(rec.area)}</strong><br><small>${escapeHTML(rec.reason)}</small></td>
+            <td><strong>${escapeHTML(recordIdentifier(sourceRecord))}</strong>${relatedCount ? `<br><small>+${relatedCount} related</small>` : ''}</td>
+            <td><strong>${escapeHTML(recordStreetDetails(sourceRecord) || rec.area)}</strong><br><small>${escapeHTML(rec.area)}</small></td>
             <td><span class="text-muted">Choose date</span></td>
-            <td>${escapeHTML(rec.time)}</td>
+            <td>${escapeHTML(displayRecommendationTime(rec.time))}</td>
             <td><span class="text-muted">Assign team</span></td>
             <td><span class="priority-badge ${escapeHTML(rec.priority)}">${priority} priority</span></td>
             <td class="schedule-row-actions">
@@ -1401,46 +1538,65 @@ function renderSchedules(schedules) {
         previousStatus = status;
         const statusClass = schedule.status === 'Active' ? 'badge-open' :
                            schedule.status === 'Completed' ? 'badge-resolved' : 'badge-monitoring';
-        const timeDisplay = `${schedule.start_time ? schedule.start_time.substring(0,5) : 'N/A'} - ${schedule.end_time ? schedule.end_time.substring(0,5) : 'N/A'}`;
+        const timeDisplay = formatDisplayTimeRange(schedule.start_time, schedule.end_time) || 'N/A';
+        const linkedRecord = schedule.blotter_number
+            ? schedule.blotter_number
+            : schedule.incident_id
+                ? `${schedule.form_type === 'crime' ? 'Incident' : 'Blotter'} #${Number(schedule.incident_id)}`
+                : '—';
+        const streetDetails = schedule.exact_address || schedule.address || schedule.street_name || schedule.location || '—';
 
         return groupRow + `
             <tr>
-                <td class="font-bold">${schedule.id}</td>
-                <td>${escapeHTML(schedule.location)}${schedule.exact_address ? '<br><small>' + escapeHTML(schedule.exact_address) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + ' risk</small>' : ''}</td>
+                <td class="font-bold">${escapeHTML(linkedRecord)}</td>
+                <td>${escapeHTML(streetDetails)}${schedule.location && schedule.location !== streetDetails ? '<br><small>' + escapeHTML(schedule.location) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + ' risk</small>' : ''}</td>
                 <td>${escapeHTML(schedule.scheduled_date || schedule.day_of_week)}</td>
                 <td>${timeDisplay}</td>
                 <td><strong>${escapeHTML(schedule.team_name || 'Unassigned')}</strong>${schedule.tanods?.length ? '<br><small>' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : '<br><small>No members assigned</small>'}</td>
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
-                    <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})"><i class="fa-solid fa-pen"></i> Update</button>
+                    <button type="button" class="btn-action-edit admin-action" onclick="openScheduleFromList(${schedule.id})"><i class="fa-solid fa-calendar-days"></i> Open Calendar</button>
                 </td>
             </tr>
         `;
     }).join('');
     tbody.innerHTML = suggestionRows + savedRows;
+
+    // Keep the location column focused on the address captured during
+    // incident encoding instead of the analysis explanation.
+    if (!suggestionOnly) {
+        [...tbody.querySelectorAll('tr:not(.schedule-group-row):not(.schedule-suggestion-row)')].forEach((row, index) => {
+            const schedule = pageItems[index];
+            if (!schedule || !row.cells[1]) return;
+            const details = schedule.exact_address || schedule.address || schedule.street_name || schedule.location || '—';
+            row.cells[1].innerHTML = escapeHTML(details) + (schedule.location && schedule.location !== details ? `<br><small>${escapeHTML(schedule.location)}</small>` : '');
+        });
+    }
 }
 
 window.editSchedule = async function(id) {
+     if (!isAdmin()) return showToast('Patrol schedules are managed by the Executive Officer.', 'info');
     try {
         const response = await window.apiFetch(`/patrol-schedules/${id}`);
         if (!response.ok) throw new Error('Failed to fetch schedule');
         
         const schedule = await response.json();
-        await window.loadScheduleTanods(schedule.tanod_ids || []);
+        await window.loadScheduleTanods((schedule.personnel || []).map(person => `${person.person_type}:${person.person_id}`));
+         const linkedIds = schedule.incident_id ? [Number(schedule.incident_id)] : [];
+        window.setSelectedPatrolSourceIds?.(linkedIds.length ? linkedIds : (schedule.incident_id ? [schedule.incident_id] : []));
         window.populateActiveHeatmapRecords?.(schedule.incident_id);
-        const sourceSelect = document.getElementById('scheduleRecordSelect');
-        if (schedule.incident_id && ![...sourceSelect.options].some(option => option.value === String(schedule.incident_id))) {
-            sourceSelect.add(new Option(`Linked historical record #${schedule.incident_id}`, schedule.incident_id));
-        }
-        sourceSelect.value = schedule.incident_id || '';
+
         document.getElementById('scheduleRecordId').value = schedule.incident_id || '';
         document.getElementById('scheduleDate').value = schedule.scheduled_date || '';
         document.getElementById('schedulePriority').value = schedule.priority || 'Low';
         document.getElementById('scheduleExactAddress').value = schedule.exact_address || '';
         document.getElementById('scheduleRecordSummary').textContent = schedule.incident_id ? 'Linked record #' + schedule.incident_id : '';
         document.getElementById('scheduleTeamName').value = schedule.team_name || '';
+         document.getElementById('scheduleSavedTeam').value = schedule.team_id || '';
         
         document.getElementById('editScheduleId').value = schedule.id;
+        document.getElementById('scheduleEditScope').value = 'single';
+        document.getElementById('scheduleEditScopeGroup').hidden = !schedule.series_id;
         document.getElementById('scheduleLocation').value = schedule.location || '';
         document.getElementById('scheduleDay').value = schedule.day_of_week || 'Monday';
         document.getElementById('scheduleStart').value = schedule.start_time ? schedule.start_time.substring(0,5) : '';
@@ -1458,6 +1614,11 @@ window.editSchedule = async function(id) {
         console.error('Error fetching schedule:', error);
         showToast('Failed to load schedule details.', 'error');
     }
+};
+
+window.openScheduleFromList = function(id) {
+    document.querySelector('.patrol-tab[data-tab="calendar"]')?.click();
+    window.editSchedule(id);
 };
 
 window.requestDeleteSchedule = function(id) {
@@ -1478,6 +1639,60 @@ window.confirmDeleteSchedule = function(id) {
 
 function setupLogForm() {
     setupFormSubmit('logForm', saveLog);
+    document.getElementById('logSchedule')?.addEventListener('change', event => loadLogAttendance(event.target.value));
+    document.getElementById('closeLogModalBtn')?.addEventListener('click', closeCompletionLog);
+    document.getElementById('logFormCard')?.addEventListener('click', event => {
+        if (event.target.id === 'logFormCard' && event.currentTarget.classList.contains('edit-modal-mode')) closeCompletionLog();
+    });
+}
+
+let logFormCardHome = null;
+function closeCompletionLog() {
+    const card = document.getElementById('logFormCard');
+    if (!card) return;
+    card.classList.remove('edit-modal-mode');
+    card.hidden = true;
+    if (logFormCardHome?.parentNode) {
+        logFormCardHome.parentNode.insertBefore(card, logFormCardHome);
+        logFormCardHome.remove();
+        logFormCardHome = null;
+    }
+}
+
+window.openCompletionLog = async function(scheduleId) {
+    const card = document.getElementById('logFormCard');
+    if (!card || !isAdmin()) return;
+    await ensureScheduleOption(scheduleId);
+    const response = await window.apiFetch(`/patrol-schedules/${scheduleId}`);
+    if (!response.ok) { showToast('Could not load this patrol for completion.', 'error'); return; }
+    const schedule = await response.json();
+    document.getElementById('logForm').reset();
+    document.getElementById('editLogId').value = '';
+    document.getElementById('logSchedule').value = String(scheduleId);
+    document.getElementById('logDate').value = schedule.scheduled_date || localPatrolDateKey();
+    document.getElementById('logStatus').value = 'Completed';
+    document.getElementById('logFormTitle').innerHTML = '<i class="fa-solid fa-circle-check"></i> Complete Patrol';
+    document.getElementById('logSubmitBtn').innerHTML = '<i class="fa-solid fa-check"></i> Save completion';
+    await loadLogAttendance(scheduleId);
+    if (!logFormCardHome) logFormCardHome = document.createComment('logFormCard home');
+    if (card.parentNode !== document.body) {
+        card.parentNode.insertBefore(logFormCardHome, card);
+        document.body.appendChild(card);
+    }
+    card.hidden = false;
+    card.classList.add('edit-modal-mode');
+};
+
+async function loadLogAttendance(scheduleId, selected = []) {
+    const checklist = document.getElementById('logAttendance'); if (!checklist) return;
+    if (!scheduleId) { checklist.innerHTML = '<span class="text-muted">Choose a schedule first</span>'; return; }
+    try {
+        const response = await window.apiFetch(`/patrol-schedules/${scheduleId}`); if (!response.ok) throw new Error();
+        const schedule = await response.json();
+        const people = schedule.personnel?.length ? schedule.personnel : (schedule.tanods || []).map(person => ({ person_type: 'Tanod', person_id: person.id, person_name: person.name }));
+        const chosen = new Set(selected.map(item => `${item.person_type}:${item.person_id}`));
+        checklist.innerHTML = people.length ? people.map(person => { const key = `${person.person_type}:${person.person_id}`; return `<label class="attendance-check"><input type="checkbox" name="patrol-attendance" value="${key}" ${chosen.has(key) ? 'checked' : ''}><span>${escapeHTML(person.person_name || person.name)} <small>(${person.person_type})</small></span></label>`; }).join('') : '<span class="text-muted">No assigned personnel</span>';
+    } catch { checklist.innerHTML = '<span class="text-muted">Could not load assigned personnel</span>'; }
 }
 
 async function saveLog() {
@@ -1486,17 +1701,19 @@ async function saveLog() {
     const patrol_date = document.getElementById('logDate').value;
     const status = document.getElementById('logStatus').value;
     const report = document.getElementById('logReport').value.trim();
+    const attendance = [...document.querySelectorAll('#logAttendance input[name="patrol-attendance"]:checked')].map(input => { const [person_type, person_id] = input.value.split(':'); return { person_type, person_id: Number(person_id), attendance_status: 'Present' }; });
 
     if (!schedule_id || !patrol_date) {
         showToast('Please fill in all required fields.', 'error');
         return;
     }
 
-    const payload = { 
+    const payload = {
         schedule_id, 
         patrol_date, 
         status, 
-        report
+        report,
+        attendance
     };
 
     const method = id ? 'PUT' : 'POST';
@@ -1516,6 +1733,7 @@ async function saveLog() {
         document.getElementById('logSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Log';
 
         await loadAllData();
+        closeCompletionLog();
         showToast('Log saved successfully!', 'success');
     } catch (error) {
         console.error('Error saving log:', error);
@@ -1578,11 +1796,15 @@ window.editLog = async function(id) {
         document.getElementById('logDate').value = log.patrol_date || '';
         document.getElementById('logStatus').value = log.status || 'Completed';
         document.getElementById('logReport').value = log.report || '';
+        await loadLogAttendance(log.schedule_id, log.attendance || []);
         
         document.getElementById('logFormTitle').textContent = 'Edit Patrol Log';
         document.getElementById('logSubmitBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update Log';
-        
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (!logFormCardHome) logFormCardHome = document.createComment('logFormCard home');
+        const card = document.getElementById('logFormCard');
+        if (card.parentNode !== document.body) { card.parentNode.insertBefore(logFormCardHome, card); document.body.appendChild(card); }
+        card.hidden = false;
+        card.classList.add('edit-modal-mode');
     } catch (error) {
         console.error('Error fetching log:', error);
         showToast('Failed to load log details.', 'error');
@@ -1610,7 +1832,7 @@ async function ensureScheduleOption(id) {
     if(!id || !select || [...select.options].some(option=>Number(option.value)===Number(id))) return;
     const response=await window.apiFetch('/patrol-schedules/'+encodeURIComponent(id)); if(!response.ok) return;
     const schedule=await response.json();
-    select.add(new Option(`${schedule.location} (${schedule.day_of_week} ${schedule.start_time?.slice(0,5)||''})`,String(schedule.id)));
+    select.add(new Option(`${schedule.location} (${schedule.day_of_week} ${formatDisplayTime(schedule.start_time)})`,String(schedule.id)));
 }
 let scheduleChoiceRequest=0;
 async function loadScheduleChoices(search=document.getElementById('logScheduleSearch')?.value||'') {
@@ -1646,7 +1868,7 @@ function populateScheduleDropdown() {
         const option = document.createElement('option');
         option.value = schedule.id;
         const timeDisplay = schedule.start_time && schedule.end_time 
-            ? `${schedule.start_time.substring(0,5)}-${schedule.end_time.substring(0,5)}` 
+            ? formatDisplayTimeRange(schedule.start_time, schedule.end_time)
             : '';
         const statusTag = schedule.status && schedule.status !== 'Active' ? ` — ${schedule.status}` : '';
         option.textContent = `${schedule.location} (${schedule.day_of_week} ${timeDisplay})${statusTag}`;

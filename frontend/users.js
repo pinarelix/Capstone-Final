@@ -80,7 +80,12 @@ document.addEventListener("DOMContentLoaded", function () {
     
     loadUsers();
     setupForm();
+    setupAccountModals();
     setupSearch();
+    setupPatrolTeamForms();
+    setupManagementTabs();
+    setupManagementQuickActions();
+    loadPatrolTeamData();
     setupNavigation();
     setupPasswordToggle();
     setupRippleEffect();
@@ -90,6 +95,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('userRoleFilter')?.addEventListener('change', () => { userPage = 1; loadUsers(); });
 
     startLivePolling(refreshUsersOnly, 15000);
+    startLivePolling(loadPatrolTeamData, 15000);
 });
 
 /* ============================================================
@@ -183,12 +189,39 @@ function setupForm() {
         });
     }
     stripInvalid(document.getElementById('userName'), /[^A-Za-z\s.\-']/g);
-    stripInvalid(document.getElementById('username'), /[^A-Za-z._]/g);
+    stripInvalid(document.getElementById('username'), /[^A-Za-z0-9._]/g);
 
     const editName = document.getElementById('editUserName');
     const editUsername = document.getElementById('editUserUsername');
     if (editName) stripInvalid(editName, /[^A-Za-z\s.\-']/g);
-    if (editUsername) stripInvalid(editUsername, /[^A-Za-z._]/g);
+    if (editUsername) stripInvalid(editUsername, /[^A-Za-z0-9._]/g);
+}
+
+let addUserReturnFocus = null;
+function setupAccountModals() {
+    const modal = document.getElementById('addUserModal');
+    if (modal) document.body.appendChild(modal);
+    const openButton = document.getElementById('addUserBtn');
+    const closeButton = document.getElementById('closeAddUserBtn');
+    const closeAdd = () => {
+        if (!modal) return;
+        modal.hidden = true;
+        addUserReturnFocus?.focus();
+    };
+    openButton?.addEventListener('click', () => {
+        addUserReturnFocus = openButton;
+        document.getElementById('userForm')?.reset();
+        modal.hidden = false;
+        document.getElementById('userName')?.focus();
+    });
+    closeButton?.addEventListener('click', closeAdd);
+    modal?.addEventListener('click', event => { if (event.target === modal) closeAdd(); });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        if (modal && !modal.hidden) closeAdd();
+        const edit = document.getElementById('editUserModal');
+        if (edit?.style.display === 'flex') edit.style.display = 'none';
+    });
 }
 
 /* ============================================================
@@ -199,17 +232,24 @@ async function addUser() {
     const nameInput = document.getElementById("userName");
     const usernameInput = document.getElementById("username");
     const passwordInput = document.getElementById("password");
+    const confirmPasswordInput = document.getElementById("confirmPassword");
     const roleInput = document.getElementById("role");
     const emailInput = document.getElementById("userEmail");
 
     const name = nameInput.value.trim();
     const username = usernameInput.value.trim();
-    const password = passwordInput.value.trim();
+    const password = passwordInput.value;
+    const confirmPassword = confirmPasswordInput?.value.trim() || '';
     const role = roleInput.value;
     const email = emailInput ? emailInput.value.trim() : '';
 
     if (!name || !username || !password || !role || !email) {
         showToast("Please complete all required fields.", "error");
+        return;
+    }
+    if (password !== confirmPassword) {
+        showToast('Password and confirmation must match.', 'error');
+        confirmPasswordInput?.focus();
         return;
     }
 
@@ -220,9 +260,9 @@ async function addUser() {
         return;
     }
 
-    const usernameRegex = /^[A-Za-z._]+$/;
+    const usernameRegex = /^[A-Za-z0-9._]+$/;
     if (!usernameRegex.test(username)) {
-        showToast("Username must contain only letters, dots and underscores — no numbers or spaces.", "error");
+        showToast("Username must contain only letters, numbers, dots and underscores — no spaces.", "error");
         usernameInput.focus();
         return;
     }
@@ -245,8 +285,8 @@ async function addUser() {
         passwordInput.focus();
         return;
     }
-    if (password.length > 128) {
-        showToast("Password must not exceed 128 characters.", "error");
+    if (password.length > 12) {
+        showToast("Password must not exceed 12 characters.", "error");
         passwordInput.focus();
         return;
     }
@@ -271,6 +311,9 @@ async function addUser() {
         return;
     }
 
+    const saveBtn = document.getElementById('userSubmitBtn');
+    const originalLabel = saveBtn?.innerHTML;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; }
     try {
         const response = await apiFetch('/users', {
             method: 'POST',
@@ -292,11 +335,14 @@ async function addUser() {
 
         await loadUsers();
         document.getElementById("userForm").reset();
+        document.getElementById('addUserModal').hidden = true;
         showToast("User account added successfully.", "success");
 
     } catch (error) {
         console.error('Error adding user:', error);
         showToast(error.message || 'Failed to add user.', 'error');
+    } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = originalLabel; }
     }
 }
 
@@ -315,7 +361,7 @@ function renderUsers(filteredUsers = users) {
     if (filteredUsers.length === 0) {
         tableBody.innerHTML = `
             <tr class="empty-row">
-                <td colspan="6">
+                        <td colspan="5">
                     <div class="empty-content">
                         <i class="fa-solid fa-users-slash"></i>
                         <span>No users found.</span>
@@ -357,13 +403,7 @@ function renderUsers(filteredUsers = users) {
                     <i class="fa-solid fa-pen"></i>
                 </button>
             </td>
-            <td>
-                <div class="password-cell">
-                    <span class="password-text" title="Passwords are not retrievable">
-                        ••••••••
-                    </span>
-                </div>
-            </td>
+            <td><span class="status-pill ${users.is_active === false ? 'inactive' : 'active'}">${users.is_active === false ? 'Inactive' : 'Active'}</span></td>
             <td>
                 <button type="button" class="btn-action-edit" onclick="openEditUserModal(${users.id})">
                     <i class="fa-solid fa-pen"></i> Edit
@@ -371,6 +411,8 @@ function renderUsers(filteredUsers = users) {
             </td>
         `;
 
+        const actionsCell = row.lastElementChild;
+        if (actionsCell && users.username.toLowerCase() !== 'admin') actionsCell.insertAdjacentHTML('beforeend', ` <button type="button" class="btn-action-delete" onclick="deleteUser(${users.id})"><i class="fa-solid fa-user-slash"></i> Deactivate</button>`);
         tableBody.appendChild(row);
     });
 
@@ -445,6 +487,7 @@ function openEditUserModal(userId) {
     document.getElementById('editUserRole').value = user.role || 'Team Leader';
     document.getElementById('editUserEmail').value = user.email || '';
     document.getElementById('editUserPassword').value = '';
+    document.getElementById('editUserStatus').value = user.is_active === 0 ? '0' : '1';
 
     document.getElementById('editUserModal').style.display = 'flex';
 }
@@ -457,6 +500,7 @@ async function saveEditUser() {
     const role = document.getElementById('editUserRole').value;
     const email = document.getElementById('editUserEmail').value.trim();
     const password = document.getElementById('editUserPassword').value;
+    const is_active = document.getElementById('editUserStatus').value === '1';
 
     if (!name || !username || !role || !email) {
         showToast('Name, Username, Role, and Email are required.', 'error');
@@ -467,9 +511,9 @@ async function saveEditUser() {
         showToast('Name must contain only letters, spaces, dots, hyphens and apostrophes.', 'error');
         return;
     }
-    const usernameRegex = /^[A-Za-z._]+$/;
+    const usernameRegex = /^[A-Za-z0-9._]+$/;
     if (!usernameRegex.test(username)) {
-        showToast('Username must contain only letters, dots and underscores — no numbers or spaces.', 'error');
+        showToast('Username must contain only letters, numbers, dots and underscores — no spaces.', 'error');
         return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -481,8 +525,8 @@ async function saveEditUser() {
         showToast('New password must be at least 8 characters.', 'error');
         return;
     }
-    if (password && password.length > 128) {
-        showToast('New password must not exceed 128 characters.', 'error');
+    if (password && password.length > 12) {
+        showToast('New password must not exceed 12 characters.', 'error');
         return;
     }
     if (password && !/[A-Z]/.test(password)) {
@@ -508,7 +552,7 @@ async function saveEditUser() {
     saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
 
     try {
-        const body = { name, username, role, email };
+        const body = { name, username, role, email, is_active };
         if (password) body.password = password;
 
         const response = await apiFetch(`/users/${id}`, {
@@ -686,6 +730,243 @@ function setupRippleEffect() {
 /* ============================================================
    HELPERS
 ============================================================ */
+
+let patrolTeams = [];
+let tanodRoster = [];
+let volunteerRoster = [];
+let teamLeaderRoster = [];
+
+function setupManagementTabs() {
+    const tabs = document.querySelectorAll('[data-management-tab]');
+    const views = document.querySelectorAll('[data-management-view]');
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+        const view = tab.dataset.managementTab;
+        tabs.forEach(item => item.classList.toggle('active', item === tab));
+        views.forEach(item => item.classList.toggle('active', item.dataset.managementView === view));
+    }));
+}
+
+function setupManagementQuickActions() {
+    document.getElementById('addPersonnelBtn')?.addEventListener('click', () => {
+        document.getElementById('tanodName')?.focus();
+        document.getElementById('tanodForm')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    document.getElementById('createPatrolTeamBtn')?.addEventListener('click', () => {
+        document.getElementById('patrolTeamName')?.focus();
+        document.getElementById('patrolTeamForm')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+}
+
+async function loadPatrolTeamData() {
+    const chosen = [...document.querySelectorAll('#patrolTeamTanods input:checked')].map(input => input.value);
+    const endpoints = ['/patrol-teams', '/tanods', '/users-list', '/volunteers'];
+    const results = await Promise.allSettled(endpoints.map(async endpoint => {
+        const response = await apiFetch(endpoint);
+        if (!response.ok) throw new Error('Could not load ' + endpoint.slice(1) + '. Check the database migration and try again.');
+        return response.json();
+    }));
+    if (results[0].status === 'fulfilled') patrolTeams = results[0].value;
+    if (results[1].status === 'fulfilled') tanodRoster = results[1].value.filter(person => Number(person.is_active) === 1);
+    if (results[3].status === 'fulfilled') volunteerRoster = results[3].value.filter(person => Number(person.is_active) === 1);
+    if (results[2].status === 'fulfilled') {
+        teamLeaderRoster = results[2].value.filter(user => user.role === 'Team Leader');
+        const select = document.getElementById('patrolTeamLeader');
+        const selected = select.value;
+        select.replaceChildren(new Option('Select a Team Leader account', ''));
+        teamLeaderRoster.forEach(user => select.add(new Option(user.name, user.id)));
+        select.value = selected;
+    }
+    renderTanodOptions(chosen);
+    renderPatrolTeams();
+    renderPersonnelRoster();
+    const failure = results.find(result => result.status === 'rejected');
+    if (failure) showToast(failure.reason.message, 'error');
+}
+
+
+// Checkbox-based picker: avoids Ctrl/Command multi-selection and keeps the
+// authenticated Team Leader separate because the backend auto-includes that
+// stable account identity in the saved four-person roster.
+function renderTanodOptions(selected = []) {
+    const picker = document.getElementById('patrolTeamTanods');
+    if (!picker) return;
+    const chosen = new Set(selected.map(item => typeof item === 'string' ? item : `Tanod:${item}`));
+    const people = [...tanodRoster.map(person => ({ ...person, person_type: 'Tanod' })), ...volunteerRoster.map(person => ({ ...person, person_type: 'Volunteer' }))];
+    picker.innerHTML = people.length
+        ? people.map(person => `<label><input type="checkbox" name="patrol-team-person" value="${person.person_type}:${person.id}" ${chosen.has(`${person.person_type}:${person.id}`) ? 'checked' : ''}><span>${escapeHTML(person.name)} <small>(${person.person_type})${person.contact_no ? ` — ${escapeHTML(person.contact_no)}` : ''}</small></span></label>`).join('')
+        : '<span class="text-muted">No active personnel in the roster yet</span>';
+}
+
+function renderPatrolTeams() {
+    const list = document.getElementById('patrolTeamsList');
+    const count = document.getElementById('patrolTeamCount');
+    if (!list) return;
+    if (count) count.textContent = `${patrolTeams.length} team${patrolTeams.length === 1 ? '' : 's'}`;
+    if (!patrolTeams.length) {
+        list.innerHTML = '<div class="patrol-teams-empty">No patrol teams created yet.</div>';
+        return;
+    }
+    list.innerHTML = patrolTeams.map(team => `
+        <article class="patrol-team-item">
+            <h3>${escapeHTML(team.name)}</h3>
+            <p><i class="fa-solid fa-user-shield"></i> Leader: <strong>${escapeHTML(team.leader_name || 'Not assigned')}</strong></p>
+            <div class="team-member-list"><strong>${team.assignments?.length || team.tanods?.length || 0} personnel</strong><br>${team.assignments?.length ? team.assignments.map(person => `${escapeHTML(person.person_name)} <small>(${person.person_type}, ${person.assignment_type})</small>`).join('<br>') : team.tanods?.length ? team.tanods.map(tanod => escapeHTML(tanod.name)).join('<br>') : 'No personnel assigned'}</div>
+            <button type="button" class="btn btn-secondary team-edit-btn" onclick="editPatrolTeam(${team.id})"><i class="fa-solid fa-pen"></i> Edit team</button>
+        </article>
+    `).join('');
+}
+
+function renderPersonnelRoster() {
+    const list = document.getElementById('personnelList');
+    const count = document.getElementById('personnelCount');
+    const people = [
+        ...tanodRoster.map(person => ({ ...person, person_type: 'Tanod' })),
+        ...volunteerRoster.map(person => ({ ...person, person_type: 'Volunteer' })),
+        ...teamLeaderRoster.map(person => ({ ...person, person_type: 'Team Leader', contact_no: person.email || person.contact_no }))
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    if (count) count.textContent = `${people.length} personnel`;
+    if (!list) return;
+    list.innerHTML = people.length ? people.map(person => `<article class="personnel-item"><h3>${escapeHTML(person.name)}</h3><p><strong>${person.person_type}</strong></p><p>${escapeHTML(person.contact_no || 'No contact number')}</p><p>${escapeHTML(person.address || 'System account identity')}</p><div class="personnel-actions">${person.person_type === 'Team Leader' ? '<span class="text-muted">Managed in System Accounts</span>' : `<button type="button" class="btn btn-link" onclick="editPatrolPersonnel('${person.person_type}', ${person.id})">Edit</button><button type="button" class="btn btn-link danger" onclick="archivePatrolPersonnel('${person.person_type}', ${person.id})">Archive</button>`}</div></article>`).join('') : '<p class="empty-content">No personnel registered yet.</p>';
+}
+
+function setupPatrolTeamForms() {
+    const teamForm = document.getElementById('patrolTeamForm');
+    const tanodForm = document.getElementById('tanodForm');
+    if (teamForm) teamForm.addEventListener('submit', savePatrolTeam);
+    if (tanodForm) tanodForm.addEventListener('submit', addPatrolTanod);
+    const tanodNameInput = document.getElementById('tanodName');
+    const tanodContactInput = document.getElementById('tanodContact');
+    const tanodAddressInput = document.getElementById('tanodAddress');
+    tanodNameInput?.addEventListener('input', () => { tanodNameInput.value = tanodNameInput.value.replace(/[^A-Za-z .'-]/g, '').slice(0, 25); });
+    tanodContactInput?.addEventListener('input', () => { tanodContactInput.value = tanodContactInput.value.replace(/[^0-9 +]/g, '').slice(0, 16); });
+    tanodAddressInput?.addEventListener('input', () => { tanodAddressInput.value = tanodAddressInput.value.replace(/[<>\x00-\x1F]/g, '').slice(0, 30); });
+    document.getElementById('volunteerForm')?.addEventListener('submit', addVolunteer);
+    document.getElementById('tanodCancelBtn')?.addEventListener('click', () => resetPersonnelForm('Tanod'));
+    document.getElementById('volunteerCancelBtn')?.addEventListener('click', () => resetPersonnelForm('Volunteer'));
+    document.getElementById('patrolTeamCancelBtn')?.addEventListener('click', resetPatrolTeamForm);
+}
+
+async function addVolunteer(event) {
+    event.preventDefault();
+    const id = document.getElementById('volunteerId').value;
+    const payload = {
+        name: document.getElementById('volunteerName').value.trim(),
+        contact_no: document.getElementById('volunteerContact').value.trim(),
+        address: document.getElementById('volunteerAddress').value.trim(),
+        birth_date: document.getElementById('volunteerBirthDate').value || null
+    };
+    if (!payload.name) return showToast('Enter the volunteer\'s full name.', 'error');
+    try {
+        const response = await apiFetch(id ? `/volunteers/${id}` : '/volunteers', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not add volunteer');
+        resetPersonnelForm('Volunteer'); await loadPatrolTeamData(); showToast(id ? 'Volunteer updated.' : 'Volunteer added to the active roster.', 'success');
+    } catch (error) { showToast(error.message, 'error'); }
+}
+
+async function addPatrolTanod(event) {
+    event.preventDefault();
+    const id = document.getElementById('tanodId').value;
+    const payload = {
+        name: document.getElementById('tanodName').value.trim(),
+        contact_no: document.getElementById('tanodContact').value.trim(),
+        address: document.getElementById('tanodAddress').value.trim(),
+        birth_date: document.getElementById('tanodBirthDate').value || null
+    };
+    if (!/^[A-Za-z .'-]{2,25}$/.test(payload.name)) return showToast('Full name must be 2–25 letters and name punctuation only.', 'error');
+    if (payload.contact_no && !/^(?:09|\+639)[0-9 ]{9,13}$/.test(payload.contact_no)) return showToast('Enter a valid Philippine mobile number.', 'error');
+    if (payload.address && (payload.address.length < 5 || payload.address.length > 30 || /[<>\x00-\x1F]/.test(payload.address))) return showToast('Home address must be 5–30 characters.', 'error');
+    if (payload.birth_date && payload.birth_date > new Date().toISOString().slice(0, 10)) return showToast('Birth date cannot be in the future.', 'error');
+    try {
+        const response = await apiFetch(id ? `/tanods/${id}` : '/tanods', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not add Tanod');
+        resetPersonnelForm('Tanod');
+        await loadPatrolTeamData();
+        showToast(id ? 'Tanod updated.' : 'Tanod added to the active roster.', 'success');
+    } catch (error) { showToast(error.message, 'error'); }
+}
+
+function resetPersonnelForm(kind) {
+    const prefix = kind.toLowerCase();
+    document.getElementById(`${prefix}Form`)?.reset();
+    document.getElementById(`${prefix}Id`).value = '';
+    document.getElementById(`${prefix}SubmitBtn`).innerHTML = `<i class="fa-solid fa-user-plus"></i> Add ${kind}`;
+    document.getElementById(`${prefix}CancelBtn`).hidden = true;
+}
+
+window.editPatrolPersonnel = function(kind, id) {
+    const roster = kind === 'Volunteer' ? volunteerRoster : tanodRoster;
+    const person = roster.find(item => Number(item.id) === Number(id));
+    if (!person) return;
+    const prefix = kind.toLowerCase();
+    document.getElementById(`${prefix}Id`).value = person.id;
+    document.getElementById(`${prefix}Name`).value = person.name || '';
+    document.getElementById(`${prefix}Contact`).value = person.contact_no || '';
+    document.getElementById(`${prefix}Address`).value = person.address || '';
+    document.getElementById(`${prefix}BirthDate`).value = person.birth_date ? String(person.birth_date).slice(0, 10) : '';
+    document.getElementById(`${prefix}SubmitBtn`).innerHTML = '<i class="fa-solid fa-save"></i> Update ' + kind;
+    document.getElementById(`${prefix}CancelBtn`).hidden = false;
+    document.getElementById(`${prefix}Name`).focus();
+};
+
+window.archivePatrolPersonnel = async function(kind, id) {
+    if (!confirm(`Archive this ${kind.toLowerCase()} from the active roster?`)) return;
+    try {
+        const response = await apiFetch(`/${kind === 'Volunteer' ? 'volunteers' : 'tanods'}/${id}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Could not archive ${kind.toLowerCase()}`);
+        await loadPatrolTeamData();
+        showToast(`${kind} archived from the active roster.`, 'success');
+    } catch (error) { showToast(error.message, 'error'); }
+};
+
+async function savePatrolTeam(event) {
+    event.preventDefault();
+    const id = document.getElementById('patrolTeamId').value;
+    const payload = {
+        name: document.getElementById('patrolTeamName').value.trim(),
+        leader_user_id: Number(document.getElementById('patrolTeamLeader').value) || null,
+        assignments: [...document.querySelectorAll('#patrolTeamTanods input[name="patrol-team-person"]:checked')].map(option => { const [person_type, id] = option.value.split(':'); return { person_type, person_id: Number(id), assignment_type: 'Primary' }; }),
+        tanod_ids: [...document.querySelectorAll('#patrolTeamTanods input[name="patrol-team-person"]:checked')].filter(option => option.value.startsWith('Tanod:')).map(option => Number(option.value.split(':')[1])),
+        is_active: document.getElementById('patrolTeamActive')?.checked !== false
+    };
+    if (!payload.name || !payload.leader_user_id) return showToast('Enter a team name and select one Team Leader.', 'error');
+    if (payload.assignments.length > 3) return showToast('Select up to three personnel plus the Team Leader.', 'error');
+    try {
+        const response = await apiFetch(id ? `/patrol-teams/${id}` : '/patrol-teams', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not save patrol team');
+        resetPatrolTeamForm();
+        await loadPatrolTeamData();
+        showToast(id ? 'Patrol team updated.' : 'Patrol team created.', 'success');
+    } catch (error) { showToast(error.message, 'error'); }
+}
+
+function resetPatrolTeamForm() {
+    document.getElementById('patrolTeamForm')?.reset();
+    const id = document.getElementById('patrolTeamId');
+    if (id) id.value = '';
+    const button = document.getElementById('patrolTeamSubmitBtn');
+    if (button) button.innerHTML = '<i class="fa-solid fa-people-group"></i> Save Patrol Team';
+    const cancel = document.getElementById('patrolTeamCancelBtn');
+    if (cancel) cancel.hidden = true;
+    renderTanodOptions();
+}
+
+function editPatrolTeam(id) {
+    const team = patrolTeams.find(item => Number(item.id) === Number(id));
+    if (!team) return;
+    document.getElementById('patrolTeamId').value = team.id;
+    document.getElementById('patrolTeamName').value = team.name || '';
+    document.getElementById('patrolTeamLeader').value = team.leader_user_id || '';
+    document.getElementById('patrolTeamActive').checked = Boolean(team.is_active);
+    renderTanodOptions((team.assignments || []).map(assignment => `${assignment.person_type}:${assignment.person_id}`));
+    document.getElementById('patrolTeamSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Update Patrol Team';
+    document.getElementById('patrolTeamCancelBtn').hidden = false;
+    document.getElementById('patrolTeamName').focus();
+}
+window.editPatrolTeam = editPatrolTeam;
 
 function escapeHTML(value) {
     return String(value || '')
