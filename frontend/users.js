@@ -50,6 +50,9 @@ function updateUserPagination(response) {
 ============================================================ */
 
 document.addEventListener("DOMContentLoaded", function () {
+    const tanodBirthDate = document.getElementById('tanodBirthDate');
+    if (tanodBirthDate) tanodBirthDate.max = new Date().toISOString().slice(0, 10);
+
     // Apply role-based UI gamit ang apiHelper
     const user = getCurrentUser();
     
@@ -761,7 +764,22 @@ async function addPatrolTanod(event) {
         address: document.getElementById('tanodAddress').value.trim(),
         birth_date: document.getElementById('tanodBirthDate').value || null
     };
-    if (!payload.name) return showToast('Enter the Tanod’s full name.', 'error');
+    if (!/^[A-Za-zÀ-ÖØ-öø-ÿ .'-]{2,100}$/.test(payload.name)) {
+        return showToast('Full name must contain only letters, spaces, periods, apostrophes, or hyphens.', 'error');
+    }
+    if (payload.contact_no && !/^(?:09|\+639)[0-9 ]{9,13}$/.test(payload.contact_no)) {
+        return showToast('Enter a valid Philippine mobile number.', 'error');
+    }
+    if (payload.address && (payload.address.length < 5 || /[<>\x00-\x1F]/.test(payload.address))) {
+        return showToast('Enter a valid home address of at least 5 characters.', 'error');
+    }
+    if (payload.birth_date) {
+        const birthDate = new Date(`${payload.birth_date}T00:00:00`);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (Number.isNaN(birthDate.getTime()) || birthDate > today) {
+            return showToast('Birth date cannot be in the future.', 'error');
+        }
+    }
     try {
         const response = await apiFetch('/tanods', { method: 'POST', body: JSON.stringify(payload) });
         const data = await response.json();

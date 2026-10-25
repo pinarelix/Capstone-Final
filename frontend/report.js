@@ -516,6 +516,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const formattedTime = formatTime(item.time);
                     
                     const location = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
+                    const address = item.address || 'N/A';
 
                     const formBadge = item.form_type === 'crime'
                         ? '<span class="badge" style="background:#3b82f6;color:#fff;font-size:0.65rem;">Incident</span>'
@@ -527,9 +528,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                         <td>${formattedDate} ${formattedTime}</td>
                         <td>${escapeHTML(location)}</td>
+                        <td>${escapeHTML(address)}</td>
                         <td><span class="${statusClass}">${escapeHTML(item.status || 'Open')}</span></td>
                         <td><span class="${dangerClass}">${escapeHTML(item.danger_level || 'Calculated by System')}</span></td>
-                        <td>${escapeHTML(getRecommendedAction(item))}</td>
                     `;
                     tableBody.appendChild(tr);
                 });

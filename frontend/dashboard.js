@@ -401,6 +401,7 @@ function renderTable(rows) {
             <td>${escapeHTML(row.incident_type)}</td>
             <td class="text-secondary">${formatDate(row.date)} ${formatTime(row.time)}</td>
             <td>${escapeHTML(row.location || row.street_name || 'N/A')}</td>
+            <td>${escapeHTML(row.address || 'N/A')}</td>
             <td><span class="badge ${statusClass}">${escapeHTML(row.status)}</span></td>
             <td><span class="badge ${dangerClass}" title="${escapeHTML(row.danger_level || '')}">${dangerShort}</span></td>
         `;

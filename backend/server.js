@@ -519,7 +519,15 @@ const forgotPasswordSchema = Joi.object({
 
 const changePasswordSchema = Joi.object({
     current_password: Joi.string().max(128).required(),
-    new_password: strongPasswordSchema.required()
+    // Passwords for this flow are limited to 8–20 non-whitespace characters,
+    // using letters and special characters only (no digits), with at least one
+    // letter and one special character.
+    new_password: Joi.string().min(8).max(20)
+        .pattern(/^[^\d\s]+$/)
+        .pattern(/[A-Za-z]/)
+        .pattern(/[^A-Za-z\d\s]/)
+        .required()
+        .messages({ 'string.pattern.base': 'Password must be 8–20 characters and contain only letters and special characters, including at least one of each.' })
 });
 
 const resetPasswordSchema = Joi.object({

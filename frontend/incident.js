@@ -620,6 +620,7 @@ function renderTable(dataToRender) {
                 <td>${escapeHTML(item.incident_type || 'N/A')}</td>
                 <td class="text-secondary">${formattedDate} ${formattedTime}</td>
                 <td>${escapeHTML(locationDisplay)}</td>
+                <td>${escapeHTML(item.address || 'N/A')}</td>
                 <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
                 <td><span class="badge ${severityClass}">${escapeHTML(item.severity || 'N/A')}</span></td>
                 <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
