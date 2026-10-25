@@ -89,36 +89,50 @@
                  TABS
             ====================================================== -->
             <div class="patrol-tabs">
-                <button class="patrol-tab active" data-tab="recommendations">
-                    <i class="fa-solid fa-shield-halved"></i> Patrol Planning
+                <button class="patrol-tab active" data-tab="calendar">
+                    <i class="fa-solid fa-calendar-days"></i> Calendar
                 </button>
                 <button class="patrol-tab" data-tab="schedule-list">
                     <i class="fa-solid fa-clipboard-list"></i> Patrol Logs
                 </button>
-                <button class="patrol-tab" data-tab="calendar">
-                    <i class="fa-solid fa-calendar-days"></i> Calendar
+                <button class="patrol-tab" data-tab="recommendations">
+                    <i class="fa-solid fa-shield-halved"></i> Risk Analysis
                 </button>
             </div>
 
             <div id="tab-calendar" class="patrol-tab-content">
                 <div class="patrol-table-card">
                     <div class="table-header">
-                        <div><h3><i class="fa-solid fa-calendar-days"></i> Patrol Calendar</h3><p class="table-header-help">Review scheduled deployments by day, week, or month.</p></div>
+                        <div><h3><i class="fa-solid fa-calendar-days"></i> Patrol Calendar</h3><p class="table-header-help">Create, review, and manage every deployment from this calendar.</p></div>
                         <div class="schedule-header-tools">
+                            <button type="button" id="calendarNewScheduleBtn" class="btn btn-primary admin-action"><i class="fa-solid fa-plus"></i> New patrol</button>
                             <button type="button" id="calendarPrevious" class="patrol-calendar-step" aria-label="Previous period"><i class="fa-solid fa-chevron-left"></i></button>
                             <input id="calendarDate" type="date" class="form-control">
                             <button type="button" id="calendarNext" class="patrol-calendar-step" aria-label="Next period"><i class="fa-solid fa-chevron-right"></i></button>
                             <select id="calendarView" class="form-select"><option value="day">Day</option><option value="week" selected>Week</option><option value="month">Month</option></select>
                         </div>
                     </div>
-                    <div id="patrolCalendarGrid" class="patrol-calendar-grid" aria-live="polite"></div>
+                    <div class="patrol-calendar-workspace">
+                        <div id="patrolCalendarGrid" class="patrol-calendar-grid" aria-live="polite"></div>
+                        <aside id="calendarRiskPanel" class="calendar-risk-panel" aria-labelledby="calendarRiskPanelTitle">
+                            <div class="calendar-risk-panel-head">
+                                <div><h3 id="calendarRiskPanelTitle"><i class="fa-solid fa-shield-halved"></i> Risk analysis</h3><p>Review active records and schedule from the calendar.</p></div>
+                                <span class="badge-subtle" id="calendarRiskCount">0 areas</span>
+                            </div>
+                            <div id="calendarRiskRecommendations" class="calendar-risk-recommendations"><span class="text-muted">Loading risk analysis…</span></div>
+                        </aside>
+                    </div>
+                </div>
+                <div class="patrol-table-card patrol-analytics-card">
+                    <div class="table-header"><div><h3><i class="fa-solid fa-chart-line"></i> Operations analytics</h3><p class="table-header-help">Attendance, workload, completion, and coverage for the last 30 days.</p></div></div>
+                    <div id="patrolAnalyticsSummary" class="patrol-analytics-grid"><span>Loading analytics…</span></div>
                 </div>
             </div>
 
             <!-- =====================================================
                  TAB 1: RECOMMENDATIONS
             ====================================================== -->
-            <div id="tab-recommendations" class="patrol-tab-content active">
+            <div id="tab-recommendations" class="patrol-tab-content">
 
                 <section class="patrol-command-panel" aria-labelledby="patrolDecisionTitle">
                     <div class="patrol-command-head">
@@ -138,11 +152,10 @@
                     </div>
 
                     <!-- The schedule list below is the primary planning view. -->
-                    <!-- 🔥 NEW: CART Risk Score Metric -->
                 </section>
 
                 <!-- Suggested and saved patrols share one planning table. -->
-                <div class="patrol-table-card patrol-planning-table">
+                <div class="patrol-table-card patrol-planning-table legacy-schedule-interface">
                     <div class="table-header">
                         <div>
                             <h3><i class="fa-solid fa-list-check"></i> Patrol Schedules</h3>
@@ -159,7 +172,6 @@
                                 <option value="Completed">Completed</option>
                                 <option value="Cancelled">Cancelled</option>
                             </select>
-                            <button type="button" id="newScheduleBtn" class="btn btn-primary admin-action"><i class="fa-solid fa-plus"></i> New schedule</button>
                             <span class="badge-subtle" id="scheduleCount">0 schedules</span>
                         </div>
                     </div>
@@ -185,7 +197,7 @@
                 </div>
 
                 <!-- Add/Edit Schedule Form -->
-                <div class="patrol-form-card" id="scheduleFormCard" hidden>
+                <div class="patrol-form-card legacy-schedule-interface" id="scheduleFormCard" hidden>
                     <div class="schedule-form-inner">
                     <div class="form-header">
                         <div>
@@ -193,7 +205,7 @@
                             <p>Build a deployment from an active heatmap record and assign its patrol team.</p>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <span class="badge-subtle admin-badge">Admin Only</span>
+                            <span class="badge-subtle admin-badge">Executive Officer Only</span>
                             <button type="button" id="closeScheduleModalBtn" title="Close" aria-label="Close">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
@@ -203,20 +215,21 @@
                     <form id="scheduleForm">
                         <input type="hidden" id="editScheduleId">
                         <input type="hidden" id="scheduleRecordId">
-                        <div class="form-group">
-                            <label for="scheduleRecordSelect">Active heatmap record <span class="req">*</span></label>
-                            <select id="scheduleRecordSelect" class="form-select" required>
-                                <option value="">Choose an active risk-map record</option>
+                        <div class="form-group" id="scheduleEditScopeGroup" hidden>
+                            <label for="scheduleEditScope">Apply changes to</label>
+                            <select id="scheduleEditScope" class="form-select">
+                                <option value="single">This occurrence only</option>
+                                <option value="future">This occurrence and all future occurrences</option>
+                                <option value="series">Entire recurring series</option>
                             </select>
-                            <small id="scheduleSourceHelp">Only unresolved, geocoded, patrol-eligible records currently available to the heatmap can be scheduled.</small>
                         </div>
                         <p id="scheduleRecordSummary" class="schedule-record-summary" role="status"></p>
                         <div class="form-grid-2">
-                            <div class="form-group"><label for="scheduleDate">Recommended patrol date</label><input type="date" id="scheduleDate" class="form-control"></div>
+                            <div class="form-group"><label for="scheduleDate">Patrol date</label><input type="date" id="scheduleDate" class="form-control"></div>
                             <div class="form-group"><label for="schedulePriority">Risk level</label><select id="schedulePriority" class="form-select" disabled><option>Low</option><option>Moderate</option><option>High</option></select></div>
                         </div>
                         <div class="form-grid-2">
-                            <div class="form-group"><label for="scheduleLocation">Heatmap location</label><input id="scheduleLocation" class="form-control" readonly required></div>
+                                <div class="form-group"><label for="scheduleLocation">Heatmap location</label><input id="scheduleLocation" class="form-control" readonly></div>
                             <div class="form-group"><label for="scheduleExactAddress">Patrol address</label><input id="scheduleExactAddress" class="form-control" maxlength="255" readonly></div>
                         </div>
 
@@ -228,10 +241,9 @@
                                 <div><strong>Deployment team</strong><span>Name the unit and select the members assigned to this patrol.</span></div>
                                 <i class="fa-solid fa-people-group" aria-hidden="true"></i>
                             </div>
-                            <div class="form-group"><label for="scheduleTeamName">Team name <span class="req">*</span></label><input id="scheduleTeamName" class="form-control" maxlength="100" placeholder="e.g. Night Patrol Team A" required></div>
-                            <div class="form-group"><label for="scheduleSavedTeam">Use a saved patrol team</label><select id="scheduleSavedTeam" class="form-select"><option value="">Choose a saved team (optional)</option></select><small>Selecting a saved team fills the team name and Tanods below.</small></div>
-                            <div class="form-group"><label for="scheduleTanods">Team members <span class="req">*</span></label><select multiple id="scheduleTanods" class="form-select" size="4" required></select><small>Select one or more active roster members.</small></div>
-                            <div class="form-group"><label for="newTanodName">Add a member to the roster</label><div class="member-add-row"><input id="newTanodName" class="form-control" maxlength="100" placeholder="Full name"><button type="button" id="addTanodBtn" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add member</button></div></div>
+                            <input type="hidden" id="scheduleTeamName">
+                            <div class="form-group"><label for="scheduleSavedTeam">Assign Patrol Team <span class="req">*</span></label><select id="scheduleSavedTeam" class="form-select" required><option value="">Choose a saved team</option></select><small>Select a saved team; its Team Leader and personnel roster will be loaded automatically.</small></div>
+                                <div class="form-group"><label>Team members / assigned personnel</label><div id="scheduleTanods" class="schedule-personnel-picker"></div><small>Uncheck unavailable members for this patrol only. The saved team is unchanged.</small></div>
                         </div>
 
                         <div class="form-group">
@@ -267,8 +279,8 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="scheduleReason">Reason</label>
-                            <textarea id="scheduleReason" class="form-control" rows="2" placeholder="Reason for this patrol schedule..." maxlength="1000"></textarea>
+                            <label for="scheduleReason">Patrol notes</label>
+                            <textarea id="scheduleReason" class="form-control" rows="2" placeholder="Add operational notes for this patrol..." maxlength="1000"></textarea>
                         </div>
 
                         <button type="submit" class="btn btn-primary" id="scheduleSubmitBtn">
@@ -285,13 +297,13 @@
             ====================================================== -->
             <div id="tab-schedule-list" class="patrol-tab-content">
                 <!-- Add Log Form -->
-                <div class="patrol-form-card" id="logFormCard" style="margin-top: 24px;">
+                <div class="patrol-form-card completion-log-panel" id="logFormCard" hidden style="margin-top: 24px;">
                     <div class="form-header">
                         <div>
                             <h3 id="logFormTitle"><i class="fa-solid fa-plus-circle"></i> Add Patrol Log</h3>
-                            <p>Log a completed patrol activity.</p>
+                            <p>Confirm attendance and record the patrol outcome.</p>
                         </div>
-                        <span class="badge-subtle admin-badge">Admin Only</span>
+                        <div class="log-modal-actions"><span class="badge-subtle admin-badge">Executive Officer Only</span><button type="button" id="closeLogModalBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
                     </div>
 
                     <form id="logForm">
@@ -322,6 +334,11 @@
                         <div class="form-group">
                             <label for="logReport">Report</label>
                             <textarea id="logReport" class="form-control" rows="2" placeholder="Patrol report details..." maxlength="2000"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Attendance checklist</label>
+                            <div id="logAttendance" class="attendance-checklist"><span class="text-muted">Choose a schedule first</span></div>
+                            <small>Check each member who was present. Unchecked assigned personnel are recorded as absent.</small>
                         </div>
 
                         <button type="submit" class="btn btn-primary" id="logSubmitBtn">
@@ -741,6 +758,7 @@
 
     <!-- 1. API HELPER (UNA - CRITICAL!) -->
     <script src="apiHelper.js"></script>
+    <script src="locationList.js"></script>
 
     <script src="patrol.js"></script>
     <script src="record-patrol-schedule.js"></script>

@@ -169,8 +169,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            if (newPassword.length < 8) {
-                showToast('New password must be at least 8 characters.', 'error');
+            if (newPassword.length < 8 || newPassword.length > 12) {
+                showToast('New password must be 8-12 characters.', 'error');
                 return;
             }
 

@@ -201,19 +201,26 @@
             </div>
         </header>
 
+        <nav class="management-tabs" aria-label="User management areas">
+            <button type="button" class="management-tab active" data-management-tab="accounts">System Accounts</button>
+            <button type="button" class="management-tab" data-management-tab="personnel">Personnel</button>
+            <button type="button" class="management-tab" data-management-tab="teams">Patrol Teams</button>
+        </nav>
+
         <!-- =====================================================
              SYSTEM USERS
         ====================================================== -->
-        <section class="management-grid">
+        <section class="management-grid management-view active" data-management-view="accounts">
 
                 <!-- ADD SYSTEM USER -->
-                <div class="card add-user-card">
+                <div class="account-modal" id="addUserModal" hidden role="dialog" aria-modal="true" aria-labelledby="addUserModalTitle">
+                    <div class="account-dialog">
                     <div class="card-title-bar">
                         <div>
-                            <h2>Add System User</h2>
+                            <h2 id="addUserModalTitle">Add System User</h2>
                             <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Accounts are managed by the Executive Officer</p>
                         </div>
-                        <span class="section-label">Executive Officer Only</span>
+                        <div class="management-card-actions"><span class="section-label">Executive Officer Only</span><button type="button" id="closeAddUserBtn" class="modal-close-btn" aria-label="Close Add User dialog"><i class="fa-solid fa-xmark"></i></button></div>
                     </div>
 
                     <form id="userForm" autocomplete="off">
@@ -224,18 +231,23 @@
 
                         <div class="form-group">
                             <label for="username">Username <span style="color: #ef4444;">*</span></label>
-                            <input type="text" id="username" class="form-input" placeholder="username" required maxlength="50" pattern="[A-Za-z._]+" title="Letters, dots and underscores only — no numbers or spaces">
+                            <input type="text" id="username" class="form-input" placeholder="username" required maxlength="50" pattern="[A-Za-z0-9._]+" title="letters, numbers, dots and underscores only — no spaces">
                         </div>
 
                         <div class="form-group">
                             <label for="password">Password <span style="color: #ef4444;">*</span></label>
                             <div class="password-wrapper">
-                                <input type="password" id="password" class="form-input" placeholder="Min 8 chars, upper, lower, number, special" required minlength="8" maxlength="128">
+                                <input type="password" id="password" class="form-input" placeholder="Min 8 chars, upper, lower, number, special" required minlength="8" maxlength="12">
                                 <button type="button" class="password-toggle" id="passwordToggle" title="Show password" aria-label="Show password">
                                     <i class="fa-solid fa-eye"></i>
                                 </button>
                             </div>
-                            <small class="field-hint" id="passwordHint" style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Must be 8–128 characters with at least one uppercase, one lowercase, one number and one special character.</small>
+                            <small class="field-hint" id="passwordHint" style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Must be 8–12 characters with at least one uppercase, one lowercase, one number and one special character.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm password <span style="color: #ef4444;">*</span></label>
+                            <input type="password" id="confirmPassword" class="form-input" placeholder="Re-enter password" required minlength="8" maxlength="12">
                         </div>
 
                         <div class="form-group">
@@ -253,10 +265,11 @@
                             <small class="field-hint" style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Must be a valid email address (max 100 characters).</small>
                         </div>
 
-                        <button type="submit" class="btn btn-add">
+                        <button type="submit" id="userSubmitBtn" class="btn btn-add">
                             <i class="fa-solid fa-user-plus"></i> Add User
                         </button>
                     </form>
+                    </div>
                 </div>
 
                 <!-- ROLE ACCESS RULES -->
@@ -293,7 +306,7 @@
                             </div>
                             <div class="role-content">
                                 <h3>Team Leader</h3>
-                                <p>Can add and update incident records (including evidence), patrol schedules, and patrol logs, but not delete them. No access to user management or settings.</p>
+                                <p>Can view incident records, risk analysis, patrol calendars, and operational reports. Scheduling, attendance, and completion updates are restricted to the Executive Officer.</p>
                             </div>
                         </div>
                     </div>
@@ -302,14 +315,43 @@
             </section>
 
             <!-- PATROL TEAM MANAGEMENT -->
-            <section class="patrol-team-management">
+            <section class="personnel-management management-view" data-management-view="personnel">
+                <div class="card personnel-form-card">
+                    <div class="card-title-bar"><div><h2>Personnel roster</h2><p class="table-description">Manage Tanods and Volunteers without creating system accounts.</p></div><div class="management-card-actions"><button type="button" id="addPersonnelBtn" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add Personnel</button><span class="section-label">Executive Officer Only</span></div></div>
+                    <div class="personnel-form-grid">
+                        <form id="tanodForm" autocomplete="off">
+                            <input type="hidden" id="tanodId">
+                            <h3>Add Tanod</h3>
+                            <div class="form-group"><label for="tanodName">Full name <span style="color: #ef4444;">*</span></label><input id="tanodName" class="form-input" required maxlength="100" placeholder="Full name"></div>
+                            <div class="form-group"><label for="tanodContact">Contact number</label><input id="tanodContact" class="form-input" maxlength="30" placeholder="09XX XXX XXXX"></div>
+                            <div class="form-group"><label for="tanodAddress">Home address</label><input id="tanodAddress" class="form-input" maxlength="255" placeholder="House no., street, barangay"></div>
+                            <div class="form-group"><label for="tanodBirthDate">Birth date</label><input id="tanodBirthDate" class="form-input" type="date"></div>
+                            <button type="submit" id="tanodSubmitBtn" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add Tanod</button>
+                            <button type="button" id="tanodCancelBtn" class="btn btn-link" hidden>Cancel edit</button>
+                        </form>
+                        <form id="volunteerForm" autocomplete="off">
+                            <input type="hidden" id="volunteerId">
+                            <h3>Add Volunteer</h3>
+                            <div class="form-group"><label for="volunteerName">Full name <span style="color: #ef4444;">*</span></label><input id="volunteerName" class="form-input" required maxlength="100" placeholder="Full name"></div>
+                            <div class="form-group"><label for="volunteerContact">Contact number</label><input id="volunteerContact" class="form-input" maxlength="30" placeholder="09XX XXX XXXX"></div>
+                            <div class="form-group"><label for="volunteerAddress">Home address</label><input id="volunteerAddress" class="form-input" maxlength="255" placeholder="House no., street, barangay"></div>
+                            <div class="form-group"><label for="volunteerBirthDate">Birth date</label><input id="volunteerBirthDate" class="form-input" type="date"></div>
+                            <button type="submit" id="volunteerSubmitBtn" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add Volunteer</button>
+                            <button type="button" id="volunteerCancelBtn" class="btn btn-link" hidden>Cancel edit</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card personnel-list-card"><div class="card-title-bar users-header"><div><h2>Personnel roster</h2><p class="table-description">Tanods and Volunteers available for team assignment.</p></div><span class="badge-subtle" id="personnelCount">0 personnel</span></div><div id="personnelList" class="personnel-list"></div></div>
+            </section>
+
+            <section class="patrol-team-management management-view" data-management-view="teams">
                 <div class="card patrol-team-form-card">
                     <div class="card-title-bar">
                         <div>
                             <h2>Form a Patrol Team</h2>
                             <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Create a reusable team for future patrol scheduling.</p>
                         </div>
-                        <span class="section-label">Executive Officer Only</span>
+                        <div class="management-card-actions"><button type="button" id="createPatrolTeamBtn" class="btn btn-secondary"><i class="fa-solid fa-people-group"></i> Create Patrol Team</button><span class="section-label">Executive Officer Only</span></div>
                     </div>
                     <form id="patrolTeamForm" autocomplete="off">
                         <input type="hidden" id="patrolTeamId">
@@ -325,9 +367,9 @@
                             <small class="field-hint">Each team can have one Team Leader.</small>
                         </div>
                         <div class="form-group">
-                            <label for="patrolTeamTanods">Tanods</label>
-                            <select id="patrolTeamTanods" class="form-select-full" multiple size="5"></select>
-                            <small class="field-hint">Hold Ctrl or Command to select more than one Tanod.</small>
+                            <label for="patrolTeamTanods">Personnel</label>
+                        <div id="patrolTeamTanods" class="personnel-picker" aria-label="Select patrol personnel"></div>
+                        <small class="field-hint">Select up to three Tanods or Volunteers. The selected Team Leader is automatically included as the fourth team member.</small>
                         </div>
                         <label class="field-check"><input type="checkbox" id="patrolTeamActive" checked> Active team</label>
                         <div class="patrol-team-form-actions">
@@ -337,39 +379,25 @@
                     </form>
                 </div>
 
-                <div class="card tanod-form-card">
-                    <div class="card-title-bar">
-                        <div>
-                            <h2>Add a Tanod</h2>
-                            <p style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">Save basic personal and contact information for team assignment.</p>
-                        </div>
-                    </div>
-                    <form id="tanodForm" autocomplete="off">
-                        <div class="form-group"><label for="tanodName">Full name <span style="color: #ef4444;">*</span></label><input id="tanodName" class="form-input" required maxlength="100" placeholder="Full name"></div>
-                        <div class="form-group"><label for="tanodContact">Contact number</label><input id="tanodContact" class="form-input" maxlength="30" placeholder="09XX XXX XXXX"></div>
-                        <div class="form-group"><label for="tanodAddress">Home address</label><input id="tanodAddress" class="form-input" maxlength="255" placeholder="House no., street, barangay"></div>
-                        <div class="form-group"><label for="tanodBirthDate">Birth date</label><input id="tanodBirthDate" class="form-input" type="date"></div>
-                        <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add Tanod to roster</button>
-                    </form>
-                </div>
             </section>
 
-            <section class="card patrol-teams-card">
+            <section class="card patrol-teams-card management-view" data-management-view="teams">
                 <div class="card-title-bar users-header">
-                    <div><h2>Patrol Teams</h2><p class="table-description">Saved teams can be selected when patrol scheduling is added.</p></div>
+                    <div><h2>Patrol Teams</h2><p class="table-description">Saved teams can be selected from the Patrol Calendar.</p></div>
                     <span class="badge-subtle" id="patrolTeamCount">0 teams</span>
                 </div>
                 <div id="patrolTeamsList" class="patrol-teams-list"></div>
             </section>
 
             <!-- SYSTEM USERS TABLE -->
-            <section class="card users-card">
+            <section class="card users-card management-view" data-management-view="accounts">
                 <div class="card-title-bar users-header">
                     <div>
                         <h2>System Users</h2>
                         <p class="table-description">Manage registered accounts and their system roles.</p>
                     </div>
                     <div class="table-controls">
+                        <button type="button" id="addUserBtn" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add User</button>
                         <select id="userRoleFilter" class="user-filter" aria-label="Filter users by role">
                             <option value="">All roles</option>
                             <option value="Executive Officer">Executive Officer</option>
@@ -392,7 +420,7 @@
                                 <th>USERNAME</th>
                                 <th>ROLE</th>
                                 <th>EMAIL</th>
-                                <th>PASSWORD</th>
+                                <th>STATUS</th>
                                 <th>ACTIONS</th>
                             </tr>
                         </thead>
@@ -527,7 +555,7 @@
         </div>
         <div class="form-group" style="margin-bottom:16px;">
             <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Username <span style="color:#ef4444;">*</span></label>
-            <input type="text" id="editUserUsername" class="form-input" placeholder="username" maxlength="50" pattern="[A-Za-z._]+" title="Letters, dots and underscores only — no numbers or spaces">
+            <input type="text" id="editUserUsername" class="form-input" placeholder="username" maxlength="50" pattern="[A-Za-z0-9._]+" title="letters, numbers, dots and underscores only — no spaces">
         </div>
         <div class="form-group" style="margin-bottom:16px;">
             <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Role <span style="color:#ef4444;">*</span></label>
@@ -544,8 +572,12 @@
         </div>
         <div class="form-group" style="margin-bottom:24px;">
             <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">New Password <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
-            <input type="password" id="editUserPassword" class="form-input" placeholder="Leave blank to keep current" minlength="8" maxlength="128">
-            <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">If changing: 8–128 characters, uppercase, lowercase, number and special character required.</small>
+            <input type="password" id="editUserPassword" class="form-input" placeholder="Leave blank to keep current" minlength="8" maxlength="12">
+            <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">If changing: 8–12 characters, uppercase, lowercase, number and special character required.</small>
+        </div>
+        <div class="form-group" style="margin-bottom:24px;">
+            <label style="display:block;font-size:0.75rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Account status</label>
+            <select id="editUserStatus" class="form-select-full"><option value="1">Active</option><option value="0">Inactive</option></select>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
             <button onclick="document.getElementById('editUserModal').style.display='none'" style="padding:10px 20px;border:none;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:600;cursor:pointer;">Cancel</button>
@@ -590,20 +622,6 @@
 
 <script src="users.js"></script>
 <script>
-    // Password toggle functionality
-    document.getElementById('passwordToggle').addEventListener('click', function() {
-        const passwordInput = document.getElementById('password');
-        const icon = this.querySelector('i');
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            passwordInput.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
-    });
 
     // =========================================================
     // LOGOUT CONFIRMATION MODAL

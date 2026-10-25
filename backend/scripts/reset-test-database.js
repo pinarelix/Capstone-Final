@@ -22,7 +22,7 @@ function assertSafeTarget() {
 }
 
 async function countRows(conn) {
-    const tables = ['record_registry', 'blotter_records', 'incident_records', 'patrol_schedules', 'patrol_logs', 'tanods', 'patrol_teams'];
+    const tables = ['record_registry', 'blotter_records', 'incident_records', 'patrol_schedules', 'patrol_logs', 'tanods', 'patrol_volunteers', 'patrol_teams'];
     const result = {};
     for (const table of tables) {
         try { const [rows] = await conn.query(`SELECT COUNT(*) AS count FROM \`${table}\``); result[table] = Number(rows[0].count); }
@@ -44,7 +44,7 @@ async function main() {
     try {
         const before = await countRows(conn);
         await conn.beginTransaction();
-        for (const table of ['patrol_logs', 'patrol_schedule_team_snapshots', 'patrol_schedule_tanods', 'patrol_schedule_records', 'patrol_schedules', 'patrol_schedule_series', 'patrol_team_tanods', 'patrol_teams', 'tanods', 'record_patrol_details', 'cart_risk_factors', 'record_registry', 'blotter_records', 'incident_records']) {
+        for (const table of ['patrol_log_attendance', 'patrol_schedule_personnel_snapshots', 'patrol_schedule_personnel', 'patrol_schedule_route_stops', 'patrol_schedule_routes', 'patrol_logs', 'patrol_schedule_team_snapshots', 'patrol_schedule_tanods', 'patrol_schedule_records', 'patrol_schedules', 'patrol_schedule_series', 'patrol_team_assignments', 'patrol_team_tanods', 'patrol_teams', 'patrol_volunteers', 'tanods', 'record_patrol_details', 'cart_risk_factors', 'record_registry', 'blotter_records', 'incident_records']) {
             try { await conn.query(`DELETE FROM \`${table}\``); } catch (error) { if (!['ER_NO_SUCH_TABLE', 'ER_VIEW_INVALID'].includes(error.code)) throw error; }
         }
         await conn.commit();
