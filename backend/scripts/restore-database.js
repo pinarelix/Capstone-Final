@@ -10,12 +10,12 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-
-const DB_HOST = process.env.DB_HOST || 'localhost';
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASSWORD = process.env.DB_PASSWORD || '';
-const DB_NAME = process.env.DB_NAME || 'brgydata';
+const { loadConfig } = require('../config-manager');
+const config = loadConfig();
+const DB_HOST = config.db.host;
+const DB_USER = config.db.user;
+const DB_PASSWORD = config.db.password;
+const DB_NAME = config.db.name;
 const BACKUP_KEY = process.env.BACKUP_ENCRYPTION_KEY || '';
 
 const BACKUP_DIR = path.join(__dirname, '..', '..', 'database', 'backups');

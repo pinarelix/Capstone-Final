@@ -4411,6 +4411,159 @@ app.get('/api/health', authenticate, requireRole(['Executive Officer', 'Kagawad'
     }
 });
 
+// ============================================================
+// DATABASE BACKUP & RESTORE (Settings page)
+// ============================================================
+const archiver = require('archiver');
+
+const BACKUP_DIR = path.join(__dirname, '..', 'database', 'backups');
+
+function findMysqlBin(name) {
+    const { execSync } = require('child_process');
+    const candidates = [name, `C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\${name}.exe`];
+    for (const c of candidates) {
+        try { execSync(`"${c}" --version`, { stdio: 'ignore' }); return c; } catch {}
+    }
+    return null;
+}
+
+app.get('/api/backup/list', authenticate, requireRole(['Executive Officer']), (req, res) => {
+    try {
+        const fs = require('fs');
+        fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        const files = fs.readdirSync(BACKUP_DIR)
+            .filter(f => f.endsWith('.zip') || f.endsWith('.sql') || f.endsWith('.sql.enc'))
+            .map(f => {
+                const stat = fs.statSync(path.join(BACKUP_DIR, f));
+                return { name: f, size: stat.size, created: stat.mtime.toISOString() };
+            })
+            .sort((a, b) => new Date(b.created) - new Date(a.created));
+        res.json({ backups: files, backupDir: BACKUP_DIR });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to list backups' });
+    }
+});
+
+app.post('/api/backup/create', authenticate, requireRole(['Executive Officer']), async (req, res) => {
+    const { execSync } = require('child_process');
+    const fs = require('fs');
+    const mysqldump = findMysqlBin('mysqldump');
+    if (!mysqldump) return res.status(500).json({ error: 'mysqldump not found. Ensure MySQL Server 8.0 is installed.' });
+
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '3306';
+    const dbUser = process.env.DB_USER || 'root';
+    const dbPass = process.env.DB_PASSWORD || '';
+    const dbName = process.env.DB_NAME || 'brgydata';
+    const now = new Date();
+    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const sqlFile = path.join(BACKUP_DIR, `${dbName}-${ts}.sql`);
+    const zipFile = path.join(BACKUP_DIR, `${dbName}-${ts}.zip`);
+
+    try {
+        const env = { ...process.env, MYSQL_PWD: dbPass };
+        execSync(
+            `"${mysqldump}" --single-transaction --routines --triggers -h ${dbHost} -P ${dbPort} -u ${dbUser} ${dbName} > "${sqlFile}"`,
+            { shell: true, env, stdio: 'pipe' }
+        );
+
+        await new Promise((resolve, reject) => {
+            const output = fs.createWriteStream(zipFile);
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            output.on('close', resolve);
+            archive.on('error', reject);
+            archive.pipe(output);
+            archive.file(sqlFile, { name: `${dbName}-${ts}.sql` });
+            archive.finalize();
+        });
+
+        fs.unlinkSync(sqlFile);
+
+        const stat = fs.statSync(zipFile);
+        await logAudit(req.userId, 'BACKUP_DATABASE', `Created backup: ${dbName}-${ts}.zip (${(stat.size/1024).toFixed(1)} KB)`);
+
+        res.json({
+            message: 'Backup created successfully',
+            file: `${dbName}-${ts}.zip`,
+            size: stat.size,
+            path: zipFile
+        });
+    } catch (err) {
+        fs.rmSync(sqlFile, { force: true });
+        fs.rmSync(zipFile, { force: true });
+        res.status(500).json({ error: 'Backup failed: ' + err.message });
+    }
+});
+
+app.get('/api/backup/download/:filename', (req, res, next) => {
+    if (req.query.token) req.headers.authorization = 'Bearer ' + req.query.token;
+    next();
+}, authenticate, requireRole(['Executive Officer']), (req, res) => {
+    const fs = require('fs');
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup file not found' });
+    res.download(filePath, filename);
+});
+
+app.post('/api/backup/restore/:filename', authenticate, requireRole(['Executive Officer']), async (req, res) => {
+    const { execSync } = require('child_process');
+    const fs = require('fs');
+    const AdmZip = (() => { try { return require('adm-zip'); } catch { return null; } })();
+
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup file not found' });
+
+    const mysqlBin = findMysqlBin('mysql');
+    if (!mysqlBin) return res.status(500).json({ error: 'mysql client not found. Ensure MySQL Server 8.0 is installed.' });
+
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '3306';
+    const dbUser = process.env.DB_USER || 'root';
+    const dbPass = process.env.DB_PASSWORD || '';
+    const dbName = process.env.DB_NAME || 'brgydata';
+    let sqlPath = filePath;
+    let tempFile = null;
+
+    try {
+        if (filename.endsWith('.zip')) {
+            const extract = require('extract-zip');
+            const tempDir = path.join(BACKUP_DIR, '_restore-temp-' + Date.now());
+            fs.mkdirSync(tempDir, { recursive: true });
+            await extract(filePath, { dir: tempDir });
+            const sqlFiles = fs.readdirSync(tempDir).filter(f => f.endsWith('.sql'));
+            if (sqlFiles.length === 0) { fs.rmSync(tempDir, { recursive: true, force: true }); return res.status(400).json({ error: 'No .sql file found inside zip' }); }
+            sqlPath = path.join(tempDir, sqlFiles[0]);
+            tempFile = tempDir;
+        }
+
+        const env = { ...process.env, MYSQL_PWD: dbPass };
+        execSync(
+            `"${mysqlBin}" -h ${dbHost} -P ${dbPort} -u ${dbUser} ${dbName} < "${sqlPath}"`,
+            { shell: true, env, stdio: 'pipe' }
+        );
+
+        await logAudit(req.userId, 'RESTORE_DATABASE', `Restored from: ${filename}`);
+        res.json({ message: 'Database restored successfully from ' + filename });
+    } catch (err) {
+        res.status(500).json({ error: 'Restore failed: ' + err.message });
+    } finally {
+        if (tempFile) fs.rmSync(tempFile, { recursive: true, force: true });
+    }
+});
+
+app.delete('/api/backup/:filename', authenticate, requireRole(['Executive Officer']), (req, res) => {
+    const fs = require('fs');
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup file not found' });
+    fs.unlinkSync(filePath);
+    res.json({ message: 'Backup deleted: ' + filename });
+});
+
 app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
 });
@@ -4419,12 +4572,48 @@ app.use((err, req, res, next) => {
     res.status(err.status || err.statusCode || 500).json({ error: 'Server error' });
 });
 
+async function ensureSchema() {
+    const conn = await pool.getConnection();
+    try {
+        const { migrateRecordPatrol } = require('./migrations/record-patrol');
+        await migrateRecordPatrol(conn);
+
+        const safeTables = [
+            [`area_risk_decay`, `CREATE TABLE IF NOT EXISTS area_risk_decay (
+                location VARCHAR(100) PRIMARY KEY,
+                decay_amount DECIMAL(5,2) NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )`],
+            [`archived_records`, `CREATE TABLE IF NOT EXISTS archived_records (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                record_type VARCHAR(50) NOT NULL,
+                original_id INT NOT NULL,
+                data JSON NOT NULL,
+                archived_by INT DEFAULT NULL,
+                archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reason VARCHAR(500) DEFAULT NULL,
+                INDEX idx_record_type (record_type),
+                INDEX idx_original_id (original_id)
+            )`],
+        ];
+        for (const [name, ddl] of safeTables) {
+            try { await conn.query(ddl); } catch (_) {}
+        }
+        console.log('✅ Schema check passed — all required tables present.');
+    } catch (err) {
+        console.warn('⚠️  Auto-migration warning:', err.message);
+    } finally {
+        conn.release();
+    }
+}
+
 async function startServer() {
     // Try to connect to the DB and run migrations, but don't crash if it
     // fails — the setup wizard needs the Express server running so it can
     // serve setup.html and the /api/setup/* endpoints.
     try {
         await testConnection();
+        await ensureSchema();
         // Auto-detect existing installation and lock setup wizard
         if (!isSetupCompleted()) {
             try {
