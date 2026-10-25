@@ -1,30 +1,10 @@
--- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
---
--- Host: localhost    Database: brgydata
--- ------------------------------------------------------
--- Server version	8.0.46
+-- Barangay 179 Incident Management System
+-- Database Schema (auto-exported from live DB)
+-- Generated: 2026-10-25
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+CREATE DATABASE IF NOT EXISTS brgydata;
+USE brgydata;
 
---
--- Table structure for table `archived_records`
--- Everything deleted in the app lands here (snapshot of the record plus
--- related rows, files moved to uploads/archive/) so the Executive Officer can
--- review and restore it from Settings > Archive. See backend/archive.js.
---
-
-DROP TABLE IF EXISTS `archived_records`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `archived_records` (
   `id` int NOT NULL AUTO_INCREMENT,
   `entity_type` varchar(30) NOT NULL,
@@ -43,31 +23,15 @@ CREATE TABLE `archived_records` (
   KEY `fk_archive_restored_by` (`restored_by`),
   CONSTRAINT `fk_archive_deleted_by` FOREIGN KEY (`deleted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_archive_restored_by` FOREIGN KEY (`restored_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=204 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `area_risk_decay`
---
-
-DROP TABLE IF EXISTS `area_risk_decay`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `area_risk_decay` (
   `location` varchar(100) NOT NULL,
   `decay_amount` decimal(5,2) NOT NULL DEFAULT '0.00',
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`location`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `audit_logs`
---
-
-DROP TABLE IF EXISTS `audit_logs`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `audit_logs` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int DEFAULT NULL,
@@ -85,16 +49,72 @@ CREATE TABLE `audit_logs` (
   KEY `idx_created_at` (`created_at`),
   KEY `idx_entity` (`entity_type`,`entity_id`),
   CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=3018 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `cart_analysis_log`
---
+CREATE TABLE `blotter_records` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `incident_type` varchar(150) NOT NULL,
+  `type_code` varchar(12) DEFAULT NULL,
+  `date` date NOT NULL,
+  `time` time NOT NULL,
+  `latitude` decimal(10,8) DEFAULT NULL,
+  `longitude` decimal(11,8) DEFAULT NULL,
+  `street_name` varchar(100) DEFAULT NULL,
+  `addr_block` varchar(50) DEFAULT NULL,
+  `addr_lot` varchar(50) DEFAULT NULL,
+  `addr_house_no` varchar(50) DEFAULT NULL,
+  `addr_street` varchar(100) DEFAULT NULL,
+  `addr_unit` varchar(50) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `complainant_first` varchar(80) DEFAULT NULL,
+  `complainant_middle` varchar(80) DEFAULT NULL,
+  `complainant_last` varchar(80) DEFAULT NULL,
+  `complainant_contact` varchar(30) DEFAULT NULL,
+  `respondent_first` varchar(80) DEFAULT NULL,
+  `respondent_middle` varchar(80) DEFAULT NULL,
+  `respondent_last` varchar(80) DEFAULT NULL,
+  `respondent_address` varchar(500) DEFAULT NULL,
+  `respondent_age` int DEFAULT NULL,
+  `reporter_first` varchar(80) DEFAULT NULL,
+  `reporter_middle` varchar(80) DEFAULT NULL,
+  `reporter_last` varchar(80) DEFAULT NULL,
+  `reporter_address` varchar(255) DEFAULT NULL,
+  `reporter_contact` varchar(30) DEFAULT NULL,
+  `reporter_id` int DEFAULT NULL,
+  `reported_by_name` varchar(150) DEFAULT NULL,
+  `respondent_name` varchar(255) DEFAULT NULL,
+  `severity` enum('High','Medium','Low') DEFAULT 'Low',
+  `priority` varchar(20) DEFAULT 'Normal',
+  `status` varchar(20) DEFAULT 'Open',
+  `is_draft` tinyint(1) DEFAULT '0',
+  `description` text,
+  `statement` text,
+  `recommended_action` text,
+  `danger_level` varchar(100) DEFAULT 'Calculated by System',
+  `no_evidence` tinyint(1) DEFAULT '0',
+  `no_evidence_reason` varchar(500) DEFAULT NULL,
+  `time_of_day` varchar(20) DEFAULT NULL,
+  `day_of_week` varchar(15) DEFAULT NULL,
+  `is_weekend` tinyint(1) DEFAULT '0',
+  `photo_path` varchar(255) DEFAULT NULL,
+  `data_origin` varchar(20) DEFAULT 'real',
+  `created_by` int DEFAULT NULL,
+  `updated_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `resp_addr_street` varchar(100) DEFAULT NULL,
+  `resp_addr_block` varchar(50) DEFAULT NULL,
+  `resp_addr_lot` varchar(50) DEFAULT NULL,
+  `resp_addr_house_no` varchar(50) DEFAULT NULL,
+  `resp_addr_unit` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_blt_street` (`street_name`),
+  KEY `idx_blt_date` (`date`),
+  KEY `idx_blt_status` (`status`),
+  KEY `idx_blt_draft` (`is_draft`),
+  KEY `idx_blt_origin` (`data_origin`)
+) ENGINE=InnoDB AUTO_INCREMENT=116 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-DROP TABLE IF EXISTS `cart_analysis_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cart_analysis_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `run_timestamp` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
@@ -116,16 +136,8 @@ CREATE TABLE `cart_analysis_log` (
   KEY `idx_timestamp` (`run_timestamp`),
   KEY `idx_status` (`status`),
   CONSTRAINT `cart_analysis_log_ibfk_1` FOREIGN KEY (`triggered_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `cart_decision_rules`
---
-
-DROP TABLE IF EXISTS `cart_decision_rules`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cart_decision_rules` (
   `id` int NOT NULL AUTO_INCREMENT,
   `rule_name` varchar(100) NOT NULL,
@@ -144,16 +156,8 @@ CREATE TABLE `cart_decision_rules` (
   KEY `created_by` (`created_by`),
   KEY `idx_active` (`is_active`),
   CONSTRAINT `cart_decision_rules_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `cart_risk_factors`
---
-
-DROP TABLE IF EXISTS `cart_risk_factors`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cart_risk_factors` (
   `id` int NOT NULL AUTO_INCREMENT,
   `incident_id` int NOT NULL,
@@ -171,18 +175,107 @@ CREATE TABLE `cart_risk_factors` (
   UNIQUE KEY `unique_incident` (`incident_id`),
   KEY `idx_incident` (`incident_id`),
   KEY `idx_risk` (`total_risk_score`,`danger_level`),
-  CONSTRAINT `cart_risk_factors_ibfk_1` FOREIGN KEY (`incident_id`) REFERENCES `incidents` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  CONSTRAINT `fk_cart_registry` FOREIGN KEY (`incident_id`) REFERENCES `record_registry` (`registry_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=679 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `incidents`
---
+CREATE TABLE `cart_risk_factors_legacy` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `incident_id` int NOT NULL,
+  `time_risk_score` decimal(5,2) DEFAULT '0.00',
+  `day_risk_score` decimal(5,2) DEFAULT '0.00',
+  `type_risk_score` decimal(5,2) DEFAULT '0.00',
+  `location_risk_score` decimal(5,2) DEFAULT '0.00',
+  `frequency_risk_score` decimal(5,2) DEFAULT '0.00',
+  `total_risk_score` decimal(5,2) DEFAULT '0.00',
+  `danger_level` varchar(100) DEFAULT 'Calculated by System',
+  `decision_path` text,
+  `model_version` varchar(20) DEFAULT 'v1.0',
+  `calculated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_incident` (`incident_id`),
+  KEY `idx_incident` (`incident_id`),
+  KEY `idx_risk` (`total_risk_score`,`danger_level`)
+) ENGINE=InnoDB AUTO_INCREMENT=3418 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-DROP TABLE IF EXISTS `incidents`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `incidents` (
+CREATE TABLE `incident_evidence` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `incident_id` int NOT NULL,
+  `file_path` varchar(255) NOT NULL,
+  `file_type` enum('image','video') NOT NULL,
+  `original_filename` varchar(255) DEFAULT NULL,
+  `uploaded_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_incident_id` (`incident_id`),
+  CONSTRAINT `fk_evidence_registry` FOREIGN KEY (`incident_id`) REFERENCES `record_registry` (`registry_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `incident_records` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `incident_type` varchar(150) NOT NULL,
+  `type_code` varchar(12) DEFAULT NULL,
+  `date` date NOT NULL,
+  `time` time NOT NULL,
+  `latitude` decimal(10,8) DEFAULT NULL,
+  `longitude` decimal(11,8) DEFAULT NULL,
+  `street_name` varchar(100) DEFAULT NULL,
+  `addr_block` varchar(50) DEFAULT NULL,
+  `addr_lot` varchar(50) DEFAULT NULL,
+  `addr_house_no` varchar(50) DEFAULT NULL,
+  `addr_street` varchar(100) DEFAULT NULL,
+  `addr_unit` varchar(50) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `complainant_first` varchar(80) DEFAULT NULL,
+  `complainant_middle` varchar(80) DEFAULT NULL,
+  `complainant_last` varchar(80) DEFAULT NULL,
+  `complainant_contact` varchar(30) DEFAULT NULL,
+  `respondent_first` varchar(80) DEFAULT NULL,
+  `respondent_middle` varchar(80) DEFAULT NULL,
+  `respondent_last` varchar(80) DEFAULT NULL,
+  `respondent_address` varchar(500) DEFAULT NULL,
+  `respondent_age` int DEFAULT NULL,
+  `reporter_first` varchar(80) DEFAULT NULL,
+  `reporter_middle` varchar(80) DEFAULT NULL,
+  `reporter_last` varchar(80) DEFAULT NULL,
+  `reporter_address` varchar(255) DEFAULT NULL,
+  `reporter_contact` varchar(30) DEFAULT NULL,
+  `reporter_id` int DEFAULT NULL,
+  `reported_by_name` varchar(150) DEFAULT NULL,
+  `respondent_name` varchar(255) DEFAULT NULL,
+  `severity` enum('High','Medium','Low') DEFAULT 'Low',
+  `priority` varchar(20) DEFAULT 'Normal',
+  `status` varchar(20) DEFAULT 'Open',
+  `is_draft` tinyint(1) DEFAULT '0',
+  `description` text,
+  `statement` text,
+  `recommended_action` text,
+  `danger_level` varchar(100) DEFAULT 'Calculated by System',
+  `no_evidence` tinyint(1) DEFAULT '0',
+  `no_evidence_reason` varchar(500) DEFAULT NULL,
+  `time_of_day` varchar(20) DEFAULT NULL,
+  `day_of_week` varchar(15) DEFAULT NULL,
+  `is_weekend` tinyint(1) DEFAULT '0',
+  `photo_path` varchar(255) DEFAULT NULL,
+  `data_origin` varchar(20) DEFAULT 'real',
+  `created_by` int DEFAULT NULL,
+  `updated_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `resp_addr_street` varchar(100) DEFAULT NULL,
+  `resp_addr_block` varchar(50) DEFAULT NULL,
+  `resp_addr_lot` varchar(50) DEFAULT NULL,
+  `resp_addr_house_no` varchar(50) DEFAULT NULL,
+  `resp_addr_unit` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_blt_street` (`street_name`),
+  KEY `idx_blt_date` (`date`),
+  KEY `idx_blt_status` (`status`),
+  KEY `idx_blt_draft` (`is_draft`),
+  KEY `idx_blt_origin` (`data_origin`)
+) ENGINE=InnoDB AUTO_INCREMENT=114 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `incidents` AS select `r`.`registry_id` AS `id`,`b`.`incident_type` AS `incident_type`,`b`.`date` AS `date`,`b`.`time` AS `time`,`b`.`latitude` AS `latitude`,`b`.`longitude` AS `longitude`,`b`.`street_name` AS `street_name`,`b`.`address` AS `address`,`b`.`reporter_id` AS `reporter_id`,`b`.`status` AS `status`,`b`.`description` AS `description`,`b`.`recommended_action` AS `recommended_action`,`b`.`danger_level` AS `danger_level`,`b`.`created_at` AS `created_at`,`b`.`updated_at` AS `updated_at`,`b`.`time_of_day` AS `time_of_day`,`b`.`day_of_week` AS `day_of_week`,`b`.`is_weekend` AS `is_weekend`,`b`.`photo_path` AS `photo_path`,`r`.`public_number` AS `blotter_number`,coalesce(nullif(trim(concat_ws(' ',`b`.`complainant_first`,`b`.`complainant_middle`,`b`.`complainant_last`)),''),`b`.`reported_by_name`) AS `reported_by_name`,`b`.`statement` AS `statement`,NULL AS `persons_involved`,`b`.`priority` AS `priority`,`b`.`severity` AS `severity`,coalesce(nullif(trim(concat_ws(' ',`b`.`respondent_first`,`b`.`respondent_middle`,`b`.`respondent_last`)),''),`b`.`respondent_name`) AS `respondent_name`,`b`.`respondent_address` AS `respondent_address`,`b`.`respondent_age` AS `age`,'blotter' AS `form_type`,`r`.`registry_id` AS `registry_id`,`r`.`source` AS `source`,`r`.`public_number` AS `public_number`,`b`.`type_code` AS `type_code`,`b`.`is_draft` AS `is_draft`,`b`.`data_origin` AS `data_origin`,`b`.`complainant_first` AS `complainant_first`,`b`.`complainant_middle` AS `complainant_middle`,`b`.`complainant_last` AS `complainant_last`,`b`.`complainant_contact` AS `complainant_contact`,`b`.`respondent_first` AS `respondent_first`,`b`.`respondent_middle` AS `respondent_middle`,`b`.`respondent_last` AS `respondent_last`,`b`.`reporter_first` AS `reporter_first`,`b`.`reporter_middle` AS `reporter_middle`,`b`.`reporter_last` AS `reporter_last`,`b`.`reporter_address` AS `reporter_address`,`b`.`reporter_contact` AS `reporter_contact`,`b`.`addr_block` AS `addr_block`,`b`.`addr_lot` AS `addr_lot`,`b`.`addr_house_no` AS `addr_house_no`,`b`.`addr_street` AS `addr_street`,`b`.`addr_unit` AS `addr_unit`,`b`.`no_evidence` AS `no_evidence`,`b`.`no_evidence_reason` AS `no_evidence_reason`,`b`.`resp_addr_street` AS `resp_addr_street`,`b`.`resp_addr_block` AS `resp_addr_block`,`b`.`resp_addr_lot` AS `resp_addr_lot`,`b`.`resp_addr_house_no` AS `resp_addr_house_no`,`b`.`resp_addr_unit` AS `resp_addr_unit` from (`record_registry` `r` join `blotter_records` `b` on(((`r`.`source` = 'blotter') and (`r`.`source_id` = `b`.`id`)))) union all select `r`.`registry_id` AS `registry_id`,`i`.`incident_type` AS `incident_type`,`i`.`date` AS `date`,`i`.`time` AS `time`,`i`.`latitude` AS `latitude`,`i`.`longitude` AS `longitude`,`i`.`street_name` AS `street_name`,`i`.`address` AS `address`,`i`.`reporter_id` AS `reporter_id`,`i`.`status` AS `status`,`i`.`description` AS `description`,`i`.`recommended_action` AS `recommended_action`,`i`.`danger_level` AS `danger_level`,`i`.`created_at` AS `created_at`,`i`.`updated_at` AS `updated_at`,`i`.`time_of_day` AS `time_of_day`,`i`.`day_of_week` AS `day_of_week`,`i`.`is_weekend` AS `is_weekend`,`i`.`photo_path` AS `photo_path`,`r`.`public_number` AS `public_number`,coalesce(nullif(trim(concat_ws(' ',`i`.`complainant_first`,`i`.`complainant_middle`,`i`.`complainant_last`)),''),`i`.`reported_by_name`) AS `Name_exp_80`,`i`.`statement` AS `statement`,NULL AS `NULL`,`i`.`priority` AS `priority`,`i`.`severity` AS `severity`,coalesce(nullif(trim(concat_ws(' ',`i`.`respondent_first`,`i`.`respondent_middle`,`i`.`respondent_last`)),''),`i`.`respondent_name`) AS `Name_exp_85`,`i`.`respondent_address` AS `respondent_address`,`i`.`respondent_age` AS `respondent_age`,'crime' AS `crime`,`r`.`registry_id` AS `registry_id`,`r`.`source` AS `source`,`r`.`public_number` AS `public_number`,`i`.`type_code` AS `type_code`,`i`.`is_draft` AS `is_draft`,`i`.`data_origin` AS `data_origin`,`i`.`complainant_first` AS `complainant_first`,`i`.`complainant_middle` AS `complainant_middle`,`i`.`complainant_last` AS `complainant_last`,`i`.`complainant_contact` AS `complainant_contact`,`i`.`respondent_first` AS `respondent_first`,`i`.`respondent_middle` AS `respondent_middle`,`i`.`respondent_last` AS `respondent_last`,`i`.`reporter_first` AS `reporter_first`,`i`.`reporter_middle` AS `reporter_middle`,`i`.`reporter_last` AS `reporter_last`,`i`.`reporter_address` AS `reporter_address`,`i`.`reporter_contact` AS `reporter_contact`,`i`.`addr_block` AS `addr_block`,`i`.`addr_lot` AS `addr_lot`,`i`.`addr_house_no` AS `addr_house_no`,`i`.`addr_street` AS `addr_street`,`i`.`addr_unit` AS `addr_unit`,`i`.`no_evidence` AS `no_evidence`,`i`.`no_evidence_reason` AS `no_evidence_reason`,`i`.`resp_addr_street` AS `resp_addr_street`,`i`.`resp_addr_block` AS `resp_addr_block`,`i`.`resp_addr_lot` AS `resp_addr_lot`,`i`.`resp_addr_house_no` AS `resp_addr_house_no`,`i`.`resp_addr_unit` AS `resp_addr_unit` from (`record_registry` `r` join `incident_records` `i` on(((`r`.`source` = 'incident') and (`r`.`source_id` = `i`.`id`))));
+
+CREATE TABLE `incidents_legacy` (
   `id` int NOT NULL AUTO_INCREMENT,
   `incident_type` varchar(150) NOT NULL,
   `date` date NOT NULL,
@@ -207,48 +300,19 @@ CREATE TABLE `incidents` (
   `statement` text,
   `persons_involved` text,
   `priority` varchar(20) DEFAULT 'Normal',
-  `is_draft` tinyint(1) NOT NULL DEFAULT '0',
-  `form_type` varchar(20) DEFAULT 'blotter',
+  `severity` enum('High','Medium','Low') DEFAULT 'Low',
+  `respondent_name` varchar(255) DEFAULT NULL,
+  `respondent_address` varchar(500) DEFAULT NULL,
+  `age` int DEFAULT NULL,
+  `form_type` enum('blotter','crime') DEFAULT 'blotter',
   PRIMARY KEY (`id`),
   KEY `reporter_id` (`reporter_id`),
   KEY `idx_street_name` (`street_name`),
   KEY `idx_date` (`date`),
   KEY `idx_status` (`status`),
-  CONSTRAINT `incidents_ibfk_1` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+  CONSTRAINT `incidents_legacy_ibfk_1` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=1064 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `incident_evidence`
---
--- Multiple evidence files (images or videos) per incident - a separate
--- table rather than a single column since an incident can have more
--- than one piece of evidence attached.
---
-
-DROP TABLE IF EXISTS `incident_evidence`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `incident_evidence` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `incident_id` int NOT NULL,
-  `file_path` varchar(255) NOT NULL,
-  `file_type` enum('image','video') NOT NULL,
-  `original_filename` varchar(255) DEFAULT NULL,
-  `uploaded_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_incident_id` (`incident_id`),
-  CONSTRAINT `incident_evidence_ibfk_1` FOREIGN KEY (`incident_id`) REFERENCES `incidents` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `location_coordinates`
---
-
-DROP TABLE IF EXISTS `location_coordinates`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `location_coordinates` (
   `location` varchar(100) NOT NULL,
   `latitude` decimal(10,8) NOT NULL,
@@ -260,89 +324,7 @@ CREATE TABLE `location_coordinates` (
   KEY `set_by` (`set_by`),
   CONSTRAINT `fk_location_coordinates_set_by` FOREIGN KEY (`set_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
-INSERT INTO `location_coordinates` (`location`, `latitude`, `longitude`, `set_by`) VALUES
-  ('Acacia Street', 14.75450684, 121.07306541, NULL),
-  ('Aguho Street', 14.75498409, 121.07117848, NULL),
-  ('Alibangbang Street', 14.75558584, 121.08059618, NULL),
-  ('Amugis Street', 14.75647809, 121.06849878, NULL),
-  ('Anahaw Street', 14.75537834, 121.06963461, NULL),
-  ('Anapla Street', 14.74909909, 121.07600927, NULL),
-  ('Annunciation Street', 14.74232617, 121.07602873, NULL),
-  ('Anonas Street', 14.75591784, 121.07452822, NULL),
-  ('Antipolo Street', 14.75527459, 121.07331550, NULL),
-  ('Anubing Street', 14.75114529, 121.07388020, NULL),
-  ('Arit Street', 14.74990026, 121.08237589, NULL),
-  ('Ascencion Street', 14.74390327, 121.07607153, NULL),
-  ('Assumption Street', 14.74280345, 121.07598742, NULL),
-  ('Bagtikan Street', 14.75139430, 121.08250747, NULL),
-  ('Balimbing Street', 14.75669078, 121.07517155, NULL),
-  ('Balite Street', 14.75557925, 121.07745924, NULL),
-  ('Balubad Street', 14.75280532, 121.07763876, NULL),
-  ('Banaba Street', 14.74800968, 121.07890606, NULL),
-  ('Bangkal Street', 14.75141505, 121.07800355, NULL),
-  ('Bayabas Street', 14.75477659, 121.07896730, NULL),
-  ('Bigaa Street', 14.75128017, 121.07581592, NULL),
-  ('Binayuyo Street', 14.74969276, 121.07765784, NULL),
-  ('Bitao Street', 14.75695534, 121.06927009, NULL),
-  ('C. M. Hoskins Street', 14.74315622, 121.07510925, NULL),
-  ('Dao Street', 14.75340708, 121.07122325, NULL),
-  ('Dapdap Street', 14.75228656, 121.06852023, NULL),
-  ('Duhat Street', 14.75545907, 121.07957125, NULL),
-  ('Guagua Street', 14.74780444, 121.07559008, NULL),
-  ('H. Dela Costa Avenue', 14.74875898, 121.07111599, NULL),
-  ('Iloilo Street', 14.74892498, 121.07371318, NULL),
-  ('Jaro Street', 14.74898983, 121.07265652, NULL),
-  ('Kalinga Street', 14.74740499, 121.07602984, NULL),
-  ('Kamias Street', 14.75617997, 121.07945553, NULL),
-  ('Kamuning Street', 14.75791534, 121.07021704, NULL),
-  ('Kaong Street', 14.75197531, 121.06965722, NULL),
-  ('Katmon Street', 14.75463134, 121.06764048, NULL),
-  ('Kawayan Street', 14.75713982, 121.07746840, NULL),
-  ('Kaymito Street', 14.75365608, 121.08287217, NULL),
-  ('Kupang Street', 14.75720377, 121.07819796, NULL),
-  ('Lawaan Street', 14.74994581, 121.07679785, NULL),
-  ('Lukban Street', 14.75711907, 121.07488275, NULL),
-  ('Mabolo Street', 14.75359383, 121.07548838, NULL),
-  ('Macabud Street', 14.75307508, 121.07814911, NULL),
-  ('Malanting Street', 14.75000401, 121.08098434, NULL),
-  ('Mandaue Street', 14.74834396, 121.07227443, NULL),
-  ('Mangga Street', 14.74907024, 121.07595963, NULL),
-  ('Maraluhat Street', 14.74855147, 121.08014481, NULL),
-  ('Marang Street', 14.75263932, 121.07171666, NULL),
-  ('Mary the Queen Street', 14.74624813, 121.06996828, NULL),
-  ('Mulawin Street', 14.75794300, 121.07539417, NULL),
-  ('Nativity Street', 14.74794970, 121.06987174, NULL),
-  ('Ormoc Street', 14.74660090, 121.07364739, NULL),
-  ('Pentecost Street', 14.74340524, 121.07592146, NULL),
-  ('Pili Street', 14.75083404, 121.06832663, NULL),
-  ('Resurrection Street', 14.74567748, 121.07184589, NULL),
-  ('Rimas Street', 14.75428896, 121.07137440, NULL),
-  ('Roxas Street', 14.74616513, 121.07354107, NULL),
-  ('Saint Andrew Street', 14.74080095, 121.06813409, NULL),
-  ('Saint Bartholomew Street', 14.74050005, 121.06869185, NULL),
-  ('Saint George Street', 14.74516908, 121.07143844, NULL),
-  ('Saint Ignatius Street', 14.74742056, 121.06997901, NULL),
-  ('Saint John Street', 14.74683953, 121.07124511, NULL),
-  ('Saint Matthew Street', 14.74510683, 121.06753342, NULL),
-  ('Saint Peter Street', 14.74626888, 121.06888493, NULL),
-  ('Sampaloc Street', 14.75336558, 121.08272200, NULL),
-  ('Santol Street', 14.75566884, 121.07553466, NULL),
-  ('Saplungan Street', 14.75757784, 121.06991529, NULL),
-  ('Tibeg Street', 14.75315808, 121.07999753, NULL),
-  ('Tindalo Street', 14.75085479, 121.07130712, NULL),
-  ('Wawa Street', 14.74886273, 121.07498437, NULL),
-  ('Xavier Street', 14.74886273, 121.07473216, NULL),
-  ('Zambales Street', 14.74926737, 121.07557868, NULL);
-
---
--- Table structure for table `login_attempts`
---
-
-DROP TABLE IF EXISTS `login_attempts`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `login_attempts` (
   `id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(100) DEFAULT NULL,
@@ -353,16 +335,8 @@ CREATE TABLE `login_attempts` (
   KEY `idx_username` (`username`),
   KEY `idx_ip_address` (`ip_address`),
   KEY `idx_attempt_time` (`attempt_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1887 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `login_history`
---
-
-DROP TABLE IF EXISTS `login_history`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `login_history` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int DEFAULT NULL,
@@ -375,16 +349,41 @@ CREATE TABLE `login_history` (
   KEY `idx_username` (`username`),
   KEY `idx_login_time` (`login_time`),
   CONSTRAINT `login_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=1717 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `mediation_task_history` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `task_id` int NOT NULL,
+  `actor_id` int NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `note` text,
+  `scheduled_at` datetime NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `task_id` (`task_id`),
+  KEY `actor_id` (`actor_id`),
+  CONSTRAINT `mediation_task_history_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `mediation_tasks` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `mediation_task_history_ibfk_2` FOREIGN KEY (`actor_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `password_resets`
---
+CREATE TABLE `mediation_tasks` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `incident_id` int NOT NULL,
+  `assigned_user_id` int NOT NULL,
+  `scheduled_at` datetime NOT NULL,
+  `status` enum('Pending','In Progress','Canceled','Rescheduled') NOT NULL DEFAULT 'Pending',
+  `created_by` int NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_assignee_date` (`assigned_user_id`,`scheduled_at`),
+  KEY `fk_mediation_registry` (`incident_id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `fk_mediation_registry` FOREIGN KEY (`incident_id`) REFERENCES `record_registry` (`registry_id`) ON DELETE CASCADE,
+  CONSTRAINT `mediation_tasks_ibfk_1` FOREIGN KEY (`assigned_user_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `mediation_tasks_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-DROP TABLE IF EXISTS `password_resets`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `password_resets` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
@@ -396,16 +395,8 @@ CREATE TABLE `password_resets` (
   UNIQUE KEY `reset_token` (`reset_token`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `patrol_logs`
---
-
-DROP TABLE IF EXISTS `patrol_logs`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `patrol_logs` (
   `id` int NOT NULL AUTO_INCREMENT,
   `schedule_id` int DEFAULT NULL,
@@ -418,16 +409,29 @@ CREATE TABLE `patrol_logs` (
   KEY `schedule_id` (`schedule_id`),
   KEY `idx_patrol_date` (`patrol_date`),
   CONSTRAINT `patrol_logs_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `patrol_schedules` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `patrol_schedule_records` (
+  `schedule_id` int NOT NULL,
+  `incident_id` int DEFAULT NULL,
+  `scheduled_date` date DEFAULT NULL,
+  `priority` enum('High','Moderate','Low') NOT NULL DEFAULT 'Low',
+  `exact_address` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`schedule_id`),
+  KEY `idx_patrol_record` (`incident_id`),
+  CONSTRAINT `patrol_schedule_records_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `patrol_schedules` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `patrol_schedule_records_ibfk_2` FOREIGN KEY (`incident_id`) REFERENCES `record_registry` (`registry_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `patrol_schedules`
---
+CREATE TABLE `patrol_schedule_tanods` (
+  `schedule_id` int NOT NULL,
+  `tanod_id` int NOT NULL,
+  PRIMARY KEY (`schedule_id`,`tanod_id`),
+  KEY `tanod_id` (`tanod_id`),
+  CONSTRAINT `patrol_schedule_tanods_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `patrol_schedules` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `patrol_schedule_tanods_ibfk_2` FOREIGN KEY (`tanod_id`) REFERENCES `tanods` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-DROP TABLE IF EXISTS `patrol_schedules`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `patrol_schedules` (
   `id` int NOT NULL AUTO_INCREMENT,
   `location` varchar(100) NOT NULL,
@@ -442,16 +446,51 @@ CREATE TABLE `patrol_schedules` (
   `longitude` decimal(11,8) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_location` (`location`)
+) ENGINE=InnoDB AUTO_INCREMENT=78 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `record_number_counters` (
+  `prefix` varchar(8) NOT NULL,
+  `type_code` varchar(12) NOT NULL,
+  `next_seq` int NOT NULL DEFAULT '1',
+  PRIMARY KEY (`prefix`,`type_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `system_settings`
---
+CREATE TABLE `record_patrol_details` (
+  `incident_id` int NOT NULL,
+  `notes` varchar(200) NOT NULL DEFAULT '',
+  `patrol_override` enum('auto','include','exclude') NOT NULL DEFAULT 'auto',
+  `updated_by` int DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`incident_id`),
+  CONSTRAINT `record_patrol_details_ibfk_1` FOREIGN KEY (`incident_id`) REFERENCES `record_registry` (`registry_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-DROP TABLE IF EXISTS `system_settings`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `record_registry` (
+  `registry_id` int NOT NULL AUTO_INCREMENT,
+  `source` enum('blotter','incident') NOT NULL,
+  `source_id` int NOT NULL,
+  `public_number` varchar(40) NOT NULL,
+  `type_code` varchar(12) NOT NULL,
+  `legacy_incident_id` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`registry_id`),
+  UNIQUE KEY `uq_registry_source` (`source`,`source_id`),
+  UNIQUE KEY `uq_registry_public` (`public_number`),
+  KEY `idx_registry_source` (`source`),
+  KEY `idx_registry_legacy` (`legacy_incident_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=229 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `record_type_catalog` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `record_class` enum('blotter','incident') NOT NULL,
+  `type_name` varchar(200) NOT NULL,
+  `type_code` varchar(12) NOT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_class_name` (`record_class`,`type_name`),
+  KEY `idx_catalog_class` (`record_class`)
+) ENGINE=InnoDB AUTO_INCREMENT=64 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE `system_settings` (
   `id` int NOT NULL AUTO_INCREMENT,
   `setting_key` varchar(100) NOT NULL,
@@ -464,16 +503,26 @@ CREATE TABLE `system_settings` (
   KEY `updated_by` (`updated_by`),
   KEY `idx_setting_key` (`setting_key`),
   CONSTRAINT `system_settings_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `tanods` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `unified_incident_analytics` AS select `r`.`registry_id` AS `id`,`r`.`source` AS `record_source`,`r`.`public_number` AS `public_number`,`b`.`incident_type` AS `incident_type`,`b`.`type_code` AS `type_code`,`b`.`date` AS `incident_date`,`b`.`time` AS `incident_time`,`b`.`time_of_day` AS `time_of_day`,`b`.`day_of_week` AS `day_of_week`,`b`.`is_weekend` AS `is_weekend`,`b`.`street_name` AS `street_name`,`b`.`latitude` AS `latitude`,`b`.`longitude` AS `longitude`,`b`.`severity` AS `severity`,`b`.`priority` AS `priority`,`b`.`status` AS `status`,`b`.`danger_level` AS `danger_level`,`b`.`is_draft` AS `is_draft`,`b`.`data_origin` AS `data_origin`,`b`.`created_at` AS `created_at` from (`record_registry` `r` join `blotter_records` `b` on(((`r`.`source` = 'blotter') and (`r`.`source_id` = `b`.`id`)))) where (`b`.`is_draft` = 0) union all select `r`.`registry_id` AS `registry_id`,`r`.`source` AS `source`,`r`.`public_number` AS `public_number`,`i`.`incident_type` AS `incident_type`,`i`.`type_code` AS `type_code`,`i`.`date` AS `date`,`i`.`time` AS `time`,`i`.`time_of_day` AS `time_of_day`,`i`.`day_of_week` AS `day_of_week`,`i`.`is_weekend` AS `is_weekend`,`i`.`street_name` AS `street_name`,`i`.`latitude` AS `latitude`,`i`.`longitude` AS `longitude`,`i`.`severity` AS `severity`,`i`.`priority` AS `priority`,`i`.`status` AS `status`,`i`.`danger_level` AS `danger_level`,`i`.`is_draft` AS `is_draft`,`i`.`data_origin` AS `data_origin`,`i`.`created_at` AS `created_at` from (`record_registry` `r` join `incident_records` `i` on(((`r`.`source` = 'incident') and (`r`.`source_id` = `i`.`id`)))) where (`i`.`is_draft` = 0);
+
+CREATE TABLE `user_navigation_preferences` (
+  `user_id` int NOT NULL,
+  `icon_order` json NOT NULL,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `user_navigation_preferences_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `user_sessions`
---
-
-DROP TABLE IF EXISTS `user_sessions`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `user_sessions` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
@@ -490,16 +539,8 @@ CREATE TABLE `user_sessions` (
   KEY `idx_user_active` (`user_id`,`is_active`),
   KEY `idx_last_activity` (`last_activity`),
   CONSTRAINT `user_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1768 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Table structure for table `users`
---
-
-DROP TABLE IF EXISTS `users`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
@@ -507,33 +548,12 @@ CREATE TABLE `users` (
   `password_hash` varchar(255) NOT NULL,
   `role` enum('Executive Officer','Deputy Officer','Kagawad','Team Leader') NOT NULL,
   `contact_no` varchar(20) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
   `last_login_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `email` varchar(150) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+) ENGINE=InnoDB AUTO_INCREMENT=154 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
---
--- Demo accounts (README's documented login credentials).
--- Bcrypt hashes below are freshly generated for these exact passwords -
--- do not treat as real production credentials for anything but local dev.
---
-INSERT INTO `users` (`name`, `username`, `password_hash`, `role`, `is_active`) VALUES
-('Demo Executive Officer', 'admin', '$2b$10$ip7Eo1S35tl3RKWWZ30vNeXtkGE5f5uhYJtqtPxrc2Nx4wnCB1I8.', 'Executive Officer', 1),
-('Demo Barangay Captain', 'captain', '$2b$10$IqJllqxbyiiznMCV5GyGPuePb1GVVryljozpbx8522ZGbyj5jadWy', 'Kagawad', 1),
-('Demo Team Leader', 'deskofficer', '$2b$10$r8nAnGyPDJbCbwYkgfdZeuO4eSNlV0E40iYKZeiSZE8PPUOzP2Dae', 'Team Leader', 1);
-
--- Dump completed on 2026-09-04 23:11:21
