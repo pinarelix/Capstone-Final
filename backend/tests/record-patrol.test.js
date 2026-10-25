@@ -13,15 +13,15 @@ describe('Record patrol policy', () => {
         expect(patrolDecision(conditional, { level3: 67 }, 2).eligible).toBe(true);
         expect(patrolDecision({ ...conditional, cart_score: 67 }).eligible).toBe(true);
     });
-    test('override types use live CART threshold; NO_PATROL needs a manual decision', () => {
+    test('risk policy uses live threshold and ignores legacy client overrides', () => {
         const threat = { ...record, incident_type: 'Harassment', cart_score: 60 };
         expect(patrolDecision(threat, { level3: 67 }).eligible).toBe(false);
         expect(patrolDecision(threat, { level3: 60 }).eligible).toBe(true);
         expect(patrolDecision({ ...record, incident_type: 'Scam', cart_score: 99 }).eligible).toBe(false);
-        expect(patrolDecision({ ...record, incident_type: 'Scam', patrol_override: 'include' }).eligible).toBe(true);
+        expect(patrolDecision({ ...record, incident_type: 'Scam', patrol_override: 'include' }).eligible).toBe(false);
     });
     test.each([
-        { status: 'Resolved' }, { is_draft: 1 }, { latitude: null }, { patrol_override: 'exclude' }
+        { status: 'Resolved' }, { is_draft: 1 }, { latitude: null }
     ])('inactive and excluded records cannot be forced onto the map: %j', override => {
         expect(patrolDecision({ ...record, patrol_override: 'include', ...override }).eligible).toBe(false);
     });
@@ -150,7 +150,7 @@ describe('Record map, notes, roles, and linked patrol scheduling', () => {
         expect(detail.body.address).toBe('House 7, Block 2, Balite Street');
         expect((await request(app).put(`/api/incidents/${id}`).set(auth('leader')).send({})).status).toBe(403);
     });
-    test('excluded type requires a manual schedule decision; tanods and record linkage persist', async () => {
+    test('excluded type cannot be scheduled; eligible records retain tanod linkage', async () => {
         const tanod = await request(app).post('/api/tanods').set(auth('executive')).send({ name: 'QA Tanod One' });
         expect(tanod.status).toBe(201); tanodIds.push(tanod.body.id);
         const prefill = await request(app).get(`/api/incidents/${scamId}/patrol-prefill`).set(auth('executive'));
@@ -160,38 +160,37 @@ describe('Record map, notes, roles, and linked patrol scheduling', () => {
         const payload = { incident_id: scamId, location: 'Balite Street', start_time: '20:00', end_time: '23:59', day_of_week: day,
             scheduled_date: today, tanod_ids: [tanod.body.id], reason: 'Manual visibility follow-up', latitude: 0, longitude: 0 };
         expect((await request(app).post('/api/patrol-schedules').set(auth('executive')).send(payload)).status).toBe(409);
-        const created = await request(app).post('/api/patrol-schedules').set(auth('executive')).send({ ...payload, manual_patrol: true });
+        const created = await request(app).post('/api/patrol-schedules').set(auth('executive')).send({ ...payload, incident_id: theftId });
         expect(created.status).toBe(201); scheduleIds.push(created.body.schedule.id);
-        expect(created.body.schedule.incident_id).toBe(scamId);
+        expect(created.body.schedule.incident_id).toBe(theftId);
         expect(Number(created.body.schedule.latitude)).toBe(14.75);
         expect(created.body.schedule.tanod_ids).toEqual([tanod.body.id]);
-        const detail = await request(app).get(`/api/incidents/${scamId}`).set(auth('executive'));
-        expect(detail.body.patrol_override).toBe('include');
+        const detail = await request(app).get(`/api/incidents/${theftId}`).set(auth('executive'));
         expect(detail.body.linked_patrols[0].assigned_tanods).toBe('QA Tanod One');
         const map = await request(app).get('/api/heatmap/records').set(auth('executive'));
-        expect(map.body.records.find(row => row.id === scamId).active_patrol_count).toBe(1);
+        expect(map.body.records.find(row => row.id === theftId).active_patrol_count).toBe(1);
     });
     test('archiving/restoring preserves notes, tanod assignments, and schedule links', async () => {
         const id = scheduleIds[0];
-        await request(app).patch(`/api/incidents/${scamId}/patrol-details`).set(auth('executive')).send({ patrol_notes: 'Keep this note after archive.' });
+        await request(app).patch(`/api/incidents/${theftId}/patrol-details`).set(auth('executive')).send({ patrol_notes: 'Keep this note after archive.' });
         expect((await request(app).delete(`/api/patrol-schedules/${id}`).set(auth('executive'))).status).toBe(200);
         const [schedules] = await pool.query("SELECT id FROM archived_records WHERE entity_type='patrol_schedule' AND entity_id=? ORDER BY id DESC", [id]);
         expect((await request(app).post(`/api/archive/${schedules[0].id}/restore`).set(auth('executive'))).status).toBe(200);
         const restored = await request(app).get(`/api/patrol-schedules/${id}`).set(auth('executive'));
         expect(restored.body.tanod_ids).toEqual(tanodIds);
-        expect(restored.body.incident_id).toBe(scamId);
-        expect((await request(app).delete(`/api/incidents/${scamId}`).set(auth('executive'))).status).toBe(200);
-        const [records] = await pool.query("SELECT id FROM archived_records WHERE entity_type='incident' AND entity_id=? ORDER BY id DESC", [scamId]);
+        expect(restored.body.incident_id).toBe(theftId);
+        expect((await request(app).delete(`/api/incidents/${theftId}`).set(auth('executive'))).status).toBe(200);
+        const [records] = await pool.query("SELECT id FROM archived_records WHERE entity_type='incident' AND entity_id=? ORDER BY id DESC", [theftId]);
         expect((await request(app).post(`/api/archive/${records[0].id}/restore`).set(auth('executive'))).status).toBe(200);
-        const detail = await request(app).get(`/api/incidents/${scamId}`).set(auth('executive'));
+        const detail = await request(app).get(`/api/incidents/${theftId}`).set(auth('executive'));
         expect(detail.body.patrol_notes).toBe('Keep this note after archive.');
         expect(detail.body.linked_patrols[0].id).toBe(id);
     });
     test('a linked patrol can be closed after its incident is resolved', async () => {
-        expect((await request(app).patch(`/api/incidents/${scamId}/patrol-details`).set(auth('executive')).send({ status: 'Resolved' })).status).toBe(200);
+        expect((await request(app).patch(`/api/incidents/${theftId}/patrol-details`).set(auth('executive')).send({ status: 'Resolved' })).status).toBe(200);
         const schedule = (await request(app).get(`/api/patrol-schedules/${scheduleIds[0]}`).set(auth('executive'))).body;
         const response = await request(app).put(`/api/patrol-schedules/${schedule.id}`).set(auth('executive')).send({
-            incident_id: scamId, location: schedule.location, start_time: schedule.start_time.slice(0,5),
+            incident_id: theftId, location: schedule.location, start_time: schedule.start_time.slice(0,5),
             end_time: schedule.end_time.slice(0,5), day_of_week: schedule.day_of_week,
             scheduled_date: schedule.scheduled_date, status: 'Completed', tanod_ids: schedule.tanod_ids
         });

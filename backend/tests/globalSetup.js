@@ -77,6 +77,9 @@ module.exports = async function globalSetup() {
     );
     await testPool.query(taskMigration);
     await migrateRecordPatrol(testPool);
+    await testPool.query(`INSERT INTO location_coordinates (location, latitude, longitude, set_by)
+        VALUES ('Balite Street', 14.75557925, 121.07745924, NULL)
+        ON DUPLICATE KEY UPDATE latitude=VALUES(latitude), longitude=VALUES(longitude)`);
     await testPool.query("ALTER TABLE users MODIFY COLUMN role ENUM('Executive Officer','Deputy Officer','Kagawad','Team Leader') NOT NULL");
 
     // Runtime-created support tables must also exist in the clone.

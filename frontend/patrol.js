@@ -112,6 +112,7 @@ document.addEventListener("DOMContentLoaded", function () {
     setupTabs();
     loadAllData();
     setupScheduleForm();
+    setupPatrolCalendar();
     setupLogForm();
 
     // Keeps all three tabs current without the admin needing to
@@ -606,11 +607,16 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             }
         });
         const sortedHours = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
+        let startTime = '';
+        let endTime = '';
         let time = 'Flexible Timing';
         if (sortedHours.length > 0) {
             const peak = parseInt(sortedHours[0][0]);
             const end = (peak + 2) % 24;
             time = `${String(peak).padStart(2, '0')}:00 – ${String(end).padStart(2, '0')}:00`;
+            startTime = `${String(peak).padStart(2, '0')}:00`;
+            endTime = `${String(end).padStart(2, '0')}:00`;
+            time = formatDisplayTimeRange(startTime, endTime);
         }
         
         // Get risk level distribution for display
@@ -628,8 +634,10 @@ function getCartBasedPatrolRecommendations(incidents, riskFactors, month, areaDe
             priority: priority,
             level: levelText,
             time: time,
-            reason: `CART analysis detected ${dominantLevel} risk with ${count} incident${count > 1 ? 's' : ''} (avg risk score: ${avgRisk.toFixed(1)})`,
-            pattern: `${count} incident${count > 1 ? 's' : ''} recorded in this area. Risk distribution: ${riskSummary || 'No risk data available'}`,
+            startTime: startTime,
+            endTime: endTime,
+            reason: `This location has ${dominantLevel === 'Level 3' ? 'high' : dominantLevel === 'Level 2' ? 'moderate' : 'low'} risk based on ${count} reported incident${count > 1 ? 's' : ''}.`,
+            pattern: `${count} incident${count > 1 ? 's' : ''} recorded here. Risk levels: ${riskSummary || 'not available'}.`,
             riskDist: riskDist,
             personnel: personnel,
             action: action,
@@ -679,6 +687,7 @@ function updateDashboardWithCartData(selectedMonth) {
         allAreaDecay
     );
     
+    /* legacy metric rendering disabled
     // Update metrics
     if (recommendations.length > 0 && recommendations[0].area !== 'No CART Data Available') {
         const topRec = recommendations[0];
@@ -691,10 +700,10 @@ function updateDashboardWithCartData(selectedMonth) {
         const riskScoreEl = document.getElementById('topRiskScore');
         if (riskBadge) {
             if (topRec.avgRisk > 0) {
-                riskBadge.textContent = `CART Score: ${topRec.avgRisk.toFixed(1)}`;
+                riskBadge.textContent = `Risk analysis: ${topRec.avgRisk.toFixed(1)}`;
                 riskBadge.style.backgroundColor = topRec.riskBadgeColor;
             } else {
-                riskBadge.textContent = 'No CART Score';
+                riskBadge.textContent = 'Risk analysis unavailable';
                 riskBadge.style.backgroundColor = '#94a3b8';
             }
         }
@@ -716,6 +725,7 @@ function updateDashboardWithCartData(selectedMonth) {
         }
     }
     
+    */
     // Recommendations and saved schedules now share the planning table.
     currentRecommendations = recommendations;
     renderSchedules(allSchedules);
@@ -723,6 +733,7 @@ function updateDashboardWithCartData(selectedMonth) {
 }
 
 function updateMetricsEmptyState() {
+    return;
     document.getElementById('topArea').textContent = 'No Data';
     document.getElementById('topTime').textContent = 'N/A';
     document.getElementById('topPersonnel').textContent = '0';
@@ -755,8 +766,8 @@ function renderCartRecommendationCards(recs, container) {
         container.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;">
                 <i class="fa-regular fa-circle" style="font-size: 2rem; display: block; margin-bottom: 12px;"></i>
-                <p>No CART-based recommendations available for this month.</p>
-                <p style="font-size: 0.8rem; margin-top: 8px;">Run CART analysis on incidents to generate recommendations.</p>
+                <p>No risk-based recommendations available for this month.</p>
+                <p style="font-size: 0.8rem; margin-top: 8px;">Run the risk analysis on incidents to generate recommendations.</p>
             </div>
         `;
         return;
@@ -781,10 +792,10 @@ function renderCartRecommendationCards(recs, container) {
         // 🔥 NEW: CART risk score badge
         const riskBadge = rec.avgRisk !== undefined && rec.avgRisk > 0 ? 
             `<span class="cart-risk-badge" style="background: ${rec.riskBadgeColor || '#0f172a'}; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 700; display: inline-block;">
-                CART Score: ${rec.avgRisk.toFixed(1)}
+                Risk analysis: ${rec.avgRisk.toFixed(1)}
             </span>` : 
             `<span class="cart-risk-badge" style="background: #94a3b8; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 700; display: inline-block;">
-                No CART Score
+                Risk analysis unavailable
             </span>`;
         
         card.innerHTML = `
@@ -801,11 +812,11 @@ function renderCartRecommendationCards(recs, container) {
             <div style="margin: 6px 0;">
                 ${riskBadge}
                 ${rec.maxRisk > 0 ? `<span class="cart-risk-badge" style="background: #1e293b; color: #e2e8f0; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 700; display: inline-block; margin-left: 6px;">
-                    Peak: ${rec.maxRisk}
+                    Highest risk observed: ${rec.maxRisk}
                 </span>` : ''}
             </div>
             <div class="rec-details">
-                <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
+                <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Typical incident time:</strong> ${escapeHTML(rec.time)}</div>
                 <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
                 <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
                 ${riskDistBadgeHtml(rec.riskDist)}
@@ -813,8 +824,6 @@ function renderCartRecommendationCards(recs, container) {
                     ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 4)}
                 </div>
                 ${incidentListItemsHtml(rec.incidents, 4)}
-                <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
-                <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
             </div>
             <div class="rec-card-view-hint"><i class="fa-solid fa-expand"></i> Click for full street details</div>
         `;
@@ -849,7 +858,7 @@ function fullIncidentListHtml(incidents) {
 
     const rows = sorted.map(inc => {
         const statusClass = statusClassMap[inc.status] || 'badge-open';
-        const cartScore = inc.cart_score != null ? `<span class="badge-subtle cart-score-chip" style="font-size: 0.62rem;">CART ${parseFloat(inc.cart_score).toFixed(0)}</span>` : '';
+        const cartScore = inc.cart_score != null ? `<span class="badge-subtle cart-score-chip" style="font-size: 0.62rem;">Risk analysis ${parseFloat(inc.cart_score).toFixed(0)}</span>` : '';
         return `
             <div class="street-modal-incident-row">
                 <div class="street-modal-incident-main">
@@ -873,8 +882,8 @@ function showStreetDetailModal(rec) {
     if (!modal || !content || !rec) return;
 
     const riskBadge = rec.avgRisk > 0
-        ? `<span class="cart-risk-badge" style="background: ${rec.riskBadgeColor || '#0f172a'}; color: white;">CART Score: ${rec.avgRisk.toFixed(1)}</span>`
-        : `<span class="cart-risk-badge" style="background: #94a3b8; color: white;">No CART Score</span>`;
+        ? `<span class="cart-risk-badge" style="background: ${rec.riskBadgeColor || '#0f172a'}; color: white;">Risk analysis: ${rec.avgRisk.toFixed(1)}</span>`
+        : `<span class="cart-risk-badge" style="background: #94a3b8; color: white;">Risk analysis unavailable</span>`;
 
     content.innerHTML = `
         <div class="rec-card-header" style="margin-bottom: 4px;">
@@ -889,15 +898,13 @@ function showStreetDetailModal(rec) {
         <div class="danger-level ${rec.priority}" style="margin-bottom: 10px;">${escapeHTML(rec.level)}</div>
         <div style="margin-bottom: 10px;">
             ${riskBadge}
-            ${rec.maxRisk > 0 ? `<span class="cart-risk-badge" style="background: #1e293b; color: #e2e8f0; margin-left: 6px;">Peak: ${rec.maxRisk}</span>` : ''}
+            ${rec.maxRisk > 0 ? `<span class="cart-risk-badge" style="background: #1e293b; color: #e2e8f0; margin-left: 6px;">Highest risk observed: ${rec.maxRisk}</span>` : ''}
         </div>
         <div class="rec-details">
-            <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Recommended Patrol Time:</strong> ${escapeHTML(rec.time)}</div>
+            <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Typical incident time:</strong> ${escapeHTML(rec.time)}</div>
             <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
             <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
             ${riskDistBadgeHtml(rec.riskDist)}
-            <div><i class="fa-solid fa-user-shield rec-detail-icon"></i><strong>Suggested Personnel:</strong> ${escapeHTML(rec.personnel)}</div>
-            <div><i class="fa-solid fa-bullhorn rec-detail-icon"></i><strong>Suggested Action:</strong> ${escapeHTML(rec.action)}</div>
         </div>
         <div class="street-modal-section-label"><i class="fa-solid fa-list-ul"></i> All Incidents at This Location (${rec.incidents?.length || 0})</div>
         ${fullIncidentListHtml(rec.incidents)}
@@ -907,6 +914,10 @@ function showStreetDetailModal(rec) {
             </button>
         </div>
     `;
+
+    content.querySelectorAll('.street-modal-incident-date').forEach(element => {
+        element.innerHTML = element.innerHTML.replace(/\b(\d{1,2}):(\d{2})\b/g, (_, hour, minute) => formatDisplayTime(`${hour}:${minute}`));
+    });
 
     document.getElementById('modalAddScheduleBtn')?.addEventListener('click', () => {
         closeStreetDetailModal();
@@ -958,6 +969,11 @@ function applyRecommendationToScheduleForm(idx) {
     window.populateActiveHeatmapRecords?.(sourceRecord.id);
     window.selectScheduleRecord?.(sourceRecord.id, { keepReason: true });
 
+    if (rec.startTime && rec.endTime) {
+        document.getElementById('scheduleStart').value = rec.startTime;
+        document.getElementById('scheduleEnd').value = rec.endTime;
+    }
+
     const timeParts = rec.time.split(' – ');
     if (timeParts.length === 2) {
         document.getElementById('scheduleStart').value = timeParts[0];
@@ -973,7 +989,7 @@ function applyRecommendationToScheduleForm(idx) {
     }
 
     document.getElementById('scheduleReason').value =
-        `Suggested from CART priority recommendation: ${rec.reason}. ${rec.action}`;
+        `Suggested from the risk analysis: ${rec.reason}`;
 
     openScheduleModal();
     showToast(`Prepared from the highest-risk active record in ${rec.area}. Assign a team before saving.`, 'info');
@@ -1063,6 +1079,10 @@ async function saveSchedule() {
     const memberIds = [...document.getElementById('scheduleTanods').selectedOptions].map(option => Number(option.value));
     const latRaw = document.getElementById('scheduleLat').value;
     const lngRaw = document.getElementById('scheduleLng').value;
+    const savedTeam = document.getElementById('scheduleSavedTeam');
+    const recurrenceType = document.getElementById('scheduleRecurrence')?.value || 'single';
+    const recurrenceEnd = document.getElementById('scheduleRecurrenceEnd')?.value || '';
+    const recurrenceDays = [...document.querySelectorAll('#scheduleRecurrenceDays input:checked')].map(input => input.value);
 
     if (!incidentId || !location) {
         showToast('Choose an active heatmap record for this patrol.', 'error');
@@ -1084,6 +1104,7 @@ async function saveSchedule() {
         exact_address: document.getElementById('scheduleExactAddress').value,
         team_name: teamName,
         tanod_ids: memberIds,
+        team_id: savedTeam?.value ? Number(savedTeam.value) : null,
         location,
         start_time,
         end_time,
@@ -1091,7 +1112,10 @@ async function saveSchedule() {
         latitude: latRaw ? parseFloat(latRaw) : null,
         longitude: lngRaw ? parseFloat(lngRaw) : null,
         reason,
-        status
+        status,
+        recurrence_type: recurrenceType,
+        recurrence_end_date: recurrenceEnd || null,
+        recurrence_days: recurrenceDays
     };
 
     const method = id ? 'PUT' : 'POST';
@@ -1113,6 +1137,54 @@ async function saveSchedule() {
         console.error('Error saving schedule:', error);
         showToast(error.message, 'error');
     }
+}
+
+function calendarDateKey(date = new Date()) { return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function calendarShift(date, days) { const next = new Date(`${date}T12:00:00`); next.setDate(next.getDate() + days); return calendarDateKey(next); }
+function setupPatrolCalendar() {
+    const date = document.getElementById('calendarDate'); if (!date) return;
+    date.value = calendarDateKey();
+    document.getElementById('calendarView')?.addEventListener('change', loadPatrolCalendar);
+    date.addEventListener('change', loadPatrolCalendar);
+    document.getElementById('calendarPrevious')?.addEventListener('click', () => shiftPatrolCalendar(-1));
+    document.getElementById('calendarNext')?.addEventListener('click', () => shiftPatrolCalendar(1));
+    document.getElementById('scheduleRecurrence')?.addEventListener('change', updateRecurrenceFields);
+    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const holder = document.getElementById('scheduleRecurrenceDays');
+    if (holder) holder.innerHTML = days.map(day => `<label><input type="checkbox" value="${day}"> ${day.slice(0,3)}</label>`).join(' ');
+    updateRecurrenceFields();
+    loadPatrolCalendar();
+}
+function updateRecurrenceFields() {
+    const type = document.getElementById('scheduleRecurrence')?.value || 'single';
+    const end = document.getElementById('scheduleRecurrenceEnd');
+    const days = document.getElementById('scheduleRecurrenceDaysGroup');
+    if (end) end.required = type !== 'single';
+    if (days) days.hidden = !['weekly','custom'].includes(type);
+}
+function shiftPatrolCalendar(direction) {
+    const input = document.getElementById('calendarDate'); const view = document.getElementById('calendarView')?.value || 'week';
+    const amount = view === 'month' ? 28 : view === 'week' ? 7 : 1;
+    input.value = calendarShift(input.value || calendarDateKey(), direction * amount); loadPatrolCalendar();
+}
+async function loadPatrolCalendar() {
+    const grid = document.getElementById('patrolCalendarGrid'); if (!grid) return;
+    const date = document.getElementById('calendarDate').value || calendarDateKey();
+    const view = document.getElementById('calendarView').value;
+    try {
+        const response = await window.apiFetch('/patrol-calendar?' + new URLSearchParams({ date, view }));
+        if (!response.ok) throw new Error('Unable to load calendar');
+        const schedules = await response.json();
+        const span = view === 'day' ? 1 : view === 'week' ? 7 : 35;
+        const first = view === 'month' ? calendarShift(`${date.slice(0,7)}-01`, -new Date(`${date.slice(0,7)}-01T12:00:00`).getDay()) : view === 'week' ? calendarShift(date, -((new Date(`${date}T12:00:00`).getDay() + 6) % 7)) : date;
+        grid.className = `patrol-calendar-grid calendar-${view}`;
+        grid.innerHTML = Array.from({ length: span }, (_, index) => {
+            const day = calendarShift(first, index);
+            const events = schedules.filter(item => String(item.scheduled_date).slice(0,10) === day);
+            return `<div class="patrol-calendar-day"><h4>${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</h4>${events.map(item => `<button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time,item.end_time)}</strong>${escapeHTML(item.team_name || item.location || 'Patrol')}</button>`).join('') || '<small>No patrols</small>'}</div>`;
+        }).join('');
+        grid.querySelectorAll('[data-schedule-id]').forEach(button => button.addEventListener('click', () => window.editSchedule(Number(button.dataset.scheduleId))));
+    } catch (error) { grid.innerHTML = `<p class="empty-content">${escapeHTML(error.message)}</p>`; }
 }
 
 // Resets the Add/Edit Patrol Schedule form back to its "Add" state and,
@@ -1333,13 +1405,26 @@ function getVisibleRecommendations() {
         .sort((a, b) => (b.maxRisk || 0) - (a.maxRisk || 0));
 }
 
+function recordIdentifier(record) {
+    if (!record) return '—';
+    if (record.blotter_number) return record.blotter_number;
+    return `${record.form_type === 'crime' ? 'Incident' : 'Blotter'} #${record.id}`;
+}
+
+function recordStreetDetails(record) {
+    if (!record) return '—';
+    return record.address || record.exact_address || record.street_name || record.location || '—';
+}
+
 function recommendationRow(rec) {
     const index = currentRecommendations.indexOf(rec);
     const priority = rec.priority === 'high' ? 'High' : rec.priority === 'medium' ? 'Medium' : 'Low';
+    const sourceRecord = rec.incidents?.[0];
+    const relatedCount = Math.max(0, (rec.incidents?.length || 0) - 1);
     return `
         <tr class="schedule-suggestion-row">
-            <td><span class="source-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> Suggested</span></td>
-            <td><strong>${escapeHTML(rec.area)}</strong><br><small>${escapeHTML(rec.reason)}</small></td>
+            <td><strong>${escapeHTML(recordIdentifier(sourceRecord))}</strong>${relatedCount ? `<br><small>+${relatedCount} related</small>` : ''}</td>
+            <td><strong>${escapeHTML(recordStreetDetails(sourceRecord) || rec.area)}</strong><br><small>${escapeHTML(rec.area)}</small></td>
             <td><span class="text-muted">Choose date</span></td>
             <td>${escapeHTML(rec.time)}</td>
             <td><span class="text-muted">Assign team</span></td>
@@ -1401,12 +1486,18 @@ function renderSchedules(schedules) {
         previousStatus = status;
         const statusClass = schedule.status === 'Active' ? 'badge-open' :
                            schedule.status === 'Completed' ? 'badge-resolved' : 'badge-monitoring';
-        const timeDisplay = `${schedule.start_time ? schedule.start_time.substring(0,5) : 'N/A'} - ${schedule.end_time ? schedule.end_time.substring(0,5) : 'N/A'}`;
+        const timeDisplay = formatDisplayTimeRange(schedule.start_time, schedule.end_time) || 'N/A';
+        const linkedRecord = schedule.blotter_number
+            ? schedule.blotter_number
+            : schedule.incident_id
+                ? `${schedule.form_type === 'crime' ? 'Incident' : 'Blotter'} #${Number(schedule.incident_id)}`
+                : '—';
+        const streetDetails = schedule.exact_address || schedule.address || schedule.street_name || schedule.location || '—';
 
         return groupRow + `
             <tr>
-                <td class="font-bold">${schedule.id}</td>
-                <td>${escapeHTML(schedule.location)}${schedule.exact_address ? '<br><small>' + escapeHTML(schedule.exact_address) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + ' risk</small>' : ''}</td>
+                <td class="font-bold">${escapeHTML(linkedRecord)}</td>
+                <td>${escapeHTML(streetDetails)}${schedule.location && schedule.location !== streetDetails ? '<br><small>' + escapeHTML(schedule.location) + '</small>' : ''}${schedule.incident_id ? '<br><small>Record #' + Number(schedule.incident_id) + ' · ' + escapeHTML(schedule.priority || '') + ' risk</small>' : ''}</td>
                 <td>${escapeHTML(schedule.scheduled_date || schedule.day_of_week)}</td>
                 <td>${timeDisplay}</td>
                 <td><strong>${escapeHTML(schedule.team_name || 'Unassigned')}</strong>${schedule.tanods?.length ? '<br><small>' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : '<br><small>No members assigned</small>'}</td>
@@ -1418,6 +1509,17 @@ function renderSchedules(schedules) {
         `;
     }).join('');
     tbody.innerHTML = suggestionRows + savedRows;
+
+    // Keep the location column focused on the address captured during
+    // incident encoding instead of the analysis explanation.
+    if (!suggestionOnly) {
+        [...tbody.querySelectorAll('tr:not(.schedule-group-row):not(.schedule-suggestion-row)')].forEach((row, index) => {
+            const schedule = pageItems[index];
+            if (!schedule || !row.cells[1]) return;
+            const details = schedule.exact_address || schedule.address || schedule.street_name || schedule.location || '—';
+            row.cells[1].innerHTML = escapeHTML(details) + (schedule.location && schedule.location !== details ? `<br><small>${escapeHTML(schedule.location)}</small>` : '');
+        });
+    }
 }
 
 window.editSchedule = async function(id) {
@@ -1610,7 +1712,7 @@ async function ensureScheduleOption(id) {
     if(!id || !select || [...select.options].some(option=>Number(option.value)===Number(id))) return;
     const response=await window.apiFetch('/patrol-schedules/'+encodeURIComponent(id)); if(!response.ok) return;
     const schedule=await response.json();
-    select.add(new Option(`${schedule.location} (${schedule.day_of_week} ${schedule.start_time?.slice(0,5)||''})`,String(schedule.id)));
+    select.add(new Option(`${schedule.location} (${schedule.day_of_week} ${formatDisplayTime(schedule.start_time)})`,String(schedule.id)));
 }
 let scheduleChoiceRequest=0;
 async function loadScheduleChoices(search=document.getElementById('logScheduleSearch')?.value||'') {
@@ -1646,7 +1748,7 @@ function populateScheduleDropdown() {
         const option = document.createElement('option');
         option.value = schedule.id;
         const timeDisplay = schedule.start_time && schedule.end_time 
-            ? `${schedule.start_time.substring(0,5)}-${schedule.end_time.substring(0,5)}` 
+            ? formatDisplayTimeRange(schedule.start_time, schedule.end_time)
             : '';
         const statusTag = schedule.status && schedule.status !== 'Active' ? ` — ${schedule.status}` : '';
         option.textContent = `${schedule.location} (${schedule.day_of_week} ${timeDisplay})${statusTag}`;

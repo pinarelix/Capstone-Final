@@ -150,7 +150,7 @@ describe('Light record detail panel', () => {
         const html=element('mapRecordDetail').innerHTML;
         expect(html).toContain('Incident Reporter'); expect(html).toContain('Encoded by'); expect(html).toContain('Encoding Staff');
         for(const text of ['Complainant','Respondent','CART assessment details','Statement and evidence','Hidden statement','Hidden assessment','mapEvidenceList']) expect(html).not.toContain(text);
-        expect(html).toContain('CART score'); expect(html).toContain('&lt;img'); expect(html).not.toContain('<img');
+        expect(html).toContain('Risk analysis'); expect(html).toContain('&lt;img'); expect(html).not.toContain('<img');
         expect(html).toContain('maxlength="200"'); expect(html).toContain('fieldset');
         expect(context.ensureFileToken).not.toHaveBeenCalled();
     });

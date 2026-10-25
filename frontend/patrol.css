@@ -1112,3 +1112,11 @@ body.role-decision-maker .cart-score-chip {
     .patrol-command-panel .metric-card { border-right: 0; border-bottom: 1px solid #e2e8f0; }
     .patrol-command-panel .metric-card:last-child { border-bottom: 0; }
 }
+/* Patrol calendar */
+.patrol-calendar-grid { display: grid; gap: 12px; padding: 18px; min-height: 260px; }
+.patrol-calendar-grid.calendar-day, .patrol-calendar-grid.calendar-week { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.patrol-calendar-grid.calendar-month { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.patrol-calendar-day { border: 1px solid #e2e8f0; border-radius: 12px; min-height: 130px; padding: 10px; background: #f8fafc; }
+.patrol-calendar-day h4 { margin: 0 0 8px; font-size: .78rem; color: #475569; }
+.patrol-calendar-event { display: block; width: 100%; text-align: left; border: 0; border-left: 3px solid #2563eb; border-radius: 7px; background: #dbeafe; padding: 7px; margin: 5px 0; color: #1e3a8a; cursor: pointer; font-size: .72rem; }
+.patrol-calendar-event strong { display: block; font-size: .76rem; }

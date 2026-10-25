@@ -95,6 +95,24 @@
                 <button class="patrol-tab" data-tab="schedule-list">
                     <i class="fa-solid fa-clipboard-list"></i> Patrol Logs
                 </button>
+                <button class="patrol-tab" data-tab="calendar">
+                    <i class="fa-solid fa-calendar-days"></i> Calendar
+                </button>
+            </div>
+
+            <div id="tab-calendar" class="patrol-tab-content">
+                <div class="patrol-table-card">
+                    <div class="table-header">
+                        <div><h3><i class="fa-solid fa-calendar-days"></i> Patrol Calendar</h3><p class="table-header-help">Review scheduled deployments by day, week, or month.</p></div>
+                        <div class="schedule-header-tools">
+                            <button type="button" id="calendarPrevious" class="patrol-calendar-step" aria-label="Previous period"><i class="fa-solid fa-chevron-left"></i></button>
+                            <input id="calendarDate" type="date" class="form-control">
+                            <button type="button" id="calendarNext" class="patrol-calendar-step" aria-label="Next period"><i class="fa-solid fa-chevron-right"></i></button>
+                            <select id="calendarView" class="form-select"><option value="day">Day</option><option value="week" selected>Week</option><option value="month">Month</option></select>
+                        </div>
+                    </div>
+                    <div id="patrolCalendarGrid" class="patrol-calendar-grid" aria-live="polite"></div>
+                </div>
             </div>
 
             <!-- =====================================================
@@ -119,41 +137,8 @@
                         </div>
                     </div>
 
-                    <div class="patrol-metrics">
-                    <div class="metric-card">
-                        <div class="metric-icon"><i class="fa-solid fa-location-dot"></i></div>
-                        <div class="metric-info">
-                            <span class="metric-label">Priority Area</span>
-                            <h4 id="topArea">Loading...</h4>
-                            <p>Highest ranked patrol zone</p>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon"><i class="fa-solid fa-clock"></i></div>
-                        <div class="metric-info">
-                            <span class="metric-label">Recommended Time</span>
-                            <h4 id="topTime">Loading...</h4>
-                            <p>Suggested patrol window</p>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon"><i class="fa-solid fa-user"></i></div>
-                        <div class="metric-info">
-                            <span class="metric-label">Personnel Needed</span>
-                            <h4 id="topPersonnel">Loading...</h4>
-                            <p>Suggested manpower</p>
-                        </div>
-                    </div>
+                    <!-- The schedule list below is the primary planning view. -->
                     <!-- 🔥 NEW: CART Risk Score Metric -->
-                    <div class="metric-card" id="cartScoreMetricCard">
-                        <div class="metric-icon"><i class="fa-solid fa-chart-column"></i></div>
-                        <div class="metric-info">
-                            <span class="metric-label">CART Risk Score</span>
-                            <h4 id="topRiskScore">Loading...</h4>
-                            <p id="topRiskBadge" style="font-size: 0.65rem; padding: 2px 10px; border-radius: 12px; display: inline-block; background: #94a3b8; color: white;">Loading CART data...</p>
-                        </div>
-                    </div>
-                    </div>
                 </section>
 
                 <!-- Suggested and saved patrols share one planning table. -->
@@ -182,8 +167,8 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Source</th>
-                                    <th>Location</th>
+                                    <th>Blotter / Incident ID</th>
+                                    <th>Street details</th>
                                     <th>Date / Day</th>
                                     <th>Time</th>
                                     <th>Team</th>
@@ -244,6 +229,7 @@
                                 <i class="fa-solid fa-people-group" aria-hidden="true"></i>
                             </div>
                             <div class="form-group"><label for="scheduleTeamName">Team name <span class="req">*</span></label><input id="scheduleTeamName" class="form-control" maxlength="100" placeholder="e.g. Night Patrol Team A" required></div>
+                            <div class="form-group"><label for="scheduleSavedTeam">Use a saved patrol team</label><select id="scheduleSavedTeam" class="form-select"><option value="">Choose a saved team (optional)</option></select><small>Selecting a saved team fills the team name and Tanods below.</small></div>
                             <div class="form-group"><label for="scheduleTanods">Team members <span class="req">*</span></label><select multiple id="scheduleTanods" class="form-select" size="4" required></select><small>Select one or more active roster members.</small></div>
                             <div class="form-group"><label for="newTanodName">Add a member to the roster</label><div class="member-add-row"><input id="newTanodName" class="form-control" maxlength="100" placeholder="Full name"><button type="button" id="addTanodBtn" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Add member</button></div></div>
                         </div>
@@ -263,6 +249,12 @@
                                 <input type="time" id="scheduleEnd" class="form-control" required>
                             </div>
                         </div>
+
+                        <div class="form-grid-2">
+                            <div class="form-group"><label for="scheduleRecurrence">Repeat</label><select id="scheduleRecurrence" class="form-select"><option value="single">One occurrence</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="custom">Selected weekdays</option></select></div>
+                            <div class="form-group"><label for="scheduleRecurrenceEnd">Repeat until</label><input type="date" id="scheduleRecurrenceEnd" class="form-control"></div>
+                        </div>
+                        <div class="form-group" id="scheduleRecurrenceDaysGroup" hidden><label>Weekdays</label><div id="scheduleRecurrenceDays" class="schedule-weekday-options"></div></div>
 
 
                         <div class="form-group">

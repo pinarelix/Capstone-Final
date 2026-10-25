@@ -81,6 +81,8 @@ document.addEventListener("DOMContentLoaded", function () {
     loadUsers();
     setupForm();
     setupSearch();
+    setupPatrolTeamForms();
+    loadPatrolTeamData();
     setupNavigation();
     setupPasswordToggle();
     setupRippleEffect();
@@ -90,6 +92,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('userRoleFilter')?.addEventListener('change', () => { userPage = 1; loadUsers(); });
 
     startLivePolling(refreshUsersOnly, 15000);
+    startLivePolling(loadPatrolTeamData, 15000);
 });
 
 /* ============================================================
@@ -686,6 +689,135 @@ function setupRippleEffect() {
 /* ============================================================
    HELPERS
 ============================================================ */
+
+let patrolTeams = [];
+let tanodRoster = [];
+
+async function loadPatrolTeamData() {
+    try {
+        const [teamsResponse, tanodsResponse, leadersResponse] = await Promise.all([
+            apiFetch('/patrol-teams'),
+            apiFetch('/tanods'),
+            apiFetch('/users-list')
+        ]);
+        if (!teamsResponse.ok || !tanodsResponse.ok || !leadersResponse.ok) throw new Error('Could not load patrol team data');
+        patrolTeams = await teamsResponse.json();
+        tanodRoster = (await tanodsResponse.json()).filter(tanod => tanod.is_active);
+        const leaders = (await leadersResponse.json()).filter(user => user.role === 'Team Leader');
+        const leaderSelect = document.getElementById('patrolTeamLeader');
+        if (leaderSelect) {
+            const selected = leaderSelect.value;
+            leaderSelect.innerHTML = '<option value="">Select a Team Leader account</option>' + leaders.map(user => `<option value="${user.id}">${escapeHTML(user.name)}</option>`).join('');
+            if (selected) leaderSelect.value = selected;
+        }
+        renderTanodOptions();
+        renderPatrolTeams();
+    } catch (error) {
+        console.error('Unable to load patrol team data:', error);
+    }
+}
+
+function renderTanodOptions(selected = []) {
+    const select = document.getElementById('patrolTeamTanods');
+    if (!select) return;
+    const chosen = new Set(selected.map(Number));
+    select.innerHTML = tanodRoster.length
+        ? tanodRoster.map(tanod => `<option value="${tanod.id}" ${chosen.has(Number(tanod.id)) ? 'selected' : ''}>${escapeHTML(tanod.name)}${tanod.contact_no ? ` — ${escapeHTML(tanod.contact_no)}` : ''}</option>`).join('')
+        : '<option disabled>No Tanods in the roster yet</option>';
+}
+
+function renderPatrolTeams() {
+    const list = document.getElementById('patrolTeamsList');
+    const count = document.getElementById('patrolTeamCount');
+    if (!list) return;
+    if (count) count.textContent = `${patrolTeams.length} team${patrolTeams.length === 1 ? '' : 's'}`;
+    if (!patrolTeams.length) {
+        list.innerHTML = '<div class="patrol-teams-empty">No patrol teams have been formed yet.</div>';
+        return;
+    }
+    list.innerHTML = patrolTeams.map(team => `
+        <article class="patrol-team-item">
+            <h3>${escapeHTML(team.name)}</h3>
+            <p><i class="fa-solid fa-user-shield"></i> Leader: <strong>${escapeHTML(team.leader_name || 'Not assigned')}</strong></p>
+            <div class="team-member-list"><strong>${team.tanods?.length || 0} Tanod${team.tanods?.length === 1 ? '' : 's'}</strong><br>${team.tanods?.length ? team.tanods.map(tanod => `${escapeHTML(tanod.name)}${tanod.contact_no ? ` · ${escapeHTML(tanod.contact_no)}` : ''}${tanod.address ? `<br><small>${escapeHTML(tanod.address)}</small>` : ''}`).join('<br>') : 'No Tanods assigned'}</div>
+            <button type="button" class="btn btn-secondary team-edit-btn" onclick="editPatrolTeam(${team.id})"><i class="fa-solid fa-pen"></i> Edit team</button>
+        </article>
+    `).join('');
+}
+
+function setupPatrolTeamForms() {
+    const teamForm = document.getElementById('patrolTeamForm');
+    const tanodForm = document.getElementById('tanodForm');
+    if (teamForm) teamForm.addEventListener('submit', savePatrolTeam);
+    if (tanodForm) tanodForm.addEventListener('submit', addPatrolTanod);
+    document.getElementById('patrolTeamCancelBtn')?.addEventListener('click', resetPatrolTeamForm);
+}
+
+async function addPatrolTanod(event) {
+    event.preventDefault();
+    const payload = {
+        name: document.getElementById('tanodName').value.trim(),
+        contact_no: document.getElementById('tanodContact').value.trim(),
+        address: document.getElementById('tanodAddress').value.trim(),
+        birth_date: document.getElementById('tanodBirthDate').value || null
+    };
+    if (!payload.name) return showToast('Enter the Tanod’s full name.', 'error');
+    try {
+        const response = await apiFetch('/tanods', { method: 'POST', body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not add Tanod');
+        document.getElementById('tanodForm').reset();
+        await loadPatrolTeamData();
+        const select = document.getElementById('patrolTeamTanods');
+        if (select) [...select.options].find(option => Number(option.value) === Number(data.id))?.setAttribute('selected', 'selected');
+        showToast('Tanod added to the active roster.', 'success');
+    } catch (error) { showToast(error.message, 'error'); }
+}
+
+async function savePatrolTeam(event) {
+    event.preventDefault();
+    const id = document.getElementById('patrolTeamId').value;
+    const payload = {
+        name: document.getElementById('patrolTeamName').value.trim(),
+        leader_user_id: Number(document.getElementById('patrolTeamLeader').value) || null,
+        tanod_ids: [...document.getElementById('patrolTeamTanods').selectedOptions].map(option => Number(option.value)),
+        is_active: document.getElementById('patrolTeamActive')?.checked !== false
+    };
+    if (!payload.name || !payload.leader_user_id) return showToast('Enter a team name and select one Team Leader.', 'error');
+    try {
+        const response = await apiFetch(id ? `/patrol-teams/${id}` : '/patrol-teams', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not save patrol team');
+        resetPatrolTeamForm();
+        await loadPatrolTeamData();
+        showToast(id ? 'Patrol team updated.' : 'Patrol team created.', 'success');
+    } catch (error) { showToast(error.message, 'error'); }
+}
+
+function resetPatrolTeamForm() {
+    document.getElementById('patrolTeamForm')?.reset();
+    const id = document.getElementById('patrolTeamId');
+    if (id) id.value = '';
+    const button = document.getElementById('patrolTeamSubmitBtn');
+    if (button) button.innerHTML = '<i class="fa-solid fa-people-group"></i> Save Patrol Team';
+    const cancel = document.getElementById('patrolTeamCancelBtn');
+    if (cancel) cancel.hidden = true;
+    renderTanodOptions();
+}
+
+function editPatrolTeam(id) {
+    const team = patrolTeams.find(item => Number(item.id) === Number(id));
+    if (!team) return;
+    document.getElementById('patrolTeamId').value = team.id;
+    document.getElementById('patrolTeamName').value = team.name || '';
+    document.getElementById('patrolTeamLeader').value = team.leader_user_id || '';
+    document.getElementById('patrolTeamActive').checked = Boolean(team.is_active);
+    renderTanodOptions((team.tanods || []).map(tanod => tanod.id));
+    document.getElementById('patrolTeamSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Update Patrol Team';
+    document.getElementById('patrolTeamCancelBtn').hidden = false;
+    document.getElementById('patrolTeamName').focus();
+}
+window.editPatrolTeam = editPatrolTeam;
 
 function escapeHTML(value) {
     return String(value || '')

@@ -14,7 +14,7 @@ function openRecordGroup(rows, selectedId) {
         button.type = 'button'; button.className = 'record-map-option'; button.setAttribute('role', 'option'); button.dataset.id = row.id;
         button.tabIndex = -1;
         button.setAttribute('aria-selected', 'false');
-        button.textContent = row.blotter_number + ' · CART ' + Number(row.cart_score).toFixed(2);
+        button.textContent = row.blotter_number + ' · Risk analysis ' + Number(row.cart_score).toFixed(2);
         const subtitle = document.createElement('small');
         subtitle.textContent = row.incident_type + ' · ' + (row.address || row.street_name);
         button.append(subtitle); button.addEventListener('click', () => showMapRecord(row.id));
@@ -94,14 +94,13 @@ async function showMapRecord(id) {
             mapInput('mapAction', 'Recommended action', record.recommended_action, { wide: true, textarea: true, max: 1000 })
         ];
         const patrolFields = [
-            mapInput('mapNotes', 'Patrol notes (maximum 200 characters)', record.patrol_notes, { wide: true, textarea: true, max: 200 }),
-            mapInput('mapOverride', 'Patrol eligibility: auto / manual include / no patrol', record.patrol_override, { values: ['auto','include','exclude'], wide: true })
+            mapInput('mapNotes', 'Patrol notes (maximum 200 characters)', record.patrol_notes, { wide: true, textarea: true, max: 200 })
         ];
         mapEl('mapRecordDetail').innerHTML = syntheticLabel + '<div class="record-map-summary"><div class="record-map-identity"><h3>' + escapeHTML(record.blotter_number || '') + '</h3><span class="record-map-badge">' + (record.form_type === 'crime' ? 'Incident' : 'Blotter') + '</span></div>' +
-            '<div class="record-map-score"><span>CART score</span><strong>' + Number(record.cart_score || 0).toFixed(2) + '</strong><span class="record-map-badge">' + escapeHTML(window.HeatmapAnalytics.getSeverityLabel(Number(record.cart_score || 0), mapThresholds)) + ' priority</span></div>' +
+            '<div class="record-map-score"><span>Risk analysis</span><strong>' + Number(record.cart_score || 0).toFixed(2) + '</strong><span class="record-map-badge">' + escapeHTML(window.HeatmapAnalytics.getSeverityLabel(Number(record.cart_score || 0), mapThresholds)) + ' priority</span></div>' +
             '<p>' + escapeHTML(record.address || record.street_name || 'Address not recorded') + '</p></div>' +
             '<form id="mapRecordForm">' + mapSection('Incident details', incidentFields) + mapSection('Incident location', locationFields) + mapPersonDetails(record) +
-            mapSection('Description and recommended action', narrativeFields) + mapSection('Patrol notes and eligibility', patrolFields) +
+            mapSection('Description and recommended action', narrativeFields) + mapSection('Patrol notes', patrolFields) +
             '<fieldset class="record-map-section"><legend>Linked patrol schedules</legend><div class="record-map-linked">' + escapeHTML(linked || 'No linked patrol schedules') + '</div></fieldset>' +
             '<div class="record-map-actions" ' + (isAdmin() ? '' : 'hidden') +
             '><button class="btn btn-primary" type="submit">Save changes</button><button class="btn btn-secondary" id="mapSchedulePatrol" type="button">Add to patrol schedule</button></div>' +
@@ -135,7 +134,7 @@ async function saveMapRecord(event) {
         address: mapEl('mapAddress').value, status: mapEl('mapStatus').value,
         latitude: Number(mapEl('mapLat').value), longitude: Number(mapEl('mapLng').value),
         description: mapEl('mapDescription').value, recommended_action: mapEl('mapAction').value,
-        patrol_notes: notes, patrol_override: mapEl('mapOverride').value };
+        patrol_notes: notes };
     if (selectedMapRecord.form_type === 'blotter') Object.assign(payload, {
         addr_block: mapEl('mapBlock').value, addr_lot: mapEl('mapLot').value,
         addr_house_no: mapEl('mapHouse').value, addr_unit: mapEl('mapUnit').value

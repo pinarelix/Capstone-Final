@@ -82,6 +82,22 @@ window.loadScheduleTanods = async function(selected = []) {
     });
 };
 
+async function loadSavedPatrolTeams() {
+    const select = document.getElementById('scheduleSavedTeam');
+    if (!select) return;
+    const response = await apiFetch('/patrol-teams');
+    if (!response.ok) return;
+    const teams = await response.json();
+    select.innerHTML = '<option value="">Choose a saved team (optional)</option>';
+    teams.forEach(team => select.add(new Option(`${team.name} — ${team.leader_name || 'No leader'}`, team.id)));
+    select.addEventListener('change', async event => {
+        const team = teams.find(item => String(item.id) === event.target.value);
+        if (!team) return;
+        document.getElementById('scheduleTeamName').value = team.name || '';
+        await window.loadScheduleTanods((team.tanods || []).map(tanod => Number(tanod.id)));
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const formCard = document.getElementById('scheduleFormCard');
     if (!isAdmin()) { formCard.hidden = true; return; }
@@ -118,6 +134,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         await window.loadScheduleTanods();
+        await loadSavedPatrolTeams();
         window.populateActiveHeatmapRecords();
         const id = new URLSearchParams(window.location.search).get('record');
         if (!id || !/^\d+$/.test(id)) return;

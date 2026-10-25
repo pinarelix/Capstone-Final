@@ -554,15 +554,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function formatTime(timeStr) {
-        if (!timeStr) return 'N/A';
-        try {
-            if (timeStr.includes(':')) {
-                return timeStr.substring(0, 5);
-            }
-            return timeStr;
-        } catch (e) {
-            return timeStr;
-        }
+        return window.formatDisplayTime ? (window.formatDisplayTime(timeStr) || 'N/A') : (timeStr || 'N/A');
     }
 
     function openPatrolModal() {
