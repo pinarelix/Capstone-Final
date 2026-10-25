@@ -11,6 +11,8 @@
     "db:migrate": "cd backend && node scripts/migrate.js",
     "db:migrate:record-patrol": "node backend/scripts/migrate-record-patrol.js",
     "db:reset:test": "node backend/scripts/reset-test-database.js",
+    "db:reset:user-management:test": "node backend/scripts/reset-user-management-test.js",
+    "db:import:patrol-fixture": "node backend/scripts/import-patrol-fixture.js",
     "db:seed": "cd backend && node scripts/seed-test-data.js",
     "db:generate:qa": "node backend/generate-records.js",
     "db:verify:qa": "node backend/verify-cart.js --batch qa-cart-map-400-v1",

@@ -44,6 +44,9 @@ let allAreaDecay = {};
 // as confirmed schedules. This keeps planning in one place and leaves the
 // data model ready for the future Kanban workflow.
 let currentRecommendations = [];
+let selectedPatrolSourceIds = [];
+window.getSelectedPatrolSourceIds = () => [...selectedPatrolSourceIds];
+window.setSelectedPatrolSourceIds = ids => { selectedPatrolSourceIds = [...new Set((ids || []).map(Number).filter(Number.isFinite))]; };
 window.getPatrolHeatmapRecords = () => allIncidents;
 
 function localPatrolDateKey(date = new Date()) {
@@ -133,6 +136,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     document.getElementById('newScheduleBtn')?.addEventListener('click', openNewScheduleModal);
+    document.getElementById('calendarNewScheduleBtn')?.addEventListener('click', openNewScheduleModal);
 
     for (const [id, refresh, resetPage] of [
         ['scheduleSearch', refreshSchedulesOnly, () => { schedulePage = 1; }],
@@ -201,6 +205,10 @@ function setupTabs() {
             const targetContent = document.getElementById(`tab-${tabId}`);
             if (targetContent) {
                 targetContent.classList.add('active');
+            }
+            if (tabId === 'calendar') {
+                loadPatrolCalendar();
+                loadPatrolAnalytics();
             }
 
         });
@@ -271,6 +279,8 @@ async function loadAllData() {
         renderLogs(allLogs);
         
         await loadScheduleChoices();
+        loadPatrolCalendar();
+        loadPatrolAnalytics();
 
         updateCounts();
         
@@ -671,6 +681,7 @@ function updateDashboardWithCartData(selectedMonth) {
         console.warn('No incidents available');
         updateMetricsEmptyState();
         currentRecommendations = [];
+        renderCalendarRiskPanel([]);
         renderSchedules(allSchedules);
         updateCounts();
         return;
@@ -728,8 +739,24 @@ function updateDashboardWithCartData(selectedMonth) {
     */
     // Recommendations and saved schedules now share the planning table.
     currentRecommendations = recommendations;
+    renderCalendarRiskPanel(recommendations);
     renderSchedules(allSchedules);
     updateCounts();
+}
+
+function renderCalendarRiskPanel(recommendations) {
+    const panel = document.getElementById('calendarRiskRecommendations');
+    if (!panel) return;
+    const groups = (recommendations || []).filter(item => item.count > 0);
+    document.getElementById('calendarRiskCount').textContent = groups.length + ' areas';
+    panel.innerHTML = groups.map(rec => {
+        const records = (rec.incidents || []).filter(record => allIncidents.some(active => Number(active.id) === Number(record.id) && active.eligible !== false && active.street_name === rec.area));
+        return '<article class="calendar-risk-item"><strong>' + escapeHTML(rec.area) + '</strong>' + records.map(record =>
+            '<div class="risk-record-row"><span><strong>' + escapeHTML(recordIdentifier(record)) + '</strong><br>' + escapeHTML(record.incident_type || '') + '<small>' + escapeHTML(recordStreetDetails(record)) + '</small></span>' +
+            (isAdmin() ? '<button type="button" class="btn btn-secondary" data-risk-record="' + Number(record.id) + '">Schedule</button>' : '') + '</div>'
+        ).join('') + '</article>';
+    }).join('') || '<p>No active records available for this period.</p>';
+    panel.querySelectorAll('[data-risk-record]').forEach(button => button.addEventListener('click', () => window.scheduleRiskRecord(Number(button.dataset.riskRecord))));
 }
 
 function updateMetricsEmptyState() {
@@ -816,9 +843,9 @@ function renderCartRecommendationCards(recs, container) {
                 </span>` : ''}
             </div>
             <div class="rec-details">
-                <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Typical incident time:</strong> ${escapeHTML(rec.time)}</div>
-                <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
-                <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
+                <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Usual incident time:</strong> ${escapeHTML(displayRecommendationTime(rec.time))}</div>
+                <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Why this area needs attention:</strong> ${escapeHTML(rec.reason)}</div>
+                <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>What has been reported:</strong> ${escapeHTML(rec.pattern)}</div>
                 ${riskDistBadgeHtml(rec.riskDist)}
                 <div style="margin-top: 6px;"><i class="fa-solid fa-tags rec-detail-icon"></i><strong>${incidentsLabel}</strong><br>
                     ${typeCountsToBadgeHtml(countIncidentTypesIn(rec.incidents), 4)}
@@ -901,16 +928,16 @@ function showStreetDetailModal(rec) {
             ${rec.maxRisk > 0 ? `<span class="cart-risk-badge" style="background: #1e293b; color: #e2e8f0; margin-left: 6px;">Highest risk observed: ${rec.maxRisk}</span>` : ''}
         </div>
         <div class="rec-details">
-            <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Typical incident time:</strong> ${escapeHTML(rec.time)}</div>
-            <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Reason:</strong> ${escapeHTML(rec.reason)}</div>
-            <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>Incident Pattern:</strong> ${escapeHTML(rec.pattern)}</div>
+            <div><i class="fa-solid fa-clock rec-detail-icon"></i><strong>Usual incident time:</strong> ${escapeHTML(displayRecommendationTime(rec.time))}</div>
+            <div><i class="fa-solid fa-magnifying-glass-chart rec-detail-icon"></i><strong>Why this area needs attention:</strong> ${escapeHTML(rec.reason)}</div>
+            <div><i class="fa-solid fa-chart-pie rec-detail-icon"></i><strong>What has been reported:</strong> ${escapeHTML(rec.pattern)}</div>
             ${riskDistBadgeHtml(rec.riskDist)}
         </div>
         <div class="street-modal-section-label"><i class="fa-solid fa-list-ul"></i> All Incidents at This Location (${rec.incidents?.length || 0})</div>
         ${fullIncidentListHtml(rec.incidents)}
         <div style="text-align: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0;">
             <button type="button" id="modalAddScheduleBtn" class="btn btn-primary" style="padding: 10px 28px; font-size: 0.95rem; border-radius: 8px; cursor: pointer;">
-                <i class="fa-solid fa-calendar-plus"></i> Add Patrol Schedule
+                <i class="fa-solid fa-calendar-plus"></i> Open in Patrol Calendar
             </button>
         </div>
     `;
@@ -951,49 +978,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // aggregate — day of week is still a human call, so that field is left
 // for the admin to set.
 function applyRecommendationToScheduleForm(idx) {
-    const rec = currentRecommendations[idx];
-    if (!rec) return;
-
-    // Applying a suggestion always starts a fresh schedule, not an edit.
-    document.getElementById('editScheduleId').value = '';
-    document.getElementById('scheduleFormTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule';
-    document.getElementById('scheduleSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Schedule';
-
-    const sourceRecord = [...(rec.incidents || [])]
-        .filter(record => allIncidents.some(active => Number(active.id) === Number(record.id)))
-        .sort((a, b) => (Number(b.cart_score) || 0) - (Number(a.cart_score) || 0))[0];
-    if (!sourceRecord) {
-        showToast('This suggestion no longer has an active heatmap record.', 'error');
-        return;
-    }
-    window.populateActiveHeatmapRecords?.(sourceRecord.id);
-    window.selectScheduleRecord?.(sourceRecord.id, { keepReason: true });
-
-    if (rec.startTime && rec.endTime) {
-        document.getElementById('scheduleStart').value = rec.startTime;
-        document.getElementById('scheduleEnd').value = rec.endTime;
-    }
-
-    const timeParts = rec.time.split(' – ');
-    if (timeParts.length === 2) {
-        document.getElementById('scheduleStart').value = timeParts[0];
-        document.getElementById('scheduleEnd').value = timeParts[1];
-    }
-
-    if (rec.priority === 'high') {
-        document.getElementById('schedulePriority').value = 'High';
-    } else if (rec.priority === 'medium') {
-        document.getElementById('schedulePriority').value = 'Moderate';
-    } else {
-        document.getElementById('schedulePriority').value = 'Low';
-    }
-
-    document.getElementById('scheduleReason').value =
-        `Suggested from the risk analysis: ${rec.reason}`;
-
-    openScheduleModal();
-    showToast(`Prepared from the highest-risk active record in ${rec.area}. Assign a team before saving.`, 'info');
+    const recommendation = currentRecommendations[idx];
+    if (!recommendation) return;
+    document.querySelector('.patrol-tab[data-tab="calendar"]')?.click();
+    showToast('Choose one active record in this street from Risk Analysis.', 'info');
+    document.getElementById('calendarRiskPanel')?.scrollIntoView({ block: 'nearest' });
 }
+window.scheduleRiskRecord = function(id) {
+    if (!isAdmin()) return;
+    const date = document.getElementById('calendarDate').value;
+    resetScheduleFormState();
+    if (!window.selectScheduleRecord(id)) return showToast('This record is no longer active.', 'error');
+    document.getElementById('scheduleDate').value = date || localPatrolDateKey();
+    setScheduleDayFromDate();
+    const start = document.getElementById('scheduleStart').value || '09:00';
+    document.getElementById('scheduleStart').value = start;
+    document.getElementById('scheduleEnd').value = String((Number(start.slice(0,2)) + 1) % 24).padStart(2, '0') + start.slice(2);
+    document.querySelector('.patrol-tab[data-tab="calendar"]')?.click();
+    openScheduleModal();
+};
 
 // ============================================================
 // 10. SCHEDULES CRUD
@@ -1064,6 +1067,7 @@ function setupScheduleForm() {
             }
         });
     }
+
 }
 
 async function saveSchedule() {
@@ -1076,20 +1080,23 @@ async function saveSchedule() {
     const reason = document.getElementById('scheduleReason').value.trim();
     const status = document.getElementById('scheduleStatus').value;
     const teamName = document.getElementById('scheduleTeamName').value.trim();
-    const memberIds = [...document.getElementById('scheduleTanods').selectedOptions].map(option => Number(option.value));
+    const selectedPersonnel = [...document.querySelectorAll('#scheduleTanods input[name="schedule-personnel"]:checked')].map(option => { const [person_type, rawId] = option.value.split(':'); return { person_type: person_type || 'Tanod', person_id: Number(rawId || option.value), assignment_type: 'Primary' }; });
+    const memberIds = selectedPersonnel.filter(person => person.person_type === 'Tanod').map(person => person.person_id);
     const latRaw = document.getElementById('scheduleLat').value;
     const lngRaw = document.getElementById('scheduleLng').value;
     const savedTeam = document.getElementById('scheduleSavedTeam');
     const recurrenceType = document.getElementById('scheduleRecurrence')?.value || 'single';
     const recurrenceEnd = document.getElementById('scheduleRecurrenceEnd')?.value || '';
     const recurrenceDays = [...document.querySelectorAll('#scheduleRecurrenceDays input:checked')].map(input => input.value);
+    const editScope = document.getElementById('scheduleEditScope')?.value || 'single';
 
-    if (!incidentId || !location) {
-        showToast('Choose an active heatmap record for this patrol.', 'error');
+
+     if (!location || !incidentId) {
+         showToast('Choose one active record from Risk Analysis.', 'error');
         return;
     }
-    if (!teamName || memberIds.length === 0) {
-        showToast('Enter a team name and select at least one team member.', 'error');
+     if (!savedTeam?.value || !teamName || selectedPersonnel.length === 0) {
+         showToast('Choose a saved team and select its assigned personnel.', 'error');
         return;
     }
     if (!document.getElementById('scheduleDate').value || !start_time || !end_time || !day_of_week) {
@@ -1098,12 +1105,14 @@ async function saveSchedule() {
     }
 
     const payload = {
-        incident_id: incidentId,
+        incident_id: incidentId || null,
+         source_record_ids: incidentId ? [incidentId] : [],
         scheduled_date: document.getElementById('scheduleDate').value || null,
         priority: document.getElementById('schedulePriority').value,
         exact_address: document.getElementById('scheduleExactAddress').value,
         team_name: teamName,
         tanod_ids: memberIds,
+        personnel: selectedPersonnel,
         team_id: savedTeam?.value ? Number(savedTeam.value) : null,
         location,
         start_time,
@@ -1115,7 +1124,8 @@ async function saveSchedule() {
         status,
         recurrence_type: recurrenceType,
         recurrence_end_date: recurrenceEnd || null,
-        recurrence_days: recurrenceDays
+        recurrence_days: recurrenceDays,
+        edit_scope: editScope
     };
 
     const method = id ? 'PUT' : 'POST';
@@ -1155,6 +1165,26 @@ function setupPatrolCalendar() {
     updateRecurrenceFields();
     loadPatrolCalendar();
 }
+
+async function loadPatrolAnalytics() {
+    const container = document.getElementById('patrolAnalyticsSummary');
+    if (!container) return;
+    try {
+        const response = await window.apiFetch('/patrol-analytics?days=30');
+        if (!response.ok) throw new Error('Unable to load analytics');
+        const data = await response.json();
+        const summary = data.summary || {};
+        const attendance = data.attendance || {};
+        const workload = data.workload || [];
+        container.innerHTML = `
+            <article class="patrol-analytics-metric"><span>Scheduled</span><strong>${Number(summary.scheduled || 0)}</strong><small>last ${Number(data.window_days || 30)} days</small></article>
+            <article class="patrol-analytics-metric"><span>Completion rate</span><strong>${Math.round(Number(summary.completion_rate || 0) * 100)}%</strong><small>${Number(summary.completed || 0)} completed</small></article>
+            <article class="patrol-analytics-metric"><span>Attendance</span><strong>${Number(attendance.present || 0)} present</strong><small>${Number(attendance.absent || 0)} absent · ${Number(attendance.late || 0)} late</small></article>
+            <article class="patrol-analytics-metric"><span>Team workload</span><strong>${workload.length}</strong><small>${workload[0] ? escapeHTML(workload[0].team_name) : 'No assignments yet'}</small></article>`;
+    } catch (error) {
+        container.innerHTML = `<span class="analytics-error">${escapeHTML(error.message)}</span>`;
+    }
+}
 function updateRecurrenceFields() {
     const type = document.getElementById('scheduleRecurrence')?.value || 'single';
     const end = document.getElementById('scheduleRecurrenceEnd');
@@ -1167,6 +1197,22 @@ function shiftPatrolCalendar(direction) {
     const amount = view === 'month' ? 28 : view === 'week' ? 7 : 1;
     input.value = calendarShift(input.value || calendarDateKey(), direction * amount); loadPatrolCalendar();
 }
+function calendarDaysFor(date, view) {
+    if (view === 'day') return [date];
+    const first = view === 'month' ? `${date.slice(0, 7)}-01` : calendarShift(date, -((new Date(`${date}T12:00:00`).getDay() + 6) % 7));
+    return Array.from({ length: view === 'week' ? 7 : 35 }, (_, index) => calendarShift(first, index));
+}
+function renderHourlyCalendar(schedules, date, view) {
+    const days = calendarDaysFor(date, view);
+    const eventHtml = (day, hour) => schedules.filter(item => String(item.scheduled_date).slice(0, 10) === day && Number(String(item.start_time).slice(0, 2)) === hour).map(item => `<div class="patrol-calendar-event-wrap"><button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time, item.end_time)}</strong>${escapeHTML(item.team_name || item.route_name || item.location || 'Patrol')}</button>${item.status !== 'Completed' ? `<button type="button" class="calendar-complete-event" data-complete-schedule-id="${item.id}">Complete</button>` : ''}</div>`).join('');
+    return `<div class="calendar-hourly-header"><div class="calendar-time-label">Time</div>${days.map(day => `<div class="calendar-day-label">${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</div>`).join('')}</div><div class="calendar-hourly-body">${Array.from({ length: 24 }, (_, hour) => `<div class="calendar-hour-row"><div class="calendar-time-label">${formatDisplayTime(`${String(hour).padStart(2, '0')}:00`)}</div>${days.map(day => `<div class="calendar-hour-cell">${eventHtml(day, hour)}<button type="button" class="calendar-empty-slot" data-calendar-slot="${day}|${hour}" aria-label="Create patrol on ${day} at ${formatDisplayTime(`${String(hour).padStart(2, '0')}:00`)}"></button></div>`).join('')}</div>`).join('')}</div>`;
+}
+function openScheduleAtCalendarSlot(day, hour) {
+    if (!isAdmin()) return;
+    document.getElementById('calendarDate').value = day;
+    showToast('Choose one active record in Risk Analysis to schedule this date.', 'info');
+    document.getElementById('calendarRiskPanel')?.scrollIntoView({ block: 'nearest' });
+}
 async function loadPatrolCalendar() {
     const grid = document.getElementById('patrolCalendarGrid'); if (!grid) return;
     const date = document.getElementById('calendarDate').value || calendarDateKey();
@@ -1175,15 +1221,13 @@ async function loadPatrolCalendar() {
         const response = await window.apiFetch('/patrol-calendar?' + new URLSearchParams({ date, view }));
         if (!response.ok) throw new Error('Unable to load calendar');
         const schedules = await response.json();
-        const span = view === 'day' ? 1 : view === 'week' ? 7 : 35;
-        const first = view === 'month' ? calendarShift(`${date.slice(0,7)}-01`, -new Date(`${date.slice(0,7)}-01T12:00:00`).getDay()) : view === 'week' ? calendarShift(date, -((new Date(`${date}T12:00:00`).getDay() + 6) % 7)) : date;
         grid.className = `patrol-calendar-grid calendar-${view}`;
-        grid.innerHTML = Array.from({ length: span }, (_, index) => {
-            const day = calendarShift(first, index);
-            const events = schedules.filter(item => String(item.scheduled_date).slice(0,10) === day);
-            return `<div class="patrol-calendar-day"><h4>${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</h4>${events.map(item => `<button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time,item.end_time)}</strong>${escapeHTML(item.team_name || item.location || 'Patrol')}</button>`).join('') || '<small>No patrols</small>'}</div>`;
-        }).join('');
+        grid.innerHTML = view === 'month'
+            ? `<div class="calendar-month-grid">${calendarDaysFor(date, view).map(day => `<div class="patrol-calendar-day"><h4>${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</h4>${schedules.filter(item => String(item.scheduled_date).slice(0,10) === day).map(item => `<div class="patrol-calendar-event-wrap"><button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time,item.end_time)}</strong>${escapeHTML(item.team_name || item.route_name || item.location || 'Patrol')}</button>${item.status !== 'Completed' ? `<button type="button" class="calendar-complete-event" data-complete-schedule-id="${item.id}">Complete</button>` : ''}</div>`).join('') || '<small>No patrols</small>'}<button type="button" class="calendar-empty-slot month-slot" data-calendar-slot="${day}|9">+ Add patrol</button></div>`).join('')}</div>`
+            : renderHourlyCalendar(schedules, date, view);
         grid.querySelectorAll('[data-schedule-id]').forEach(button => button.addEventListener('click', () => window.editSchedule(Number(button.dataset.scheduleId))));
+        grid.querySelectorAll('[data-complete-schedule-id]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); window.openCompletionLog(Number(button.dataset.completeScheduleId)); }));
+        grid.querySelectorAll('[data-calendar-slot]').forEach(button => button.addEventListener('click', () => { const [day, hour] = button.dataset.calendarSlot.split('|'); openScheduleAtCalendarSlot(day, Number(hour)); }));
     } catch (error) { grid.innerHTML = `<p class="empty-content">${escapeHTML(error.message)}</p>`; }
 }
 
@@ -1194,7 +1238,10 @@ async function loadPatrolCalendar() {
 function resetScheduleFormState() {
     document.getElementById('scheduleForm').reset();
     document.getElementById('editScheduleId').value = '';
+    document.getElementById('scheduleEditScope').value = 'single';
+    document.getElementById('scheduleEditScopeGroup').hidden = true;
     document.getElementById('scheduleRecordId').value = '';
+    window.setSelectedPatrolSourceIds?.([]);
     document.getElementById('scheduleRecordSummary').textContent = '';
     document.getElementById('scheduleLocation').value = '';
     document.getElementById('scheduleExactAddress').value = '';
@@ -1209,8 +1256,8 @@ function resetScheduleFormState() {
     dockScheduleFormCard();
 }
 
-// The schedules table lives in its own "Patrol Schedules" tab, but the
-// Add/Edit form card lives in the "Schedules" tab. A fixed-position popup
+// The planning table is read-only; the Add/Edit form card lives in the
+// calendar and opens as a fixed-position popup
 // still disappears while its tab is display:none, so for editing the card
 // is moved to <body> and put back in its tab spot when the popup closes.
 let scheduleFormCardHome = null;
@@ -1245,9 +1292,9 @@ function openScheduleModal() {
 }
 
 function openNewScheduleModal() {
-    resetScheduleFormState();
-    document.getElementById('scheduleFormTitle').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Add Patrol Schedule';
-    openScheduleModal();
+    if (!isAdmin()) return;
+    showToast('Choose one active record from Risk Analysis to create a patrol.', 'info');
+    document.getElementById('calendarRiskPanel')?.scrollIntoView({ block: 'nearest' });
 }
 
 function closeScheduleModal() {
@@ -1416,6 +1463,11 @@ function recordStreetDetails(record) {
     return record.address || record.exact_address || record.street_name || record.location || '—';
 }
 
+function displayRecommendationTime(value) {
+    if (!value) return 'Flexible timing';
+    return String(value).split(/\s+[–-]\s+/).map(part => formatDisplayTime(part.trim())).join(' - ');
+}
+
 function recommendationRow(rec) {
     const index = currentRecommendations.indexOf(rec);
     const priority = rec.priority === 'high' ? 'High' : rec.priority === 'medium' ? 'Medium' : 'Low';
@@ -1426,7 +1478,7 @@ function recommendationRow(rec) {
             <td><strong>${escapeHTML(recordIdentifier(sourceRecord))}</strong>${relatedCount ? `<br><small>+${relatedCount} related</small>` : ''}</td>
             <td><strong>${escapeHTML(recordStreetDetails(sourceRecord) || rec.area)}</strong><br><small>${escapeHTML(rec.area)}</small></td>
             <td><span class="text-muted">Choose date</span></td>
-            <td>${escapeHTML(rec.time)}</td>
+            <td>${escapeHTML(displayRecommendationTime(rec.time))}</td>
             <td><span class="text-muted">Assign team</span></td>
             <td><span class="priority-badge ${escapeHTML(rec.priority)}">${priority} priority</span></td>
             <td class="schedule-row-actions">
@@ -1503,7 +1555,7 @@ function renderSchedules(schedules) {
                 <td><strong>${escapeHTML(schedule.team_name || 'Unassigned')}</strong>${schedule.tanods?.length ? '<br><small>' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : '<br><small>No members assigned</small>'}</td>
                 <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
                 <td>
-                    <button type="button" class="btn-action-edit admin-action" onclick="editSchedule(${schedule.id})"><i class="fa-solid fa-pen"></i> Update</button>
+                    <button type="button" class="btn-action-edit admin-action" onclick="openScheduleFromList(${schedule.id})"><i class="fa-solid fa-calendar-days"></i> Open Calendar</button>
                 </td>
             </tr>
         `;
@@ -1523,26 +1575,28 @@ function renderSchedules(schedules) {
 }
 
 window.editSchedule = async function(id) {
+     if (!isAdmin()) return showToast('Patrol schedules are managed by the Executive Officer.', 'info');
     try {
         const response = await window.apiFetch(`/patrol-schedules/${id}`);
         if (!response.ok) throw new Error('Failed to fetch schedule');
         
         const schedule = await response.json();
-        await window.loadScheduleTanods(schedule.tanod_ids || []);
+        await window.loadScheduleTanods((schedule.personnel || []).map(person => `${person.person_type}:${person.person_id}`));
+         const linkedIds = schedule.incident_id ? [Number(schedule.incident_id)] : [];
+        window.setSelectedPatrolSourceIds?.(linkedIds.length ? linkedIds : (schedule.incident_id ? [schedule.incident_id] : []));
         window.populateActiveHeatmapRecords?.(schedule.incident_id);
-        const sourceSelect = document.getElementById('scheduleRecordSelect');
-        if (schedule.incident_id && ![...sourceSelect.options].some(option => option.value === String(schedule.incident_id))) {
-            sourceSelect.add(new Option(`Linked historical record #${schedule.incident_id}`, schedule.incident_id));
-        }
-        sourceSelect.value = schedule.incident_id || '';
+
         document.getElementById('scheduleRecordId').value = schedule.incident_id || '';
         document.getElementById('scheduleDate').value = schedule.scheduled_date || '';
         document.getElementById('schedulePriority').value = schedule.priority || 'Low';
         document.getElementById('scheduleExactAddress').value = schedule.exact_address || '';
         document.getElementById('scheduleRecordSummary').textContent = schedule.incident_id ? 'Linked record #' + schedule.incident_id : '';
         document.getElementById('scheduleTeamName').value = schedule.team_name || '';
+         document.getElementById('scheduleSavedTeam').value = schedule.team_id || '';
         
         document.getElementById('editScheduleId').value = schedule.id;
+        document.getElementById('scheduleEditScope').value = 'single';
+        document.getElementById('scheduleEditScopeGroup').hidden = !schedule.series_id;
         document.getElementById('scheduleLocation').value = schedule.location || '';
         document.getElementById('scheduleDay').value = schedule.day_of_week || 'Monday';
         document.getElementById('scheduleStart').value = schedule.start_time ? schedule.start_time.substring(0,5) : '';
@@ -1560,6 +1614,11 @@ window.editSchedule = async function(id) {
         console.error('Error fetching schedule:', error);
         showToast('Failed to load schedule details.', 'error');
     }
+};
+
+window.openScheduleFromList = function(id) {
+    document.querySelector('.patrol-tab[data-tab="calendar"]')?.click();
+    window.editSchedule(id);
 };
 
 window.requestDeleteSchedule = function(id) {
@@ -1580,6 +1639,60 @@ window.confirmDeleteSchedule = function(id) {
 
 function setupLogForm() {
     setupFormSubmit('logForm', saveLog);
+    document.getElementById('logSchedule')?.addEventListener('change', event => loadLogAttendance(event.target.value));
+    document.getElementById('closeLogModalBtn')?.addEventListener('click', closeCompletionLog);
+    document.getElementById('logFormCard')?.addEventListener('click', event => {
+        if (event.target.id === 'logFormCard' && event.currentTarget.classList.contains('edit-modal-mode')) closeCompletionLog();
+    });
+}
+
+let logFormCardHome = null;
+function closeCompletionLog() {
+    const card = document.getElementById('logFormCard');
+    if (!card) return;
+    card.classList.remove('edit-modal-mode');
+    card.hidden = true;
+    if (logFormCardHome?.parentNode) {
+        logFormCardHome.parentNode.insertBefore(card, logFormCardHome);
+        logFormCardHome.remove();
+        logFormCardHome = null;
+    }
+}
+
+window.openCompletionLog = async function(scheduleId) {
+    const card = document.getElementById('logFormCard');
+    if (!card || !isAdmin()) return;
+    await ensureScheduleOption(scheduleId);
+    const response = await window.apiFetch(`/patrol-schedules/${scheduleId}`);
+    if (!response.ok) { showToast('Could not load this patrol for completion.', 'error'); return; }
+    const schedule = await response.json();
+    document.getElementById('logForm').reset();
+    document.getElementById('editLogId').value = '';
+    document.getElementById('logSchedule').value = String(scheduleId);
+    document.getElementById('logDate').value = schedule.scheduled_date || localPatrolDateKey();
+    document.getElementById('logStatus').value = 'Completed';
+    document.getElementById('logFormTitle').innerHTML = '<i class="fa-solid fa-circle-check"></i> Complete Patrol';
+    document.getElementById('logSubmitBtn').innerHTML = '<i class="fa-solid fa-check"></i> Save completion';
+    await loadLogAttendance(scheduleId);
+    if (!logFormCardHome) logFormCardHome = document.createComment('logFormCard home');
+    if (card.parentNode !== document.body) {
+        card.parentNode.insertBefore(logFormCardHome, card);
+        document.body.appendChild(card);
+    }
+    card.hidden = false;
+    card.classList.add('edit-modal-mode');
+};
+
+async function loadLogAttendance(scheduleId, selected = []) {
+    const checklist = document.getElementById('logAttendance'); if (!checklist) return;
+    if (!scheduleId) { checklist.innerHTML = '<span class="text-muted">Choose a schedule first</span>'; return; }
+    try {
+        const response = await window.apiFetch(`/patrol-schedules/${scheduleId}`); if (!response.ok) throw new Error();
+        const schedule = await response.json();
+        const people = schedule.personnel?.length ? schedule.personnel : (schedule.tanods || []).map(person => ({ person_type: 'Tanod', person_id: person.id, person_name: person.name }));
+        const chosen = new Set(selected.map(item => `${item.person_type}:${item.person_id}`));
+        checklist.innerHTML = people.length ? people.map(person => { const key = `${person.person_type}:${person.person_id}`; return `<label class="attendance-check"><input type="checkbox" name="patrol-attendance" value="${key}" ${chosen.has(key) ? 'checked' : ''}><span>${escapeHTML(person.person_name || person.name)} <small>(${person.person_type})</small></span></label>`; }).join('') : '<span class="text-muted">No assigned personnel</span>';
+    } catch { checklist.innerHTML = '<span class="text-muted">Could not load assigned personnel</span>'; }
 }
 
 async function saveLog() {
@@ -1588,17 +1701,19 @@ async function saveLog() {
     const patrol_date = document.getElementById('logDate').value;
     const status = document.getElementById('logStatus').value;
     const report = document.getElementById('logReport').value.trim();
+    const attendance = [...document.querySelectorAll('#logAttendance input[name="patrol-attendance"]:checked')].map(input => { const [person_type, person_id] = input.value.split(':'); return { person_type, person_id: Number(person_id), attendance_status: 'Present' }; });
 
     if (!schedule_id || !patrol_date) {
         showToast('Please fill in all required fields.', 'error');
         return;
     }
 
-    const payload = { 
+    const payload = {
         schedule_id, 
         patrol_date, 
         status, 
-        report
+        report,
+        attendance
     };
 
     const method = id ? 'PUT' : 'POST';
@@ -1618,6 +1733,7 @@ async function saveLog() {
         document.getElementById('logSubmitBtn').innerHTML = '<i class="fa-solid fa-save"></i> Save Log';
 
         await loadAllData();
+        closeCompletionLog();
         showToast('Log saved successfully!', 'success');
     } catch (error) {
         console.error('Error saving log:', error);
@@ -1680,11 +1796,15 @@ window.editLog = async function(id) {
         document.getElementById('logDate').value = log.patrol_date || '';
         document.getElementById('logStatus').value = log.status || 'Completed';
         document.getElementById('logReport').value = log.report || '';
+        await loadLogAttendance(log.schedule_id, log.attendance || []);
         
         document.getElementById('logFormTitle').textContent = 'Edit Patrol Log';
         document.getElementById('logSubmitBtn').innerHTML = '<i class="fa-solid fa-pen"></i> Update Log';
-        
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (!logFormCardHome) logFormCardHome = document.createComment('logFormCard home');
+        const card = document.getElementById('logFormCard');
+        if (card.parentNode !== document.body) { card.parentNode.insertBefore(logFormCardHome, card); document.body.appendChild(card); }
+        card.hidden = false;
+        card.classList.add('edit-modal-mode');
     } catch (error) {
         console.error('Error fetching log:', error);
         showToast('Failed to load log details.', 'error');

@@ -482,7 +482,7 @@ const reportExportSchema = Joi.object({
 });
 
 const PASSWORD_POLICY_MESSAGE = 'Must be at least 8 characters with at least one uppercase, one lowercase, one number and one special character.';
-const strongPasswordSchema = Joi.string().min(8).max(128)
+const strongPasswordSchema = Joi.string().min(8).max(12)
     .pattern(/[A-Z]/).pattern(/[a-z]/).pattern(/[0-9]/).pattern(/[^A-Za-z0-9]/)
     .messages({
         'string.base': PASSWORD_POLICY_MESSAGE,
@@ -496,7 +496,7 @@ const strongPasswordSchema = Joi.string().min(8).max(128)
 // User Schema
 const userSchema = Joi.object({
     name: Joi.string().max(100).pattern(/^[A-Za-z\s.\-']+$/).required().messages({ 'string.pattern.base': 'Name must contain only letters, spaces, dots, hyphens and apostrophes.' }),
-    username: Joi.string().min(3).max(50).pattern(/^[A-Za-z._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, dots and underscores.' }),
+    username: Joi.string().min(3).max(50).pattern(/^[A-Za-z0-9._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, numbers, dots and underscores.' }),
     password: strongPasswordSchema.required(),
     role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     contact_no: Joi.string().max(20).allow('', null),
@@ -539,12 +539,28 @@ const resetPasswordSchema = Joi.object({
 // Patrol Schedule Schema
 const scheduleSchema = Joi.object({
     incident_id: Joi.number().integer().positive().allow(null),
+    source_record_ids: Joi.array().items(Joi.number().integer().positive()).unique().max(50).default([]),
     scheduled_date: dateOnlySchema.allow(null, ''),
     priority: Joi.string().valid('High', 'Moderate', 'Low'),
     exact_address: Joi.string().max(255).allow(''),
     team_name: Joi.string().trim().max(100).allow(''),
     tanod_ids: Joi.array().items(Joi.number().integer().positive()).unique().max(30),
-    location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
+    personnel: Joi.array().items(Joi.object({
+        person_type: Joi.string().valid('Tanod', 'Volunteer', 'Team Leader').required(),
+        person_id: Joi.number().integer().positive().required(),
+        assignment_type: Joi.string().valid('Primary', 'Temporary').default('Primary')
+    })).max(40).default([]),
+    routine_type: Joi.string().valid('Incident Response', 'Routine Patrol', 'Multi-location Route').default('Incident Response'),
+    route_name: Joi.string().trim().max(120).allow(''),
+    route_stops: Joi.array().items(Joi.object({
+        stop_order: Joi.number().integer().min(1).required(),
+        location: Joi.string().valid(...BARANGAY_LOCATIONS).required(),
+        address: Joi.string().max(255).allow(''),
+        latitude: Joi.number().min(-90).max(90).allow(null),
+        longitude: Joi.number().min(-180).max(180).allow(null),
+        dwell_minutes: Joi.number().integer().min(0).max(480).default(0)
+    })).max(50).default([]),
+    location: Joi.string().valid(...BARANGAY_LOCATIONS).allow('').default(''),
     start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
     day_of_week: Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday').required(),
@@ -557,6 +573,7 @@ const scheduleSchema = Joi.object({
     recurrence_interval: Joi.number().integer().min(1).max(30).default(1),
     recurrence_days: Joi.array().items(Joi.string().valid('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')).max(7).unique().default([]),
     recurrence_end_date: dateOnlySchema.allow(null, ''),
+    edit_scope: Joi.string().valid('single', 'future', 'series').default('single'),
     conflict_override: Joi.boolean().default(false),
     override_justification: Joi.string().trim().max(500).allow('')
 });
@@ -566,7 +583,13 @@ const logSchema = Joi.object({
     schedule_id: Joi.number().integer().positive().required(),
     report: Joi.string().max(2000).allow('', null),
     status: Joi.string().valid('Completed', 'Partial', 'Failed').default('Completed'),
-    patrol_date: Joi.date().required()
+    patrol_date: Joi.date().required(),
+    attendance: Joi.array().items(Joi.object({
+        person_type: Joi.string().valid('Tanod', 'Volunteer', 'Team Leader').required(),
+        person_id: Joi.number().integer().positive().required(),
+        attendance_status: Joi.string().valid('Present', 'Absent', 'Late', 'Excused').required(),
+        notes: Joi.string().max(255).allow('')
+    })).max(40).default([])
 });
 
 // ============================================================
@@ -1632,24 +1655,30 @@ app.post('/api/users', authenticate, requireRole(['Executive Officer']), validat
 // Full user update (name, username, role, email, optional password)
 const userUpdateSchema = Joi.object({
     name: Joi.string().max(100).pattern(/^[A-Za-z\s.\-']+$/).required().messages({ 'string.pattern.base': 'Name must contain only letters, spaces, dots, hyphens and apostrophes.' }),
-    username: Joi.string().min(3).max(50).pattern(/^[A-Za-z._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, dots and underscores.' }),
+    username: Joi.string().min(3).max(50).pattern(/^[A-Za-z0-9._]+$/).required().messages({ 'string.pattern.base': 'Username must contain only letters, numbers, dots and underscores.' }),
     role: Joi.string().valid('Executive Officer', LEGACY_EXECUTIVE, 'Kagawad', 'Team Leader').custom(normalizeRole).required(),
     email: Joi.string().email({ tlds: false }).max(100).required(),
-    password: Joi.string().min(8).max(128)
+    password: Joi.string().min(8).max(12)
         .pattern(/[A-Z]/, 'uppercase').message('Password must contain at least one uppercase letter.')
         .pattern(/[a-z]/, 'lowercase').message('Password must contain at least one lowercase letter.')
         .pattern(/[0-9]/, 'digit').message('Password must contain at least one number.')
         .pattern(/[^A-Za-z0-9]/, 'special').message('Password must contain at least one special character.')
-        .allow('', null).optional()
+        .allow('', null).optional(),
+    is_active: Joi.boolean().default(true)
 });
 
 app.put('/api/users/:id', authenticate, requireRole(['Executive Officer']), validate(userUpdateSchema), async (req, res) => {
     try {
-        const { name, username, role, email, password } = req.body;
+        const { name, username, role, email, password, is_active } = req.body;
         const userId = req.params.id;
 
         const [existing] = await pool.query('SELECT id, username FROM users WHERE id = ?', [userId]);
         if (existing.length === 0) return res.status(404).json({ error: 'User not found' });
+        if (!req.body.is_active && Number(userId) === Number(req.userId)) return res.status(400).json({ error: 'You cannot deactivate your own active session.' });
+        if (!req.body.is_active && role === 'Executive Officer') {
+            const [[{ activeExecutives }]] = await pool.query("SELECT COUNT(*) AS activeExecutives FROM users WHERE is_active=1 AND role IN ('Executive Officer','Deputy Officer') AND id <> ?", [userId]);
+            if (Number(activeExecutives) === 0) return res.status(400).json({ error: 'At least one active Executive Officer account must remain.' });
+        }
 
         const [dupCheck] = await pool.query(
             'SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]
@@ -1660,13 +1689,13 @@ app.put('/api/users/:id', authenticate, requireRole(['Executive Officer']), vali
             const bcryptjs = require('bcryptjs');
             const hashed = await bcryptjs.hash(password, 10);
             await pool.query(
-                'UPDATE users SET name=?, username=?, role=?, email=?, password_hash=? WHERE id=?',
-                [name, username, role, email, hashed, userId]
+                'UPDATE users SET name=?, username=?, role=?, email=?, password_hash=?, is_active=? WHERE id=?',
+                [name, username, role, email, hashed, is_active ? 1 : 0, userId]
             );
         } else {
             await pool.query(
-                'UPDATE users SET name=?, username=?, role=?, email=? WHERE id=?',
-                [name, username, role, email, userId]
+                'UPDATE users SET name=?, username=?, role=?, email=?, is_active=? WHERE id=?',
+                [name, username, role, email, is_active ? 1 : 0, userId]
             );
         }
 
@@ -3382,7 +3411,7 @@ async function scheduleConflictsOrNull(req, scheduleId = null) {
     const conflicts = [];
     for (const date of scheduleOccurrences(req.body)) {
         conflicts.push(...await recordPatrol.getScheduleConflicts({
-            tanodIds: req.body.tanod_ids || [], scheduledDate: date,
+            tanodIds: req.body.tanod_ids || [], teamId: req.body.team_id, personnel: req.body.personnel || [], scheduledDate: date,
             startTime: req.body.start_time, endTime: req.body.end_time, excludeId: scheduleId
         }));
     }
@@ -3479,11 +3508,13 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Executive Officer'
     let conn;
     try {
         const { location, start_time, end_time, day_of_week, latitude, longitude, reason } = req.body;
+        const effectiveLocation = location || req.body.route_stops?.[0]?.location || '';
+        if (!effectiveLocation) return res.status(400).json({ error: 'Choose a patrol location or add at least one route stop.' });
         if (req.body.conflict_override && (!req.body.override_justification || req.body.override_justification.trim().length < 10)) {
             return res.status(400).json({ error: 'A conflict override justification of at least 10 characters is required.' });
         }
         const conflicts = await scheduleConflictsOrNull(req);
-        if (conflicts.length && !req.body.conflict_override) return res.status(409).json({ error: 'Tanod schedule conflict', conflicts });
+        if (conflicts.length) return res.status(409).json({ error: 'Team or personnel schedule conflict. Choose a separate time window.', conflicts });
         const occurrenceDates = scheduleOccurrences(req.body);
 
         conn = await pool.getConnection();
@@ -3500,7 +3531,7 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Executive Officer'
         for (const occurrenceDate of occurrenceDates) {
             const [result] = await conn.query(`INSERT INTO patrol_schedules
                 (location, start_time, end_time, day_of_week, latitude, longitude, reason, series_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [location, start_time, end_time, occurrenceDate ? scheduleDayName(occurrenceDate) : day_of_week, latitude ?? null, longitude ?? null, reason || null, seriesId]);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [effectiveLocation, start_time, end_time, occurrenceDate ? scheduleDayName(occurrenceDate) : day_of_week, latitude ?? null, longitude ?? null, reason || null, seriesId]);
             await recordPatrol.saveScheduleExtras(conn, result.insertId, { ...req.body, scheduled_date: occurrenceDate, day_of_week: occurrenceDate ? scheduleDayName(occurrenceDate) : req.body.day_of_week }, req.userId);
             created.push(result.insertId);
         }
@@ -3516,7 +3547,7 @@ app.post('/api/patrol-schedules', authenticate, requireRole(['Executive Officer'
                 'patrol_schedules',
                 created[0],
                 null,
-                { location, day_of_week, start_time, end_time },
+                { location: effectiveLocation, day_of_week, start_time, end_time },
                 req
             );
         }
@@ -3538,12 +3569,14 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Executive Offic
     try {
         const { location, start_time, end_time, day_of_week, latitude, longitude, reason, status } = req.body;
         const id = req.params.id;
+        const effectiveLocation = location || req.body.route_stops?.[0]?.location || '';
+        if (!effectiveLocation) return res.status(400).json({ error: 'Choose a patrol location or add at least one route stop.' });
 
         if (req.body.conflict_override && (!req.body.override_justification || req.body.override_justification.trim().length < 10)) {
             return res.status(400).json({ error: 'A conflict override justification of at least 10 characters is required.' });
         }
         const conflicts = await scheduleConflictsOrNull(req, id);
-        if (conflicts.length && !req.body.conflict_override) return res.status(409).json({ error: 'Tanod schedule conflict', conflicts });
+         if (conflicts.length) return res.status(409).json({ error: 'Team or personnel schedule conflict. Choose a separate time window.', conflicts });
 
         const [oldData] = await pool.query('SELECT * FROM patrol_schedules WHERE id = ?', [id]);
 
@@ -3553,23 +3586,43 @@ app.put('/api/patrol-schedules/:id', authenticate, requireRole(['Executive Offic
 
         conn = await pool.getConnection();
         await conn.beginTransaction();
-        await conn.query(`
-            UPDATE patrol_schedules
-            SET location = ?, start_time = ?, end_time = ?,
-                day_of_week = ?, latitude = ?, longitude = ?, reason = ?, status = ?
-            WHERE id = ?
-        `, [
-            location, start_time, end_time, day_of_week,
-            latitude ?? null, longitude ?? null, reason || null, status || 'Active', id
-        ]);
+        const [sourceRecord] = await conn.query('SELECT * FROM patrol_schedule_records WHERE schedule_id = ?', [id]);
+        const seriesEdit = ['future', 'series'].includes(req.body.edit_scope) && oldData[0].series_id;
+        const sourceDate = String(sourceRecord[0]?.scheduled_date || req.body.scheduled_date || '').slice(0, 10);
+        const [seriesRows] = seriesEdit
+            ? await conn.query(`SELECT ps.id, pr.scheduled_date
+                FROM patrol_schedules ps LEFT JOIN patrol_schedule_records pr ON pr.schedule_id = ps.id
+                WHERE ps.series_id = ? AND ps.status <> 'Completed'
+                  ${req.body.edit_scope === 'future' ? 'AND (pr.scheduled_date IS NULL OR pr.scheduled_date >= ?)' : ''}
+                ORDER BY pr.scheduled_date, ps.id`, req.body.edit_scope === 'future' ? [oldData[0].series_id, sourceDate] : [oldData[0].series_id])
+            : [[{ id, scheduled_date: sourceRecord[0]?.scheduled_date || req.body.scheduled_date }]];
 
-        await recordPatrol.saveScheduleExtras(conn, id, req.body, req.userId);
+        for (const occurrence of seriesRows) {
+            await conn.query(`
+                UPDATE patrol_schedules
+                SET location = ?, start_time = ?, end_time = ?,
+                    day_of_week = ?, latitude = ?, longitude = ?, reason = ?, status = ?
+                WHERE id = ?
+            `, [
+                effectiveLocation, start_time, end_time,
+                seriesEdit && occurrence.scheduled_date
+                    ? scheduleDayName(String(occurrence.scheduled_date).slice(0, 10))
+                    : day_of_week,
+                latitude ?? null, longitude ?? null, reason || null, status || 'Active', occurrence.id
+            ]);
+
+            // Preserve each occurrence's date when editing an entire series.
+            const occurrenceBody = seriesEdit
+                ? { ...req.body, scheduled_date: occurrence.scheduled_date || req.body.scheduled_date }
+                : req.body;
+            await recordPatrol.saveScheduleExtras(conn, occurrence.id, occurrenceBody, req.userId);
+        }
         await conn.commit();
 
         // Only the Active/Cancelled -> Completed transition counts - not
         // every re-save of a schedule that was already Completed.
         if (status === 'Completed' && oldData[0].status !== 'Completed') {
-            await decayAreaRisk(location);
+            await decayAreaRisk(effectiveLocation);
         }
 
         const [updatedSchedule] = await pool.query(
@@ -3695,17 +3748,90 @@ app.get('/api/patrol-logs/:id', authenticate, requireRole(['Executive Officer', 
     try {
         const [rows] = await pool.query('SELECT * FROM patrol_logs WHERE id = ?', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Patrol log not found' });
-        res.json(rows[0]);
+        const [attendance] = await pool.query('SELECT person_type, person_id, attendance_status, notes FROM patrol_log_attendance WHERE log_id=?', [req.params.id]);
+        res.json({ ...rows[0], attendance });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch patrol log' });
     }
 });
 
-app.post('/api/patrol-logs', authenticate, requireRole(['Executive Officer', 'Team Leader']), validate(logSchema), async (req, res) => {
+app.get('/api/patrol-analytics', authenticate, requireRole(['Executive Officer', 'Kagawad', 'Team Leader']), async (req, res) => {
     try {
-        const { schedule_id, report, status, patrol_date } = req.body;
-        
-        const [result] = await pool.query(`
+        const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 366);
+        const windowSql = `INTERVAL ${days} DAY`;
+        const [[summary]] = await pool.query(`SELECT COUNT(*) AS scheduled,
+                SUM(status='Completed') AS completed, SUM(status='Cancelled') AS cancelled
+            FROM patrol_schedules WHERE created_at >= DATE_SUB(CURDATE(), ${windowSql})`);
+        const [[attendance]] = await pool.query(`SELECT COUNT(*) AS attendance_rows,
+                SUM(attendance_status='Present') AS present, SUM(attendance_status='Absent') AS absent,
+                SUM(attendance_status='Late') AS late, SUM(attendance_status='Excused') AS excused
+            FROM patrol_log_attendance a JOIN patrol_logs l ON l.id=a.log_id
+            WHERE l.patrol_date >= DATE_SUB(CURDATE(), ${windowSql})`);
+        const [workload] = await pool.query(`SELECT COALESCE(NULLIF(pr.team_name,''),'Unassigned') AS team_name,
+                COUNT(*) AS assigned_schedules, SUM(ps.status='Completed') AS completed_schedules
+            FROM patrol_schedules ps LEFT JOIN patrol_schedule_records pr ON pr.schedule_id=ps.id
+            WHERE ps.created_at >= DATE_SUB(CURDATE(), ${windowSql})
+            GROUP BY COALESCE(NULLIF(pr.team_name,''),'Unassigned') ORDER BY assigned_schedules DESC`);
+        const [coverage] = await pool.query(`SELECT pr.scheduled_date, COUNT(DISTINCT ps.id) AS schedule_count,
+                COUNT(DISTINCT CASE WHEN ps.status='Completed' THEN ps.id END) AS completed_count
+            FROM patrol_schedule_records pr JOIN patrol_schedules ps ON ps.id=pr.schedule_id
+            WHERE pr.scheduled_date >= DATE_SUB(CURDATE(), ${windowSql})
+            GROUP BY pr.scheduled_date ORDER BY pr.scheduled_date`);
+        res.json({ window_days: days, summary: { scheduled: Number(summary.scheduled || 0), completed: Number(summary.completed || 0), cancelled: Number(summary.cancelled || 0), completion_rate: summary.scheduled ? Number(summary.completed || 0) / Number(summary.scheduled) : 0 }, attendance: Object.fromEntries(Object.entries(attendance).map(([key, value]) => [key, Number(value || 0)])), workload, coverage });
+    } catch { res.status(500).json({ error: 'Failed to load patrol analytics' }); }
+});
+
+async function persistPatrolAttendance(db, logId, scheduleId, attendance) {
+    const [assigned] = await db.query(`
+        SELECT person_type, person_id FROM patrol_schedule_personnel WHERE schedule_id=?
+        UNION
+        SELECT 'Tanod' AS person_type, tanod_id AS person_id FROM patrol_schedule_tanods WHERE schedule_id=?
+    `, [scheduleId, scheduleId]);
+    const allowed = new Set(assigned.map(person => `${person.person_type}:${person.person_id}`));
+    const normalized = [];
+    const seen = new Set();
+    for (const person of attendance) {
+        const key = `${person.person_type}:${person.person_id}`;
+        if (allowed.has(key) && !seen.has(key)) {
+            seen.add(key);
+            normalized.push(person);
+        }
+    }
+    for (const person of assigned) {
+        const key = `${person.person_type}:${person.person_id}`;
+        if (!seen.has(key)) normalized.push({ ...person, attendance_status: 'Absent', notes: '' });
+    }
+    for (const person of normalized) await db.query(`INSERT INTO patrol_log_attendance
+        (log_id, person_type, person_id, attendance_status, notes) VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE attendance_status=VALUES(attendance_status), notes=VALUES(notes)`, [logId, person.person_type, person.person_id, person.attendance_status, person.notes || '']);
+    return normalized;
+}
+
+async function insertCompletionAudit(db, userId, action, entityId, oldData, newData, req) {
+    if (!userId) return;
+    await db.query(`INSERT INTO audit_logs
+        (user_id, action, entity_type, entity_id, old_data, new_data, ip_address, user_agent)
+        VALUES (?, ?, 'patrol_log', ?, ?, ?, ?, ?)`, [
+        userId, action, entityId,
+        oldData ? JSON.stringify(oldData) : null,
+        newData ? JSON.stringify(newData) : null,
+        req.ip || req.connection?.remoteAddress || 'unknown',
+        req.headers?.['user-agent'] || ''
+    ]);
+}
+
+app.post('/api/patrol-logs', authenticate, requireRole(['Executive Officer']), validate(logSchema), async (req, res) => {
+    let conn;
+    try {
+        const { schedule_id, report, status, patrol_date, attendance = [] } = req.body;
+        const [existing] = await pool.query('SELECT id FROM patrol_logs WHERE schedule_id=? ORDER BY id DESC LIMIT 1', [schedule_id]);
+        if (existing.length) return res.status(409).json({ error: 'This patrol occurrence already has a completion log.', log_id: existing[0].id });
+        const [schedule] = await pool.query('SELECT * FROM patrol_schedules WHERE id=?', [schedule_id]);
+        if (!schedule.length) return res.status(404).json({ error: 'Patrol schedule not found' });
+
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        const [result] = await conn.query(`
             INSERT INTO patrol_logs 
             (schedule_id, report, status, patrol_date) 
             VALUES (?, ?, ?, ?)
@@ -3714,77 +3840,66 @@ app.post('/api/patrol-logs', authenticate, requireRole(['Executive Officer', 'Te
             status || 'Completed', patrol_date || null
         ]);
         
+        const normalizedAttendance = await persistPatrolAttendance(conn, result.insertId, schedule_id, attendance);
+        if (status === 'Completed') await conn.query("UPDATE patrol_schedules SET status='Completed' WHERE id=? AND status <> 'Cancelled'", [schedule_id]);
+        await insertCompletionAudit(conn, req.userId, 'CREATE_LOG', result.insertId, null, {
+            schedule_id, status, attendance_count: normalizedAttendance.length
+        }, req);
+        await conn.commit();
+
         const [newLog] = await pool.query(
             'SELECT * FROM patrol_logs WHERE id = ?',
             [result.insertId]
         );
-        
-        const userId = req.userId;
-        
-        if (userId) {
-            await logAudit(
-                userId,
-                'CREATE_LOG',
-                'patrol_logs',
-                result.insertId,
-                null,
-                { schedule_id, status },
-                req
-            );
-        }
-        
         res.status(201).json({ 
             message: 'Patrol log saved successfully', 
-            log: newLog[0] 
+            log: { ...newLog[0], attendance: normalizedAttendance }
         });
     } catch (error) {
+        if (conn) await conn.rollback().catch(() => {});
         res.status(500).json({ error: 'Failed to save patrol log' });
-    }
+    } finally { if (conn) conn.release(); }
 });
 
 app.put('/api/patrol-logs/:id', authenticate, requireRole(['Executive Officer']), validate(logSchema), async (req, res) => {
+    let conn;
     try {
-        const { schedule_id, report, status, patrol_date } = req.body;
+        const { schedule_id, report, status, patrol_date, attendance = [] } = req.body;
         const id = req.params.id;
 
         const [oldData] = await pool.query('SELECT * FROM patrol_logs WHERE id = ?', [id]);
+        if (!oldData.length) return res.status(404).json({ error: 'Patrol log not found' });
+        const [schedule] = await pool.query('SELECT id FROM patrol_schedules WHERE id=?', [schedule_id]);
+        if (!schedule.length) return res.status(404).json({ error: 'Patrol schedule not found' });
 
-        const [result] = await pool.query(`
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        const [result] = await conn.query(`
             UPDATE patrol_logs
             SET schedule_id = ?, report = ?, status = ?, patrol_date = ?
             WHERE id = ?
         `, [schedule_id, report || null, status || 'Completed', patrol_date, id]);
         
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Patrol log not found' });
-        }
+        if (result.affectedRows === 0) { await conn.rollback(); return res.status(404).json({ error: 'Patrol log not found' }); }
+        await conn.query('DELETE FROM patrol_log_attendance WHERE log_id=?', [id]);
+        const normalizedAttendance = await persistPatrolAttendance(conn, id, schedule_id, attendance);
+        if (status === 'Completed') await conn.query("UPDATE patrol_schedules SET status='Completed' WHERE id=? AND status <> 'Cancelled'", [schedule_id]);
+        await insertCompletionAudit(conn, req.userId, 'UPDATE_LOG', id, oldData[0], req.body, req);
+        await conn.commit();
         
         const [updatedLog] = await pool.query(
             'SELECT * FROM patrol_logs WHERE id = ?',
             [id]
         );
         
-        const userId = req.userId;
-        
-        if (userId) {
-            await logAudit(
-                userId,
-                'UPDATE_LOG',
-                'patrol_logs',
-                id,
-                oldData[0] || null,
-                req.body,
-                req
-            );
-        }
-        
         res.json({ 
             message: 'Patrol log updated successfully', 
-            log: updatedLog[0] 
+            log: { ...updatedLog[0], attendance: normalizedAttendance }
         });
     } catch (error) {
+        if (conn) await conn.rollback().catch(() => {});
         res.status(500).json({ error: 'Failed to update patrol log' });
-    }
+    } finally { if (conn) conn.release(); }
 });
 
 app.delete('/api/patrol-logs/:id', authenticate, requireRole(['Executive Officer']), async (req, res) => {
