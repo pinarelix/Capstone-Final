@@ -363,6 +363,12 @@ class CARTEngine {
         // Prevent binary arithmetic from rounding a mathematical half-cent
         // down (e.g. 57.5 * .85 can become 48.87499999999999).
         const roundedTotal = Math.round((adjustedTotal + 1e-9) * 100) / 100;
+        const contributions = Object.fromEntries(
+            Object.entries(scores).map(([factor, score]) => [
+                factor,
+                Math.round(score * effectiveWeights[factor] * 100) / 100
+            ])
+        );
         const dangerLevel = this.getDangerLevel(roundedTotal);
         const dangerDescription = this.getDangerLevelDescription(dangerLevel);
 
@@ -390,6 +396,9 @@ class CARTEngine {
 
         return {
             scores: scores,
+            contributions,
+            rawTotal: Math.round(rawTotal * 100) / 100,
+            sourceMultiplier: sourceMul,
             totalScore: roundedTotal,
             dangerLevel: dangerLevel,
             dangerDescription: dangerDescription,

@@ -156,6 +156,20 @@ describe('CART engine scoring', () => {
         expect(result.totalScore).toBe(Math.round(expected * 100) / 100);
     });
 
+    test('high-severity example exposes the exact five-factor contributions', () => {
+        const result = cartEngine.analyze({
+            incident_type: 'Physical Injury', time_of_day: 'Night',
+            is_weekend: false, severity: 'High', form_type: 'crime'
+        }, { street_count: 5 }, { recent_count: 5 });
+
+        expect(result.contributions).toEqual({
+            type: 25.5, time: 22.5, day: 6, location: 18, frequency: 9.5
+        });
+        expect(result.rawTotal).toBe(81.5);
+        expect(result.totalScore).toBe(81.5);
+        expect(result.sourceMultiplier).toBe(1);
+    });
+
     test('blotter source multiplier discounts the same raw case by exactly 15%', () => {
         const common = {
             incident_type: 'Theft', time_of_day: 'Night', is_weekend: true, severity: 'High'

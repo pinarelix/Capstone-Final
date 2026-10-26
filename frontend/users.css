@@ -746,6 +746,7 @@
 .management-view { display: none !important; }
 .management-view.active { display: grid !important; }
 .management-grid.management-view.active { display: grid !important; }
+.users-card.management-view.active { display: flex !important; flex-direction: column; }
 .personnel-management.management-view.active { display: grid !important; gap: 18px; }
 .personnel-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .personnel-form-grid form { border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; background: #fbfdff; }

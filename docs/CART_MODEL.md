@@ -75,6 +75,22 @@ time of day, day of week, location-history buckets, frequency buckets). Each fac
 score (0–100) is multiplied by its weight above, and the five weighted scores are summed
 into the final 0–100 total.
 
+### Final computation
+
+For factor scores `T` (type), `D` (time), `W` (day), `L` (location), and `F` (recent
+frequency):
+
+`raw score = (T × type weight) + (D × time weight) + (W × day weight) + (L × location weight) + (F × frequency weight)`
+
+Severity controls the type weight: High = 30%, Medium = 20%, and Low = 10%. The other
+four weights are redistributed proportionally so all five weights always total 100%.
+Blotter records use the configured 0.85 source multiplier by default; incident-form
+records use 1.00. The final value is rounded to two decimals and classified as Level 1
+below 34, Level 2 from 34 to 66.99, or Level 3 at 67 and above.
+
+Example: a High-severity Physical Injury with scores 85, 90, 40, 90, and 95 produces
+`85×30% + 90×25% + 40×15% + 90×20% + 95×10% = 81.50`, which is Level 3.
+
 ## Resolution and patrol coverage
 
 The record map and patrol recommendations now retain each record's current CART score.

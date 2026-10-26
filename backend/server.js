@@ -2260,7 +2260,7 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         }
 
         const { page, limit, offset: skip } = pagination(req.query, 10);
-        const { type = '', status = '', include_resolved = '', form_type = '' } = req.query;
+        const { type = '', danger = '', status = '', include_resolved = '', form_type = '' } = req.query;
         const search = validatedSearch(req.query.search);
 
         let filter = ['incidents.is_draft = 0'];
@@ -2279,6 +2279,11 @@ app.get('/api/incidents/view-only', authenticate, async (req, res) => {
         if (type) {
             filter.push("incidents.incident_type = ?");
             params.push(type);
+        }
+
+        if (danger) {
+            filter.push('incidents.danger_level LIKE ?');
+            params.push(`%${danger}%`);
         }
 
         if (status) {
