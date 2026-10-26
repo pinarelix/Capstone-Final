@@ -301,7 +301,7 @@
            narrative - not a flat stack of identical cards.
         ============================================================ */
         .modal-custom .modal-dialog.modal-lg {
-            max-width: 920px;
+            max-width: 1080px;
         }
 
         .incident-hero {
@@ -411,8 +411,8 @@
            read better split apart. */
         .incident-body-grid {
             display: grid;
-            grid-template-columns: 240px 1fr;
-            gap: 24px;
+            grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+            gap: 18px;
             align-items: start;
         }
 
@@ -503,6 +503,8 @@
         .incident-text-card.accent-cart        { border-left-color: #4338ca; }
         .incident-text-card.accent-resolution  { border-left-color: #059669; }
         .incident-text-card.accent-evidence    { border-left-color: #475569; }
+        .incident-text-card.accent-people .incident-text-card-body { text-align: left; padding: 2px 0; }
+        .incident-text-card.accent-people .incident-text-card-body br { line-height: 1.8; }
 
         /* The numeric CART score + its factor-by-factor breakdown are
            exactly the kind of jargon already hidden from the non-technical
