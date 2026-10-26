@@ -112,10 +112,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     applyRoleBasedUI();
+    setupPatrolCalendar();
+    // Calendar is the primary Decisions view; initialize it before the
+    // slower logs/risk-analysis data so the first visit is never blank.
+    requestAnimationFrame(() => loadPatrolCalendar());
     setupTabs();
     loadAllData();
     setupScheduleForm();
-    setupPatrolCalendar();
     setupLogForm();
 
     // Keeps all three tabs current without the admin needing to
@@ -207,7 +210,7 @@ function setupTabs() {
                 targetContent.classList.add('active');
             }
             if (tabId === 'calendar') {
-                loadPatrolCalendar();
+                requestAnimationFrame(() => loadPatrolCalendar());
                 loadPatrolAnalytics();
             }
 
@@ -1153,6 +1156,8 @@ function calendarDateKey(date = new Date()) { return new Date(date.getTime() - d
 function calendarShift(date, days) { const next = new Date(`${date}T12:00:00`); next.setDate(next.getDate() + days); return calendarDateKey(next); }
 function setupPatrolCalendar() {
     const date = document.getElementById('calendarDate'); if (!date) return;
+    const grid = document.getElementById('patrolCalendarGrid');
+    if (grid) grid.innerHTML = '<p class="empty-content"><i class="fa-solid fa-spinner fa-spin"></i> Loading patrol calendar…</p>';
     date.value = calendarDateKey();
     document.getElementById('calendarView')?.addEventListener('change', loadPatrolCalendar);
     date.addEventListener('change', loadPatrolCalendar);
@@ -1163,7 +1168,6 @@ function setupPatrolCalendar() {
     const holder = document.getElementById('scheduleRecurrenceDays');
     if (holder) holder.innerHTML = days.map(day => `<label><input type="checkbox" value="${day}"> ${day.slice(0,3)}</label>`).join(' ');
     updateRecurrenceFields();
-    loadPatrolCalendar();
 }
 
 async function loadPatrolAnalytics() {
