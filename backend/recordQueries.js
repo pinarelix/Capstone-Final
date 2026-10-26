@@ -27,10 +27,16 @@ function appendDateFilters(query, filters, params, alias = 'i') {
     if (query.location) { filters.push(`${alias}.street_name = ?`); params.push(query.location); }
 }
 function summaryFilters(query) {
-    const filters = ['i.is_draft = 0'], params = [];
+    const filters = [
+        'i.is_draft = 0',
+        `NOT EXISTS (
+            SELECT 1 FROM archived_records a
+            WHERE a.entity_type = 'incident' AND a.entity_id = i.id AND a.restored_at IS NULL
+        )`
+    ], params = [];
     const search = validatedSearch(query.search);
     if (query.status) { filters.push('TRIM(i.status) = ?'); params.push(query.status); }
-    else if (query.include_resolved !== '1') filters.push("TRIM(i.status) != 'Resolved'");
+    else if (query.include_resolved !== '1') filters.push("TRIM(i.status) IN ('Open', 'Monitoring')");
     if (query.type) { filters.push('i.incident_type = ?'); params.push(query.type); }
     if (query.form_type && ['crime','blotter'].includes(query.form_type)) { filters.push('i.source = ?'); params.push(query.form_type === 'crime' ? 'incident' : 'blotter'); }
     if (search) {

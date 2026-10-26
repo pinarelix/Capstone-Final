@@ -14,6 +14,7 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
     let createdScheduleId;
     let createdLogId;
     let createdTeamId;
+    let testRecordId;
     const createdTanodIds = [];
     const createdVolunteerIds = [];
 
@@ -38,6 +39,17 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         dmToken = dmLogin.body.session_token;
         const deskLogin = await request(app).post('/api/auth/login').send({ username: deskUsername, password });
         deskToken = deskLogin.body.session_token;
+
+        const record = await request(app).post('/api/incidents')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                form_type: 'crime', incident_type: 'Theft', date: '2026-01-19', time: '19:30',
+                latitude: 14.75557925, longitude: 121.07745924, street_name: 'Balite Street',
+                address: 'House 1, Balite Street', status: 'Open', description: 'Patrol test record',
+                priority: 'Normal', severity: 'High'
+            });
+        expect(record.status).toBe(201);
+        testRecordId = record.body.id;
     });
 
     afterEach(async () => {
@@ -59,6 +71,14 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         if (createdVolunteerIds.length) {
             await pool.query('DELETE FROM patrol_volunteers WHERE id IN (?)', [createdVolunteerIds.splice(0)]);
         }
+        if (testRecordId) {
+            const [registry] = await pool.query('SELECT source, source_id FROM record_registry WHERE registry_id=?', [testRecordId]);
+            await pool.query('DELETE FROM cart_risk_factors WHERE incident_id=?', [testRecordId]);
+            await pool.query('DELETE FROM record_patrol_details WHERE incident_id=?', [testRecordId]);
+            await pool.query('DELETE FROM record_registry WHERE registry_id=?', [testRecordId]);
+            if (registry[0]) await pool.query(`DELETE FROM ${registry[0].source === 'incident' ? 'incident_records' : 'blotter_records'} WHERE id=?`, [registry[0].source_id]);
+            testRecordId = null;
+        }
         const usernames = [adminUsername, dmUsername, deskUsername];
         await pool.query('DELETE FROM audit_logs WHERE user_id IN (SELECT id FROM users WHERE username IN (?, ?, ?))', usernames);
         await pool.query('DELETE FROM login_history WHERE username IN (?, ?, ?)', usernames);
@@ -68,6 +88,9 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
     });
 
     const validSchedulePayload = () => ({
+        incident_id: testRecordId,
+        source_record_ids: [testRecordId],
+        scheduled_date: '2026-01-19',
         location: 'Balite Street',
         start_time: '20:00',
         end_time: '22:00',
@@ -184,6 +207,18 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(res.status).toBe(401);
     });
 
+    test('every schedule requires exactly one active risk-analysis record', async () => {
+        const missing = await request(app).post('/api/patrol-schedules')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ ...validSchedulePayload(), incident_id: null, source_record_ids: [] });
+        expect(missing.status).toBe(400);
+
+        const multiple = await request(app).post('/api/patrol-schedules')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ ...validSchedulePayload(), source_record_ids: [testRecordId, testRecordId + 1] });
+        expect(multiple.status).toBe(400);
+    });
+
     // ------------------------------------------------------------
     // Patrol Logs
     // ------------------------------------------------------------
@@ -246,19 +281,23 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(logRes.status).toBe(403);
     });
 
-    test('Tanod and volunteer roster CRUD, four-person teams, route schedules, attendance, and analytics work together', async () => {
+    test('Tanod and volunteer CRUD, a four-person team, a single-record schedule, attendance, and analytics work together', async () => {
         const leader = (await pool.query('SELECT id FROM users WHERE username=?', [deskUsername]))[0][0];
         const tanodResponse = await request(app).post('/api/tanods').set('Authorization', `Bearer ${adminToken}`).send({ name: 'Fixture Tanod One', contact_no: '09170000001', address: '1 Balite Street', birth_date: '1990-01-01' });
+        const secondTanodResponse = await request(app).post('/api/tanods').set('Authorization', `Bearer ${adminToken}`).send({ name: 'Fixture Tanod Two', contact_no: '09170000003', address: '3 Balite Street', birth_date: '1992-03-03' });
         const volunteerResponse = await request(app).post('/api/volunteers').set('Authorization', `Bearer ${adminToken}`).send({ name: 'Fixture Volunteer One', contact_no: '09170000002', address: '2 Balite Street', birth_date: '1991-02-02' });
         expect(tanodResponse.status).toBe(201);
+        expect(secondTanodResponse.status).toBe(201);
         expect(volunteerResponse.status).toBe(201);
         createdTanodIds.push(tanodResponse.body.id);
+        createdTanodIds.push(secondTanodResponse.body.id);
         createdVolunteerIds.push(volunteerResponse.body.id);
 
         const teamResponse = await request(app).post('/api/patrol-teams').set('Authorization', `Bearer ${adminToken}`).send({
             name: 'Fixture Mixed Team', leader_user_id: leader.id,
             assignments: [
                 { person_type: 'Tanod', person_id: tanodResponse.body.id, assignment_type: 'Primary' },
+                { person_type: 'Tanod', person_id: secondTanodResponse.body.id, assignment_type: 'Primary' },
                 { person_type: 'Volunteer', person_id: volunteerResponse.body.id, assignment_type: 'Temporary', starts_on: '2026-01-19', ends_on: '2026-01-31' }
             ]
         });
@@ -278,16 +317,35 @@ describe('Patrol Schedules + Patrol Logs CRUD + role enforcement', () => {
         expect(tooMany.status).toBe(400);
 
         const scheduleResponse = await request(app).post('/api/patrol-schedules').set('Authorization', `Bearer ${adminToken}`).send({
-            ...validSchedulePayload(), location: '', scheduled_date: '2026-01-19', day_of_week: 'Monday',
-            routine_type: 'Multi-location Route', route_name: 'Fixture route',
-            route_stops: [{ stop_order: 1, location: 'Balite Street', address: '1 Balite Street' }, { stop_order: 2, location: 'Balite Street', address: '2 Balite Street' }],
-            personnel: [{ person_type: 'Tanod', person_id: tanodResponse.body.id, assignment_type: 'Primary' }, { person_type: 'Volunteer', person_id: volunteerResponse.body.id, assignment_type: 'Temporary' }],
-            tanod_ids: [tanodResponse.body.id]
+            ...validSchedulePayload(), team_id: createdTeamId,
+            personnel: [
+                { person_type: 'Team Leader', person_id: leader.id, assignment_type: 'Primary' },
+                { person_type: 'Tanod', person_id: tanodResponse.body.id, assignment_type: 'Primary' },
+                { person_type: 'Tanod', person_id: secondTanodResponse.body.id, assignment_type: 'Primary' },
+                { person_type: 'Volunteer', person_id: volunteerResponse.body.id, assignment_type: 'Temporary' }
+            ],
+            tanod_ids: [tanodResponse.body.id, secondTanodResponse.body.id]
         });
         expect(scheduleResponse.status).toBe(201);
         createdScheduleId = scheduleResponse.body.schedule.id;
-        expect(scheduleResponse.body.schedule.route_stops).toHaveLength(2);
-        expect(scheduleResponse.body.schedule.personnel).toHaveLength(2);
+        expect(scheduleResponse.body.schedule.source_record_ids).toEqual([testRecordId]);
+        expect(scheduleResponse.body.schedule.route_stops).toHaveLength(0);
+        expect(scheduleResponse.body.schedule.personnel).toHaveLength(4);
+        const [leaderSnapshot] = await pool.query(`SELECT contact_no FROM patrol_schedule_personnel_snapshots
+            WHERE schedule_id=? AND person_type='Team Leader' AND person_id=?`, [createdScheduleId, leader.id]);
+        expect(leaderSnapshot[0].contact_no).toBe('');
+
+        const overlapping = await request(app).post('/api/patrol-schedules').set('Authorization', `Bearer ${adminToken}`).send({
+            ...validSchedulePayload(), team_id: createdTeamId, start_time: '21:00', end_time: '23:00',
+            personnel: [
+                { person_type: 'Team Leader', person_id: leader.id, assignment_type: 'Primary' },
+                { person_type: 'Tanod', person_id: tanodResponse.body.id, assignment_type: 'Primary' },
+                { person_type: 'Tanod', person_id: secondTanodResponse.body.id, assignment_type: 'Primary' },
+                { person_type: 'Volunteer', person_id: volunteerResponse.body.id, assignment_type: 'Temporary' }
+            ],
+            tanod_ids: [tanodResponse.body.id, secondTanodResponse.body.id]
+        });
+        expect(overlapping.status).toBe(409);
 
         const logResponse = await request(app).post('/api/patrol-logs').set('Authorization', `Bearer ${adminToken}`).send({
             schedule_id: createdScheduleId, report: 'mixed roster completed', status: 'Completed', patrol_date: '2026-01-19',

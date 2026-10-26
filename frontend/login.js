@@ -156,8 +156,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (submitResetPassword && resetPasswordModal) {
         submitResetPassword.addEventListener('click', async function() {
             const resetToken = resetTokenInput ? resetTokenInput.value.trim() : '';
-            const newPassword = newPasswordInput ? newPasswordInput.value.trim() : '';
-            const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value.trim() : '';
+            const newPassword = newPasswordInput ? newPasswordInput.value : '';
+            const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value : '';
 
             if (!resetToken || !newPassword || !confirmPassword) {
                 showToast('Please fill in all fields.', 'error');
@@ -170,7 +170,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (newPassword.length < 8 || newPassword.length > 12) {
-                showToast('New password must be 8-12 characters.', 'error');
+                showToast('New password must be 8–12 characters.', 'error');
+                return;
+            }
+
+            if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+                showToast('New password needs uppercase, lowercase, number and special characters.', 'error');
                 return;
             }
 
