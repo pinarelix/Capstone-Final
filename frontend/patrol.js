@@ -39,6 +39,7 @@ let allLogs = [];
 // Per-street risk decay from completed patrols - {location: decay_amount},
 // subtracted from that street's CART risk score in recommendations.
 let allAreaDecay = {};
+let refreshBusy = { logs: false, schedules: false, recommendations: false };
 
 // Latest CART suggestions are rendered as unsaved rows in the same table
 // as confirmed schedules. This keeps planning in one place and leaves the
@@ -123,8 +124,8 @@ document.addEventListener("DOMContentLoaded", function () {
     // another admin, and recommendations reacting to new incidents or a
     // CART re-run triggered elsewhere.
     startLivePolling(refreshPatrolLogsOnly, 15000);
-    startLivePolling(refreshSchedulesOnly, 15000);
-    startLivePolling(refreshRecommendationsOnly, 15000);
+    startLivePolling(refreshSchedulesOnly, 30000);
+    startLivePolling(refreshRecommendationsOnly, 30000);
 
     const scheduleStatusFilter = document.getElementById('scheduleStatusFilter');
     if (scheduleStatusFilter) {
@@ -219,7 +220,7 @@ function setupTabs() {
 // 5. LOAD ALL DATA - WITH CART INTEGRATION
 // ============================================================
 
-async function loadAllData() {
+async function loadAllDataLegacy() {
     try {
         loadForecastRecommendations();
         console.log('📡 Loading patrol data with CART integration...');
@@ -293,6 +294,35 @@ async function loadAllData() {
     }
 }
 
+// Fast startup path: independent resources load together, then the UI is
+// rendered once. This avoids making the calendar wait behind logs, schedules,
+// and risk-analysis requests one after another.
+async function loadAllData() {
+    try {
+        loadForecastRecommendations();
+        const [incResponse, decayResponse, scheduleResponse, logResponse] = await Promise.all([
+            window.apiFetch('/heatmap/records?window_days=90&limit=500'),
+            window.apiFetch('/patrol/area-decay'),
+            window.apiFetch(scheduleListUrl()),
+            window.apiFetch(logListUrl())
+        ]);
+        const incData = incResponse.ok ? await incResponse.json() : { records: [], thresholds: patrolThresholds };
+        allIncidents = incData.records || []; patrolThresholds = incData.thresholds || patrolThresholds;
+        allAreaDecay = decayResponse.ok ? Object.fromEntries((await decayResponse.json()).map(row => [row.location, Number(row.decay_amount) || 0])) : {};
+        allSchedules = scheduleResponse.ok ? await scheduleResponse.json() : [];
+        allLogs = logResponse.ok ? await logResponse.json() : [];
+        scheduleTotal = Number(scheduleResponse.headers.get('X-Total-Count')) || allSchedules.length;
+        logTotal = Number(logResponse.headers.get('X-Total-Count')) || allLogs.length;
+        allRiskFactors = allIncidents.map(record => ({ incident_id: record.id, total_risk_score: record.cart_score, danger_level: record.danger_level, decision_path: record.cart_decision_path }));
+        window.populateActiveHeatmapRecords?.(); populateMonthDropdown(allIncidents); updateDashboardWithCartData(selectedPatrolMonth());
+        renderSchedules(allSchedules); renderLogs(allLogs); await loadScheduleChoices();
+        await Promise.all([loadPatrolCalendar(), loadPatrolAnalytics()]); updateCounts();
+    } catch (error) {
+        console.error('Error loading Decisions workspace:', error);
+        if (error.message !== 'Session expired. Please login again.' && error.message !== 'No session token') showToast('Failed to load patrol data. Please refresh.', 'error');
+    }
+}
+
 // ============================================================
 // 5a2. 🔥 NEW: Refresh only the Patrol Logs list
 // Used for live polling — reloading everything via loadAllData()
@@ -301,6 +331,8 @@ async function loadAllData() {
 // ============================================================
 
 async function refreshPatrolLogsOnly() {
+    if (refreshBusy.logs) return;
+    refreshBusy.logs = true;
     try {
         const response = await window.apiFetch(logListUrl());
         if (!response.ok) return;
@@ -311,6 +343,7 @@ async function refreshPatrolLogsOnly() {
         updateCounts();
     } catch (error) {
         console.error('❌ Error refreshing patrol logs:', error);
+    } finally { refreshBusy.logs = false;
     }
 }
 
@@ -319,6 +352,8 @@ async function refreshPatrolLogsOnly() {
 // (those wipe whatever's currently selected on the Add Log/Add Schedule
 // forms since they rebuild <option>/checkbox lists from scratch).
 async function refreshSchedulesOnly() {
+    if (refreshBusy.schedules) return;
+    refreshBusy.schedules = true;
     try {
         const response = await window.apiFetch(scheduleListUrl());
         if (!response.ok) return;
@@ -329,6 +364,7 @@ async function refreshSchedulesOnly() {
         updateCounts();
     } catch (error) {
         console.error('❌ Error refreshing schedules:', error);
+    } finally { refreshBusy.schedules = false;
     }
 }
 
@@ -337,6 +373,8 @@ async function refreshSchedulesOnly() {
 // both and recomputing picks up both new incidents and a CART re-run
 // triggered by another admin, without touching the Schedules/Logs tabs.
 async function refreshRecommendationsOnly() {
+    if (refreshBusy.recommendations) return;
+    refreshBusy.recommendations = true;
     try {
         const incResponse = await window.apiFetch('/heatmap/records?window_days=90&limit=500');
         if (incResponse.ok) {
@@ -349,6 +387,7 @@ async function refreshRecommendationsOnly() {
         await loadCartDataOnly();
     } catch (error) {
         console.error('❌ Error refreshing recommendations:', error);
+    } finally { refreshBusy.recommendations = false;
     }
 }
 
