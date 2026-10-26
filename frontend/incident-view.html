@@ -301,7 +301,7 @@
            narrative - not a flat stack of identical cards.
         ============================================================ */
         .modal-custom .modal-dialog.modal-lg {
-            max-width: 920px;
+            max-width: 1080px;
         }
 
         .incident-hero {
@@ -411,8 +411,8 @@
            read better split apart. */
         .incident-body-grid {
             display: grid;
-            grid-template-columns: 240px 1fr;
-            gap: 24px;
+            grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+            gap: 18px;
             align-items: start;
         }
 
@@ -503,6 +503,8 @@
         .incident-text-card.accent-cart        { border-left-color: #4338ca; }
         .incident-text-card.accent-resolution  { border-left-color: #059669; }
         .incident-text-card.accent-evidence    { border-left-color: #475569; }
+        .incident-text-card.accent-people .incident-text-card-body { text-align: left; padding: 2px 0; }
+        .incident-text-card.accent-people .incident-text-card-body br { line-height: 1.8; }
 
         /* The numeric CART score + its factor-by-factor breakdown are
            exactly the kind of jargon already hidden from the non-technical
@@ -531,6 +533,28 @@
             line-height: 1.6;
             white-space: pre-wrap;
         }
+
+        .cart-explainer { display: grid; gap: 12px; }
+        .cart-explainer-intro { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; color: #312e81; }
+        .cart-explainer-intro span, .cart-factor-row small { color: #64748b; font-size: .75rem; }
+        .cart-factor-list { display: grid; gap: 6px; }
+        .cart-factor-head { display: grid; grid-template-columns: minmax(160px, 1fr) 72px 58px 72px; gap: 8px; padding: 0 10px; color: #94a3b8; font-size: .64rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+        .cart-factor-head span:not(:first-child) { text-align: right; cursor: help; border-bottom: 1px dotted #94a3b8; }
+        .cart-factor-row { display: grid; grid-template-columns: minmax(160px, 1fr) 72px 58px 72px; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e0e7ff; border-radius: 8px; background: #f8faff; font-size: .78rem; }
+        .cart-factor-row > div { min-width: 0; }
+        .cart-factor-row small { display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cart-factor-points, .cart-factor-weight, .cart-factor-contribution { text-align: right; font-variant-numeric: tabular-nums; }
+        .cart-factor-points { color: #334155; font-weight: 700; }
+        .cart-factor-weight { color: #4f46e5; font-weight: 700; }
+        .cart-factor-contribution { color: #047857; font-weight: 800; }
+        .cart-formula { display: grid; gap: 3px; padding: 9px 11px; border-radius: 8px; background: #eef2ff; color: #3730a3; font-size: .74rem; line-height: 1.5; overflow-wrap: anywhere; }
+        .cart-formula strong { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; }
+        .cart-score-note { color: #64748b; font-size: .72rem; line-height: 1.45; }
+        .cart-total-row, .cart-classification { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding-top: 10px; border-top: 1px solid #e2e8f0; color: #475569; font-size: .8rem; }
+        .cart-total-row strong { color: #111827; font-size: 1.05rem; }
+        .cart-total-row small { color: #94a3b8; font-size: .68rem; }
+        .cart-classification strong { color: #4338ca; }
+        @media (max-width: 650px) { .cart-explainer-intro { display: grid; gap: 4px; } .cart-factor-head, .cart-factor-row { grid-template-columns: minmax(130px, 1fr) 52px 46px 60px; font-size: .72rem; } }
 
         .incident-evidence-gallery {
             display: flex;
@@ -861,11 +885,11 @@
         <!-- FILTER SECTION -->
         <section class="filter-section">
             <div class="row g-3 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label fw-semibold text-muted small">Search</label>
                     <input type="text" id="searchIncident" class="form-control" placeholder="Search incidents..." />
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label fw-semibold text-muted small">Incident Type</label>
                     <select id="filterType" class="form-select">
                         <option value="">All Types</option>
@@ -960,6 +984,15 @@
                         <option value="Open">Open</option>
                         <option value="Monitoring">Monitoring</option>
                         <option value="Resolved">Resolved</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold text-muted small">Danger Level</label>
+                    <select id="filterDanger" class="form-select" title="Filter incidents by CART danger classification">
+                        <option value="">All Levels</option>
+                        <option value="Level 3">High</option>
+                        <option value="Level 2">Moderate</option>
+                        <option value="Level 1">Low</option>
                     </select>
                 </div>
                 <div class="col-md-1">

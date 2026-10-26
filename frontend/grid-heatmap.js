@@ -127,7 +127,8 @@ async function loadRealData() {
 function applyFilterAndRender() {
     visibleIncidents = filterIncidents(allIncidentsData, {
         granularity: 'all',
-        category: mapEl('heatmapIncidentType').value
+        category: mapEl('heatmapIncidentType').value,
+        riskLevel: mapEl('heatmapRiskLevel').value
     });
     const features = visibleIncidents.slice().sort((a, b) => a.cart_score - b.cart_score).map(row => ({
         type: 'Feature', geometry: { type: 'Point', coordinates: [Number(row.longitude), Number(row.latitude)] },
@@ -147,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Object.keys(INCIDENT_CATEGORIES).forEach(category => mapEl('heatmapIncidentType').add(new Option(category, category)));
     configureCalendar(false);
     mapEl('heatmapIncidentType').addEventListener('change', applyFilterAndRender);
+    mapEl('heatmapRiskLevel').addEventListener('change', applyFilterAndRender);
     mapEl('heatmapPeriod').addEventListener('change', loadRealData);
     mapEl('heatmapGranularity').addEventListener('change', () => { configureCalendar(); loadRealData(); });
     mapEl('heatmapPreviousPeriod').addEventListener('click', () => stepPeriod(-1));

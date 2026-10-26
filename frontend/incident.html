@@ -370,6 +370,20 @@
 
                         <div class="form-row">
                             <div class="form-group">
+                                <label for="complainantOrigin">Complainant residence / origin</label>
+                                <select id="complainantOrigin" class="form-select">
+                                    <option value="Barangay 179">Barangay 179</option>
+                                    <option value="Outside Barangay 179">Outside Barangay 179</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="complainantOriginOtherGroup" style="display:none;">
+                                <label for="complainantOriginOther">Outside area / street</label>
+                                <input type="text" id="complainantOriginOther" class="form-control" maxlength="255" placeholder="e.g. Bagong Silang, Caloocan City">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
                                 <label>Street Name <span class="req">*</span></label>
                                 <select id="incidentStreet" class="form-select" required>
                                     <option value="">Select Street</option>

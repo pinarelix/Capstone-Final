@@ -105,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadLocationCoordinates();
     setDefaultReporter();
     setupStreetLocationSync();
+    setupComplainantOrigin();
     
     // ✅ Force load incidents with delay
     setTimeout(() => {
@@ -336,6 +337,20 @@ function setupStreetLocationSync() {
         document.getElementById('incidentLat').value = parseFloat(pin.latitude);
         document.getElementById('incidentLng').value = parseFloat(pin.longitude);
     });
+}
+
+function setupComplainantOrigin() {
+    const select = document.getElementById('complainantOrigin');
+    const group = document.getElementById('complainantOriginOtherGroup');
+    const input = document.getElementById('complainantOriginOther');
+    if (!select || !group) return;
+    const sync = () => {
+        const outside = select.value === 'Outside Barangay 179';
+        group.style.display = outside ? '' : 'none';
+        if (!outside && input) input.value = '';
+    };
+    select.addEventListener('change', sync);
+    sync();
 }
 
 /* ============================================================
@@ -705,6 +720,11 @@ function setupForm() {
         const complainantFirst = document.getElementById('complainantFirst')?.value.trim() || '';
         const complainantMiddle = document.getElementById('complainantMiddle')?.value.trim() || '';
         const complainantLast = document.getElementById('complainantLast')?.value.trim() || '';
+        const complainantOrigin = document.getElementById('complainantOrigin')?.value || 'Barangay 179';
+        const complainantOriginOther = document.getElementById('complainantOriginOther')?.value.trim() || '';
+        const reporterAddress = complainantOrigin === 'Outside Barangay 179'
+            ? complainantOriginOther
+            : complainantOrigin;
 
         const respondentFirst = document.getElementById('respondentFirst')?.value.trim() || '';
         const respondentMiddle = document.getElementById('respondentMiddle')?.value.trim() || '';
@@ -917,6 +937,7 @@ function setupForm() {
                 reporter_first: reporterFirst,
                 reporter_middle: reporterMiddle,
                 reporter_last: reporterLast,
+                reporter_address: reporterAddress,
                 // Structured address
                 addr_block: addrBlock,
                 addr_lot: addrLot,
@@ -1383,6 +1404,15 @@ window.editIncident = async (id) => {
         document.getElementById('complainantFirst').value = record.complainant_first || '';
         document.getElementById('complainantMiddle').value = record.complainant_middle || '';
         document.getElementById('complainantLast').value = record.complainant_last || '';
+        const originSelect = document.getElementById('complainantOrigin');
+        const originOther = document.getElementById('complainantOriginOther');
+        if (originSelect && originOther) {
+            const savedOrigin = record.reporter_address || '';
+            const isOutside = savedOrigin && savedOrigin !== 'Barangay 179';
+            originSelect.value = isOutside ? 'Outside Barangay 179' : 'Barangay 179';
+            originOther.value = isOutside ? savedOrigin : '';
+            originSelect.dispatchEvent(new Event('change'));
+        }
         document.getElementById('respondentFirst').value = record.respondent_first || '';
         document.getElementById('respondentMiddle').value = record.respondent_middle || '';
         document.getElementById('respondentLast').value = record.respondent_last || '';

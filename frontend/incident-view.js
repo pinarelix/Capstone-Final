@@ -1,6 +1,23 @@
 // incident-view.js - Read-only incident viewer for Captain
 // FIXED: Proper column names matching database schema
 
+function renderCartBreakdown(decisionPath) {
+    const lines = String(decisionPath || '').split('\n').map(line => line.trim()).filter(Boolean);
+    const factors = lines.slice(1, 6).map(line => {
+        const match = line.match(/^\d+\.\s*([^:]+):\s*(.+?)\s*→\s*([\d.]+) points \(([\d.]+)% weight\)$/);
+        if (!match) return null;
+        const points = Number(match[3]); const weight = Number(match[4]);
+        return { name: match[1], value: match[2], points, weight, contribution: (points * weight / 100).toFixed(2) };
+    }).filter(Boolean);
+    const totalLine = lines.find(line => /Weighted Total/.test(line));
+    const finalLine = lines.find(line => /Final Classification/.test(line));
+    const severity = lines.find(line => /Severity:/.test(line)) || '';
+    const severityText = severity.replace(/^0\.\s*Severity:\s*/, '').replace(/\s*→.*/, '');
+    const total = totalLine ? totalLine.replace(/^6\.\s*Weighted Total:\s*/, '') : '—';
+    const classification = finalLine ? finalLine.replace(/^7\.\s*Final Classification:\s*/, '') : '—';
+    return `<div class="cart-explainer"><div class="cart-explainer-intro"><strong>${escapeHTML(severityText || 'Risk assessment')}</strong><span>Each factor contributes points × its weight to the final score.</span></div><div class="cart-factor-head"><span>Factor</span><span title="Raw score assigned by the CART rule table">Points</span><span title="How much this factor matters in the final score">Weight</span><span title="Points multiplied by weight">Contribution</span></div><div class="cart-factor-list">${factors.map(f => { const detail = f.name === 'Incident Type' && severityText ? `${f.value} · Severity: ${severityText}` : f.value; return `<div class="cart-factor-row"><div><strong>${escapeHTML(f.name)}</strong><small>${escapeHTML(detail)}</small></div><span class="cart-factor-points">${f.points} pts</span><span class="cart-factor-weight" title="${f.weight}% of the final score">${f.weight}%</span><span class="cart-factor-contribution" title="${f.points} × ${f.weight}%">+${f.contribution}</span></div>`; }).join('')}</div><div class="cart-formula"><strong>How the score is computed</strong><span>${factors.map(f => `${f.points} × ${f.weight}%`).join(' + ')} = ${escapeHTML(total)}</span></div><div class="cart-score-note">The final score is the sum of every factor's contribution. Higher scores indicate higher operational risk.</div><div class="cart-total-row"><span>Final weighted score <small>(out of 100)</small></span><strong>${escapeHTML(total)} / 100</strong></div><div class="cart-classification"><span>Classification</span><strong>${escapeHTML(classification)}</strong></div></div>`;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // =========================================================
     // 1. CHECK USER SESSION
@@ -93,6 +110,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const filterType = document.getElementById('filterType');
     const filterStatus = document.getElementById('filterStatus');
     const filterFormType = document.getElementById('filterFormType');
+    const filterDanger = document.getElementById('filterDanger');
     const paginationControls = document.getElementById('paginationControls');
     const refreshBtn = document.getElementById('refreshBtn');
     const recordCount = document.getElementById('recordCount');
@@ -172,6 +190,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const type = filterType.value;
         const status = filterStatus.value;
         const formType = filterFormType ? filterFormType.value : '';
+        const danger = filterDanger ? filterDanger.value : '';
 
         // include_resolved: "All Status" really means all - resolved cases
         // stay listed so their details can still be opened and reviewed.
@@ -180,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (type) url += `&type=${encodeURIComponent(type)}`;
         if (status) url += `&status=${encodeURIComponent(status)}`;
         if (formType) url += `&form_type=${encodeURIComponent(formType)}`;
+        if (danger) url += `&danger=${encodeURIComponent(danger)}`;
         
         console.log('📡 Fetching:', url);
         
@@ -575,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${incident.cart_decision_path ? `
                         <div class="incident-text-card accent-cart cart-only">
                             <div class="incident-text-card-header"><i class="fa-solid fa-chart-line"></i> CART Risk Breakdown</div>
-                            <div class="incident-text-card-body" style="line-height: 1.7;">${escapeHTML(incident.cart_decision_path).replace(/\n/g, '<br>')}</div>
+                            <div class="incident-text-card-body">${renderCartBreakdown(incident.cart_decision_path)}</div>
                         </div>` : ''}
                         ${incident.evidence && incident.evidence.length > 0 ? `
                         <div class="incident-text-card accent-evidence">
@@ -715,6 +735,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (filterFormType) {
         filterFormType.addEventListener('change', () => {
+            currentPage = 1;
+            loadIncidents();
+        });
+    }
+
+    if (filterDanger) {
+        filterDanger.addEventListener('change', () => {
             currentPage = 1;
             loadIncidents();
         });

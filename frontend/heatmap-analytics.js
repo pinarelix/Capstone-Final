@@ -75,12 +75,17 @@
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 
-    function filterIncidents(incidents, { granularity = 'all', period = '', category = 'all' } = {}) {
+    function filterIncidents(incidents, { granularity = 'all', period = '', category = 'all', riskLevel = 'all' } = {}) {
         let filtered = Array.isArray(incidents) ? incidents.slice() : [];
         if (granularity === 'day') filtered = filtered.filter(i => i.date === period);
         else if (granularity === 'week') filtered = filtered.filter(i => i.date && getMondayOfWeek(i.date) === period);
         else if (granularity === 'month') filtered = filtered.filter(i => i.date && i.date.substring(0, 7) === period);
         if (category !== 'all') filtered = filtered.filter(i => getIncidentCategory(i.incident_type) === category);
+        if (riskLevel !== 'all') filtered = filtered.filter(i => {
+            const score = Number(i.cart_score ?? i.stored_cart_score ?? i.total_risk_score);
+            const level = Number.isFinite(score) ? (score >= 67 ? 'high' : score >= 34 ? 'medium' : 'low') : String(i.danger_level || '').toLowerCase().includes('level 3') ? 'high' : String(i.danger_level || '').toLowerCase().includes('level 2') ? 'medium' : 'low';
+            return level === riskLevel;
+        });
         return filtered;
     }
 

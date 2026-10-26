@@ -113,10 +113,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     applyRoleBasedUI();
+    setupPatrolCalendar();
+    // Calendar is the primary Decisions view; initialize it before the
+    // slower logs/risk-analysis data so the first visit is never blank.
+    requestAnimationFrame(() => loadPatrolCalendar());
     setupTabs();
     loadAllData();
     setupScheduleForm();
-    setupPatrolCalendar();
     setupLogForm();
 
     // Keeps all three tabs current without the admin needing to
@@ -208,7 +211,7 @@ function setupTabs() {
                 targetContent.classList.add('active');
             }
             if (tabId === 'calendar') {
-                loadPatrolCalendar();
+                requestAnimationFrame(() => loadPatrolCalendar());
                 loadPatrolAnalytics();
             }
 
@@ -1116,7 +1119,9 @@ async function saveSchedule() {
     const start_time = document.getElementById('scheduleStart').value;
     const end_time = document.getElementById('scheduleEnd').value;
     const reason = document.getElementById('scheduleReason').value.trim();
-    const status = document.getElementById('scheduleStatus').value;
+    // New patrols always start open/active. Existing schedules may retain
+    // their explicitly selected status when edited.
+    const status = id ? document.getElementById('scheduleStatus').value : 'Active';
     const teamName = document.getElementById('scheduleTeamName').value.trim();
     const selectedPersonnel = [...document.querySelectorAll('#scheduleTanods input[name="schedule-personnel"]:checked')].map(option => { const [person_type, rawId] = option.value.split(':'); return { person_type: person_type || 'Tanod', person_id: Number(rawId || option.value), assignment_type: 'Primary' }; });
     const memberIds = selectedPersonnel.filter(person => person.person_type === 'Tanod').map(person => person.person_id);
@@ -1191,6 +1196,8 @@ function calendarDateKey(date = new Date()) { return new Date(date.getTime() - d
 function calendarShift(date, days) { const next = new Date(`${date}T12:00:00`); next.setDate(next.getDate() + days); return calendarDateKey(next); }
 function setupPatrolCalendar() {
     const date = document.getElementById('calendarDate'); if (!date) return;
+    const grid = document.getElementById('patrolCalendarGrid');
+    if (grid) grid.innerHTML = '<p class="empty-content"><i class="fa-solid fa-spinner fa-spin"></i> Loading patrol calendar…</p>';
     date.value = calendarDateKey();
     document.getElementById('calendarView')?.addEventListener('change', loadPatrolCalendar);
     date.addEventListener('change', loadPatrolCalendar);
@@ -1201,7 +1208,6 @@ function setupPatrolCalendar() {
     const holder = document.getElementById('scheduleRecurrenceDays');
     if (holder) holder.innerHTML = days.map(day => `<label><input type="checkbox" value="${day}"> ${day.slice(0,3)}</label>`).join(' ');
     updateRecurrenceFields();
-    loadPatrolCalendar();
 }
 
 async function loadPatrolAnalytics() {
@@ -1242,7 +1248,7 @@ function calendarDaysFor(date, view) {
 }
 function renderHourlyCalendar(schedules, date, view) {
     const days = calendarDaysFor(date, view);
-    const eventHtml = (day, hour) => schedules.filter(item => String(item.scheduled_date).slice(0, 10) === day && Number(String(item.start_time).slice(0, 2)) === hour).map(item => `<div class="patrol-calendar-event-wrap"><button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time, item.end_time)}</strong>${escapeHTML(item.team_name || item.route_name || item.location || 'Patrol')}</button>${item.status !== 'Completed' ? `<button type="button" class="calendar-complete-event" data-complete-schedule-id="${item.id}">Complete</button>` : ''}</div>`).join('');
+    const eventHtml = (day, hour) => schedules.filter(item => String(item.scheduled_date).slice(0, 10) === day && Number(String(item.start_time).slice(0, 2)) === hour).map(item => `<div class="patrol-calendar-event-wrap"><button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time, item.end_time)}</strong>${escapeHTML(item.team_name || item.route_name || item.location || 'Patrol')}<span class="calendar-status-chip ${item.status === 'Completed' ? 'completed' : item.status === 'Cancelled' ? 'cancelled' : 'open'}">${item.status === 'Completed' ? 'Completed' : item.status === 'Cancelled' ? 'Cancelled' : 'Open'}</span></button>${item.status !== 'Completed' && item.status !== 'Cancelled' ? `<button type="button" class="calendar-complete-event" data-complete-schedule-id="${item.id}">Mark completed</button>` : ''}</div>`).join('');
     return `<div class="calendar-hourly-header"><div class="calendar-time-label">Time</div>${days.map(day => `<div class="calendar-day-label">${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</div>`).join('')}</div><div class="calendar-hourly-body">${Array.from({ length: 24 }, (_, hour) => `<div class="calendar-hour-row"><div class="calendar-time-label">${formatDisplayTime(`${String(hour).padStart(2, '0')}:00`)}</div>${days.map(day => `<div class="calendar-hour-cell">${eventHtml(day, hour)}<button type="button" class="calendar-empty-slot" data-calendar-slot="${day}|${hour}" aria-label="Create patrol on ${day} at ${formatDisplayTime(`${String(hour).padStart(2, '0')}:00`)}"></button></div>`).join('')}</div>`).join('')}</div>`;
 }
 function openScheduleAtCalendarSlot(day, hour) {
@@ -1261,7 +1267,7 @@ async function loadPatrolCalendar() {
         const schedules = await response.json();
         grid.className = `patrol-calendar-grid calendar-${view}`;
         grid.innerHTML = view === 'month'
-            ? `<div class="calendar-month-grid">${calendarDaysFor(date, view).map(day => `<div class="patrol-calendar-day"><h4>${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</h4>${schedules.filter(item => String(item.scheduled_date).slice(0,10) === day).map(item => `<div class="patrol-calendar-event-wrap"><button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time,item.end_time)}</strong>${escapeHTML(item.team_name || item.route_name || item.location || 'Patrol')}</button>${item.status !== 'Completed' ? `<button type="button" class="calendar-complete-event" data-complete-schedule-id="${item.id}">Complete</button>` : ''}</div>`).join('') || '<small>No patrols</small>'}<button type="button" class="calendar-empty-slot month-slot" data-calendar-slot="${day}|9">+ Add patrol</button></div>`).join('')}</div>`
+            ? `<div class="calendar-month-grid">${calendarDaysFor(date, view).map(day => `<div class="patrol-calendar-day"><h4>${new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</h4>${schedules.filter(item => String(item.scheduled_date).slice(0,10) === day).map(item => `<div class="patrol-calendar-event-wrap"><button type="button" class="patrol-calendar-event" data-schedule-id="${item.id}"><strong>${formatDisplayTimeRange(item.start_time,item.end_time)}</strong>${escapeHTML(item.team_name || item.route_name || item.location || 'Patrol')}<span class="calendar-status-chip ${item.status === 'Completed' ? 'completed' : item.status === 'Cancelled' ? 'cancelled' : 'open'}">${item.status === 'Completed' ? 'Completed' : item.status === 'Cancelled' ? 'Cancelled' : 'Open'}</span></button>${item.status !== 'Completed' && item.status !== 'Cancelled' ? `<button type="button" class="calendar-complete-event" data-complete-schedule-id="${item.id}">Mark completed</button>` : ''}</div>`).join('') || '<small>No patrols</small>'}<button type="button" class="calendar-empty-slot month-slot" data-calendar-slot="${day}|9">+ Add patrol</button></div>`).join('')}</div>`
             : renderHourlyCalendar(schedules, date, view);
         grid.querySelectorAll('[data-schedule-id]').forEach(button => button.addEventListener('click', () => window.editSchedule(Number(button.dataset.scheduleId))));
         grid.querySelectorAll('[data-complete-schedule-id]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); window.openCompletionLog(Number(button.dataset.completeScheduleId)); }));
@@ -1275,6 +1281,7 @@ async function loadPatrolCalendar() {
 // and a backdrop click.
 function resetScheduleFormState() {
     document.getElementById('scheduleForm').reset();
+    document.getElementById('scheduleStatus').value = 'Active';
     document.getElementById('editScheduleId').value = '';
     document.getElementById('scheduleEditScope').value = 'single';
     document.getElementById('scheduleEditScopeGroup').hidden = true;
@@ -1570,6 +1577,7 @@ function renderSchedules(schedules) {
 
     const savedRows = (suggestionOnly ? [] : pageItems).map(schedule => {
         const status = schedule.status || 'Active';
+        const displayStatus = status === 'Active' ? 'Open' : status;
         const groupRow = status !== previousStatus
             ? `<tr class="schedule-group-row"><td colspan="7"><i class="fa-solid ${groupIcons[status] || 'fa-list'}"></i> ${escapeHTML(status)} schedules<span class="schedule-group-count">(${groupCounts[status]})</span></td></tr>`
             : '';
@@ -1591,7 +1599,7 @@ function renderSchedules(schedules) {
                 <td>${escapeHTML(schedule.scheduled_date || schedule.day_of_week)}</td>
                 <td>${timeDisplay}</td>
                 <td><strong>${escapeHTML(schedule.team_name || 'Unassigned')}</strong>${schedule.tanods?.length ? '<br><small>' + schedule.tanods.map(t => escapeHTML(t.name)).join(', ') + '</small>' : '<br><small>No members assigned</small>'}</td>
-                <td><span class="badge ${statusClass}">${schedule.status || 'Active'}</span></td>
+                <td><span class="badge ${statusClass}">${displayStatus}</span></td>
                 <td>
                     <button type="button" class="btn-action-edit admin-action" onclick="openScheduleFromList(${schedule.id})"><i class="fa-solid fa-calendar-days"></i> Open Calendar</button>
                 </td>
