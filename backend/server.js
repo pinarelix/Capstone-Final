@@ -4792,6 +4792,11 @@ app.delete('/api/backup/:filename', authenticate, requireRole(['Executive Office
     res.json({ message: 'Backup deleted: ' + filename });
 });
 
+// Forecast routes must be registered before the global 404 handler.
+registerForecastRoutes(app, {
+    pool, authenticate, requireRole, logAudit, locations: BARANGAY_LOCATIONS
+});
+
 app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
 });
@@ -4873,12 +4878,6 @@ async function startServer() {
         server.on('error', reject);
     });
 }
-
-// Forecast routes are deliberately separate from the operational /api/cart
-// weighted-risk routes. Forecast rows live only in forecast tables.
-registerForecastRoutes(app, {
-    pool, authenticate, requireRole, logAudit, locations: BARANGAY_LOCATIONS
-});
 
 if (require.main === module) {
     startServer().catch((error) => {
