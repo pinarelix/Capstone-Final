@@ -1176,6 +1176,10 @@ body.role-decision-maker .cart-score-chip {
 .patrol-calendar-event-wrap { display: grid; gap: 3px; margin-bottom: 3px; }
 .calendar-complete-event { border: 0; border-radius: 5px; background: #dcfce7; color: #166534; cursor: pointer; font-size: .62rem; padding: 3px 5px; text-align: left; }
 .calendar-complete-event:hover { background: #bbf7d0; }
+.calendar-status-chip { display: block; width: fit-content; margin-top: 4px; padding: 2px 6px; border-radius: 999px; font-size: .58rem; font-weight: 800; line-height: 1.2; }
+.calendar-status-chip.open { color: #1d4ed8; background: #dbeafe; }
+.calendar-status-chip.completed { color: #166534; background: #dcfce7; }
+.calendar-status-chip.cancelled { color: #991b1b; background: #fee2e2; }
 #logFormCard[hidden] { display: none !important; }
 #logFormCard.edit-modal-mode { position: fixed; inset: 0; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 24px; margin: 0 !important; overflow-y: auto; background: rgba(15,23,42,.6); backdrop-filter: blur(4px); border: 0; border-radius: 0; box-shadow: none; }
 #logFormCard.edit-modal-mode form, #logFormCard.edit-modal-mode .form-header { width: min(620px, 100%); margin-left: auto; margin-right: auto; }
