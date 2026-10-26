@@ -660,6 +660,7 @@
     </style>
 <link rel="stylesheet" href="sidebar-drag.css">
 <link rel="stylesheet" href="record-map.css">
+<style>.forecast-overlay-panel{margin-bottom:10px;padding:12px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;color:#1e3a8a;display:flex;flex-direction:column;gap:5px}.forecast-overlay-panel small{color:#475569}.forecast-map-row{display:flex;justify-content:space-between;border-top:1px solid #dbeafe;padding-top:5px}</style>
 </head>
 <body class="heatmap-page workspace-page">
 
@@ -784,6 +785,7 @@
 
         <!-- MAP CARD -->
         <div class="map-card card" style="padding: 14px; min-width: 0;">
+            <aside id="forecastOverlayPanel" class="forecast-overlay-panel" aria-label="Weekly CART forecast overlay">Loading weekly forecast overlay…</aside>
             <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
                 <div>
                     <h2>Barangay 179 heatmap</h2>
@@ -853,6 +855,7 @@
 <!-- Grid Heatmap JS -->
 <script src="heatmap-analytics.js"></script>
 <script src="grid-heatmap.js"></script>
+<script src="forecast-map-overlay.js"></script>
 <script src="record-map-panel.js"></script>
 
 <!-- =========================================================
