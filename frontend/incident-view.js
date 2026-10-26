@@ -538,13 +538,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         <div class="meta-row">
-                            <div class="meta-row-icon"><i class="fa-solid fa-map-pin"></i></div>
-                            <div>
-                                <div class="detail-label">Coordinates</div>
-                                <div class="detail-value">${incident.latitude ? `${incident.latitude}, ${incident.longitude}` : 'N/A'}</div>
-                            </div>
-                        </div>
-                        <div class="meta-row">
                             <div class="meta-row-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
                             <div>
                                 <div class="detail-label">Reported On</div>

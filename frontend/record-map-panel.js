@@ -85,9 +85,7 @@ async function showMapRecord(id) {
                 mapInput('mapLot', 'Lot', record.addr_lot, { max: 50 }),
                 mapInput('mapHouse', 'House number', record.addr_house_no, { max: 50 }),
                 mapInput('mapUnit', 'Unit', record.addr_unit, { max: 50 })
-            ] : []),
-            mapInput('mapLat', 'Latitude', record.latitude, { type: 'number' }),
-            mapInput('mapLng', 'Longitude', record.longitude, { type: 'number' })
+            ] : [])
         ];
         const narrativeFields = [
             mapInput('mapDescription', 'Salaysay / description', record.description, { wide: true, textarea: true, max: 2000 }),
@@ -125,14 +123,13 @@ async function saveMapRecord(event) {
     event.preventDefault();
     if (!isAdmin() || !selectedMapRecord) return;
     const status = mapEl('mapRecordStatus'), notes = mapEl('mapNotes').value;
-    if (!mapEl('mapLat').value.trim() || !mapEl('mapLng').value.trim() || !mapEl('mapDate').value || !mapEl('mapTime').value) {
-        status.textContent = 'Incident date, time, latitude, and longitude are required.'; return;
+    if (!mapEl('mapDate').value || !mapEl('mapTime').value) {
+        status.textContent = 'Incident date and time are required.'; return;
     }
     if (notes.length > 200 || /[<>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(notes)) { status.textContent = 'Notes must be plain text, at most 200 characters.'; return; }
     const payload = { incident_type: mapEl('mapType').value, severity: mapEl('mapSeverity').value,
         date: mapEl('mapDate').value, time: mapEl('mapTime').value, street_name: mapEl('mapStreet').value,
         address: mapEl('mapAddress').value, status: mapEl('mapStatus').value,
-        latitude: Number(mapEl('mapLat').value), longitude: Number(mapEl('mapLng').value),
         description: mapEl('mapDescription').value, recommended_action: mapEl('mapAction').value,
         patrol_notes: notes };
     if (selectedMapRecord.form_type === 'blotter') Object.assign(payload, {

@@ -28,7 +28,16 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
     async function mapRecords(options = {}) {
         await configureCart();
         const paging = pagination({ page: options.page, limit: MAP_PAGE_SIZE }, MAP_PAGE_SIZE, MAP_PAGE_SIZE);
-        const where = ["i.is_draft = 0", "TRIM(i.status) != 'Resolved'", 'i.latitude IS NOT NULL', 'i.longitude IS NOT NULL'];
+        const where = [
+            "i.is_draft = 0",
+            "TRIM(i.status) IN ('Open', 'Monitoring')",
+            'i.latitude IS NOT NULL',
+            'i.longitude IS NOT NULL',
+            `NOT EXISTS (
+                SELECT 1 FROM archived_records a
+                WHERE a.entity_type = 'incident' AND a.entity_id = i.id AND a.restored_at IS NULL
+            )`
+        ];
         const values = [];
         if (options.id) {
             if (Array.isArray(options.id)) { where.push('i.id IN (?)'); values.push(options.id); }
@@ -74,7 +83,10 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
         `, [...values, options.id ? (Array.isArray(options.id) ? options.id.length : 1) : paging.limit, options.id ? 0 : paging.offset]);
         const [stats] = await pool.query(`SELECT street_name, COUNT(*) AS total,
             SUM(date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND date <= CURDATE()) AS recent
-            FROM incidents WHERE is_draft = 0 AND street_name IS NOT NULL GROUP BY street_name`);
+            FROM incidents i WHERE i.is_draft = 0 AND i.street_name IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM archived_records a
+                WHERE a.entity_type='incident' AND a.entity_id=i.id AND a.restored_at IS NULL)
+            GROUP BY street_name`);
         const byStreet = new Map(stats.map(s => [s.street_name, s]));
         // Count recurrence against ALL qualifying neighbors in SQL, not just
         // this display page. A page boundary must not change patrol eligibility.
@@ -82,7 +94,10 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
         if (rows.length) {
             const [counts] = await pool.query(`SELECT c.id, COUNT(n.id) AS nearby
                 FROM incidents c JOIN incidents n ON n.incident_type=c.incident_type
-                AND n.is_draft=0 AND TRIM(n.status)!='Resolved' AND n.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
+                AND n.is_draft=0 AND TRIM(n.status) IN ('Open', 'Monitoring')
+                AND NOT EXISTS (SELECT 1 FROM archived_records a
+                    WHERE a.entity_type='incident' AND a.entity_id=n.id AND a.restored_at IS NULL)
+                AND n.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
                 AND n.latitude BETWEEN c.latitude-.001 AND c.latitude+.001
                 AND n.longitude BETWEEN c.longitude-.001 AND c.longitude+.001
                 AND 12742000 * ASIN(SQRT(LEAST(1,
@@ -176,7 +191,7 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
         app.get('/api/incidents/:id/patrol-prefill', authenticate, writeRole, async (req, res) => {
             try {
                 const record = (await mapRecords({id:req.params.id}))[0];
-                if (!record) return res.status(409).json({ error: 'Only active geocoded records can be scheduled' });
+                if (!record || !record.eligible) return res.status(409).json({ error: 'Only active, patrol-eligible records can be scheduled.' });
                 const [{ today, tomorrow, now_time }] = (await pool.query('SELECT CURDATE() AS today, DATE_ADD(CURDATE(), INTERVAL 1 DAY) AS tomorrow, CURTIME() AS now_time'))[0];
                 const scheduledDate = record.time && String(record.time) <= String(now_time) ? tomorrow : today;
                 res.json({ record, scheduled_date: scheduledDate,
@@ -499,10 +514,12 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
             await db.query('DELETE FROM patrol_schedule_personnel_snapshots WHERE schedule_id=?', [id]);
             for (const person of body.personnel) {
                 const table = person.person_type === 'Volunteer' ? 'patrol_volunteers' : person.person_type === 'Team Leader' ? 'users' : 'tanods';
-                const [rows] = await db.query(`SELECT name, contact_no, ${person.person_type === 'Team Leader' ? "''" : 'address'} AS address FROM ${table} WHERE id=?`, [person.person_id]);
+                const [rows] = await db.query(`SELECT name, COALESCE(contact_no, '') AS contact_no,
+                    ${person.person_type === 'Team Leader' ? "''" : "COALESCE(address, '')"} AS address
+                    FROM ${table} WHERE id=?`, [person.person_id]);
                 if (rows[0]) await db.query(`INSERT INTO patrol_schedule_personnel_snapshots
                     (schedule_id, person_type, person_id, person_name, contact_no, address, team_name, assignment_type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [id, person.person_type, person.person_id, rows[0].name, rows[0].contact_no, rows[0].address, body.team_name || '', person.assignment_type || 'Primary']);
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [id, person.person_type, person.person_id, rows[0].name, rows[0].contact_no || '', rows[0].address || '', body.team_name || '', person.assignment_type || 'Primary']);
             }
         }
         if (body.source_record_ids !== undefined || body.incident_id !== undefined) {
@@ -524,7 +541,8 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
         }
         if (body.team_id) {
             const [teamRows] = await db.query(`SELECT pt.name AS team_name, pt.leader_user_id, COALESCE(u.name,'') AS leader_name,
-                    t.id AS tanod_id, t.name AS tanod_name, t.contact_no, t.address, ptt.role
+                    t.id AS tanod_id, t.name AS tanod_name, COALESCE(t.contact_no, '') AS contact_no,
+                    COALESCE(t.address, '') AS address, ptt.role
                 FROM patrol_teams pt LEFT JOIN users u ON u.id=pt.leader_user_id
                 JOIN patrol_team_tanods ptt ON ptt.team_id=pt.id AND ptt.is_active=1
                 JOIN tanods t ON t.id=ptt.tanod_id AND t.is_active=1 WHERE pt.id=?`, [body.team_id]);

@@ -105,6 +105,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response = await apiFetch('/incidents/' + id + '/patrol-prefill');
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Could not prepare record patrol');
+        if (data.record) {
+            allIncidents = [
+                data.record,
+                ...allIncidents.filter(record => Number(record.id) !== Number(data.record.id))
+            ];
+        }
         if (data.record?.date) {
             document.getElementById('monthSelect').value = String(data.record.date).slice(0, 10);
             updateDashboardWithCartData(selectedPatrolMonth());
