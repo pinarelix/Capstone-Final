@@ -1081,7 +1081,9 @@ async function saveSchedule() {
     const start_time = document.getElementById('scheduleStart').value;
     const end_time = document.getElementById('scheduleEnd').value;
     const reason = document.getElementById('scheduleReason').value.trim();
-    const status = document.getElementById('scheduleStatus').value;
+    // New patrols always start open/active. Existing schedules may retain
+    // their explicitly selected status when edited.
+    const status = id ? document.getElementById('scheduleStatus').value : 'Active';
     const teamName = document.getElementById('scheduleTeamName').value.trim();
     const selectedPersonnel = [...document.querySelectorAll('#scheduleTanods input[name="schedule-personnel"]:checked')].map(option => { const [person_type, rawId] = option.value.split(':'); return { person_type: person_type || 'Tanod', person_id: Number(rawId || option.value), assignment_type: 'Primary' }; });
     const memberIds = selectedPersonnel.filter(person => person.person_type === 'Tanod').map(person => person.person_id);
@@ -1241,6 +1243,7 @@ async function loadPatrolCalendar() {
 // and a backdrop click.
 function resetScheduleFormState() {
     document.getElementById('scheduleForm').reset();
+    document.getElementById('scheduleStatus').value = 'Active';
     document.getElementById('editScheduleId').value = '';
     document.getElementById('scheduleEditScope').value = 'single';
     document.getElementById('scheduleEditScopeGroup').hidden = true;

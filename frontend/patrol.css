@@ -1185,6 +1185,7 @@ body.role-decision-maker .cart-score-chip {
 #closeLogModalBtn { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 0; border-radius: 50%; background: #f1f5f9; color: #475569; cursor: pointer; }
 .calendar-day .calendar-hourly-header, .calendar-day .calendar-hour-row { --calendar-columns: 1; grid-template-columns: 74px minmax(220px, 1fr); }
 .calendar-week .calendar-hourly-header, .calendar-week .calendar-hour-row { --calendar-columns: 7; }
+.calendar-day .calendar-hourly-body, .calendar-week .calendar-hourly-body { max-height: calc(100dvh - 300px); min-height: 360px; overflow-y: auto; overscroll-behavior: contain; }
 .calendar-month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; padding: 16px; }
 .patrol-analytics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 18px; }
 .patrol-analytics-item { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; background: #f8fafc; }
