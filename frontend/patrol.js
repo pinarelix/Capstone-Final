@@ -222,7 +222,6 @@ function setupTabs() {
 
 async function loadAllDataLegacy() {
     try {
-        loadForecastRecommendations();
         console.log('📡 Loading patrol data with CART integration...');
         
         // Load incidents — CART recommendations need the full active
@@ -299,7 +298,6 @@ async function loadAllDataLegacy() {
 // and risk-analysis requests one after another.
 async function loadAllData() {
     try {
-        loadForecastRecommendations();
         const [incResponse, decayResponse, scheduleResponse, logResponse] = await Promise.all([
             window.apiFetch('/heatmap/records?window_days=90&limit=500'),
             window.apiFetch('/patrol/area-decay'),
