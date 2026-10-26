@@ -38,7 +38,23 @@ function registerForecastRoutes(app, { pool, authenticate, requireRole, logAudit
     catch (e) { res.status(503).json({ error: 'Forecast model storage unavailable.' }); }
   });
   app.post('/api/forecasts/run', authenticate, executive, async (req, res) => {
-    try { await logAudit(req.userId, 'FORECAST_RUN_REQUESTED', 'cart_forecast_runs', null, null, 'Manual forecast requested'); res.status(202).json({ accepted: true, status: 'queued', message: 'Forecast generation requires an approved local model artifact.' }); }
+    try {
+      const artifact = path.join(MODEL_DIR, 'cart.joblib');
+      if (!fs.existsSync(artifact)) return res.status(409).json({ error: 'No trained local model is available. Train a model first.' });
+      const now = new Date(); const day = now.getUTCDay(); const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - ((day + 6) % 7))); const end = new Date(monday.getTime() + 7 * 86400000);
+      const iso = d => d.toISOString().slice(0, 10); const rows = locations.map((street, i) => ({ street_id: street, count_7d: 0, count_28d: 0, count_84d: 0, count_182d: 0, historical_average: 0, weeks_since_last: 999, month: monday.getUTCMonth() + 1, street_index: i }));
+      const predictions = JSON.parse(await runPython([path.join('backend','ml','predict_weekly.py'),'--artifact',artifact], rows));
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const version = `synthetic-prototype-${iso(monday)}`;
+        const [model] = await conn.query(`INSERT INTO cart_model_registry (model_version,algorithm,data_origin,feature_schema_version,artifact_path,artifact_checksum,classification_threshold,status) VALUES (?,?,?,?,?,?,?,'prototype_synthetic') ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)`, [version,'CART Decision Tree Classifier','synthetic','cart-weekly-v1',artifact,require('crypto').createHash('sha256').update(fs.readFileSync(artifact)).digest('hex'),.5]);
+        const modelId = model.insertId; const [run] = await conn.query(`INSERT INTO cart_forecast_runs (model_id,forecast_start,forecast_end,data_cutoff,run_type,run_status,data_origin,created_by) VALUES (?,?,?,?, 'manual','completed','synthetic',?) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)`, [modelId,iso(monday),iso(end),now,req.userId]);
+        const runId = run.insertId;
+        for (let i=0;i<locations.length;i++) await conn.query(`INSERT INTO cart_forecast_predictions (forecast_run_id,street_name,forecast_start,forecast_end,predicted_label,occurrence_probability,decision_threshold,model_id,feature_snapshot,validation_status) VALUES (?,?,?,?,?,?,?,?,?,'prototype_synthetic') ON DUPLICATE KEY UPDATE predicted_label=VALUES(predicted_label),occurrence_probability=VALUES(occurrence_probability),feature_snapshot=VALUES(feature_snapshot)`, [runId,locations[i],iso(monday),iso(end),predictions[i].label,predictions[i].probability,.5,modelId,JSON.stringify(rows[i])]);
+        await conn.commit(); await logAudit(req.userId, 'FORECAST_RUN_COMPLETED', 'cart_forecast_runs', runId, null, 'Synthetic prototype forecast generated'); res.status(201).json({ run_id: runId, forecast_start: iso(monday), forecast_end: iso(end), data_origin: 'synthetic', validation_status: 'prototype_synthetic' });
+      } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+    }
     catch (e) { res.status(500).json({ error: e.message }); }
   });
   app.post('/api/forecast-models/train', authenticate, executive, async (req, res) => {

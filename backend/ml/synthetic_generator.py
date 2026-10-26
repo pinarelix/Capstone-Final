@@ -28,6 +28,8 @@ def main():
     p.add_argument('--start', default='2023-01-02'); p.add_argument('--months', type=int, default=36)
     a = p.parse_args(); streets = [f'Street {i:02d}' for i in range(1, 72)]
     rows = generate(streets, date.fromisoformat(a.start), a.months, a.seed)
+    from pathlib import Path
+    Path(a.output).parent.mkdir(parents=True, exist_ok=True)
     with open(a.output, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=rows[0]); w.writeheader(); w.writerows(rows)
 if __name__ == '__main__': main()

@@ -49,3 +49,7 @@ out/
 native/**/bin/
 native/**/obj/
 native/**/*.user
+backend/ml/artifacts/*.csv
+backend/ml/artifacts/*.joblib
+backend/ml/artifacts/evaluation.json
+backend/ml/__pycache__/

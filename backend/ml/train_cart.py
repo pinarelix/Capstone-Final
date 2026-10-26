@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse, csv, json, hashlib
 from pathlib import Path
+import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
@@ -29,10 +30,10 @@ def train(rows, artifact, report):
     tr=[r for r in rows if split(r)=='train']; va=[r for r in rows if split(r)=='validation']; te=[r for r in rows if split(r)=='test']
     numeric=FEATURES[1:]; prep=ColumnTransformer([('street',OneHotEncoder(handle_unknown='ignore'),['street_id']),('num','passthrough',numeric)])
     model=Pipeline([('preprocess',prep),('classifier',DecisionTreeClassifier(criterion='gini',max_depth=6,min_samples_leaf=8,class_weight='balanced',random_state=179))])
-    model.fit([{k:r[k] for k in FEATURES} for r in tr],[r['y'] for r in tr])
+    model.fit(pd.DataFrame([{k:r[k] for k in FEATURES} for r in tr]),[r['y'] for r in tr])
     result={'algorithm':'CART Decision Tree Classifier','feature_schema_version':'cart-weekly-v1','data_origin':rows[0].get('data_origin','unknown'),'threshold':.5,'splits':{}}
     for name, part in [('train',tr),('validation',va),('test',te)]:
-        y=[r['y'] for r in part]; prob=model.predict_proba([{k:r[k] for k in FEATURES} for r in part])[:,1]; pred=(prob>=.5).astype(int)
+        y=[r['y'] for r in part]; prob=model.predict_proba(pd.DataFrame([{k:r[k] for k in FEATURES} for r in part]))[:,1]; pred=(prob>=.5).astype(int)
         result['splits'][name]={**metrics(y,pred,prob),'start':part[0]['week_start'],'end':part[-1]['week_end']}
     Path(artifact).parent.mkdir(parents=True,exist_ok=True); joblib.dump(model,artifact)
     result['artifact_sha256']=hashlib.sha256(Path(artifact).read_bytes()).hexdigest(); Path(report).parent.mkdir(parents=True,exist_ok=True); Path(report).write_text(json.dumps(result,indent=2),encoding='utf-8'); return result
