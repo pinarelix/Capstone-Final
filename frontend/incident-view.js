@@ -4,7 +4,7 @@
 function renderCartBreakdown(decisionPath) {
     const lines = String(decisionPath || '').split('\n').map(line => line.trim()).filter(Boolean);
     const factors = lines.slice(1, 6).map(line => {
-        const match = line.match(/^\d+\.\s*(.+?)\s*→\s*(.+?)\s*→\s*([\d.]+) points \(([\d.]+)% weight\)$/);
+        const match = line.match(/^\d+\.\s*([^:]+):\s*(.+?)\s*→\s*([\d.]+) points \(([\d.]+)% weight\)$/);
         if (!match) return null;
         const points = Number(match[3]); const weight = Number(match[4]);
         return { name: match[1], value: match[2], points, weight, contribution: (points * weight / 100).toFixed(2) };
