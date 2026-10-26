@@ -259,12 +259,12 @@
             font-size: 0.75rem;
             font-weight: 600;
             min-width: 0;
-            max-width: 48%;
-            white-space: normal;
-            flex-shrink: 1;
+            max-width: none;
+            white-space: nowrap;
+            flex-shrink: 0;
             justify-content: flex-end;
             text-align: right;
-            overflow-wrap: anywhere;
+            overflow-wrap: normal;
         }
 
         #systemStatus { min-width: 0; overflow: hidden; }
@@ -569,7 +569,7 @@
             body.settings-page .settings-card .card-header { margin-bottom: 10px; }
             body.settings-page .settings-card .card-header > div:last-child { min-width: 0; }
             body.settings-page .settings-card .card-header p { margin: 2px 0 0; overflow-wrap: anywhere; }
-            body.settings-page .status-item { display: grid; grid-template-columns: minmax(0,1fr) minmax(96px,auto); gap: 10px; }
+            body.settings-page .status-item { display: grid; grid-template-columns: minmax(0,1fr) max-content; gap: 10px; }
             body.settings-page .status-dot { max-width: 100%; }
             body.settings-page #tab-audit-trail.active .settings-card,
             body.settings-page #tab-archive.active .settings-card { display: flex; flex-direction: column; overflow: hidden; }
@@ -1449,8 +1449,13 @@
             return;
         }
 
-        if (newPass.length < 8) {
-            showToast('New password must be at least 8 characters.', 'error');
+        if (newPass.length < 8 || newPass.length > 12) {
+            showToast('New password must be 8–12 characters.', 'error');
+            return;
+        }
+
+        if (!/[A-Z]/.test(newPass) || !/[a-z]/.test(newPass) || !/[0-9]/.test(newPass) || !/[^A-Za-z0-9]/.test(newPass)) {
+            showToast('New password needs uppercase, lowercase, number and special characters.', 'error');
             return;
         }
 

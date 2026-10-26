@@ -154,8 +154,10 @@ describe('Record map, notes, roles, and linked patrol scheduling', () => {
         const tanod = await request(app).post('/api/tanods').set(auth('executive')).send({ name: 'QA Tanod One' });
         expect(tanod.status).toBe(201); tanodIds.push(tanod.body.id);
         const prefill = await request(app).get(`/api/incidents/${scamId}/patrol-prefill`).set(auth('executive'));
-        expect(prefill.status).toBe(200);
-        expect(prefill.body.record.eligible).toBe(false);
+        expect(prefill.status).toBe(409);
+        const eligiblePrefill = await request(app).get(`/api/incidents/${theftId}/patrol-prefill`).set(auth('executive'));
+        expect(eligiblePrefill.status).toBe(200);
+        expect(eligiblePrefill.body.record.eligible).toBe(true);
         const day = new Date(today + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
         const payload = { incident_id: scamId, location: 'Balite Street', start_time: '20:00', end_time: '23:59', day_of_week: day,
             scheduled_date: today, tanod_ids: [tanod.body.id], reason: 'Manual visibility follow-up', latitude: 0, longitude: 0 };

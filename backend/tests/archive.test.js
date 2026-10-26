@@ -82,6 +82,15 @@ describe('Archive: deleted records can be listed and restored', () => {
         return res.body.find(e => e.entity_id === id);
     };
 
+    const createArchiveIncident = async () => {
+        const [pins] = await pool.query("SELECT latitude, longitude FROM location_coordinates WHERE location='Balite Street'");
+        return request(app).post('/api/incidents').set('Authorization', `Bearer ${adminToken}`).send({
+            ...incidentPayload,
+            latitude: Number(pins[0].latitude),
+            longitude: Number(pins[0].longitude)
+        });
+    };
+
     test('only the Deputy Officer can view or restore the archive', async () => {
         for (const token of [dmToken, deskToken]) {
             const list = await request(app).get('/api/archive').set('Authorization', `Bearer ${token}`);
@@ -92,7 +101,8 @@ describe('Archive: deleted records can be listed and restored', () => {
     });
 
     test('deleting an incident archives it, and restore brings it back', async () => {
-        const created = await request(app).post('/api/incidents').set('Authorization', `Bearer ${adminToken}`).send(incidentPayload);
+        const created = await createArchiveIncident();
+        if (created.status !== 201) throw new Error(`Incident setup failed (${created.status}): ${JSON.stringify(created.body)}`);
         const incidentId = created.body.id;
         cleanup.incidents.push(incidentId);
 
@@ -100,6 +110,11 @@ describe('Archive: deleted records can be listed and restored', () => {
         expect(del.status).toBe(200);
         const [gone] = await pool.query('SELECT id FROM incidents WHERE id = ?', [incidentId]);
         expect(gone).toHaveLength(0);
+        const summaryWhileArchived = await request(app)
+            .get('/api/incidents/summary?location=Balite%20Street&include_resolved=1')
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(summaryWhileArchived.status).toBe(200);
+        expect(Number(summaryWhileArchived.body.total)).toBe(0);
 
         const entry = await archiveEntry('incident', incidentId);
         expect(entry).toBeDefined();
@@ -117,9 +132,15 @@ describe('Archive: deleted records can be listed and restored', () => {
     });
 
     test('restoring a schedule re-links its patrol logs', async () => {
+        const created = await createArchiveIncident();
+        if (created.status !== 201) throw new Error(`Incident setup failed (${created.status}): ${JSON.stringify(created.body)}`);
+        const incidentId = created.body.id;
+        cleanup.incidents.push(incidentId);
         const sched = await request(app).post('/api/patrol-schedules').set('Authorization', `Bearer ${adminToken}`).send({
+            incident_id: incidentId, source_record_ids: [incidentId], scheduled_date: '2026-01-16',
             location: 'Balite Street', start_time: '20:00', end_time: '22:00', day_of_week: 'Friday'
         });
+        expect(sched.status).toBe(201);
         const scheduleId = sched.body.schedule.id;
         cleanup.schedules.push(scheduleId);
         const log = await request(app).post('/api/patrol-logs').set('Authorization', `Bearer ${adminToken}`).send({

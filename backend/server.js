@@ -482,7 +482,7 @@ const reportExportSchema = Joi.object({
     recordCount: Joi.number().integer().min(0).allow(null)
 });
 
-const PASSWORD_POLICY_MESSAGE = 'Must be at least 8 characters with at least one uppercase, one lowercase, one number and one special character.';
+const PASSWORD_POLICY_MESSAGE = 'Must be 8–12 characters with at least one uppercase, one lowercase, one number and one special character.';
 const strongPasswordSchema = Joi.string().min(8).max(12)
     .pattern(/[A-Z]/).pattern(/[a-z]/).pattern(/[0-9]/).pattern(/[^A-Za-z0-9]/)
     .messages({
@@ -540,7 +540,7 @@ const resetPasswordSchema = Joi.object({
 // Patrol Schedule Schema
 const scheduleSchema = Joi.object({
     incident_id: Joi.number().integer().positive().allow(null),
-    source_record_ids: Joi.array().items(Joi.number().integer().positive()).unique().max(50).default([]),
+    source_record_ids: Joi.array().items(Joi.number().integer().positive()).unique().max(1).default([]),
     scheduled_date: dateOnlySchema.allow(null, ''),
     priority: Joi.string().valid('High', 'Moderate', 'Low'),
     exact_address: Joi.string().max(255).allow(''),

@@ -91,8 +91,10 @@ describe('Record map UI contract', () => {
         expect(patrol).not.toContain('id="recommendationsContainer"');
         expect(patrol).not.toContain('patrol-search.js');
         expect(patrol).toMatch(/id="monthSelect"[^>]+type="date"/);
-        expect(patrol).toContain('id="scheduleRecordSelect"');
-        expect(patrol).toContain('active risk-map record');
+        expect(patrol).toContain('id="scheduleRecordId"');
+        expect(patrol).toContain('id="scheduleRecordSummary"');
+        expect(patrol).not.toContain('id="scheduleRecordSelect"');
+        expect(patrol).not.toContain('id="scheduleRouteStops"');
         expect(patrol).toContain('id="scheduleTeamName"');
         expect(patrol).toContain('Team members');
         expect(patrol).not.toContain('id="scheduleMapPicker"');

@@ -4,8 +4,8 @@ const crypto  = require('crypto');
 const { app, pool } = require('../server');
 const { hashToken } = require('../token-utils');
 
-const TEST_PASSWORD = 'TestPass123!';
-const CHANGED_PASSWORD = 'ChangedPass456!';
+const TEST_PASSWORD = 'Test123!';
+const CHANGED_PASSWORD = 'Changed1!';
 
 let deputyToken, kagawadToken, deputyId, kagawadId;
 
@@ -168,14 +168,14 @@ describe('H-5: Password-reset tokens must be cryptographically strong and hashed
     test('reset-password succeeds with the raw token', async () => {
         const res = await request(app)
             .post('/api/auth/reset-password')
-            .send({ username: 'p1_h5_user', reset_token: resetToken, new_password: 'NewSecurePass789!' });
+            .send({ username: 'p1_h5_user', reset_token: resetToken, new_password: 'NewPass789!' });
         expect(res.status).toBe(200);
     });
 
     test('reset token is single-use — reuse fails', async () => {
         const res = await request(app)
             .post('/api/auth/reset-password')
-            .send({ username: 'p1_h5_user', reset_token: resetToken, new_password: 'AnotherPass000!' });
+            .send({ username: 'p1_h5_user', reset_token: resetToken, new_password: 'Another0!' });
         expect(res.status).toBe(400);
     });
 
@@ -190,7 +190,7 @@ describe('H-5: Password-reset tokens must be cryptographically strong and hashed
 
         const res = await request(app)
             .post('/api/auth/reset-password')
-            .send({ username: 'p1_h5_user', reset_token: firstToken, new_password: 'ShouldFail111!' });
+            .send({ username: 'p1_h5_user', reset_token: firstToken, new_password: 'FailPass1!' });
         expect(res.status).toBe(400);
     });
 });
