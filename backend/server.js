@@ -19,6 +19,7 @@ const { createArchive, registerArchiveRoutes } = require('./archive');
 const { isSetupCompleted, markSetupCompleted, generateRecoveryToken } = require('./config-manager');
 const { hashToken, generateSessionToken, generateResetToken } = require('./token-utils');
 const { pagination, validatedSearch, appendDateFilters, registerRecordSummaries } = require('./recordQueries');
+const { registerForecastRoutes } = require('./forecast-service');
 
 // The installed desktop app passes APP_CONFIG_PATH/UPLOADS_DIR (see
 // main.js) so settings and uploaded files live in the user's AppData
@@ -4872,6 +4873,12 @@ async function startServer() {
         server.on('error', reject);
     });
 }
+
+// Forecast routes are deliberately separate from the operational /api/cart
+// weighted-risk routes. Forecast rows live only in forecast tables.
+registerForecastRoutes(app, {
+    pool, authenticate, requireRole, logAudit, locations: BARANGAY_LOCATIONS
+});
 
 if (require.main === module) {
     startServer().catch((error) => {
