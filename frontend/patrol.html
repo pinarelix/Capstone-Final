@@ -134,6 +134,11 @@
             ====================================================== -->
             <div id="tab-recommendations" class="patrol-tab-content">
 
+                <section class="patrol-command-panel forecast-patrol-panel" aria-labelledby="forecastPatrolTitle">
+                    <div class="patrol-command-head"><div><h2 id="forecastPatrolTitle"><i class="fa-solid fa-chart-line"></i> Weekly CART forecasts</h2><p>Forecast recommendations are simulated until validated on real Barangay 179 history.</p></div><a class="btn btn-secondary" href="forecast.html">Open Forecasts</a></div>
+                    <div id="patrolForecastSummary" class="calendar-risk-recommendations"><span class="text-muted">Loading forecast recommendations…</span></div>
+                </section>
+
                 <section class="patrol-command-panel" aria-labelledby="patrolDecisionTitle">
                     <div class="patrol-command-head">
                         <div>
@@ -761,6 +766,7 @@
     <script src="locationList.js"></script>
 
     <script src="patrol.js"></script>
+    <script src="forecast-patrol.js"></script>
     <script src="record-patrol-schedule.js"></script>
 
     <script>

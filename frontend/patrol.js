@@ -221,6 +221,7 @@ function setupTabs() {
 
 async function loadAllData() {
     try {
+        loadForecastRecommendations();
         console.log('📡 Loading patrol data with CART integration...');
         
         // Load incidents — CART recommendations need the full active
