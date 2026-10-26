@@ -1,1 +1,37 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weekly CART Forecasts</title><link rel="stylesheet" href="dashboard.css"><link rel="stylesheet" href="forecast.css"></head><body><main class="forecast-shell"><a href="dashboard.html">← Dashboard</a><header><div><p class="eyebrow">CART Forecasting</p><h1>Weekly street forecasts</h1><p id="status">Loading forecast status…</p></div><button id="runForecast" class="btn btn-primary">Run forecast</button></header><section id="summary" class="forecast-grid"></section><section class="forecast-card"><h2>Street predictions</h2><div class="table-responsive"><table class="data-table"><thead><tr><th>Street</th><th>Forecast period</th><th>Prediction</th><th>Probability</th><th>Model</th></tr></thead><tbody id="forecastRows"></tbody></table></div></section><section class="forecast-card"><h2>Validation notice</h2><p id="validation">Synthetic Prototype — Not Validated on Real Barangay Data</p></section></main><script src="apiHelper.js"></script><script src="forecast.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Forecasts | Barangay 179 Crime BI</title>
+    <script src="sidebar-state.js"></script>
+    <link rel="preload" href="vendor/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="dashboard.css"><link rel="stylesheet" href="patrol.css"><link rel="stylesheet" href="forecast.css">
+    <link rel="stylesheet" href="vendor/css/fontawesome-6.5.2.min.css"><link rel="stylesheet" href="vendor/css/local-fonts.css">
+</head>
+<body class="workspace-page forecast-page">
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-header"><div class="brand-logo-container"><img src="logo_jpeg.jfif" alt="Barangay 179 Logo" class="brand-logo-img"></div><div class="brand-info"><h2>Barangay 179 Crime BI</h2><p>Public Safety Command Center</p></div></div>
+        <div class="user-profile"><div class="profile-info"><h3 id="userNameDisplay">Barangay Secretary</h3><p id="userRoleDisplay">Forecast workspace</p></div></div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item"><span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span><span>Dashboard</span></a>
+            <a href="incident.html" class="nav-item admin-only"><span class="nav-icon"><i class="fa-solid fa-folder-open"></i></span><span>Records</span></a>
+            <a href="incident-view.html" class="nav-item"><span class="nav-icon"><i class="fa-solid fa-eye"></i></span><span>View</span></a>
+            <a href="grid-heatmap.html" class="nav-item"><span class="nav-icon"><i class="fa-solid fa-location-dot"></i></span><span>Risk Map</span></a>
+            <a href="patrol.html" class="nav-item"><span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span><span>Decisions</span></a>
+            <a href="forecast.html" class="nav-item active"><span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span><span>Forecasts</span></a>
+            <a href="report.html" class="nav-item"><span class="nav-icon"><i class="fa-solid fa-file-lines"></i></span><span>Reports</span></a>
+            <a href="users.html" class="nav-item admin-only"><span class="nav-icon"><i class="fa-solid fa-users"></i></span><span>Users</span></a>
+            <a href="settings.html" class="nav-item admin-only"><span class="nav-icon"><i class="fa-solid fa-gear"></i></span><span>Settings</span></a>
+        </nav>
+    </aside>
+    <main class="main-content forecast-main">
+        <div class="top-header"><div><p class="page-kicker">CART FORECASTING</p><h1>Weekly street forecasts</h1><p class="page-subtitle">One seven-day prediction for every registered Barangay 179 street.</p></div><div class="forecast-actions"><span id="statusBadge" class="status-badge status-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading</span><button id="runForecast" class="btn btn-primary"><i class="fa-solid fa-play"></i> Run forecast</button></div></div>
+        <div id="status" class="sr-only" role="status" aria-live="polite">Loading forecast status…</div>
+        <section id="summary" class="forecast-grid" aria-label="Forecast summary"></section>
+        <section class="forecast-card forecast-table-card"><div class="section-heading"><div><h2>Street predictions</h2><p>Forecasts are separate from actual incident records and rule-based risk scores.</p></div><div class="table-tools"><input id="streetFilter" type="search" placeholder="Search streets" aria-label="Search streets"><select id="predictionFilter" aria-label="Filter predictions"><option value="all">All predictions</option><option value="positive">Predicted occurrence</option><option value="negative">No occurrence predicted</option></select></div></div><div class="table-responsive"><table class="data-table"><thead><tr><th>Street</th><th>Forecast period</th><th>Prediction</th><th>Probability</th><th>Model</th></tr></thead><tbody id="forecastRows"><tr><td colspan="5" class="table-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading forecasts…</td></tr></tbody></table></div></section>
+        <section class="forecast-card validation-card"><div class="validation-icon"><i class="fa-solid fa-flask"></i></div><div><p class="card-kicker">VALIDATION STATUS</p><h2>Synthetic prototype</h2><p id="validation">Synthetic Prototype — Not Validated on Real Barangay Data</p><small>Use this prototype for testing the workflow only. It must not drive automatic patrol decisions.</small></div></section>
+    </main>
+</div>
+<script src="apiHelper.js"></script><script src="forecast.js"></script>
+</body></html>
