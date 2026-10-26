@@ -156,6 +156,7 @@ async function migrate() {
         await runSqlMigration(conn, '003_record_type_catalog.sql');
         await runSqlMigration(conn, '004_unified_analytics_view.sql');
         await migrateRecordPatrol(conn);
+        await runSqlMigration(conn, '20261026_cart_forecasts.sql');
 
         // 8. Respondent structured address columns
         for (const tbl of ['blotter_records', 'incident_records']) {
