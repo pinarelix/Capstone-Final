@@ -52,7 +52,7 @@ The app uses an Electron desktop shell with an HTML interface and an internal Ex
 - Priority area identification
 - Suggested personnel deployment
 - Patrol scheduling and logging
-- Live recommendation search and severity/recency ordering
+- Live recommendation search with subjective severity indication and recency ordering
 
 ### 📄 Reports Module
 - Printable incident summaries

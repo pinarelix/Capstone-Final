@@ -105,6 +105,45 @@ describe('Record map, notes, roles, and linked patrol scheduling', () => {
         expect(response.body.records.some(item => item.id === scamId)).toBe(false);
         expect(response.body.records.some(item => item.id === harassmentId)).toBe(false);
     });
+    test('patrol-adjusted risk is auditable, hidden when archived, and can be reactivated only by an Executive Officer', async () => {
+        const initial = await request(app).get('/api/heatmap/records').set(auth('executive'));
+        const base = initial.body.records.find(item => item.id === theftId).base_cart_score;
+        await pool.query(`INSERT INTO incident_patrol_risk_state
+            (incident_id, completed_patrol_count, risk_multiplier, base_cart_score, adjusted_risk_score, is_monitoring_archived)
+            VALUES (?, 2, ?, ?, ?, 0) ON DUPLICATE KEY UPDATE completed_patrol_count=2, risk_multiplier=VALUES(risk_multiplier),
+                base_cart_score=VALUES(base_cart_score), adjusted_risk_score=VALUES(adjusted_risk_score), is_monitoring_archived=0`,
+        [theftId, 0.85 ** 2, base, Number(base) * (0.85 ** 2)]);
+        const adjusted = await request(app).get('/api/heatmap/records').set(auth('executive'));
+        const adjustedRow = adjusted.body.records.find(item => item.id === theftId);
+        expect(adjustedRow.completed_patrol_count).toBe(2);
+        expect(adjustedRow.cart_score).toBeCloseTo(Number(base) * (0.85 ** 2), 2);
+        expect(adjustedRow.base_cart_score).toBe(base);
+        await pool.query('UPDATE incident_patrol_risk_state SET is_monitoring_archived=1, archived_at=NOW() WHERE incident_id=?', [theftId]);
+        expect((await request(app).get('/api/heatmap/records').set(auth('executive'))).body.records.some(row => row.id === theftId)).toBe(false);
+        expect((await request(app).post(`/api/incidents/${theftId}/patrol-risk/reactivate`).set(auth('viewer'))).status).toBe(403);
+        expect((await request(app).post(`/api/incidents/${theftId}/patrol-risk/reactivate`).set(auth('executive'))).status).toBe(200);
+        expect((await request(app).get('/api/heatmap/records').set(auth('executive'))).body.records.some(row => row.id === theftId)).toBe(true);
+        await pool.query('DELETE FROM incident_patrol_risk_state WHERE incident_id=?', [theftId]);
+    });
+    test('active-route records identify the closest route and count only additional active loops', async () => {
+        const routeIds = [];
+        try {
+            for (const [index, offset] of [0, 1].entries()) {
+                const [route] = await pool.query("INSERT INTO patrol_routes (route_name, source_type, status, suggested_for_date) VALUES (?, 'Manual', 'Active', ?)", [`QA active route ${index + 1}`, today]);
+                routeIds.push(route.insertId);
+                await pool.query('INSERT INTO patrol_route_stops (route_id, stop_order, incident_id, location, address, latitude, longitude) VALUES (?,1,?,?,?,?,?)', [route.insertId, theftId, 'Balite Street', 'QA address', 14.75, 121.07]);
+                await pool.query("INSERT INTO patrol_route_deployments (route_id, scheduled_date, shift, status) VALUES (?, DATE_ADD(?, INTERVAL ? DAY), 'AM', 'Active')", [route.insertId, today, offset]);
+            }
+            const planner = await request(app).get(`/api/patrol-route-planner?date=${today}`).set(auth('executive'));
+            expect(planner.status).toBe(200);
+            const record = planner.body.records.find(row => row.id === theftId);
+            expect(record.active_route_count).toBe(2);
+            expect(record.patrol_schedule_count).toBe(1);
+            expect(record.closest_active_route_id).toBe(routeIds[0]);
+        } finally {
+            for (const routeId of routeIds) await pool.query('DELETE FROM patrol_routes WHERE id=?', [routeId]);
+        }
+    });
     test('threshold changes immediately change override eligibility without a cache delay', async () => {
         await pool.query("UPDATE system_settings SET setting_value='10' WHERE setting_key='default_danger_threshold_moderate'");
         await pool.query("UPDATE system_settings SET setting_value='20' WHERE setting_key='default_danger_threshold_high'");

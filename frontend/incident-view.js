@@ -402,6 +402,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function viewIncident(id) {
         const modalBody = document.getElementById('viewIncidentBody');
+        const reactivateRiskBtn = document.getElementById('reactivatePatrolRiskBtn');
+        if (reactivateRiskBtn) { reactivateRiskBtn.hidden = true; reactivateRiskBtn.onclick = null; }
         modalBody.innerHTML = `
             <div class="text-center py-4">
                 <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading incident details...
@@ -497,7 +499,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="badge" style="background:${incident.form_type === 'crime' ? '#3b82f6' : '#f59e0b'};color:#fff;">${incident.form_type === 'crime' ? 'Incident Form' : 'Blotter Form'}</span>
                             <span class="badge ${statusClass}">${escapeHTML(incident.status || 'Open')}</span>
                             <span class="badge ${modalDangerClass}">${escapeHTML(incident.danger_level || 'Not assessed')}</span>
-                            ${incident.severity ? `<span class="badge ${incident.severity === 'High' ? 'badge-danger-high' : incident.severity === 'Medium' ? 'badge-danger-mod' : 'badge-danger-low'}">Severity: ${escapeHTML(incident.severity)}</span>` : ''}
+                            ${incident.severity ? `<span class="badge ${incident.severity === 'High' ? 'badge-danger-high' : incident.severity === 'Medium' ? 'badge-danger-mod' : 'badge-danger-low'}" title="Subjective indication entered on the form; not a verified finding or final classification.">Subjective severity: ${escapeHTML(incident.severity)}</span><span class="badge badge-subtle" title="This is an indication supplied during form entry.">Indication only</span>` : ''}
                             ${incident.priority === 'Urgent' ? `<span class="badge badge-priority-urgent"><i class="fa-solid fa-bolt"></i> Urgent</span>` : ''}
                             ${incident.cart_score != null ? `<span class="badge badge-danger-${dangerTier} cart-only" title="Weighted CART risk score (0-100)">CART Score: ${parseFloat(incident.cart_score).toFixed(0)}</span>` : ''}
                         </div>
@@ -576,6 +578,24 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="incident-text-card-header"><i class="fa-solid fa-chart-line"></i> CART Risk Breakdown</div>
                             <div class="incident-text-card-body" style="line-height: 1.7;">${escapeHTML(incident.cart_decision_path).replace(/\n/g, '<br>')}</div>
                         </div>` : ''}
+                        ${Number(incident.completed_patrol_count || 0) > 0 || incident.risk_monitoring_archived ? `
+                        <div class="incident-text-card accent-cart cart-only">
+                            <div class="incident-text-card-header"><i class="fa-solid fa-shield-halved"></i> Patrol-adjusted operational risk</div>
+                            <div class="incident-text-card-body" style="line-height:1.7;">
+                                Original CART score: <strong>${Number(incident.base_cart_score ?? incident.cart_score ?? 0).toFixed(2)}</strong><br>
+                                Completed patrols: <strong>${Number(incident.completed_patrol_count || 0)}</strong><br>
+                                Current operational risk: <strong>${Number(incident.cart_score || 0).toFixed(2)}</strong><br>
+                                Risk-monitoring state: <strong id="riskMonitoringState">${incident.risk_monitoring_archived ? 'Archived from active maps' : 'Active'}</strong>
+                            </div>
+                        </div>` : ''}
+                        <div class="incident-text-card accent-resolution">
+                            <div class="incident-text-card-header"><i class="fa-solid fa-route"></i> Patrol route status</div>
+                            <div class="incident-text-card-body">
+                                ${incident.linked_route_patrols?.length
+                                    ? incident.linked_route_patrols.map(link => `<div style="margin-bottom:8px;"><strong>${escapeHTML(link.route_name || 'Patrol route')}</strong><br>${escapeHTML(link.team_name || 'Unassigned team')} · ${escapeHTML(link.scheduled_date ? String(link.scheduled_date).slice(0, 10) : 'No date')} · ${escapeHTML(link.shift || 'Block not set')} · ${escapeHTML(link.status || 'Draft')}</div>`).join('')
+                                    : 'This record is not included in a patrol route.'}
+                            </div>
+                        </div>
                         ${incident.evidence && incident.evidence.length > 0 ? `
                         <div class="incident-text-card accent-evidence">
                             <div class="incident-text-card-header"><i class="fa-solid fa-file-image"></i> Evidence</div>
@@ -601,6 +621,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (updateBtn) {
                 updateBtn.onclick = () => {
                     window.location.href = `incident.html?edit=${incident.id}`;
+                };
+            }
+            if (reactivateRiskBtn && incident.risk_monitoring_archived && isAdmin()) {
+                reactivateRiskBtn.hidden = false;
+                reactivateRiskBtn.onclick = async () => {
+                    reactivateRiskBtn.disabled = true;
+                    const response = await apiFetch(`/incidents/${incident.id}/patrol-risk/reactivate`, { method: 'POST' });
+                    const result = await response.json().catch(() => ({}));
+                    reactivateRiskBtn.disabled = false;
+                    if (!response.ok) { showToast(result.error || 'Could not reactivate risk monitoring.', 'error'); return; }
+                    reactivateRiskBtn.hidden = true;
+                    const state = document.getElementById('riskMonitoringState'); if (state) state.textContent = 'Active';
+                    showToast(result.message || 'Incident restored to active risk monitoring.', 'success');
                 };
             }
         })

@@ -36,6 +36,10 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
             `NOT EXISTS (
                 SELECT 1 FROM archived_records a
                 WHERE a.entity_type = 'incident' AND a.entity_id = i.id AND a.restored_at IS NULL
+            )`,
+            `NOT EXISTS (
+                SELECT 1 FROM incident_patrol_risk_state prs
+                WHERE prs.incident_id = i.id AND prs.is_monitoring_archived = 1
             )`
         ];
         const values = [];
@@ -71,6 +75,8 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
                    i.is_draft, i.data_origin, i.latitude, i.longitude,
                    COALESCE(p.patrol_override, 'auto') AS patrol_override,
                    rf.total_risk_score AS stored_cart_score,
+                   COALESCE(prs.completed_patrol_count, 0) AS completed_patrol_count,
+                   COALESCE(prs.risk_multiplier, 1) AS stored_risk_multiplier,
                    (SELECT COUNT(*) FROM patrol_schedule_records pr JOIN patrol_schedules ps ON ps.id = pr.schedule_id
                     WHERE pr.incident_id = i.id AND ps.status = 'Active'
                     AND (pr.scheduled_date IS NULL OR pr.scheduled_date > CURDATE()
@@ -78,6 +84,7 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
             FROM incidents i
             LEFT JOIN record_patrol_details p ON p.incident_id = i.id
             LEFT JOIN cart_risk_factors rf ON rf.incident_id = i.id
+            LEFT JOIN incident_patrol_risk_state prs ON prs.incident_id = i.id
             WHERE ${clause}
             ORDER BY i.date DESC, i.time DESC, i.id DESC LIMIT ? OFFSET ?
         `, [...values, options.id ? (Array.isArray(options.id) ? options.id.length : 1) : paging.limit, options.id ? 0 : paging.offset]);
@@ -86,6 +93,8 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
             FROM incidents i WHERE i.is_draft = 0 AND i.street_name IS NOT NULL
             AND NOT EXISTS (SELECT 1 FROM archived_records a
                 WHERE a.entity_type='incident' AND a.entity_id=i.id AND a.restored_at IS NULL)
+            AND NOT EXISTS (SELECT 1 FROM incident_patrol_risk_state prs
+                WHERE prs.incident_id=i.id AND prs.is_monitoring_archived=1)
             GROUP BY street_name`);
         const byStreet = new Map(stats.map(s => [s.street_name, s]));
         // Count recurrence against ALL qualifying neighbors in SQL, not just
@@ -97,6 +106,8 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
                 AND n.is_draft=0 AND TRIM(n.status) IN ('Open', 'Monitoring')
                 AND NOT EXISTS (SELECT 1 FROM archived_records a
                     WHERE a.entity_type='incident' AND a.entity_id=n.id AND a.restored_at IS NULL)
+                AND NOT EXISTS (SELECT 1 FROM incident_patrol_risk_state prs
+                    WHERE prs.incident_id=n.id AND prs.is_monitoring_archived=1)
                 AND n.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
                 AND n.latitude BETWEEN c.latitude-.001 AND c.latitude+.001
                 AND n.longitude BETWEEN c.longitude-.001 AND c.longitude+.001
@@ -110,7 +121,11 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
             const history = byStreet.get(row.street_name) || {};
             const analysis = cartEngine.analyze({ ...row, time_of_day: row.time_of_day || computeTimeOfDay(String(row.time || '')) },
                 { street_count: Number(history.total) || 0 }, { recent_count: Number(history.recent) || 0 });
-            return { ...row, patrol_notes: row.patrol_notes || '', cart_score: analysis.totalScore,
+            const completedPatrolCount = Number(row.completed_patrol_count) || 0;
+            const riskMultiplier = 0.85 ** completedPatrolCount;
+            const adjustedRiskScore = Math.round(Number(analysis.totalScore) * riskMultiplier * 100) / 100;
+            return { ...row, patrol_notes: row.patrol_notes || '', base_cart_score: analysis.totalScore, cart_score: adjustedRiskScore,
+                completed_patrol_count: completedPatrolCount, patrol_risk_multiplier: riskMultiplier,
                 danger_level: analysis.dangerDescription, cart_decision_path: analysis.decisionPath.join('\n') };
         });
         const result = scored.map(row => {
@@ -187,6 +202,19 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
                 if (conn) await conn.rollback();
                 res.status(500).json({ error: 'Could not save record changes' });
             } finally { if (conn) conn.release(); }
+        });
+        app.post('/api/incidents/:id/patrol-risk/reactivate', authenticate, writeRole, async (req, res) => {
+            try {
+                const incidentId = Number(req.params.id);
+                if (!Number.isInteger(incidentId) || incidentId <= 0) return res.status(400).json({ error: 'Invalid incident ID.' });
+                const [current] = await pool.query('SELECT * FROM incident_patrol_risk_state WHERE incident_id=?', [incidentId]);
+                if (!current.length) return res.status(404).json({ error: 'No patrol risk state exists for this incident.' });
+                if (!current[0].is_monitoring_archived) return res.status(409).json({ error: 'This incident is already active in risk monitoring.' });
+                await pool.query(`UPDATE incident_patrol_risk_state SET is_monitoring_archived=0, archived_at=NULL,
+                    reactivated_at=NOW(), reactivated_by=?, reactivated_completed_count=completed_patrol_count WHERE incident_id=?`, [req.userId, incidentId]);
+                await logAudit(req.userId, 'REACTIVATE_PATROL_RISK', 'incidents', incidentId, current[0], { is_monitoring_archived: 0 }, req);
+                res.json({ message: 'Incident restored to active risk monitoring.', incident_id: incidentId });
+            } catch (error) { res.status(500).json({ error: 'Could not reactivate incident risk monitoring.' }); }
         });
         app.get('/api/incidents/:id/patrol-prefill', authenticate, writeRole, async (req, res) => {
             try {

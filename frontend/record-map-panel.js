@@ -50,7 +50,8 @@ function mapInput(id, label, value, options = {}) {
     else if (options.textarea) control = '<textarea ' + attrs + ' maxlength="' + (options.max || 255) + '" rows="3">' + escapeHTML(value || '') + '</textarea>';
     else control = '<input ' + attrs + ' type="' + (options.type || 'text') + '" maxlength="' + (options.max || 255) + '" value="' + escapeHTML(String(value ?? '')) + '" ' + (options.type === 'number' ? 'step="any"' : '') + '>';
     return '<div class="' + (options.wide ? 'wide' : '') + '"><label for="' + id + '">' + escapeHTML(label) + '</label>' + control +
-        (id === 'mapNotes' ? '<small id="mapNotesCount" class="record-map-field-help">' + String((value || '').length) + ' / 200 characters</small>' : '') + '</div>';
+        (id === 'mapNotes' ? '<small id="mapNotesCount" class="record-map-field-help">' + String((value || '').length) + ' / 200 characters</small>' : '') +
+        (id === 'mapSeverity' ? '<small class="record-map-field-help" style="text-align:left;">Subjective indication only; not a verified finding or final classification.</small>' : '') + '</div>';
 }
 async function showMapRecord(id) {
     const requestNumber = ++detailRequest;
@@ -72,7 +73,7 @@ async function showMapRecord(id) {
         const linked = (detail.linked_patrols || []).map(schedule => (schedule.scheduled_date || schedule.day_of_week) + ': ' + schedule.status + ' · ' + (schedule.assigned_tanods || 'No tanods assigned')).join('\n');
         const incidentFields = [
             mapInput('mapType', 'Record type', record.incident_type, { values: typeOptions }),
-            mapInput('mapSeverity', 'Severity', record.severity, { values: ['Low','Medium','High'] }),
+            mapInput('mapSeverity', 'Subjective severity indication', record.severity, { values: ['Low','Medium','High'] }),
             mapInput('mapDate', 'Incident date', record.date?.slice(0,10), { type: 'date' }),
             mapInput('mapTime', 'Incident time', record.time?.slice(0,5), { type: 'time' }),
             mapInput('mapStatus', 'Case status', record.status, { values: ['Open','Monitoring','Resolved'] })

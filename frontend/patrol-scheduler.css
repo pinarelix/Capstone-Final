@@ -1,0 +1,104 @@
+.scheduler-main { gap: 18px; min-width: 0; }
+.scheduler-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+.scheduler-header h1 { margin: 2px 0 4px; color: #0f172a; font-size: clamp(1.35rem, 2vw, 1.9rem); }
+.scheduler-header h1 i { color: #0284c7; margin-right: 8px; }
+.scheduler-header p:not(.eyebrow) { max-width: 760px; margin: 0; color: #64748b; font-size: .84rem; line-height: 1.5; }
+.eyebrow { margin: 0; color: #0284c7; font-size: .68rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.scheduler-header-actions { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.scheduler-header-actions label { color: #475569; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.scheduler-header-actions input { min-width: 145px; }
+.scheduler-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.scheduler-kpi { padding: 14px 16px; border: 1px solid #dbe3ee; border-radius: 12px; background: #fff; box-shadow: 0 4px 16px #0f172a0a; }
+.scheduler-kpi span, .scheduler-kpi small { display: block; color: #64748b; font-size: .72rem; }
+.scheduler-kpi strong { display: block; margin: 2px 0; color: #0f172a; font-size: 1.45rem; font-variant-numeric: tabular-nums; }
+.scheduler-workspace { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(330px, .75fr); gap: 16px; min-height: 560px; }
+.scheduler-map-card, .planner-card { min-width: 0; padding: 16px; }
+.scheduler-map-card { display: flex; flex-direction: column; }
+.scheduler-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.scheduler-card-head.compact { margin-bottom: 10px; }
+.scheduler-card-head h2, .scheduler-card-head h3 { margin: 0; color: #0f172a; font-size: 1rem; }
+.scheduler-card-head h3 { font-size: .86rem; }
+.scheduler-card-head p { margin: 4px 0 0; color: #64748b; font-size: .75rem; line-height: 1.45; }
+.map-legend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: #64748b; font-size: .68rem; white-space: nowrap; }
+.legend-dot { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 50%; background: #94a3b8; }
+.legend-low { background: #10b981; }
+.legend-medium { background: #f59e0b; }
+.legend-high { background: #ef4444; }
+.legend-selected { background: #38bdf8; box-shadow: 0 0 0 3px #bae6fd; }
+.legend-route-stop { background: #7c3aed; box-shadow: 0 0 0 3px #ddd6fe; }
+.legend-line { display: inline-block; width: 18px; height: 3px; margin-right: 4px; border-radius: 5px; background: #7c3aed; vertical-align: middle; }
+.patrol-route-map { min-height: 510px; flex: 1; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 12px; background: #e2e8f0; }
+.map-status { min-height: 18px; margin: 7px 0 0; color: #64748b; font-size: .72rem; }
+.patrol-section-nav { display: flex; gap: 6px; width: fit-content; padding: 4px; border: 1px solid #dbe3ee; border-radius: 10px; background: #f1f5f9; }
+.patrol-section-nav a { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 7px; color: #475569; font-size: .74rem; font-weight: 750; text-decoration: none; }
+.patrol-section-nav a:hover { background: #fff; color: #0f172a; }
+.patrol-section-nav a:active { transform: scale(.97); }
+.patrol-section-nav a.active { background: #fff; color: #0369a1; box-shadow: 0 1px 4px #0f172a14; }
+.scheduler-side { display: grid; grid-template-rows: minmax(250px, 1fr) minmax(250px, 1fr); gap: 16px; min-height: 0; }
+.planner-card { overflow: hidden; }
+.planner-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.planner-actions .btn:disabled { border-color: #cbd5e1; background: #cbd5e1; color: #64748b; opacity: .72; cursor: not-allowed; transform: none; }
+.selection-hint { margin: -2px 0 9px; color: #64748b; font-size: .7rem; line-height: 1.4; }
+.btn-quiet { border: 1px solid #dbe3ee; background: #f8fafc; color: #475569; }
+.btn-quiet:hover { background: #f1f5f9; }
+.selected-record-list, .route-card-list { display: grid; gap: 7px; max-height: 330px; overflow: auto; padding-right: 2px; }
+.selected-record, .route-suggestion, .deployment-card { padding: 10px; border: 1px solid #dbe3ee; border-radius: 10px; background: #f8fafc; }
+.selected-record { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.selected-record-actions { display: flex; align-items: center; gap: 5px; }
+.selected-record-actions .icon-btn { width: 25px; height: 25px; }
+.selected-record strong, .route-suggestion strong, .deployment-card strong { display: block; color: #0f172a; font-size: .78rem; }
+.selected-record small, .route-suggestion small, .deployment-card small { display: block; margin-top: 3px; color: #64748b; font-size: .68rem; line-height: 1.4; }
+.record-risk { flex: 0 0 auto; padding: 3px 6px; border-radius: 6px; background: #e0e7ff; color: #3730a3; font-size: .65rem; font-weight: 800; }
+.route-suggestion { border-left: 3px solid #7c3aed; }
+.route-suggestion.is-map-selected { border-color: #7c3aed; background: #f5f3ff; box-shadow: 0 0 0 1px #7c3aed22; }
+.route-suggestion-head, .deployment-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.route-suggestion-actions, .deployment-actions { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+.route-suggestion-actions .btn, .deployment-actions .btn { padding: 5px 8px; font-size: .68rem; }
+.empty-state { margin: 8px 0; color: #94a3b8; font-size: .76rem; text-align: center; }
+.scheduler-card-head .badge-subtle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: max-content; min-height: 30px; padding: 5px 12px; text-align: center; white-space: nowrap; }
+.route-deployments-card, .route-logs-card { min-width: 0; }
+.table-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.table-tools input { min-width: 190px; }
+.deployment-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.deployment-card { background: #fff; }
+.deployment-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.deployment-meta span { padding: 3px 6px; border-radius: 5px; background: #f1f5f9; color: #475569; font-size: .65rem; font-weight: 700; }
+.status-active { background: #dcfce7 !important; color: #166534 !important; }.status-draft, .status-suggested { background: #fef3c7 !important; color: #92400e !important; }.status-completed { background: #dbeafe !important; color: #1d4ed8 !important; }.status-cancelled { background: #f1f5f9 !important; color: #64748b !important; }
+.status-partial { background: #fef3c7 !important; color: #92400e !important; }.status-failed { background: #fee2e2 !important; color: #b91c1c !important; }
+.route-stops-summary { margin-top: 7px; color: #475569; font-size: .7rem; line-height: 1.45; }
+.patrol-logs-main { min-height: 100vh; grid-template-rows: auto minmax(0, 1fr); }
+.planned-routes-main { min-height: 100vh; }
+.planned-routes-card { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.planned-route-list { min-height: 0; overflow: auto; padding-right: 3px; }
+.route-logs-page-card { min-height: 0; display: flex; flex-direction: column; }
+.patrol-log-toolbar { flex: 0 0 auto; }
+.patrol-log-table-window { flex: 1; min-height: 280px; max-height: calc(100vh - 235px); overflow: auto; border: 1px solid #e2e8f0; border-radius: 10px; }
+.patrol-log-table-window thead { position: sticky; top: 0; z-index: 1; background: #dbe7fb; }
+.patrol-log-table-window .data-table { margin: 0; }
+.log-report-cell { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-details { display: grid; gap: 0; margin: 0; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+.log-details div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+.log-details div:last-child { border-bottom: 0; }
+.log-details dt { color: #64748b; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+.log-details dd { margin: 0; color: #0f172a; font-size: .8rem; line-height: 1.45; white-space: pre-wrap; }
+.scheduler-modal { position: fixed; inset: 0; z-index: 30000; display: flex; align-items: center; justify-content: center; padding: 18px; background: #0f172a88; }
+.scheduler-modal[hidden] { display: none; }
+.scheduler-modal-dialog { width: min(760px, 100%); max-height: 92vh; overflow: auto; padding: 20px; border-radius: 16px; background: #fff; box-shadow: 0 24px 90px #0f172a55; }
+.scheduler-modal-small { width: min(500px, 100%); }
+.scheduler-modal-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.scheduler-modal-head h2 { margin: 2px 0 0; color: #0f172a; font-size: 1.1rem; }
+.scheduler-modal-head p:not(.eyebrow) { margin: 4px 0 0; color: #64748b; font-size: .76rem; }
+.icon-btn { width: 34px; height: 34px; border: 1px solid #dbe3ee; border-radius: 8px; background: #fff; color: #64748b; cursor: pointer; }
+.route-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.route-form-wide { grid-column: 1 / -1; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }.form-group label { color: #334155; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }.form-group small { color: #64748b; font-size: .68rem; }
+.route-stop-editor { margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+.route-stop-list { display: grid; gap: 7px; }
+.route-stop-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid #dbe3ee; border-radius: 9px; background: #f8fafc; }
+.route-stop-number { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-size: .7rem; font-weight: 800; }
+.route-stop-row strong { display: block; color: #0f172a; font-size: .75rem; }.route-stop-row small { display: block; margin-top: 2px; color: #64748b; font-size: .67rem; }
+.stop-actions { display: flex; gap: 3px; }.stop-actions button { width: 26px; height: 26px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #475569; cursor: pointer; }.stop-actions button:disabled { opacity: .35; cursor: default; }
+.form-status { min-height: 20px; margin-top: 10px; color: #64748b; font-size: .76rem; }.form-status.error { color: #b91c1c; }.form-status.success { color: #15803d; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }.btn-danger { border: 0; background: #dc2626; color: #fff; }
+@media (max-width: 1100px) { .scheduler-workspace { grid-template-columns: 1fr; }.scheduler-side { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; }.selected-record-list, .route-card-list { max-height: 260px; } }
+@media (max-width: 760px) { .scheduler-header { align-items: stretch; flex-direction: column; }.scheduler-header-actions { align-items: stretch; }.scheduler-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }.scheduler-side, .deployment-list, .route-form-grid { grid-template-columns: 1fr; }.route-form-wide { grid-column: auto; }.patrol-route-map { min-height: 430px; }.scheduler-card-head { flex-direction: column; }.map-legend { white-space: normal; }.patrol-section-nav { width: 100%; overflow-x: auto; }.patrol-section-nav a { flex: 0 0 auto; } }

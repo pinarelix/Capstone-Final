@@ -298,7 +298,7 @@ flowchart LR
 
 **Notes**
 
-- `4.3` is not a plain weighted sum: the manual severity (High/Medium/Low) resets the
+- `4.3` is not a plain weighted sum: the submitted subjective severity indication (High/Medium/Low) resets the
   **type** weight (30/20/10 %) and re-proportions the other four factors. The
   configured base weights apply to the other four and to non-typed paths.
 - `4.4` multiplies the weighted total by the record **source** multiplier

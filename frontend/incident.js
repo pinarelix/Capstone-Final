@@ -621,7 +621,7 @@ function renderTable(dataToRender) {
                 <td class="text-secondary">${formattedDate} ${formattedTime}</td>
                 <td>${escapeHTML(locationDisplay)}</td>
                 <td class="text-secondary">${escapeHTML(reportedByDisplay)}</td>
-                <td><span class="badge ${severityClass}">${escapeHTML(item.severity || 'N/A')}</span></td>
+                <td><span class="badge ${severityClass}" title="Subjective indication only; not a verified finding.">${escapeHTML(item.severity || 'N/A')}</span></td>
                 <td><span class="badge ${getStatusClass(item.status)}">${escapeHTML(item.status || 'N/A')}</span></td>
                 <td><span class="badge ${getDangerClass(item.danger_level)}">${escapeHTML(item.danger_level || 'N/A')}</span></td>
                 <td class="cart-only">${item.cart_score != null ? parseFloat(item.cart_score).toFixed(0) : 'N/A'}</td>
@@ -743,7 +743,7 @@ function setupForm() {
             { id: 'incidentDate', label: 'Date' },
             { id: 'incidentTime', label: 'Time' },
             { id: 'incidentStreet', label: 'Street Name' },
-            { id: 'incidentSeverity', label: 'Severity Level' },
+            { id: 'incidentSeverity', label: 'Subjective Severity Indication' },
         ];
         if (formType === 'blotter') {
             requiredFields.push(

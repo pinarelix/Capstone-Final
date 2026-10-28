@@ -152,7 +152,7 @@ class CARTEngine {
                 // Shared "Others" exception type (present in both catalogs) and
                 // the three long-named blotter types that previously had no exact
                 // match: kept at 30 per the approved config, so their overall
-                // score varies by the manual severity input, not a fixed type weight.
+                // score varies by the subjective severity indication, not a fixed type weight.
                 'Others': 30,
 
                 'default': 30
@@ -237,7 +237,7 @@ class CARTEngine {
 
     // ============================================================
     // 5. SEVERITY-BASED WEIGHT SYSTEM
-    // The user selects severity (High/Medium/Low) when creating
+    // The user selects a subjective severity indication (High/Medium/Low) when creating
     // the incident. This directly controls the type factor's weight:
     //   High   = 30%
     //   Medium = 20%
@@ -417,7 +417,7 @@ class CARTEngine {
         const ew = effectiveWeights || this.getAdaptiveWeights(scores.type, incident.severity);
         const pct = v => Math.round(v * 100);
 
-        return `The CART engine evaluated ${typeDesc} incident (${ew.tier} severity) at ${locationName} with ${locationCount} total and ${frequencyCount} recent incidents (30 days).
+        return `The CART engine evaluated ${typeDesc} incident (${ew.tier} subjective severity indication) at ${locationName} with ${locationCount} total and ${frequencyCount} recent incidents (30 days).
 Type: ${typeDesc} (${scores.type} pts, ${pct(ew.type)}% weight),
 Time: ${timeDesc} (${scores.time} pts, ${pct(ew.time)}% weight),
 Day: ${dayDesc} (${scores.day} pts, ${pct(ew.day)}% weight),
@@ -441,7 +441,7 @@ Total Score: ${totalScore} → ${dangerDescription}`;
         const pct = v => Math.round(v * 100);
 
         return [
-            `0. Severity: ${incident.severity || 'Low'} → type weight ${pct(ew.type)}%`,
+            `0. Subjective Severity Indication: ${incident.severity || 'Low'} → type weight ${pct(ew.type)}%`,
             `1. Incident Type: ${typeDesc} → ${scores.type} points (${pct(ew.type)}% weight)`,
             `2. Time of Day: ${timeDesc} → ${scores.time} points (${pct(ew.time)}% weight)`,
             `3. Day Type: ${dayDesc} → ${scores.day} points (${pct(ew.day)}% weight)`,

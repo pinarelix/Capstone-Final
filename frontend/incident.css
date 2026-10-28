@@ -58,6 +58,17 @@
     letter-spacing: 0.5px;
 }
 
+.form-help {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.45;
+}
+
+.subjective-severity-help {
+    max-width: 38rem;
+}
+
 .form-control {
     padding: 10px 14px;
     border-radius: var(--radius-md);

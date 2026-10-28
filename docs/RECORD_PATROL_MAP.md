@@ -48,9 +48,24 @@ The implemented precedence is:
    100 metres and the last 30 days. The 100-metre distance is an explicit implementation
    assumption for “nearby”; it is a policy parameter, not a fitted statistical estimate.
 5. Severity-override types require a score at or above the configured High CART threshold.
-   Manual severity influences that score through the existing adaptive-weight calculation.
+   The subjective severity indication influences that score through the existing adaptive-weight calculation.
 6. NO_PATROL types are excluded automatically, including at High risk. Unknown/unclassified
    types require an officer's manual decision.
+
+## Patrol Scheduler route model
+
+The Patrol Scheduler retains this map-based decision support view and replaces calendar and
+recommendation-list workflows with route planning:
+
+- eligible open or monitoring records are clustered using a 250-metre proximity rule;
+- each cluster becomes one editable suggested route, while the Executive Officer may add
+  records manually even when they are outside the suggested range;
+- a route is reusable, and each dated AM/PM deployment is assigned to a saved patrol team;
+- multiple teams may use one route, and multiple routes may be deployed in the same block;
+- route lines are requested from the open-source OSRM HTTP service and fall back to a straight
+  map line if the service is unavailable; and
+- route logs are recorded against deployments, preserving route, date, block, team, outcome,
+  and report context for incident detail views.
 
 The catalog's combined name “Occupation of Real Property or Usurpation of Removal, Sale or
 Pledge of Mortgaged Property” combines offenses assigned to different classes in the source.
@@ -64,8 +79,15 @@ never silently included just because the scheduling URL is opened.
 ## Risk, resolution, and patrol coverage
 
 CART is a rules-based score on a 0–100 scale. It is not an estimated probability of a crime.
-The map retains that score and shows linked patrol coverage separately. A scheduled patrol
-does not establish that a risk has fallen, and its effect cannot be inferred from its creation.
+The original CART assessment is retained unchanged. The active map derives an operational
+score as `original CART × 0.85 ^ completed route deployments`; merely scheduling or activating
+a route has no effect.
+
+After at least three completed deployments, a record is archived from active risk monitoring
+when the adjusted score is below the configured Low-risk boundary. This removes it from the
+heatmap and route builder, not from incident history, reports, CART evidence, or patrol logs.
+An Executive Officer can reactivate it. Reactivation preserves the completion count and keeps
+the record active until a later completed deployment triggers another assessment.
 
 Resolution sets a record's contribution to the **active operational map** to zero by removing
 it from the active population. The historical record, notes, CART assessment, and patrol
@@ -73,11 +95,10 @@ history remain recoverable. Reopening a case makes it eligible for assessment ag
 resolved cases can still contribute to the model's location history; current demand and
 historical recurrence are different measures.
 
-The coverage count includes active schedules with a linked record, with no past scheduled
-date or expired same-day end time. It is a scheduled-coverage indicator, not proof of attendance.
-The details panel lists tanod assignments and schedule status. Completed patrols should be
-assessed using actual patrol logs and outcomes. The old fixed 3.5-point completion deduction
-is no longer applied to the patrol dashboard's displayed CART scores.
+The scheduler colors records belonging to Active routes purple. Its `+n` marker counts only
+additional unique Active routes (`+1` means two active routes); one or zero routes shows no
+marker. Clicking a purple record selects the Active route whose deployment date is closest to
+today. The old fixed 3.5-point area deduction is not applied to this record-level score.
 
 For a future forecasting model, retain resolved incidents in the historical outcome series.
 Define counts by small spatial cell and week, preserve incident dates and reporting delays,
@@ -85,9 +106,8 @@ and record actual completed patrol duration, coverage, attendance, and case-reso
 Start with an exposure-adjusted count baseline, test out-of-time forecasts against a seasonal
 naive baseline, and assess calibration and prediction intervals. Tune any recency decay on
 held-out periods. Patrols are assigned to already-risky locations, so a before/after fall alone
-does not establish a causal patrol effect. Until there is enough measured history, show active
-demand, historical patterns, and coverage as separate indicators rather than inventing a
-probability discount.
+does not establish a causal patrol effect. The 15% operational reduction is an explicit policy
+rule for prioritization, not a measured treatment effect or probability discount.
 
 ## Data integrity and upgrade
 

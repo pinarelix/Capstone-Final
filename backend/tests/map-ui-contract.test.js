@@ -68,7 +68,7 @@ describe('Record map UI contract', () => {
     });
 
     test('map and patrol pages load their new adapter scripts from real local assets', () => {
-        for (const filename of ['grid-heatmap.html','patrol.html']) {
+        for (const filename of ['grid-heatmap.html','patrol.html','patrol-planned.html','patrol-logs.html']) {
             const fullPath = path.join(__dirname, '../../frontend', filename);
             const html = fs.readFileSync(fullPath, 'utf8');
             for (const match of html.matchAll(/<script[^>]+src="([^"?]+)"/g)) {
@@ -79,24 +79,69 @@ describe('Record map UI contract', () => {
     });
 
     test('desktop workspaces use bounded page shells and patrol suggestions share the schedules table', () => {
-        const pages = ['dashboard.html','incident.html','incident-view.html','grid-heatmap.html','patrol.html','report.html','users.html','settings.html'];
+        const pages = ['dashboard.html','incident.html','incident-view.html','grid-heatmap.html','patrol.html','patrol-planned.html','patrol-logs.html','report.html','users.html','settings.html'];
         for (const filename of pages) {
             const html = fs.readFileSync(path.join(__dirname, '../../frontend', filename), 'utf8');
             expect(html).toMatch(/<body[^>]*class="[^"]*workspace-page/);
         }
         const patrol = fs.readFileSync(path.join(__dirname, '../../frontend/patrol.html'), 'utf8');
-        expect(patrol).toContain('Patrol Calendar');
+        expect(patrol).toContain('Patrol Scheduler');
+        expect(patrol).not.toContain('Patrol Calendar');
         expect(patrol).toContain('<option value="Suggested">Suggested</option>');
         expect(patrol).not.toContain('Active Priority Recommendations');
         expect(patrol).not.toContain('id="recommendationsContainer"');
         expect(patrol).not.toContain('patrol-search.js');
-        expect(patrol).toMatch(/id="monthSelect"[^>]+type="date"/);
+        expect(patrol).not.toContain('id="routeLogTableBody"');
+        expect(patrol).not.toContain('id="deploymentList"');
+        expect(patrol).not.toContain('id="selectEligibleBtn"');
+        expect(fs.existsSync(path.join(__dirname, '../../frontend/patrol-logs.html'))).toBe(true);
+        expect(fs.existsSync(path.join(__dirname, '../../frontend/patrol-planned.html'))).toBe(true);
+        const scheduler = fs.readFileSync(path.join(__dirname, '../../frontend/patrol-scheduler.js'), 'utf8');
+        expect(scheduler).toContain('const routeFeatures = visibleRoute ? [routeFeature(visibleRoute)].filter(Boolean) : [];');
+        expect(scheduler).not.toContain('planner.routes.map(routeFeature)');
+        expect(scheduler).toContain('data-preview-route');
+        expect(scheduler).toContain("queryRenderedFeatures(event.point, { layers: ['patrol-record-circle'] })[0]");
+        expect(scheduler).toContain('const MIN_ROUTE_STOPS = 3;');
+        expect(scheduler).toContain('const SUGGESTED_MAX_ROUTE_STOPS = 10;');
+        expect(scheduler).toContain("location: stop.location || stop.street_name || 'Unknown location'");
+        expect(scheduler).toContain("id: 'manual-selection'");
+        expect(scheduler).not.toContain('deepLinkOpened');
+        expect(scheduler).toContain("id: 'patrol-route-arrows'");
+        expect(scheduler).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
+        expect(scheduler).toContain('planner.previewRouteKey = `saved:${savedRouteId}`');
+        expect(scheduler).toContain("['step', ['get', 'cart_score'], '#10b981'");
+        expect(scheduler).toContain("['any', ['get', 'route_preview'], ['>', ['get', 'active_route_count'], 0]], '#7c3aed'");
+        expect(scheduler).toContain("['get', 'active_route_count']");
+        expect(scheduler).toContain("['get', 'additional_active_route_count']");
+        expect(scheduler).toContain('closest_active_route_id');
+        expect(scheduler).toContain('function openDisplayedRouteEditor()');
+        expect(scheduler).toContain("layers: ['patrol-route-arrows', 'patrol-route-lines', 'patrol-route-casing']");
+        expect(scheduler).toContain("button.id = 'addStopsFromMapBtn'");
+        expect(scheduler).toContain('planner.mapEditingRoute = { ...route');
+        expect(scheduler).toContain('openRouteEditor(planner.mapEditingRoute, planner.mapEditingDeploymentId, false, selectedRecords())');
+        expect(scheduler).not.toContain('route.geometry?.type');
+        const plannedScript = fs.readFileSync(path.join(__dirname, '../../frontend/patrol-planned.js'), 'utf8');
+        expect(plannedScript).toContain("filter(item => !['Completed', 'Cancelled'].includes(item.status))");
+        expect(plannedScript).toContain('edit_route=');
+        for (const filename of ['patrol.html', 'patrol-planned.html', 'patrol-logs.html']) {
+            const patrolPage = fs.readFileSync(path.join(__dirname, '../../frontend', filename), 'utf8');
+            expect(patrolPage).not.toContain('id="logoutBtn"');
+        }
+        for (const filename of ['dashboard.html','incident.html','incident-view.html','grid-heatmap.html','report.html','users.html','settings.html']) {
+            const page = fs.readFileSync(path.join(__dirname, '../../frontend', filename), 'utf8');
+            expect(page).toContain('<span>Patrol Scheduler</span>');
+            expect(page).not.toContain('<span>Decisions</span>');
+        }
+        for (const filename of ['dashboard.html','incident.html','incident-view.html','grid-heatmap.html','patrol.html','patrol-planned.html','patrol-logs.html','report.html','users.html','settings.html']) {
+            const page = fs.readFileSync(path.join(__dirname, '../../frontend', filename), 'utf8');
+            const sidebar = page.match(/<nav class="sidebar-nav">([\s\S]*?)<\/nav>/)?.[1] || '';
+            expect(sidebar).not.toContain('href="patrol-logs.html"');
+        }
         expect(patrol).toContain('id="scheduleRecordId"');
         expect(patrol).toContain('id="scheduleRecordSummary"');
         expect(patrol).not.toContain('id="scheduleRecordSelect"');
         expect(patrol).not.toContain('id="scheduleRouteStops"');
         expect(patrol).toContain('id="scheduleTeamName"');
-        expect(patrol).toContain('Team members');
         expect(patrol).not.toContain('id="scheduleMapPicker"');
 
         const heatmap = fs.readFileSync(path.join(__dirname, '../../frontend/grid-heatmap.html'), 'utf8');

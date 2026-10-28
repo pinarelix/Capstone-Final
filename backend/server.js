@@ -14,6 +14,7 @@ const expressRateLimit = require('express-rate-limit');
 const cartEngine = require('./cart-engine');
 const { normalizeRole, LEGACY_EXECUTIVE } = require('./roles');
 const { createRecordPatrol, notesSchema, overrideSchema, dateOnlySchema } = require('./recordPatrol');
+const { registerPatrolRouteRoutes } = require('./patrolRoutes');
 const { BARANGAY_LOCATIONS } = require('./locationList');
 const { createArchive, registerArchiveRoutes } = require('./archive');
 const { isSetupCompleted, markSetupCompleted, generateRecoveryToken } = require('./config-manager');
@@ -1468,6 +1469,7 @@ const recordPatrol = createRecordPatrol({
     }
 });
 recordPatrol.register(app);
+registerPatrolRouteRoutes({ app, pool, authenticate, requireRole, mapRecords: recordPatrol.mapRecords, getThresholds: () => ({ ...cartEngine.thresholds }) });
 
 app.get('/api/users', authenticate, requireRole(['Executive Officer']), async (req, res) => {
     try {
@@ -2350,11 +2352,18 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
                 incidents.*,
                 users.name as reporter_name,
                 users.contact_no as reporter_contact_no,
-                rf.total_risk_score as cart_score,
+                COALESCE(prs.adjusted_risk_score, rf.total_risk_score) as cart_score,
+                rf.total_risk_score as base_cart_score,
+                COALESCE(prs.completed_patrol_count, 0) as completed_patrol_count,
+                COALESCE(prs.risk_multiplier, 1) as patrol_risk_multiplier,
+                COALESCE(prs.is_monitoring_archived, 0) as risk_monitoring_archived,
+                prs.archived_at as risk_monitoring_archived_at,
+                prs.reactivated_at as risk_monitoring_reactivated_at,
                 rf.decision_path as cart_decision_path
             FROM incidents
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
+            LEFT JOIN incident_patrol_risk_state prs ON incidents.id = prs.incident_id
             WHERE incidents.id = ?
         `, [req.params.id]);
 
@@ -2390,7 +2399,15 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
              JOIN tanods t ON t.id = st.tanod_id WHERE st.schedule_id = ps.id) AS assigned_tanods
             FROM patrol_schedules ps JOIN patrol_schedule_records pr ON pr.schedule_id=ps.id
             WHERE pr.incident_id=? ORDER BY pr.scheduled_date DESC, ps.id DESC`, [row.id]);
-        res.json({ ...row, ...structured, ...patrol, evidence, linked_patrols: linkedPatrols });
+        const [linkedRoutePatrols] = await pool.query(`SELECT d.id AS deployment_id, d.scheduled_date, d.shift,
+                d.status, d.team_id, COALESCE(NULLIF(d.team_name,''), t.name, 'Unassigned') AS team_name,
+                r.id AS route_id, r.route_name, r.status AS route_status
+            FROM patrol_route_stops rs JOIN patrol_routes r ON r.id=rs.route_id
+            JOIN patrol_route_deployments d ON d.route_id=r.id
+            LEFT JOIN patrol_teams t ON t.id=d.team_id
+            WHERE rs.incident_id=? AND d.status <> 'Cancelled'
+            ORDER BY d.scheduled_date DESC, d.shift, d.id DESC`, [row.id]);
+        res.json({ ...row, ...structured, ...patrol, evidence, linked_patrols: linkedPatrols, linked_route_patrols: linkedRoutePatrols });
 
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch incident' });

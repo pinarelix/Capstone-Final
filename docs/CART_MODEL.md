@@ -40,18 +40,23 @@ output. A rule-based model is:
 
 | Factor | Weight | Rationale |
 |---|---|---|
-| Incident type | 30% | The single strongest predictor of severity — a robbery and a noise complaint are not comparable regardless of when/where they happen. |
+| Incident type | 30% | The single strongest predictor of risk — a robbery and a noise complaint are not comparable regardless of when/where they happen. |
 | Time of day | 25% | Night-time incidents carry materially higher risk (less foot traffic, slower response). |
 | Location history | 20% | A street with a documented history of incidents is a meaningfully higher-risk location than one with none. |
 | Day of week | 15% | Weekends show a measurable but secondary risk shift versus weekdays. |
 | Recent frequency | 10% | A recent spike at a location matters, but least of the five — it's a secondary signal on top of type/time/location. |
 
-These are the default High-severity weights (`backend/cart-engine.js`). Medium and Low
-severity set the type contribution to 20% and 10% respectively; the remaining factors are
+These are the default weights for a High subjective severity indication (`backend/cart-engine.js`). Medium and Low
+subjective indications set the type contribution to 20% and 10% respectively; the remaining factors are
 redistributed proportionally. Settings controls the base factor ratios, thresholds, and
 source multipliers. Blotter scores are multiplied by 0.85 by default; incident scores by 1.0.
-The type contribution is selected by severity, rather than directly using the base type
+The type contribution is selected by the submitted subjective severity indication, rather than directly using the base type
 percentage. These policy weights are not fitted estimates of forecast importance.
+
+The High/Medium/Low value entered on a blotter or incident form is a **subjective indication
+only**, supplied by the person recording the form. It is not a verified finding or final
+classification. It remains an input to the transparent CART calculation and is displayed as
+such in record details.
 
 ## Thresholds
 
@@ -77,13 +82,27 @@ into the final 0–100 total.
 
 ## Resolution and patrol coverage
 
-The record map and patrol recommendations now retain each record's current CART score.
+The original CART assessment remains unchanged and auditable. The active risk map uses a
+separate **patrol-adjusted operational risk score** after patrol work is actually logged as
+completed:
+
+`operational risk = original CART score × 0.85 ^ completed route deployments`
+
+Creating or activating a schedule does not reduce risk. Each distinct completed deployment
+linked to the incident applies one compounded 15% reduction. After at least three completed
+deployments, an incident is removed from active maps when its operational score falls below
+the configured Level 2/Low-risk boundary. This archives only its risk-monitoring state; the
+incident, original CART assessment, patrol logs, and reports remain available. An Executive
+Officer can reactivate risk monitoring, and the incident will not be auto-archived again until
+another completed deployment is logged.
+
 Resolved cases are excluded from the active map but retained in historical records.
 Linked patrol schedules and assigned tanods are displayed separately as operational coverage.
 The old area-completion offset is retained for backward compatibility and historical audits,
 but is no longer subtracted from displayed patrol recommendation scores.
 
-A scheduled or completed patrol is not evidence of a specific reduction in crime probability.
+This operational adjustment is a decision-support policy, not evidence of a causal reduction
+in crime probability.
 See [RECORD_PATROL_MAP.md](RECORD_PATROL_MAP.md) for the eligibility policy, resolution behavior,
 coverage definitions, and the proposed approach to future rate forecasting.
 

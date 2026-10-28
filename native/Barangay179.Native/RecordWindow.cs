@@ -52,7 +52,7 @@ public sealed class RecordWindow : Window
         Field("CART score", row.Score.ToString("F2"));
         if (record.Synthetic) Field("Test data", "SYNTHETIC TEST RECORD — fictional event and people.");
         Heading("Incident details");
-        foreach (var field in new[] { ("Type","incident_type"),("Severity","severity"),("Date","date"),("Time","time"),("Case status","status") }) Field(field.Item1, record.Text(field.Item2));
+        foreach (var field in new[] { ("Type","incident_type"),("Subjective severity indication","severity"),("Date","date"),("Time","time"),("Case status","status") }) Field(field.Item1, record.Text(field.Item2));
         Heading("Incident location"); Field("Exact address", record.Address);
         Field("Coordinates", record.Text("latitude") + ", " + record.Text("longitude"));
         Heading(record.IsIncident ? "Reporter information" : "Parties involved"); foreach (var person in record.People()) Field(person.Label, person.Value);

@@ -213,8 +213,8 @@
                     <span>Risk Map</span>
                 </a>
                 <a href="patrol.html" class="nav-item">
-                    <span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span>
-                    <span>Decisions</span>
+                    <span class="nav-icon"><i class="fa-solid fa-route"></i></span>
+                    <span>Patrol Scheduler</span>
                 </a>
                 <a href="report.html" class="nav-item">
                     <span class="nav-icon"><i class="fa-solid fa-file-lines"></i></span>
@@ -322,13 +322,14 @@
                             <input type="hidden" id="incidentLat" required>
                             <input type="hidden" id="incidentLng" required>
                             <div class="form-group">
-                                <label>Severity Level <span class="req">*</span></label>
+                                <label for="incidentSeverity">Subjective Severity Indication <span class="req">*</span></label>
                                 <select id="incidentSeverity" class="form-select" required>
-                                    <option value="" disabled selected>Select Severity</option>
+                                    <option value="" disabled selected>Select an indication</option>
                                     <option value="High">High</option>
                                     <option value="Medium">Medium</option>
                                     <option value="Low">Low</option>
                                 </select>
+                                <p class="form-help subjective-severity-help">Subjective indication only, based on the person recording the form. It is not a verified finding or final classification.</p>
                             </div>
                             <div class="form-group" id="statusGroup" style="display:none;">
                                 <label>Status <span class="req">*</span></label>
@@ -807,7 +808,7 @@
                                     <th>DATE / TIME</th>
                                     <th>LOCATION</th>
                                     <th>REPORTED BY</th>
-                                    <th>SEVERITY</th>
+                                    <th>SUBJECTIVE SEVERITY</th>
                                     <th>STATUS</th>
                                     <th>DANGER LEVEL</th>
                                     <th class="cart-only">CART SCORE</th>
