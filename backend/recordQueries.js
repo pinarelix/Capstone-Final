@@ -69,7 +69,8 @@ function registerRecordSummaries(app, {pool, authenticate, readRoles}) {
                 WHEN i.danger_level LIKE '%Level 2%' OR i.danger_level LIKE '%Moderate%' THEN 2 ELSE 1 END) AS danger_rank
                 FROM incidents i WHERE ${where} GROUP BY i.street_name ORDER BY count DESC, location LIMIT 100`,params);
             const [hours] = await pool.query(`SELECT HOUR(i.time) AS hour, COUNT(*) AS count FROM incidents i WHERE ${where} GROUP BY hour ORDER BY count DESC, hour LIMIT 24`,params);
-            res.json({...counts[0],locations,hours});
+            const [types] = await pool.query(`SELECT i.incident_type AS type, COUNT(*) AS count FROM incidents i WHERE ${where} GROUP BY i.incident_type ORDER BY count DESC, type LIMIT 5`,params);
+            res.json({...counts[0],locations,hours,types});
         } catch (error) {
             if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
             res.status(500).json({error:'Could not summarize records'});

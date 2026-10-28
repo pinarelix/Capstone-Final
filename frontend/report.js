@@ -108,6 +108,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     let currentPatrolLogData = [];
     let reportPage = 1, reportTotal = 0, reportSummary = {}, reportRequest = 0;
     let reportPeriodsLoaded = false;
+    function updateReportSummary(monthKey) {
+        const total = Number(reportSummary.total || reportTotal), high = Number(reportSummary.high || 0), moderate = Number(reportSummary.moderate || 0);
+        const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+        set('summaryTotal', total); set('summaryHigh', high); set('summaryModerate', moderate); set('summaryLow', Math.max(0, total - high - moderate));
+        set('reportSummaryPeriod', monthKey ? `Period: ${monthKey}` : 'Selected period');
+        const types = (reportSummary.types || []).slice(0, 3).map(item => `${item.type || 'Unclassified'} (${item.count})`).join(' · ');
+        const location = reportSummary.locations?.[0];
+        const hour = reportSummary.hours?.[0];
+        set('summaryTypes', types || 'No reports yet');
+        set('summaryLocation', location ? `${location.location || 'Unlisted'} (${location.count})` : 'No reports yet');
+        set('summaryHour', hour ? `${String(hour.hour).padStart(2, '0')}:00–${String((Number(hour.hour) + 1) % 24).padStart(2, '0')}:00` : 'No reports yet');
+    }
     const reportPager = document.createElement('div');
     reportPager.className = 'report-pagination'; reportPager.setAttribute('role','navigation'); reportPager.setAttribute('aria-label','Report record pages');
     tableBody?.closest('table')?.after(reportPager);
@@ -168,8 +180,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = responseData.incidents || [];
             currentIncidentData = data;
             reportSummary=totals; reportTotal=Number(responseData.total);
-            renderReportPager(responseData.totalPages);
             const initialMonth = monthSelect.value;
+            updateReportSummary(initialMonth);
+            renderReportPager(responseData.totalPages);
             updateReportView(initialMonth, data);
 
         } catch (error) {
@@ -782,14 +795,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return `"${str.replace(/"/g, '""')}"`;
             };
 
-            let csvContent = "Log ID,Location,Patrol Date,Status,Report\n";
+            // BOM + CRLF makes the file open cleanly in Excel, including
+            // names/locations containing Filipino characters.
+            const csvRows = [
+                ['Log ID', 'Patrol Date', 'Location', 'Status', 'Report']
+            ];
 
             filteredData.forEach(item => {
-                csvContent += [
-                    item.id || '', item.schedule_location || '',
-                    item.patrol_date || '', item.status || '', item.report || ''
-                ].map(csvField).join(',') + '\n';
+                csvRows.push([
+                    item.id || '', item.patrol_date || '', item.schedule_location || '',
+                    item.status || '', item.report || ''
+                ]);
             });
+
+            const csvContent = '\uFEFF' + csvRows.map(row => row.map(csvField).join(',')).join('\r\n') + '\r\n';
 
             logPatrolReportAction('EXPORT_CSV_PATROL_LOGS');
 
@@ -848,7 +867,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return `"${str.replace(/"/g, '""')}"`;
             };
 
-            let csvContent = "Incident ID,Form Type,Type,Date,Time,Location,Address,Status,Danger Level,Recommended Action,Reporter Name,Reporter Contact\n";
+            // Keep a stable, descriptive schema so the export is useful for
+            // both human review and later analysis. BOM/CRLF improve Excel
+            // compatibility without changing the CSV data model.
+            const csvRows = [[
+                'Incident ID', 'Public Number', 'Form Type', 'Incident Type',
+                'Occurrence Date', 'Occurrence Time', 'Day', 'Time of Day',
+                'Location', 'Address', 'Status', 'Priority', 'Severity',
+                'Danger Level', 'Recommended Action', 'Reporter Name',
+                'Reporter Contact', 'Description'
+            ]];
 
             filteredData.forEach(item => {
                 const location = item.street_name || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'N/A');
@@ -856,12 +884,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const reporterName = item.reporter_name || 'N/A';
                 const reporterContact = item.reporter_contact_no || 'N/A';
 
-                csvContent += [
-                    item.id || '', item.form_type || 'blotter', item.incident_type || '', item.date || '', item.time || '',
-                    location, item.address || '', item.status || '', item.danger_level || '',
-                    getRecommendedAction(item), reporterName, reporterContact
-                ].map(csvField).join(',') + '\n';
+                csvRows.push([
+                    item.id || '', item.public_number || item.blotter_number || '',
+                    item.form_type || 'blotter', item.incident_type || '',
+                    item.date || '', item.time || '', item.day_of_week || '',
+                    item.time_of_day || '', location, item.address || '',
+                    item.status || '', item.priority || '', item.severity || '',
+                    item.danger_level || '', getRecommendedAction(item),
+                    reporterName, reporterContact, item.description || ''
+                ]);
             });
+
+            const csvContent = '\uFEFF' + csvRows.map(row => row.map(csvField).join(',')).join('\r\n') + '\r\n';
 
             logReportAction('EXPORT_CSV_REPORT');
 

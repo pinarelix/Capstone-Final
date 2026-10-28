@@ -1207,4 +1207,6 @@ body.role-decision-maker .cart-score-chip {
 .patrol-calendar-day { border: 1px solid #e2e8f0; border-radius: 12px; min-height: 130px; padding: 10px; background: #f8fafc; }
 .patrol-calendar-day h4 { margin: 0 0 8px; font-size: .78rem; color: #475569; }
 .patrol-calendar-event { display: block; width: 100%; text-align: left; border: 0; border-left: 3px solid #2563eb; border-radius: 7px; background: #dbeafe; padding: 7px; margin: 5px 0; color: #1e3a8a; cursor: pointer; font-size: .72rem; }
+.patrol-calendar-event.completed { border-left-color: #16a34a; background: #dcfce7; color: #166534; }
+.patrol-calendar-event.cancelled { border-left-color: #dc2626; background: #fee2e2; color: #991b1b; }
 .patrol-calendar-event strong { display: block; font-size: .76rem; }

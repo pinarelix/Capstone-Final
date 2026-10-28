@@ -2365,7 +2365,13 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
                 users.name as reporter_name,
                 users.contact_no as reporter_contact_no,
                 rf.total_risk_score as cart_score,
-                rf.decision_path as cart_decision_path
+                rf.time_risk_score as cart_time_score,
+                rf.day_risk_score as cart_day_score,
+                rf.type_risk_score as cart_type_score,
+                rf.location_risk_score as cart_location_score,
+                rf.frequency_risk_score as cart_frequency_score,
+                rf.decision_path as cart_decision_path,
+                rf.model_version as cart_model_version
             FROM incidents
             LEFT JOIN users ON incidents.reporter_id = users.id
             LEFT JOIN cart_risk_factors rf ON incidents.id = rf.incident_id
@@ -2404,7 +2410,10 @@ app.get('/api/incidents/:id', authenticate, async (req, res) => {
              JOIN tanods t ON t.id = st.tanod_id WHERE st.schedule_id = ps.id) AS assigned_tanods
             FROM patrol_schedules ps JOIN patrol_schedule_records pr ON pr.schedule_id=ps.id
             WHERE pr.incident_id=? ORDER BY pr.scheduled_date DESC, ps.id DESC`, [row.id]);
-        res.json({ ...row, ...structured, ...patrol, evidence, linked_patrols: linkedPatrols });
+        const cartWeights = row.cart_score != null ? cartEngine.getAdaptiveWeights(Number(row.cart_type_score) || 0, row.severity || 'Low') : null;
+        res.json({ ...row, ...structured, ...patrol, evidence, linked_patrols: linkedPatrols,
+            cart_weights: cartWeights,
+            cart_thresholds: cartEngine.thresholds });
 
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch incident' });

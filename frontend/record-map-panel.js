@@ -9,7 +9,18 @@ function openRecordGroup(rows, selectedId) {
     document.body.classList.add('record-map-open');
     mapEl('mapRecordModal').hidden = false;
     mapEl('mapRecordListbox').replaceChildren();
+    const streets = new Map();
     group.forEach(row => {
+        const street = row.street_name || 'Location not recorded';
+        if (!streets.has(street)) streets.set(street, []);
+        streets.get(street).push(row);
+    });
+    streets.forEach((streetRows, street) => {
+        const heading = document.createElement('div');
+        heading.className = 'record-map-street-heading';
+        heading.innerHTML = '<span>' + escapeHTML(street) + '</span><small>' + streetRows.length + ' record' + (streetRows.length === 1 ? '' : 's') + '</small>';
+        mapEl('mapRecordListbox').append(heading);
+        streetRows.forEach(row => {
         const button = document.createElement('button');
         button.type = 'button'; button.className = 'record-map-option'; button.setAttribute('role', 'option'); button.dataset.id = row.id;
         button.tabIndex = -1;
@@ -19,6 +30,7 @@ function openRecordGroup(rows, selectedId) {
         subtitle.textContent = row.incident_type + ' · ' + (row.address || row.street_name);
         button.append(subtitle); button.addEventListener('click', () => showMapRecord(row.id));
         mapEl('mapRecordListbox').append(button);
+        });
     });
     mapEl('closeMapRecord').focus();
     showMapRecord(group.find(row => Number(row.id) === Number(selectedId))?.id || group[0].id);
@@ -42,6 +54,29 @@ function mapPersonDetails(record) {
     return '<fieldset class="record-map-section"><legend>' + (record.form_type === 'crime' ? 'Reporter information' : 'Parties involved') +
         '</legend><dl class="record-map-people">' + people.map(([label, value]) => '<div><dt>' + label + '</dt><dd>' + escapeHTML(value || 'Not recorded') + '</dd></div>').join('') +
         (record.reporter_name ? '<div><dt>Encoded by</dt><dd>' + escapeHTML(record.reporter_name) + '</dd></div>' : '') + '</dl></fieldset>';
+}
+function mapCartDetails(record) {
+    const score = Number(record.cart_score);
+    if (!Number.isFinite(score)) return '';
+    const weights = record.cart_weights || {};
+    const factors = [
+        ['Incident Type', record.cart_type_score, weights.type, `${record.incident_type || 'Recorded category'} · Severity: ${record.severity || 'Low'}`],
+        ['Time of Day', record.cart_time_score, weights.time, record.time_of_day || 'Recorded incident time'],
+        ['Day Type', record.cart_day_score, weights.day, record.is_weekend ? 'Weekend' : 'Weekday'],
+        ['Location', record.cart_location_score, weights.location, record.street_name || 'Recorded location'],
+        ['Recent Frequency', record.cart_frequency_score, weights.frequency, 'Incidents in the last 30 days']
+    ];
+    const rows = factors.map(([name, value, weight, hint]) => { const points = Number(value) || 0; const pct = Number(weight) || 0; return '<div class="cart-detail-row"><div><strong>' + escapeHTML(name) + '</strong><small>' + escapeHTML(hint) + '</small></div><span class="cart-detail-points">' + points.toFixed(0) + ' pts</span><span class="cart-detail-weight">' + Math.round(pct * 100) + '%</span><b>+' + (points * pct).toFixed(2) + '</b></div>'; }).join('');
+    const weighted = factors.reduce((sum, [, value, weight]) => sum + (Number(value) || 0) * (Number(weight) || 0), 0);
+    const formula = factors.map(([, value, weight]) => `${Number(value || 0).toFixed(0)} × ${Math.round((Number(weight) || 0) * 100)}%`).join(' + ') + ` = ${weighted.toFixed(2)}`;
+    const thresholds = record.cart_thresholds || { level2: 34, level3: 67 };
+    const classification = Number(record.cart_score) >= thresholds.level3 ? 'Level 3 — High Crime / Considerable Danger' : Number(record.cart_score) >= thresholds.level2 ? 'Level 2 — Moderate Danger / Caution Area' : 'Level 1 — Low Danger / Stable Area';
+    return '<details class="record-map-section cart-detail-section"><summary><span class="cart-detail-summary-label">CART score details</span><strong>' + score.toFixed(2) + ' / 100</strong><span class="record-map-badge">' + escapeHTML(classification.split(' — ')[1] || classification) + '</span></summary><div class="cart-detail-content">' +
+        '<div class="cart-detail-title"><strong>' + escapeHTML(classification.split(' — ')[1] || classification) + '</strong><span>Each factor contributes points × its weight to the final score.</span></div>' +
+        '<div class="cart-detail-columns"><span>FACTOR</span><span>POINTS</span><span>WEIGHT</span><span>CONTRIBUTION</span></div><div class="cart-detail-rows">' + rows + '</div>' +
+        '<div class="cart-detail-formula"><strong>HOW THE SCORE IS COMPUTED</strong><span>' + escapeHTML(formula) + '</span></div>' +
+        '<div class="cart-detail-criteria"><strong>RISK CLASSIFICATION CRITERIA</strong><div><span>Low <em>0–' + (thresholds.level2 - .01).toFixed(2) + ' points</em></span><span>Moderate <em>' + thresholds.level2 + '–' + (thresholds.level3 - .01).toFixed(2) + ' points</em></span><span>High <em>' + thresholds.level3 + '–100 points</em></span></div></div>' +
+        '<p class="cart-detail-note">The final score is the sum of every factor contribution. Higher scores indicate higher operational risk.' + (record.cart_model_version ? ' Model: ' + escapeHTML(record.cart_model_version) + '.' : '') + '</p><div class="cart-detail-final"><span>Final weighted score (out of 100)</span><strong>' + score.toFixed(2) + ' / 100</strong></div><div class="cart-detail-final"><span>Classification</span><strong>' + escapeHTML(classification) + '</strong></div></div></details>';
 }
 function mapInput(id, label, value, options = {}) {
     const attrs = 'id="' + id + '" ' + (isAdmin() ? '' : 'disabled');
@@ -96,7 +131,7 @@ async function showMapRecord(id) {
         ];
         mapEl('mapRecordDetail').innerHTML = syntheticLabel + '<div class="record-map-summary"><div class="record-map-identity"><h3>' + escapeHTML(record.blotter_number || '') + '</h3><span class="record-map-badge">' + (record.form_type === 'crime' ? 'Incident' : 'Blotter') + '</span></div>' +
             '<div class="record-map-score"><span>Risk analysis</span><strong>' + Number(record.cart_score || 0).toFixed(2) + '</strong><span class="record-map-badge">' + escapeHTML(window.HeatmapAnalytics.getSeverityLabel(Number(record.cart_score || 0), mapThresholds)) + ' priority</span></div>' +
-            '<p>' + escapeHTML(record.address || record.street_name || 'Address not recorded') + '</p></div>' +
+            '<p>' + escapeHTML(record.address || record.street_name || 'Address not recorded') + '</p></div>' + mapCartDetails(record) +
             '<form id="mapRecordForm">' + mapSection('Incident details', incidentFields) + mapSection('Incident location', locationFields) + mapPersonDetails(record) +
             mapSection('Description and recommended action', narrativeFields) + mapSection('Patrol notes', patrolFields) +
             '<fieldset class="record-map-section"><legend>Linked patrol schedules</legend><div class="record-map-linked">' + escapeHTML(linked || 'No linked patrol schedules') + '</div></fieldset>' +
