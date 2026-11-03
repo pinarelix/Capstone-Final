@@ -154,6 +154,12 @@ document.addEventListener('DOMContentLoaded', () => {
     mapEl('heatmapPreviousPeriod').addEventListener('click', () => stepPeriod(-1));
     mapEl('heatmapNextPeriod').addEventListener('click', () => stepPeriod(1));
     initializeMap();
-    loadRealData();
+    apiFetch('/heatmap/latest-date').then(r => r.ok ? r.json() : null).then(d => {
+        if (d && d.latest) {
+            const latest = new Date(d.latest);
+            if (!isNaN(latest)) mapEl('heatmapPeriod').value = localDateKey(latest);
+        }
+        loadRealData();
+    }).catch(() => loadRealData());
     startLivePolling(loadRealData, 15000);
 });

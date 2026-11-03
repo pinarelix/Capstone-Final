@@ -155,6 +155,12 @@ function createRecordPatrol({ pool, cartEngine, configureCart, authenticate, req
             try { await configureCart(); res.json({ thresholds: { ...cartEngine.thresholds }, model: 'Weighted rule-based CART', recurrence_days: 30, recurrence_meters: 100 }); }
             catch { res.status(500).json({ error: 'Failed to load map configuration' }); }
         });
+        app.get('/api/heatmap/latest-date', authenticate, readRoles, async (req, res) => {
+            try {
+                const [rows] = await pool.query("SELECT MAX(date) AS latest FROM incidents WHERE is_draft=0 AND TRIM(status) IN ('Open','Monitoring') AND latitude IS NOT NULL");
+                res.json({ latest: rows[0].latest });
+            } catch { res.status(500).json({ error: 'Failed to query latest date' }); }
+        });
         app.get('/api/heatmap/records', authenticate, readRoles, async (req, res) => {
             try {
                 const { value, error } = mapQuerySchema.validate(req.query, { abortEarly: false, stripUnknown: false });
